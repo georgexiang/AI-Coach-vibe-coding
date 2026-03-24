@@ -1,0 +1,31 @@
+{
+  "title": "会话评分",
+  "overallScore": "总体得分",
+  "trendUp": "+{{n}} 分（相比上次会话）",
+  "trendDown": "-{{n}} 分（相比上次会话）",
+  "strengths": "优势",
+  "areasToImprove": "改进方向",
+  "suggestions": "建议",
+  "tryAgain": "再试一次",
+  "backToDashboard": "返回仪表盘",
+  "exportPdf": "导出 PDF",
+  "shareWithManager": "分享给经理",
+  "noPreviousSession": "首次会话——暂无对比数据",
+  "passed": "通过",
+  "failed": "未通过",
+  "grade": {
+    "excellent": "优秀",
+    "good": "良好",
+    "needsImprovement": "需要改进"
+  },
+  "dimensions": {
+    "keyMessage": "关键信息传递",
+    "objectionHandling": "异议处理",
+    "communication": "沟通技巧",
+    "productKnowledge": "产品知识",
+    "scientificInfo": "科学信息"
+  },
+  "errors": {
+    "scoringFailed": "评分未能完成，请尝试重新结束会话。"
+  }
+}

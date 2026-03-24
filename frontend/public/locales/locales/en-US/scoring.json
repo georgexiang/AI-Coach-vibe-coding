@@ -1,0 +1,31 @@
+{
+  "title": "Session Score",
+  "overallScore": "Overall Score",
+  "trendUp": "+{{n}} points vs last session",
+  "trendDown": "-{{n}} points vs last session",
+  "strengths": "Strengths",
+  "areasToImprove": "Areas to Improve",
+  "suggestions": "Suggestions",
+  "tryAgain": "Try Again",
+  "backToDashboard": "Back to Dashboard",
+  "exportPdf": "Export PDF",
+  "shareWithManager": "Share with Manager",
+  "noPreviousSession": "First session -- no comparison data yet",
+  "passed": "Passed",
+  "failed": "Failed",
+  "grade": {
+    "excellent": "Excellent",
+    "good": "Good",
+    "needsImprovement": "Needs Improvement"
+  },
+  "dimensions": {
+    "keyMessage": "Key Message Delivery",
+    "objectionHandling": "Objection Handling",
+    "communication": "Communication Skills",
+    "productKnowledge": "Product Knowledge",
+    "scientificInfo": "Scientific Information"
+  },
+  "errors": {
+    "scoringFailed": "Scoring could not be completed. Try ending the session again."
+  }
+}
