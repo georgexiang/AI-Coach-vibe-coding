@@ -29,7 +29,15 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. All UI text is externalized via react-i18next and the app can switch between zh-CN and en-US
   4. AI service adapters (LLM, STT, TTS, Avatar) use pluggable provider pattern -- a mock provider works end-to-end without any Azure credentials
   5. Feature toggles, Azure service endpoints, voice mode selection, and region configuration are driven by config (not hardcoded) -- changing config changes behavior without code changes
-**Plans**: TBD
+**Plans**: 5 plans
+
+Plans:
+- [ ] 01-01-PLAN.md -- Backend JWT auth: User model, login/me endpoints, role-based access, seed data
+- [ ] 01-02-PLAN.md -- Design tokens + UI component library: Figma Make theme adaptation, 17 shadcn/ui components
+- [ ] 01-03-PLAN.md -- Pluggable AI adapters + config: STT/TTS/Avatar base+mock, ServiceRegistry, feature toggles, config API
+- [ ] 01-04-PLAN.md -- Frontend shell: React bootstrap, i18n, login page, user/admin layouts, router with auth guards
+- [ ] 01-05-PLAN.md -- Integration wiring: auto-register adapters, config context, integration tests, full verification
+
 **UI hint**: yes
 
 ### Phase 2: F2F Text Coaching and Scoring
@@ -77,7 +85,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation, Auth, and Design System | 0/TBD | Not started | - |
+| 1. Foundation, Auth, and Design System | 0/5 | Planning complete | - |
 | 2. F2F Text Coaching and Scoring | 0/TBD | Not started | - |
 | 3. Voice, Avatar, and Conference Mode | 0/TBD | Not started | - |
 | 4. Dashboards, Analytics, and Reports | 0/TBD | Not started | - |
