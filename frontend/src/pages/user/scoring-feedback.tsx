@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Loader2 } from "lucide-react";
@@ -7,7 +7,9 @@ import { ScoreSummary } from "@/components/scoring/score-summary";
 import { RadarChart } from "@/components/scoring/radar-chart";
 import { DimensionBars } from "@/components/scoring/dimension-bars";
 import { FeedbackCard } from "@/components/scoring/feedback-card";
-import { useSessionScore, useTriggerScoring } from "@/hooks/use-scoring";
+import { ReportSection } from "@/components/scoring/report-section";
+import { useSessionScore, useTriggerScoring, useScoreHistory } from "@/hooks/use-scoring";
+import { useSessionReport } from "@/hooks/use-reports";
 import { useSession } from "@/hooks/use-session";
 
 export default function ScoringFeedback() {
@@ -21,6 +23,19 @@ export default function ScoringFeedback() {
     sessionId || undefined
   );
   const triggerScoring = useTriggerScoring();
+
+  // Load full report only when score is available
+  const { data: report } = useSessionReport(score ? sessionId : undefined);
+
+  // Load score history for RadarChart overlay
+  const { data: history } = useScoreHistory(5);
+  const previousScores = useMemo(() => {
+    if (!history || !sessionId) return undefined;
+    const idx = history.findIndex((h) => h.session_id === sessionId);
+    const prev = idx >= 0 && idx < history.length - 1 ? history[idx + 1] : undefined;
+    if (!prev) return undefined;
+    return prev.dimensions.map((d) => ({ dimension: d.dimension, score: d.score }));
+  }, [history, sessionId]);
 
   // If session is completed but not scored, trigger scoring
   useEffect(() => {
@@ -48,6 +63,16 @@ export default function ScoringFeedback() {
 
   return (
     <div className="mx-auto max-w-7xl p-4 lg:p-8">
+      {/* Print stylesheet */}
+      <style>{`
+        @media print {
+          nav, .sidebar, header, footer, .action-bar { display: none !important; }
+          .max-w-7xl { max-width: 100% !important; padding: 0 !important; }
+          .recharts-wrapper { break-inside: avoid; }
+          button { display: none !important; }
+        }
+      `}</style>
+
       <h1 className="mb-6 text-3xl font-semibold text-gray-900">
         {t("title")}
       </h1>
@@ -64,7 +89,7 @@ export default function ScoringFeedback() {
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
         {/* Left: Radar chart + Dimension bars */}
         <div className="space-y-6">
-          <RadarChart currentScores={currentScores} />
+          <RadarChart currentScores={currentScores} previousScores={previousScores} />
           <DimensionBars details={score.details} />
         </div>
 
@@ -78,15 +103,27 @@ export default function ScoringFeedback() {
         </ScrollArea>
       </div>
 
+      {/* Report: Improvement priorities and key messages */}
+      {report && (
+        <div className="mt-8">
+          <h2 className="mb-4 text-xl font-semibold">{t("report.improvementTitle")}</h2>
+          <ReportSection
+            improvements={report.improvements}
+            keyMessagesDelivered={report.key_messages_delivered}
+            keyMessagesTotal={report.key_messages_total}
+          />
+        </div>
+      )}
+
       {/* Bottom action bar */}
-      <div className="mt-8 flex items-center justify-end gap-4 border-t pt-6">
+      <div className="action-bar mt-8 flex items-center justify-end gap-4 border-t pt-6">
         <Button
           variant="outline"
           onClick={() => navigate("/user/training")}
         >
           {t("tryAgain")}
         </Button>
-        <Button variant="outline" disabled>
+        <Button variant="outline" onClick={() => window.print()}>
           {t("exportPdf")}
         </Button>
         <Button variant="outline" disabled>

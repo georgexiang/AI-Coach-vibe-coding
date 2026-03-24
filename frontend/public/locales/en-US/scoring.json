@@ -25,6 +25,25 @@
     "productKnowledge": "Product Knowledge",
     "scientificInfo": "Scientific Information"
   },
+  "report": {
+    "improvementTitle": "Improvement Priorities",
+    "keyMessages": "Key Messages Delivered",
+    "highPriority": "High Priority",
+    "mediumPriority": "Medium Priority",
+    "lowPriority": "Low Priority",
+    "previousSession": "Previous Session"
+  },
+  "history": {
+    "title": "Session History",
+    "date": "Date",
+    "scenario": "Scenario",
+    "score": "Score",
+    "trend": "Trend",
+    "noSessions": "No scored sessions yet. Complete a training session to see your history.",
+    "viewDetails": "View Details",
+    "improvementPct": "{{pct}}% vs previous"
+  },
+  "scoringInProgress": "Scoring in progress...",
   "errors": {
     "scoringFailed": "Scoring could not be completed. Try ending the session again."
   }

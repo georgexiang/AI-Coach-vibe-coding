@@ -20,7 +20,7 @@ export function useTriggerScoring() {
   });
 }
 
-export function useScoreHistory(limit: number = 10) {
+export function useScoreHistory(limit?: number) {
   return useQuery({
     queryKey: ["scoring", "history", limit],
     queryFn: () => getScoreHistory(limit),

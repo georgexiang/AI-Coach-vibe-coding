@@ -1,7 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   getRubrics,
-  getRubric,
   createRubric,
   updateRubric,
   deleteRubric,
@@ -12,14 +11,6 @@ export function useRubrics(params?: { scenario_type?: string }) {
   return useQuery({
     queryKey: ["rubrics", params],
     queryFn: () => getRubrics(params),
-  });
-}
-
-export function useRubric(id: string | undefined) {
-  return useQuery({
-    queryKey: ["rubrics", id],
-    queryFn: () => getRubric(id!),
-    enabled: !!id,
   });
 }
 

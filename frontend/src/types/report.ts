@@ -1,27 +1,26 @@
-export interface StrengthItem {
-  text: string;
-  quote: string | null;
-}
-
-export interface WeaknessItem {
-  text: string;
-  quote: string | null;
-}
-
-export interface ImprovementSuggestion {
-  dimension: string;
-  suggestion: string;
-  priority: string;
-}
-
 export interface DimensionBreakdown {
   dimension: string;
   score: number;
   weight: number;
-  max_score: number;
-  strengths: StrengthItem[];
-  weaknesses: WeaknessItem[];
-  suggestions: string[];
+  strengths: string[];
+  weaknesses: string[];
+}
+
+export interface StrengthItem {
+  text: string;
+  quote: string;
+}
+
+export interface WeaknessItem {
+  text: string;
+  quote: string;
+}
+
+export interface ImprovementSuggestion {
+  dimension: string;
+  priority: "high" | "medium" | "low";
+  suggestion: string;
+  example?: string;
 }
 
 export interface SessionReport {
@@ -42,13 +41,11 @@ export interface SessionReport {
   key_messages_total: number;
 }
 
-export type SuggestionType = "tip" | "warning" | "achievement" | "reminder";
-
 export interface SuggestionResponse {
-  type: SuggestionType;
-  message: string;
-  relevance_score: number;
-  trigger: string;
+  id: string;
+  dimension: string;
+  suggestion: string;
+  priority: "high" | "medium" | "low";
 }
 
 export interface ScoreHistoryItem {

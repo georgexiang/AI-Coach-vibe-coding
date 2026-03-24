@@ -16,9 +16,10 @@ export async function getSessionScore(sessionId: string) {
   return data;
 }
 
-export async function getScoreHistory(limit: number = 10) {
-  const { data } = await apiClient.get<ScoreHistoryItem[]>("/scoring/history", {
-    params: { limit },
-  });
+export async function getScoreHistory(limit?: number) {
+  const { data } = await apiClient.get<ScoreHistoryItem[]>(
+    "/scoring/history",
+    { params: limit ? { limit } : undefined },
+  );
   return data;
 }
