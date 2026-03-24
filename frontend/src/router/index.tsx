@@ -7,6 +7,10 @@ import LoginPage from "@/pages/login";
 import UserDashboard from "@/pages/user/dashboard";
 import ScenarioSelection from "@/pages/user/training";
 import AdminDashboard from "@/pages/admin/dashboard";
+import HcpProfilesPage from "@/pages/admin/hcp-profiles";
+import ScenariosPage from "@/pages/admin/scenarios";
+import AzureConfigPage from "@/pages/admin/azure-config";
+import ScoringFeedback from "@/pages/user/scoring-feedback";
 import TrainingSession from "@/pages/user/training-session";
 import NotFound from "@/pages/not-found";
 
@@ -29,7 +33,7 @@ export const router = createBrowserRouter([
         children: [
           { path: "dashboard", element: <UserDashboard /> },
           { path: "training", element: <ScenarioSelection /> },
-          // Phase 2+: history, reports
+          { path: "scoring/:sessionId", element: <ScoringFeedback /> },
         ],
       },
       {
@@ -44,7 +48,9 @@ export const router = createBrowserRouter([
             element: <AdminLayout />,
             children: [
               { path: "dashboard", element: <AdminDashboard /> },
-              // Phase 2+: users, hcp-profiles, scenarios, etc.
+              { path: "hcp-profiles", element: <HcpProfilesPage /> },
+              { path: "scenarios", element: <ScenariosPage /> },
+              { path: "azure-config", element: <AzureConfigPage /> },
             ],
           },
         ],

@@ -45,7 +45,7 @@ const sidebarItems = [
   { path: "/admin/scenarios", labelKey: "scenarios", icon: BookOpen },
   { path: "/admin/materials", labelKey: "materials", icon: FileText },
   { path: "/admin/reports", labelKey: "reports", icon: BarChart },
-  { path: "/admin/azure-services", labelKey: "azureServices", icon: Cloud },
+  { path: "/admin/azure-config", labelKey: "azureServices", icon: Cloud },
   { path: "/admin/settings", labelKey: "settings", icon: Settings },
 ] as const;
 

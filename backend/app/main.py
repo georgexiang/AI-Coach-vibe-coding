@@ -6,6 +6,7 @@ from fastapi.responses import JSONResponse
 
 from app.api import (
     auth_router,
+    azure_config_router,
     config_router,
     hcp_profiles_router,
     scenarios_router,
@@ -78,6 +79,7 @@ app.include_router(hcp_profiles_router, prefix=settings.api_prefix)
 app.include_router(scenarios_router, prefix=settings.api_prefix)
 app.include_router(sessions_router, prefix=settings.api_prefix)
 app.include_router(scoring_router, prefix=settings.api_prefix)
+app.include_router(azure_config_router, prefix=settings.api_prefix)
 
 
 # Health check
