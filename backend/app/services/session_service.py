@@ -175,9 +175,14 @@ async def end_session(db: AsyncSession, session_id: str, user_id: str) -> Coachi
     session.status = "completed"
     session.completed_at = now
     if session.started_at:
-        session.duration_seconds = int((now - session.started_at).total_seconds())
+        started = session.started_at
+        # Handle timezone-naive datetimes from SQLite
+        if started.tzinfo is None:
+            started = started.replace(tzinfo=UTC)
+        session.duration_seconds = int((now - started).total_seconds())
 
     await db.flush()
+    await db.refresh(session)
     return session
 
 

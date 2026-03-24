@@ -20,7 +20,7 @@ class SessionScore(Base, TimestampMixin):
 
     # Relationships
     session = relationship("CoachingSession", back_populates="score")
-    details = relationship("ScoreDetail", back_populates="score")
+    details = relationship("ScoreDetail", back_populates="session_score")
 
 
 class ScoreDetail(Base, TimestampMixin):
@@ -39,4 +39,4 @@ class ScoreDetail(Base, TimestampMixin):
     suggestions: Mapped[str] = mapped_column(Text, default="[]")  # JSON array of strings
 
     # Relationships
-    score = relationship("SessionScore", back_populates="details")
+    session_score = relationship("SessionScore", back_populates="details")
