@@ -4,7 +4,6 @@ import json
 
 import pytest
 
-from app.models.hcp_profile import HcpProfile
 from app.models.user import User
 from app.schemas.hcp_profile import HcpProfileCreate, HcpProfileUpdate
 from app.services.auth import get_password_hash
@@ -115,16 +114,12 @@ class TestGetHcpProfiles:
         user_id = await _seed_user(db_session)
         await create_hcp_profile(
             db_session,
-            HcpProfileCreate(
-                name="Active", specialty="Onc", created_by=user_id, is_active=True
-            ),
+            HcpProfileCreate(name="Active", specialty="Onc", created_by=user_id, is_active=True),
             user_id,
         )
         await create_hcp_profile(
             db_session,
-            HcpProfileCreate(
-                name="Inactive", specialty="Onc", created_by=user_id, is_active=False
-            ),
+            HcpProfileCreate(name="Inactive", specialty="Onc", created_by=user_id, is_active=False),
             user_id,
         )
 

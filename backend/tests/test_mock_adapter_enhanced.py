@@ -7,7 +7,7 @@ from app.services.agents.adapters.mock import (
     PERSONALITY_TEMPLATES,
     MockCoachingAdapter,
 )
-from app.services.agents.base import CoachEvent, CoachEventType, CoachRequest
+from app.services.agents.base import CoachEventType, CoachRequest
 
 
 class TestExtractProduct:
@@ -15,7 +15,9 @@ class TestExtractProduct:
 
     async def test_extracts_product_from_context(self):
         adapter = MockCoachingAdapter()
-        context = "# Scenario Context\nProduct under discussion: Brukinsa\nTherapeutic area: Hematology"
+        context = (
+            "# Scenario Context\nProduct under discussion: Brukinsa\nTherapeutic area: Hematology"
+        )
         product = adapter._extract_product(context)
         assert product == "Brukinsa"
 

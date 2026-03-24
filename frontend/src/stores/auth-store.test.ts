@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { setAuth, clearAuth, useAuthStore } from "@/stores/auth-store";
 import type { User } from "@/types/auth";
@@ -57,7 +57,6 @@ describe("auth-store", () => {
   });
 
   it("should notify all subscribers when auth changes", () => {
-    const listener = vi.fn();
     const { result } = renderHook(() => useAuthStore());
 
     // The hook uses useSyncExternalStore which subscribes internally.

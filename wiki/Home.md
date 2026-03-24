@@ -16,12 +16,12 @@ Welcome to the AI Coach Platform wiki. This is the central knowledge base for ar
 <!-- STATS_START -->
 | Metric | Count |
 |--------|-------|
-| API Routers | 0 |
-| ORM Models | 0 |
-| Backend Tests | 0 |
-| Pages | 0 |
-| Shared Components | 0 |
-| E2E Tests | 0 |
+| API Routers | 7 |
+| ORM Models | 6 |
+| Backend Tests | 25 |
+| Pages | 19 |
+| Shared Components | 27 |
+| E2E Tests | 13 |
 | Specifications | 0 |
 | Plans | 0 |
 <!-- STATS_END -->

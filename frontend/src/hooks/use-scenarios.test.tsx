@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { type ReactNode } from "react";
+import type { Scenario } from "@/types/scenario";
 
 vi.mock("@/api/scenarios", () => ({
   getScenarios: vi.fn(),
@@ -47,7 +48,7 @@ function createWrapper() {
 }
 
 const mockPaginated = {
-  items: [{ id: "s1", name: "Scenario 1" }],
+  items: [{ id: "s1", name: "Scenario 1" } as Scenario],
   total: 1,
   page: 1,
   page_size: 20,
@@ -89,7 +90,7 @@ describe("useScenario", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("should fetch a single scenario by id", async () => {
-    const mockScenario = { id: "s1", name: "Scenario 1" };
+    const mockScenario = { id: "s1", name: "Scenario 1" } as Scenario;
     vi.mocked(getScenario).mockResolvedValueOnce(mockScenario);
 
     const { result } = renderHook(() => useScenario("s1"), {
@@ -114,7 +115,7 @@ describe("useCreateScenario", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("should create a scenario and invalidate queries", async () => {
-    const newScenario = { id: "s2", name: "New" };
+    const newScenario = { id: "s2", name: "New" } as Scenario;
     vi.mocked(createScenario).mockResolvedValueOnce(newScenario);
 
     const { result } = renderHook(() => useCreateScenario(), {
@@ -139,7 +140,7 @@ describe("useUpdateScenario", () => {
     vi.mocked(updateScenario).mockResolvedValueOnce({
       id: "s1",
       name: "Updated",
-    });
+    } as Scenario);
 
     const { result } = renderHook(() => useUpdateScenario(), {
       wrapper: createWrapper(),
@@ -176,7 +177,7 @@ describe("useCloneScenario", () => {
     vi.mocked(cloneScenario).mockResolvedValueOnce({
       id: "s3",
       name: "Clone",
-    });
+    } as Scenario);
 
     const { result } = renderHook(() => useCloneScenario(), {
       wrapper: createWrapper(),

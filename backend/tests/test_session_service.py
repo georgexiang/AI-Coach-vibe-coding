@@ -1,12 +1,10 @@
 """Tests for the session service: session lifecycle, messaging, key message detection."""
 
 import json
-from datetime import UTC, datetime
 
 import pytest
 
 from app.models.hcp_profile import HcpProfile
-from app.models.message import SessionMessage
 from app.models.scenario import Scenario
 from app.models.session import CoachingSession
 from app.models.user import User
@@ -93,8 +91,12 @@ class TestCreateSession:
         await db_session.flush()
 
         draft = Scenario(
-            name="Draft", product="Drug", hcp_profile_id=hcp.id,
-            key_messages="[]", status="draft", created_by=user_id,
+            name="Draft",
+            product="Drug",
+            hcp_profile_id=hcp.id,
+            key_messages="[]",
+            status="draft",
+            created_by=user_id,
         )
         db_session.add(draft)
         await db_session.flush()

@@ -1,8 +1,8 @@
 """Tests for abstract base adapter default methods."""
 
-from app.services.agents.base import BaseCoachingAdapter, CoachEvent, CoachEventType, CoachRequest
-from app.services.agents.tts.base import BaseTTSAdapter
+from app.services.agents.base import BaseCoachingAdapter, CoachEvent, CoachEventType
 from app.services.agents.stt.base import BaseSTTAdapter
+from app.services.agents.tts.base import BaseTTSAdapter
 
 
 class ConcreteCoachingAdapter(BaseCoachingAdapter):

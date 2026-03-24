@@ -28,7 +28,9 @@ async def _setup_scored_session() -> tuple[str, str, str]:
         await session.flush()
 
         hcp = HcpProfile(
-            name="Dr. Score", specialty="Oncology", created_by=user.id,
+            name="Dr. Score",
+            specialty="Oncology",
+            created_by=user.id,
         )
         session.add(hcp)
         await session.flush()
@@ -44,10 +46,12 @@ async def _setup_scored_session() -> tuple[str, str, str]:
         session.add(scenario)
         await session.flush()
 
-        km_status = json.dumps([
-            {"message": "PFS", "delivered": True, "detected_at": None},
-            {"message": "Safety", "delivered": False, "detected_at": None},
-        ])
+        km_status = json.dumps(
+            [
+                {"message": "PFS", "delivered": True, "detected_at": None},
+                {"message": "Safety", "delivered": False, "detected_at": None},
+            ]
+        )
 
         coaching_session = CoachingSession(
             user_id=user.id,

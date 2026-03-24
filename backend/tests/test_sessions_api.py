@@ -1,7 +1,5 @@
 """Tests for Sessions API endpoints: session lifecycle via HTTP."""
 
-import json
-
 from app.models.user import User
 from app.services.auth import create_access_token, get_password_hash
 from tests.conftest import TestSessionLocal

@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { type ReactNode } from "react";
+import type { HcpProfile } from "@/types/hcp";
 
 vi.mock("@/api/hcp-profiles", () => ({
   getHcpProfiles: vi.fn(),
@@ -41,7 +42,7 @@ function createWrapper() {
 }
 
 const mockProfiles = {
-  items: [{ id: "h1", name: "Dr. Wang" }],
+  items: [{ id: "h1", name: "Dr. Wang" } as HcpProfile],
   total: 1,
   page: 1,
   page_size: 20,
@@ -83,7 +84,7 @@ describe("useHcpProfile", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("should fetch a single HCP profile", async () => {
-    const profile = { id: "h1", name: "Dr. Wang" };
+    const profile = { id: "h1", name: "Dr. Wang" } as HcpProfile;
     vi.mocked(getHcpProfile).mockResolvedValueOnce(profile);
 
     const { result } = renderHook(() => useHcpProfile("h1"), {
@@ -108,7 +109,7 @@ describe("useCreateHcpProfile", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("should create an HCP profile", async () => {
-    const newProfile = { id: "h2", name: "Dr. Li" };
+    const newProfile = { id: "h2", name: "Dr. Li" } as HcpProfile;
     vi.mocked(createHcpProfile).mockResolvedValueOnce(newProfile);
 
     const { result } = renderHook(() => useCreateHcpProfile(), {
@@ -132,7 +133,7 @@ describe("useUpdateHcpProfile", () => {
     vi.mocked(updateHcpProfile).mockResolvedValueOnce({
       id: "h1",
       name: "Dr. Wang Updated",
-    });
+    } as HcpProfile);
 
     const { result } = renderHook(() => useUpdateHcpProfile(), {
       wrapper: createWrapper(),

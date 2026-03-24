@@ -12,7 +12,9 @@ from tests.conftest import TestSessionLocal
 settings = get_settings()
 
 
-async def _create_user_in_test_db(*, username="testuser", password="pass123", role="user", is_active=True):
+async def _create_user_in_test_db(
+    *, username="testuser", password="pass123", role="user", is_active=True
+):
     """Insert a user directly via the test DB session."""
     async with TestSessionLocal() as session:
         user = User(

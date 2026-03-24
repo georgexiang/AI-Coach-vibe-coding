@@ -1,10 +1,10 @@
 from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 
 
-class CoachEventType(str, Enum):
+class CoachEventType(StrEnum):
     TEXT = "text"
     AUDIO = "audio"
     SCORE = "score"

@@ -116,9 +116,7 @@ class TestBuildHcpSystemPrompt:
     async def test_includes_objections(self):
         from app.services.prompt_builder import build_hcp_system_prompt
 
-        hcp = _make_hcp_profile(
-            objections=json.dumps(["Lack of long-term data", "Too expensive"])
-        )
+        hcp = _make_hcp_profile(objections=json.dumps(["Lack of long-term data", "Too expensive"]))
         scenario = _make_scenario()
         prompt = build_hcp_system_prompt(hcp, scenario, [])
 
@@ -257,9 +255,7 @@ class TestBuildKeyMessageDetectionPrompt:
     async def test_truncates_long_conversation_history(self):
         from app.services.prompt_builder import build_key_message_detection_prompt
 
-        history = [
-            {"role": "user", "content": f"Message {i}"} for i in range(10)
-        ]
+        history = [{"role": "user", "content": f"Message {i}"} for i in range(10)]
         prompt = build_key_message_detection_prompt(["Key msg"], "latest", history)
 
         # Should only include the last 6 messages
@@ -283,9 +279,7 @@ class TestBuildKeyMessageDetectionPrompt:
     async def test_returns_json_array_example(self):
         from app.services.prompt_builder import build_key_message_detection_prompt
 
-        prompt = build_key_message_detection_prompt(
-            ["Superior PFS", "Safety"], "test", []
-        )
+        prompt = build_key_message_detection_prompt(["Superior PFS", "Safety"], "test", [])
 
         assert "Return ONLY a JSON array" in prompt
         assert "empty array []" in prompt

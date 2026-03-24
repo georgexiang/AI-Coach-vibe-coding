@@ -110,7 +110,10 @@ class TestGetScenarios:
         user_id, hcp_id = await _seed_user_and_hcp(db_session)
         for name in ["S1", "S2"]:
             data = ScenarioCreate(
-                name=name, product="Drug", hcp_profile_id=hcp_id, created_by=user_id,
+                name=name,
+                product="Drug",
+                hcp_profile_id=hcp_id,
+                created_by=user_id,
             )
             await create_scenario(db_session, data, user_id)
 
@@ -121,12 +124,18 @@ class TestGetScenarios:
     async def test_filters_by_status(self, db_session):
         user_id, hcp_id = await _seed_user_and_hcp(db_session)
         data_draft = ScenarioCreate(
-            name="Draft", product="Drug", hcp_profile_id=hcp_id,
-            created_by=user_id, status="draft",
+            name="Draft",
+            product="Drug",
+            hcp_profile_id=hcp_id,
+            created_by=user_id,
+            status="draft",
         )
         data_active = ScenarioCreate(
-            name="Active", product="Drug", hcp_profile_id=hcp_id,
-            created_by=user_id, status="active",
+            name="Active",
+            product="Drug",
+            hcp_profile_id=hcp_id,
+            created_by=user_id,
+            status="active",
         )
         await create_scenario(db_session, data_draft, user_id)
         await create_scenario(db_session, data_active, user_id)
@@ -139,8 +148,11 @@ class TestGetScenarios:
         user_id, hcp_id = await _seed_user_and_hcp(db_session)
         for mode in ["f2f", "conference"]:
             data = ScenarioCreate(
-                name=f"Mode {mode}", product="Drug", hcp_profile_id=hcp_id,
-                created_by=user_id, mode=mode,
+                name=f"Mode {mode}",
+                product="Drug",
+                hcp_profile_id=hcp_id,
+                created_by=user_id,
+                mode=mode,
             )
             await create_scenario(db_session, data, user_id)
 
@@ -152,12 +164,16 @@ class TestGetScenarios:
         user_id, hcp_id = await _seed_user_and_hcp(db_session)
         await create_scenario(
             db_session,
-            ScenarioCreate(name="Brukinsa F2F", product="Brukinsa", hcp_profile_id=hcp_id, created_by=user_id),
+            ScenarioCreate(
+                name="Brukinsa F2F", product="Brukinsa", hcp_profile_id=hcp_id, created_by=user_id
+            ),
             user_id,
         )
         await create_scenario(
             db_session,
-            ScenarioCreate(name="Other", product="Other", hcp_profile_id=hcp_id, created_by=user_id),
+            ScenarioCreate(
+                name="Other", product="Other", hcp_profile_id=hcp_id, created_by=user_id
+            ),
             user_id,
         )
 
@@ -171,7 +187,10 @@ class TestGetScenario:
     async def test_returns_scenario_by_id(self, db_session):
         user_id, hcp_id = await _seed_user_and_hcp(db_session)
         data = ScenarioCreate(
-            name="Single", product="Drug", hcp_profile_id=hcp_id, created_by=user_id,
+            name="Single",
+            product="Drug",
+            hcp_profile_id=hcp_id,
+            created_by=user_id,
         )
         created = await create_scenario(db_session, data, user_id)
         fetched = await get_scenario(db_session, created.id)
@@ -188,7 +207,10 @@ class TestUpdateScenario:
     async def test_updates_partial_fields(self, db_session):
         user_id, hcp_id = await _seed_user_and_hcp(db_session)
         data = ScenarioCreate(
-            name="Old Name", product="Drug", hcp_profile_id=hcp_id, created_by=user_id,
+            name="Old Name",
+            product="Drug",
+            hcp_profile_id=hcp_id,
+            created_by=user_id,
         )
         scenario = await create_scenario(db_session, data, user_id)
 
@@ -202,7 +224,10 @@ class TestUpdateScenario:
     async def test_updates_key_messages(self, db_session):
         user_id, hcp_id = await _seed_user_and_hcp(db_session)
         data = ScenarioCreate(
-            name="S", product="Drug", hcp_profile_id=hcp_id, created_by=user_id,
+            name="S",
+            product="Drug",
+            hcp_profile_id=hcp_id,
+            created_by=user_id,
         )
         scenario = await create_scenario(db_session, data, user_id)
 
@@ -213,7 +238,10 @@ class TestUpdateScenario:
     async def test_validates_new_hcp_profile_exists(self, db_session):
         user_id, hcp_id = await _seed_user_and_hcp(db_session)
         data = ScenarioCreate(
-            name="S", product="Drug", hcp_profile_id=hcp_id, created_by=user_id,
+            name="S",
+            product="Drug",
+            hcp_profile_id=hcp_id,
+            created_by=user_id,
         )
         scenario = await create_scenario(db_session, data, user_id)
 
@@ -228,7 +256,10 @@ class TestDeleteScenario:
     async def test_deletes_existing_scenario(self, db_session):
         user_id, hcp_id = await _seed_user_and_hcp(db_session)
         data = ScenarioCreate(
-            name="Del", product="Drug", hcp_profile_id=hcp_id, created_by=user_id,
+            name="Del",
+            product="Drug",
+            hcp_profile_id=hcp_id,
+            created_by=user_id,
         )
         scenario = await create_scenario(db_session, data, user_id)
         await delete_scenario(db_session, scenario.id)

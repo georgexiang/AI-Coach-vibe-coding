@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { type ReactNode } from "react";
+import type { CoachingSession, SessionMessage } from "@/types/session";
 
 vi.mock("@/api/sessions", () => ({
   createSession: vi.fn(),
@@ -41,7 +42,7 @@ function createWrapper() {
 }
 
 const mockSessions = {
-  items: [{ id: "sess1", status: "in_progress" }],
+  items: [{ id: "sess1", status: "in_progress" } as CoachingSession],
   total: 1,
   page: 1,
   page_size: 20,
@@ -68,7 +69,7 @@ describe("useSession", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("should fetch a session by id", async () => {
-    const session = { id: "sess1", status: "in_progress" };
+    const session = { id: "sess1", status: "in_progress" } as CoachingSession;
     vi.mocked(getSession).mockResolvedValueOnce(session);
 
     const { result } = renderHook(() => useSession("sess1"), {
@@ -94,7 +95,7 @@ describe("useSessionMessages", () => {
 
   it("should fetch session messages", async () => {
     const messages = [
-      { id: "m1", session_id: "sess1", role: "user", content: "Hello" },
+      { id: "m1", session_id: "sess1", role: "user", content: "Hello" } as SessionMessage,
     ];
     vi.mocked(getSessionMessages).mockResolvedValueOnce(messages);
 
@@ -120,7 +121,7 @@ describe("useCreateSession", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("should create a session", async () => {
-    const newSession = { id: "sess2", status: "created" };
+    const newSession = { id: "sess2", status: "created" } as CoachingSession;
     vi.mocked(createSession).mockResolvedValueOnce(newSession);
 
     const { result } = renderHook(() => useCreateSession(), {
@@ -138,7 +139,7 @@ describe("useEndSession", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("should end a session", async () => {
-    const endedSession = { id: "sess1", status: "completed" };
+    const endedSession = { id: "sess1", status: "completed" } as CoachingSession;
     vi.mocked(endSession).mockResolvedValueOnce(endedSession);
 
     const { result } = renderHook(() => useEndSession(), {

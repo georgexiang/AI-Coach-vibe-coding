@@ -74,7 +74,9 @@ class TestHcpProfileModel:
     async def test_has_created_at_and_updated_at(self, db_session):
         user = await _seed_user(db_session)
         profile = HcpProfile(
-            name="Dr. X", specialty="Neuro", created_by=user.id,
+            name="Dr. X",
+            specialty="Neuro",
+            created_by=user.id,
         )
         db_session.add(profile)
         await db_session.flush()
@@ -146,13 +148,18 @@ class TestScenarioModel:
         await db_session.flush()
 
         scenario = Scenario(
-            name="S", product="Drug", hcp_profile_id=hcp.id, created_by=user.id,
+            name="S",
+            product="Drug",
+            hcp_profile_id=hcp.id,
+            created_by=user.id,
         )
         db_session.add(scenario)
         await db_session.flush()
 
         result = await db_session.execute(
-            select(Scenario).options(selectinload(Scenario.hcp_profile)).where(Scenario.id == scenario.id)
+            select(Scenario)
+            .options(selectinload(Scenario.hcp_profile))
+            .where(Scenario.id == scenario.id)
         )
         loaded = result.scalar_one()
         assert loaded.hcp_profile.name == "Dr. C"
@@ -168,7 +175,10 @@ class TestCoachingSessionModel:
         await db_session.flush()
 
         scenario = Scenario(
-            name="S", product="Drug", hcp_profile_id=hcp.id, created_by=user.id,
+            name="S",
+            product="Drug",
+            hcp_profile_id=hcp.id,
+            created_by=user.id,
         )
         db_session.add(scenario)
         await db_session.flush()
@@ -193,13 +203,17 @@ class TestCoachingSessionModel:
         await db_session.flush()
 
         scenario = Scenario(
-            name="S", product="Drug", hcp_profile_id=hcp.id, created_by=user.id,
+            name="S",
+            product="Drug",
+            hcp_profile_id=hcp.id,
+            created_by=user.id,
         )
         db_session.add(scenario)
         await db_session.flush()
 
         session = CoachingSession(
-            user_id=user.id, scenario_id=scenario.id,
+            user_id=user.id,
+            scenario_id=scenario.id,
         )
         db_session.add(session)
         await db_session.flush()
@@ -218,7 +232,10 @@ class TestSessionMessageModel:
         await db_session.flush()
 
         scenario = Scenario(
-            name="S", product="Drug", hcp_profile_id=hcp.id, created_by=user.id,
+            name="S",
+            product="Drug",
+            hcp_profile_id=hcp.id,
+            created_by=user.id,
         )
         db_session.add(scenario)
         await db_session.flush()
@@ -252,7 +269,10 @@ class TestScoreModels:
         await db_session.flush()
 
         scenario = Scenario(
-            name="S", product="Drug", hcp_profile_id=hcp.id, created_by=user.id,
+            name="S",
+            product="Drug",
+            hcp_profile_id=hcp.id,
+            created_by=user.id,
         )
         db_session.add(scenario)
         await db_session.flush()
@@ -281,7 +301,10 @@ class TestScoreModels:
         await db_session.flush()
 
         scenario = Scenario(
-            name="S", product="Drug", hcp_profile_id=hcp.id, created_by=user.id,
+            name="S",
+            product="Drug",
+            hcp_profile_id=hcp.id,
+            created_by=user.id,
         )
         db_session.add(scenario)
         await db_session.flush()
@@ -291,7 +314,10 @@ class TestScoreModels:
         await db_session.flush()
 
         score = SessionScore(
-            session_id=session.id, overall_score=80, passed=True, feedback_summary="Good",
+            session_id=session.id,
+            overall_score=80,
+            passed=True,
+            feedback_summary="Good",
         )
         db_session.add(score)
         await db_session.flush()
@@ -322,7 +348,10 @@ class TestScoreModels:
         await db_session.flush()
 
         scenario = Scenario(
-            name="S", product="Drug", hcp_profile_id=hcp.id, created_by=user.id,
+            name="S",
+            product="Drug",
+            hcp_profile_id=hcp.id,
+            created_by=user.id,
         )
         db_session.add(scenario)
         await db_session.flush()
@@ -332,13 +361,19 @@ class TestScoreModels:
         await db_session.flush()
 
         score = SessionScore(
-            session_id=session.id, overall_score=80, passed=True, feedback_summary="OK",
+            session_id=session.id,
+            overall_score=80,
+            passed=True,
+            feedback_summary="OK",
         )
         db_session.add(score)
         await db_session.flush()
 
         detail = ScoreDetail(
-            score_id=score.id, dimension="communication", score=75, weight=20,
+            score_id=score.id,
+            dimension="communication",
+            score=75,
+            weight=20,
         )
         db_session.add(detail)
         await db_session.flush()

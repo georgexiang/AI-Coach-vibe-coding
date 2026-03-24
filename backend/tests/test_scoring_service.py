@@ -7,7 +7,6 @@ import pytest
 from app.models.hcp_profile import HcpProfile
 from app.models.message import SessionMessage
 from app.models.scenario import Scenario
-from app.models.score import SessionScore
 from app.models.session import CoachingSession
 from app.models.user import User
 from app.services.auth import get_password_hash
@@ -59,10 +58,12 @@ async def _seed_completed_session(db) -> tuple[str, str, str]:
     db.add(scenario)
     await db.flush()
 
-    km_status = json.dumps([
-        {"message": "Superior PFS", "delivered": True, "detected_at": "2024-01-01T00:00:00"},
-        {"message": "Better safety", "delivered": False, "detected_at": None},
-    ])
+    km_status = json.dumps(
+        [
+            {"message": "Superior PFS", "delivered": True, "detected_at": "2024-01-01T00:00:00"},
+            {"message": "Better safety", "delivered": False, "detected_at": None},
+        ]
+    )
 
     session = CoachingSession(
         user_id=user.id,
@@ -236,8 +237,11 @@ class TestScoreSessionIntegration:
 
     async def test_score_session_raises_for_in_progress_session(self, db_session):
         user = User(
-            username="u2", email="u2@test.com",
-            hashed_password=get_password_hash("p"), full_name="U2", role="user",
+            username="u2",
+            email="u2@test.com",
+            hashed_password=get_password_hash("p"),
+            full_name="U2",
+            role="user",
         )
         db_session.add(user)
         await db_session.flush()
@@ -247,15 +251,21 @@ class TestScoreSessionIntegration:
         await db_session.flush()
 
         scenario = Scenario(
-            name="S", product="Drug", hcp_profile_id=hcp.id,
-            key_messages="[]", status="active", created_by=user.id,
+            name="S",
+            product="Drug",
+            hcp_profile_id=hcp.id,
+            key_messages="[]",
+            status="active",
+            created_by=user.id,
         )
         db_session.add(scenario)
         await db_session.flush()
 
         session = CoachingSession(
-            user_id=user.id, scenario_id=scenario.id,
-            status="in_progress", key_messages_status="[]",
+            user_id=user.id,
+            scenario_id=scenario.id,
+            status="in_progress",
+            key_messages_status="[]",
         )
         db_session.add(session)
         await db_session.flush()

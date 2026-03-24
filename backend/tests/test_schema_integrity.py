@@ -8,8 +8,6 @@ this test will fail.
 Pattern adapted from ragflow-skill-orchestrator-studio.
 """
 
-from sqlalchemy import inspect
-
 from app.models.base import Base
 
 

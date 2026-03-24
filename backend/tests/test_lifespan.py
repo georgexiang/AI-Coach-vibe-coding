@@ -1,10 +1,8 @@
 """Tests for app lifespan, exception handler, and database session."""
 
 import pytest
-from httpx import ASGITransport, AsyncClient
 
 from app.main import app
-from app.utils.exceptions import AppException, NotFoundException
 
 
 class TestExceptionHandler:
@@ -43,7 +41,7 @@ class TestLifespan:
 
     async def test_lifespan_creates_tables_and_registers_adapters(self):
         """Test lifespan context manager directly."""
-        from app.main import app, lifespan
+        from app.main import lifespan
         from app.services.agents.registry import registry
 
         # Clear existing registrations to verify lifespan re-registers them
@@ -78,7 +76,7 @@ class TestDatabaseGetDb:
         from tests.conftest import override_get_db
 
         gen = override_get_db()
-        session = await gen.__anext__()
+        await gen.__anext__()
         # Throw an exception into the generator to trigger rollback
         with pytest.raises(ValueError):
             await gen.athrow(ValueError("test error"))

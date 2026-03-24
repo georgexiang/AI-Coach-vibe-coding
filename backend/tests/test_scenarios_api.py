@@ -1,7 +1,5 @@
 """Tests for Scenarios API endpoints (admin CRUD + user access to active scenarios)."""
 
-import json
-
 from app.models.user import User
 from app.services.auth import create_access_token, get_password_hash
 from tests.conftest import TestSessionLocal
@@ -139,7 +137,12 @@ class TestListScenariosEndpoint:
         for name in ["S1", "S2"]:
             await client.post(
                 "/api/v1/scenarios/",
-                json={"name": name, "product": "Drug", "hcp_profile_id": hcp_id, "created_by": user_id},
+                json={
+                    "name": name,
+                    "product": "Drug",
+                    "hcp_profile_id": hcp_id,
+                    "created_by": user_id,
+                },
                 headers={"Authorization": f"Bearer {token}"},
             )
 
@@ -158,12 +161,24 @@ class TestListScenariosEndpoint:
 
         await client.post(
             "/api/v1/scenarios/",
-            json={"name": "Draft", "product": "D", "hcp_profile_id": hcp_id, "created_by": user_id, "status": "draft"},
+            json={
+                "name": "Draft",
+                "product": "D",
+                "hcp_profile_id": hcp_id,
+                "created_by": user_id,
+                "status": "draft",
+            },
             headers={"Authorization": f"Bearer {token}"},
         )
         await client.post(
             "/api/v1/scenarios/",
-            json={"name": "Active", "product": "D", "hcp_profile_id": hcp_id, "created_by": user_id, "status": "active"},
+            json={
+                "name": "Active",
+                "product": "D",
+                "hcp_profile_id": hcp_id,
+                "created_by": user_id,
+                "status": "active",
+            },
             headers={"Authorization": f"Bearer {token}"},
         )
 
@@ -217,7 +232,12 @@ class TestGetScenarioEndpoint:
 
         create_resp = await client.post(
             "/api/v1/scenarios/",
-            json={"name": "Single", "product": "Drug", "hcp_profile_id": hcp_id, "created_by": user_id},
+            json={
+                "name": "Single",
+                "product": "Drug",
+                "hcp_profile_id": hcp_id,
+                "created_by": user_id,
+            },
             headers={"Authorization": f"Bearer {token}"},
         )
         scn_id = create_resp.json()["id"]
@@ -239,7 +259,12 @@ class TestUpdateScenarioEndpoint:
 
         create_resp = await client.post(
             "/api/v1/scenarios/",
-            json={"name": "Old", "product": "Drug", "hcp_profile_id": hcp_id, "created_by": user_id},
+            json={
+                "name": "Old",
+                "product": "Drug",
+                "hcp_profile_id": hcp_id,
+                "created_by": user_id,
+            },
             headers={"Authorization": f"Bearer {token}"},
         )
         scn_id = create_resp.json()["id"]
@@ -263,7 +288,12 @@ class TestDeleteScenarioEndpoint:
 
         create_resp = await client.post(
             "/api/v1/scenarios/",
-            json={"name": "Del", "product": "Drug", "hcp_profile_id": hcp_id, "created_by": user_id},
+            json={
+                "name": "Del",
+                "product": "Drug",
+                "hcp_profile_id": hcp_id,
+                "created_by": user_id,
+            },
             headers={"Authorization": f"Bearer {token}"},
         )
         scn_id = create_resp.json()["id"]

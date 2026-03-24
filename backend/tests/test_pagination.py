@@ -5,9 +5,7 @@ from app.utils.pagination import PaginatedResponse
 
 class TestPaginatedResponse:
     def test_create_calculates_total_pages(self):
-        result = PaginatedResponse.create(
-            items=["a", "b", "c"], total=10, page=1, page_size=3
-        )
+        result = PaginatedResponse.create(items=["a", "b", "c"], total=10, page=1, page_size=3)
         assert result.items == ["a", "b", "c"]
         assert result.total == 10
         assert result.page == 1

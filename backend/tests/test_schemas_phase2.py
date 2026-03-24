@@ -251,7 +251,7 @@ class TestScoreSchemas:
             score=85.0,
             weight=30,
             strengths='[{"text": "Good", "quote": null}]',
-            weaknesses='[]',
+            weaknesses="[]",
             suggestions='["Improve"]',
             created_at=datetime.now(),
         )
