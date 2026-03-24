@@ -11,7 +11,9 @@ import HcpProfilesPage from "@/pages/admin/hcp-profiles";
 import ScenariosPage from "@/pages/admin/scenarios";
 import AzureConfigPage from "@/pages/admin/azure-config";
 import ScoringFeedback from "@/pages/user/scoring-feedback";
+import SessionHistory from "@/pages/user/session-history";
 import TrainingSession from "@/pages/user/training-session";
+import ScoringRubricsPage from "@/pages/admin/scoring-rubrics";
 import NotFound from "@/pages/not-found";
 
 export const router = createBrowserRouter([
@@ -34,6 +36,7 @@ export const router = createBrowserRouter([
           { path: "dashboard", element: <UserDashboard /> },
           { path: "training", element: <ScenarioSelection /> },
           { path: "scoring/:sessionId", element: <ScoringFeedback /> },
+          { path: "history", element: <SessionHistory /> },
         ],
       },
       {
@@ -51,6 +54,7 @@ export const router = createBrowserRouter([
               { path: "hcp-profiles", element: <HcpProfilesPage /> },
               { path: "scenarios", element: <ScenariosPage /> },
               { path: "azure-config", element: <AzureConfigPage /> },
+              { path: "scoring-rubrics", element: <ScoringRubricsPage /> },
             ],
           },
         ],

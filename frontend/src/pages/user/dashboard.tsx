@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
@@ -7,6 +8,7 @@ import {
   TrendingUp,
   Users,
   Mic,
+  Loader2,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, Button } from "@/components/ui";
 import {
@@ -18,81 +20,7 @@ import {
   MiniTrendChart,
 } from "@/components/shared";
 import { useAuthStore } from "@/stores/auth-store";
-
-// TODO: Replace with TanStack Query hook in Phase 2
-const mockStats = [
-  {
-    label: "sessionsCompleted",
-    value: 24,
-    icon: CheckCircle,
-    trend: { value: "+3 this week", direction: "up" as const },
-  },
-  {
-    label: "averageScore",
-    value: 78,
-    icon: Target,
-  },
-  {
-    label: "thisWeek",
-    value: 5,
-    icon: Calendar,
-    progress: { current: 5, total: 7 },
-  },
-  {
-    label: "improvement",
-    value: "+12%",
-    icon: TrendingUp,
-  },
-];
-
-// TODO: Replace with TanStack Query hook in Phase 2
-const mockSessions = [
-  {
-    id: "1",
-    hcpName: "Dr. Sarah Mitchell",
-    specialty: "Cardiology",
-    mode: "F2F" as const,
-    score: 85,
-    timeAgo: "2 hours ago",
-    avatar: "https://api.dicebear.com/9.x/avataaars/svg?seed=SarahMitchell&backgroundColor=ffd5dc",
-  },
-  {
-    id: "2",
-    hcpName: "Dr. James Wong",
-    specialty: "Oncology",
-    mode: "Conference" as const,
-    score: 72,
-    timeAgo: "5 hours ago",
-    avatar: "https://api.dicebear.com/9.x/avataaars/svg?seed=JamesWong&backgroundColor=b6e3f4",
-  },
-  {
-    id: "3",
-    hcpName: "Dr. Michael Chen",
-    specialty: "Neurology",
-    mode: "F2F" as const,
-    score: 92,
-    timeAgo: "1 day ago",
-    avatar: "https://api.dicebear.com/9.x/avataaars/svg?seed=MichaelChen&backgroundColor=c0aede",
-  },
-  {
-    id: "4",
-    hcpName: "Dr. Emily Roberts",
-    specialty: "Endocrinology",
-    mode: "Conference" as const,
-    score: 55,
-    timeAgo: "2 days ago",
-    avatar: "https://api.dicebear.com/9.x/avataaars/svg?seed=EmilyRoberts&backgroundColor=d1f4d1",
-  },
-  {
-    id: "5",
-    hcpName: "Dr. Robert Thompson",
-    specialty: "Rheumatology",
-    mode: "F2F" as const,
-    score: 88,
-    timeAgo: "3 days ago",
-    avatar: "https://api.dicebear.com/9.x/avataaars/svg?seed=RobertThompson&backgroundColor=ffdfba",
-  },
-];
+import { useScoreHistory } from "@/hooks/use-scoring";
 
 function getChartForStat(index: number): React.ReactNode {
   if (index === 0 || index === 3) {
@@ -109,8 +37,47 @@ export default function UserDashboard() {
   const { t: tc } = useTranslation("common");
   const navigate = useNavigate();
   const { user } = useAuthStore();
+  const { data: recentSessions, isLoading: sessionsLoading } = useScoreHistory(5);
 
   const userName = user?.full_name ?? user?.username ?? tc("user");
+
+  const stats = useMemo(() => {
+    const sessionsCompleted = recentSessions?.length ?? 0;
+    const averageScore =
+      sessionsCompleted > 0
+        ? Math.round(
+            recentSessions!.reduce((sum, s) => sum + s.overall_score, 0) /
+              sessionsCompleted,
+          )
+        : 0;
+
+    return [
+      {
+        label: "sessionsCompleted",
+        value: sessionsCompleted,
+        icon: CheckCircle,
+        trend: undefined,
+      },
+      {
+        label: "averageScore",
+        value: averageScore,
+        icon: Target,
+        trend: undefined,
+      },
+      {
+        label: "thisWeek",
+        value: "--",
+        icon: Calendar,
+        progress: undefined,
+      },
+      {
+        label: "improvement",
+        value: "--",
+        icon: TrendingUp,
+        trend: undefined,
+      },
+    ];
+  }, [recentSessions]);
 
   return (
     <div className="space-y-6">
@@ -124,7 +91,7 @@ export default function UserDashboard() {
 
       {/* Row 1: 4-column stat cards */}
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        {mockStats.map((stat, index) => (
+        {stats.map((stat, index) => (
           <StatCard
             key={stat.label}
             label={t(stat.label)}
@@ -143,22 +110,32 @@ export default function UserDashboard() {
         <Card className="lg:col-span-3">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>{t("recentSessions")}</CardTitle>
-            <Button variant="link" className="text-primary" onClick={() => navigate("/user/training")}>
+            <Button variant="link" className="text-primary" onClick={() => navigate("/user/history")}>
               {t("viewAll")}
             </Button>
           </CardHeader>
           <CardContent className="space-y-1">
-            {mockSessions.map((session) => (
-              <SessionItem
-                key={session.id}
-                hcpName={session.hcpName}
-                specialty={session.specialty}
-                mode={session.mode}
-                score={session.score}
-                timeAgo={session.timeAgo}
-                avatar={session.avatar}
-              />
-            ))}
+            {sessionsLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              </div>
+            ) : recentSessions && recentSessions.length > 0 ? (
+              recentSessions.map((session) => (
+                <SessionItem
+                  key={session.session_id}
+                  hcpName={session.scenario_name}
+                  specialty=""
+                  mode="F2F"
+                  score={session.overall_score}
+                  timeAgo={new Date(session.completed_at).toLocaleDateString()}
+                  onClick={() => navigate(`/user/scoring/${session.session_id}`)}
+                />
+              ))
+            ) : (
+              <p className="py-12 text-center text-sm text-muted-foreground">
+                {t("noSessions", { defaultValue: "No sessions yet. Start training!" })}
+              </p>
+            )}
           </CardContent>
         </Card>
 
