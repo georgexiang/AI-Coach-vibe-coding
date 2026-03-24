@@ -55,6 +55,13 @@ async def client():
     app.dependency_overrides.clear()
 
 
+@pytest.fixture
+async def db_session():
+    """Provide a direct async session for unit tests (no HTTP)."""
+    async with TestSessionLocal() as session:
+        yield session
+
+
 @pytest.fixture(autouse=True, scope="session")
 async def dispose_engine():
     """Dispose test engine at session end to prevent process hang."""

@@ -4,6 +4,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from app.api import auth_router
 from app.config import get_settings
 from app.database import engine
 from app.models.base import Base
@@ -17,7 +18,6 @@ async def lifespan(app: FastAPI):
     # Startup: create tables
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    # TODO: seed initial data
     yield
     # Shutdown: dispose engine
     await engine.dispose()
@@ -49,6 +49,10 @@ async def app_exception_handler(request: Request, exc: AppException):
             "details": exc.details,
         },
     )
+
+
+# Routers
+app.include_router(auth_router, prefix=settings.api_prefix)
 
 
 # Health check
