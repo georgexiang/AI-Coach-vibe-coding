@@ -16,6 +16,7 @@ dist/
 .env
 .env.local
 .env.*.local
+.mcp.json
 
 # IDE
 .vscode/
@@ -31,6 +32,7 @@ Thumbs.db
 # Test artifacts
 test-results/
 playwright-report/
+.auth/
 .coverage
 htmlcov/
 coverage.xml

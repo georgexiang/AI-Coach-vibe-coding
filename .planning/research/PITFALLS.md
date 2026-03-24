@@ -10,56 +10,7 @@
 
 Mistakes that cause rewrites, major delays, or architectural dead-ends.
 
-### Pitfall 1: Azure AI Avatar Is NOT Available in China (21Vianet)
-
-**What goes wrong:** The team builds the entire HCP visual experience around Azure AI Avatar, then discovers it cannot be deployed to China. Text-to-speech Avatar is explicitly listed as **unsupported** in Azure operated by 21Vianet (sovereign cloud). The China deployment has NO avatar, NO custom voice, NO personal voice, NO Voice Live, and NO LLM speech.
-
-**Why it happens:** Teams assume Azure feature parity across regions. Azure China (21Vianet) is a physically separate cloud with drastically reduced AI service coverage. The official sovereign cloud documentation confirms Avatar is unsupported.
-
-**Consequences:**
-- China MR users get a completely different (degraded) experience
-- If Avatar is the primary HCP visual, China deployment requires a full alternative UI path
-- Late discovery means re-architecture and scope creep
-
-**Prevention:**
-- Design a **two-tier HCP visual system from day 1**: Avatar (global regions) + fallback (China)
-- Fallback options: static HCP portrait with animated speech bubbles, or a simple 2D character with CSS lip-sync animation
-- Abstract the HCP visual layer behind an interface so the rendering strategy is swappable per deployment region
-- The PROJECT.md already notes "implement as configurable option, fall back to Azure Speech TTS" -- enforce this strictly
-
-**Detection:** Check the sovereign cloud docs page early. If anyone says "we'll add China support later," flag it immediately.
-
-**Affected phase:** Phase 1 (Architecture) -- must design the abstraction layer before any Avatar code is written.
-
-**Confidence:** HIGH -- verified via https://learn.microsoft.com/en-us/azure/ai-services/speech-service/sovereign-clouds
-
----
-
-### Pitfall 2: Azure OpenAI Is Not Available in Azure China (21Vianet)
-
-**What goes wrong:** The core AI coaching engine uses Azure OpenAI (GPT-4o, GPT Realtime). Azure OpenAI is NOT listed as available in Azure China 21Vianet regions. The China deployment has no Azure OpenAI service.
-
-**Why it happens:** Azure China service catalog does not include Azure OpenAI. The service availability page for 21Vianet does not list Azure OpenAI among available AI services. Teams working on global Azure assume OpenAI is universally available.
-
-**Consequences:**
-- The entire coaching conversation engine, scoring, and real-time voice interaction cannot run in China using the same stack
-- Requires either: (a) routing China traffic to a global Azure region (data residency violation), (b) using a different LLM provider in China (e.g., Zhipu AI, Baidu Wenxin, or self-hosted), or (c) negotiating special access through Microsoft China sales
-
-**Prevention:**
-- Design the AI adapter layer (already in architecture) to be provider-agnostic from the start
-- Implement a China-specific AI adapter that uses a domestic Chinese LLM provider
-- Contact Microsoft China sales EARLY to determine if Azure OpenAI access can be arranged through special agreement (some enterprise customers have access via direct engagement)
-- Keep the BaseCoachingAdapter pattern strict -- all LLM calls must go through the adapter, never direct API calls
-
-**Detection:** If the team cannot provision an Azure OpenAI resource in chinaeast2/chinanorth2/chinanorth3, this is confirmed. Research this during the first week.
-
-**Affected phase:** Phase 1 (Architecture) -- the adapter pattern is the mitigation. Phase 2+ must test with mock adapters for China path.
-
-**Confidence:** MEDIUM -- I could not find Azure OpenAI explicitly listed for 21Vianet. Microsoft may offer it through direct enterprise agreements not documented publicly. Flag for validation with Microsoft account team.
-
----
-
-### Pitfall 3: Realtime API Rate Limits Are Brutally Low
+### Pitfall 1: Realtime API Rate Limits Are Brutally Low
 
 **What goes wrong:** The team builds for concurrent MR training sessions, then hits the wall: `gpt-4o-realtime-preview` has a default quota of only **36 RPM** (requests per minute) and **6,000 TPM** (tokens per minute) at Tier 1. Even at Tier 6, the limit is only **54 RPM / 9,000 TPM**. The newer `gpt-realtime` GA model tops out at **200-300 RPM / 100,000-150,000 TPM**.
 
@@ -86,7 +37,7 @@ Mistakes that cause rewrites, major delays, or architectural dead-ends.
 
 ---
 
-### Pitfall 4: Realtime API Must NOT Connect Directly to End-User Devices
+### Pitfall 2: Realtime API Must NOT Connect Directly to End-User Devices
 
 **What goes wrong:** The frontend attempts to open a WebSocket directly from the browser to Azure OpenAI Realtime API. This violates the documented architecture: "The Realtime API is NOT designed to connect directly to end-user devices."
 
@@ -112,7 +63,7 @@ Mistakes that cause rewrites, major delays, or architectural dead-ends.
 
 ---
 
-### Pitfall 5: Avatar Real-Time Sessions Auto-Disconnect After 5 Minutes Idle / 30 Minutes Total
+### Pitfall 3: Avatar Real-Time Sessions Auto-Disconnect After 5 Minutes Idle / 30 Minutes Total
 
 **What goes wrong:** During a training session, the MR pauses to review notes or think about a response. After 5 minutes of no audio input, the Avatar connection drops. Or a longer training scenario (realistic F2F call practice) exceeds 30 minutes and disconnects mid-session.
 
@@ -138,7 +89,7 @@ Mistakes that cause rewrites, major delays, or architectural dead-ends.
 
 ---
 
-### Pitfall 6: Avatar Region Availability Is Extremely Limited
+### Pitfall 4: Avatar Region Availability Is Extremely Limited
 
 **What goes wrong:** The team deploys to a region for Azure OpenAI availability, then discovers Avatar is not available there. Avatar real-time synthesis is only available in **7 regions**: eastus2, northeurope, southcentralus, southeastasia, swedencentral, westeurope, westus2.
 
@@ -151,7 +102,7 @@ Mistakes that cause rewrites, major delays, or architectural dead-ends.
 
 **Prevention:**
 - **Pick regions strategically**: for EU, use `westeurope` or `swedencentral` (both support Avatar + have good OpenAI model availability)
-- For Asia-Pacific users (before China deployment), use `southeastasia` (Avatar + Speech + OpenAI all available)
+- For Asia-Pacific users, use `southeastasia` (Avatar + Speech + OpenAI all available)
 - Document region decisions in infrastructure config and make them environment variables
 - Consider deploying Avatar as a separate microservice that can be in a different region from the main backend
 
@@ -165,7 +116,7 @@ Mistakes that cause rewrites, major delays, or architectural dead-ends.
 
 ## Moderate Pitfalls
 
-### Pitfall 7: Realtime API Endpoint Format Changed for GA
+### Pitfall 5: Realtime API Endpoint Format Changed for GA
 
 **What goes wrong:** Code uses the old preview endpoint format with `api-version` query parameter. The GA Realtime API requires a completely different endpoint format: `https://{resource}.openai.azure.com/openai/v1` -- no date-based API versions, no `api-version` query parameter.
 
@@ -181,7 +132,7 @@ Mistakes that cause rewrites, major delays, or architectural dead-ends.
 
 ---
 
-### Pitfall 8: Audio Format Must Be PCM 24kHz
+### Pitfall 6: Audio Format Must Be PCM 24kHz
 
 **What goes wrong:** Browser captures audio in a different format (e.g., Opus, AAC, or 16kHz PCM). Azure OpenAI Realtime API requires PCM at exactly 24,000 Hz sample rate. Format mismatch causes silent failures or garbled audio.
 
@@ -199,7 +150,7 @@ Mistakes that cause rewrites, major delays, or architectural dead-ends.
 
 ---
 
-### Pitfall 9: Voice Activity Detection (VAD) Mode Selection Impacts UX
+### Pitfall 7: Voice Activity Detection (VAD) Mode Selection Impacts UX
 
 **What goes wrong:** Using `server_vad` (default) causes the AI to interrupt the MR mid-sentence because it detects a brief pause as end-of-speech. Alternatively, `semantic_vad` causes longer delays because it waits for semantic completion. Neither default works perfectly for medical terminology delivery practice.
 
@@ -220,7 +171,7 @@ Mistakes that cause rewrites, major delays, or architectural dead-ends.
 
 ---
 
-### Pitfall 10: Chinese Language TTS Has Fewer Voice Styles Than English
+### Pitfall 8: Chinese Language TTS Has Fewer Voice Styles Than English
 
 **What goes wrong:** The product design expects emotional HCP responses (frustrated doctor, skeptical specialist, friendly GP). Chinese TTS voices support only 8-12 styles compared to English's 16+. Some emotion styles (e.g., "angry," "fearful") may not be available for Chinese voices.
 
@@ -238,7 +189,7 @@ Mistakes that cause rewrites, major delays, or architectural dead-ends.
 
 ---
 
-### Pitfall 11: i18n Retrofitting Is Extremely Costly
+### Pitfall 9: i18n Retrofitting Is Extremely Costly
 
 **What goes wrong:** The team builds the MVP in English, plans to "add Chinese later." Then discovers that i18n affects: database schemas (content in multiple languages), API response formats, frontend string management, TTS voice selection, scoring criteria language, prompt engineering (system prompts must be in the user's language for best results), and date/number formatting.
 
@@ -266,7 +217,7 @@ Mistakes that cause rewrites, major delays, or architectural dead-ends.
 
 ---
 
-### Pitfall 12: WebRTC ICE Connectivity Fails Behind Corporate Firewalls
+### Pitfall 10: WebRTC ICE Connectivity Fails Behind Corporate Firewalls
 
 **What goes wrong:** MRs using the platform from BeiGene office networks cannot establish WebRTC connections to the Avatar service. Corporate firewalls block UDP traffic and TURN relay ports.
 
@@ -292,7 +243,7 @@ Mistakes that cause rewrites, major delays, or architectural dead-ends.
 
 ---
 
-### Pitfall 13: Content Understanding Requires Separate Foundry Resource
+### Pitfall 11: Content Understanding Requires Separate Foundry Resource
 
 **What goes wrong:** The team tries to use Azure Content Understanding for multimodal evaluation (analyzing MR presentation recordings) and discovers it requires a Microsoft Foundry resource, not a standard Cognitive Services resource. It also requires bringing your own model deployments for the generative capabilities.
 
@@ -310,7 +261,7 @@ Mistakes that cause rewrites, major delays, or architectural dead-ends.
 
 ---
 
-### Pitfall 14: Realtime API One-Active-Conversation-Per-Session Limit
+### Pitfall 12: Realtime API One-Active-Conversation-Per-Session Limit
 
 **What goes wrong:** The team attempts to manage multiple HCP conversations (e.g., conference mode with multiple virtual HCPs) through a single Realtime API session. The API only supports one active conversation per session.
 
@@ -330,7 +281,7 @@ Mistakes that cause rewrites, major delays, or architectural dead-ends.
 
 ## Minor Pitfalls
 
-### Pitfall 15: Avatar Gestures Only Work in Batch Mode
+### Pitfall 13: Avatar Gestures Only Work in Batch Mode
 
 **What goes wrong:** The team designs real-time HCP interactions with body language gestures (nodding, hand gestures). Avatar gestures are only available via the batch synthesis API, NOT the real-time API.
 
@@ -345,7 +296,7 @@ Mistakes that cause rewrites, major delays, or architectural dead-ends.
 
 ---
 
-### Pitfall 16: Entra ID Auth Not Supported for .NET Realtime SDK
+### Pitfall 14: Entra ID Auth Not Supported for .NET Realtime SDK
 
 **What goes wrong:** If the backend is ever ported to .NET, Entra ID authentication does not work with the Realtime API. Only API key authentication is supported for .NET. For JavaScript/Python, API keys need explicit header configuration due to SDK limitations.
 
@@ -360,28 +311,7 @@ Mistakes that cause rewrites, major delays, or architectural dead-ends.
 
 ---
 
-### Pitfall 17: Azure China REST Endpoints Are Completely Different
-
-**What goes wrong:** Configuration files use `.windows.net`, `.openai.azure.com`, or `cognitive.microsoft.com` domains. These do not resolve in Azure China. Every Azure service endpoint must be changed to `.chinacloudapi.cn` variants.
-
-**Prevention:**
-- Use environment-based configuration (already in project via pydantic-settings)
-- Create per-environment `.env` files: `.env.global`, `.env.china`, `.env.eu`
-- Map all service endpoints to environment variables, never hardcode domains
-- Key endpoint differences:
-  - Auth: `login.microsoftonline.com` -> `login.chinacloudapi.cn`
-  - Storage: `*.blob.core.windows.net` -> `*.blob.core.chinacloudapi.cn`
-  - AI Services: `api.cognitive.microsoft.com` -> `api.cognitive.azure.cn`
-  - Speech: `*.tts.speech.microsoft.com` -> `*.tts.speech.azure.cn`
-  - Portal: `portal.azure.com` -> `portal.azure.cn`
-
-**Affected phase:** Phase 1 (Configuration), Phase 6 (China Deployment)
-
-**Confidence:** HIGH -- verified via Azure China developer guide
-
----
-
-### Pitfall 18: Browser Compatibility for Real-Time Avatar
+### Pitfall 15: Browser Compatibility for Real-Time Avatar
 
 **What goes wrong:** Users on Firefox cannot establish ICE connections with Azure Communication Services TURN servers. Some older mobile browsers do not support the required WebRTC features.
 
@@ -398,7 +328,7 @@ Mistakes that cause rewrites, major delays, or architectural dead-ends.
 
 ---
 
-### Pitfall 19: EU Data Residency (GDPR) With Global Standard Deployments
+### Pitfall 16: EU Data Residency (GDPR) With Global Standard Deployments
 
 **What goes wrong:** Azure OpenAI Global Standard deployments route traffic dynamically to any data center globally. This means EU user data (MR conversations, voice recordings) may be processed outside the EU, violating GDPR data residency requirements.
 
@@ -417,7 +347,7 @@ Mistakes that cause rewrites, major delays, or architectural dead-ends.
 
 ---
 
-### Pitfall 20: Realtime API Preview Models May Upgrade Without Notice
+### Pitfall 17: Realtime API Preview Models May Upgrade Without Notice
 
 **What goes wrong:** The team builds and tests against `gpt-4o-realtime-preview` (2024-12-17). Microsoft upgrades the model version without notice because preview models don't follow standard lifecycle policies. Behavior changes break scoring consistency or conversation quality.
 
@@ -437,19 +367,17 @@ Mistakes that cause rewrites, major delays, or architectural dead-ends.
 
 | Phase Topic | Likely Pitfall | Mitigation |
 |-------------|---------------|------------|
-| Architecture & Foundation | China has no Avatar, likely no Azure OpenAI | Design provider-agnostic adapters, two-tier visual system (Pitfalls 1, 2) |
-| Infrastructure Setup | Region mismatch (Avatar vs OpenAI vs Speech) | Pick regions where all 3 services overlap: westeurope, swedencentral, southeastasia (Pitfall 6) |
-| Voice Integration | Realtime API quotas, audio format, endpoint format | Use GA models, PCM 24kHz, new endpoint format (Pitfalls 3, 7, 8) |
-| Voice Integration | VAD mode causes interruptions during medical term delivery | Use semantic_vad, increase silence thresholds (Pitfall 9) |
-| Avatar Integration | Session timeouts, gesture limitations, browser compat | Auto-reconnect, batch-only gestures, test Firefox (Pitfalls 5, 15, 18) |
-| Avatar Integration | Corporate firewall blocks WebRTC | TURN over TCP 443, document firewall requirements (Pitfall 12) |
-| HCP Configuration | Chinese voice styles limited | Map personalities to available styles first (Pitfall 10) |
-| i18n Implementation | Retrofitting is multi-layer work | i18n framework from component #1 (Pitfall 11) |
-| Scoring & Evaluation | Content Understanding needs Foundry resource + model deployments | Provision correct resource type early (Pitfall 13) |
-| Conference Mode | One conversation per Realtime session | Separate sessions per HCP or use standard API (Pitfall 14) |
-| China Deployment | All service endpoints different, many services unavailable | Environment-based config, alternative AI providers (Pitfalls 2, 17) |
-| EU Deployment | GDPR with Global Standard deployments | Use Data Zone Standard or regional deployments (Pitfall 19) |
-| Production Hardening | Preview model behavior changes | Use GA models, pin versions, regression tests (Pitfall 20) |
+| Infrastructure Setup | Region mismatch (Avatar vs OpenAI vs Speech) | Pick regions where all 3 services overlap: westeurope, swedencentral, southeastasia (Pitfall 4) |
+| Voice Integration | Realtime API quotas, audio format, endpoint format | Use GA models, PCM 24kHz, new endpoint format (Pitfalls 1, 5, 6) |
+| Voice Integration | VAD mode causes interruptions during medical term delivery | Use semantic_vad, increase silence thresholds (Pitfall 7) |
+| Avatar Integration | Session timeouts, gesture limitations, browser compat | Auto-reconnect, batch-only gestures, test Firefox (Pitfalls 3, 13, 15) |
+| Avatar Integration | Corporate firewall blocks WebRTC | TURN over TCP 443, document firewall requirements (Pitfall 10) |
+| HCP Configuration | Chinese voice styles limited | Map personalities to available styles first (Pitfall 8) |
+| i18n Implementation | Retrofitting is multi-layer work | i18n framework from component #1 (Pitfall 9) |
+| Scoring & Evaluation | Content Understanding needs Foundry resource + model deployments | Provision correct resource type early (Pitfall 11) |
+| Conference Mode | One conversation per Realtime session | Separate sessions per HCP or use standard API (Pitfall 12) |
+| EU Deployment | GDPR with Global Standard deployments | Use Data Zone Standard or regional deployments (Pitfall 16) |
+| Production Hardening | Preview model behavior changes | Use GA models, pin versions, regression tests (Pitfall 17) |
 
 ---
 
@@ -460,12 +388,10 @@ All findings verified against official Microsoft documentation (accessed 2026-03
 - [Azure OpenAI Realtime API - How To](https://learn.microsoft.com/en-us/azure/ai-services/openai/how-to/realtime-audio) -- HIGH confidence
 - [Azure OpenAI Quotas and Limits](https://learn.microsoft.com/en-us/azure/ai-services/openai/quotas-limits) -- HIGH confidence (updated 2026-03-21)
 - [Azure Speech Service Regions](https://learn.microsoft.com/en-us/azure/ai-services/speech-service/regions) -- HIGH confidence (updated 2026-03-17)
-- [Azure Speech Sovereign Clouds](https://learn.microsoft.com/en-us/azure/ai-services/speech-service/sovereign-clouds) -- HIGH confidence (updated 2026-02-28)
+
 - [Azure TTS Avatar Overview](https://learn.microsoft.com/en-us/azure/ai-services/speech-service/text-to-speech-avatar/what-is-text-to-speech-avatar) -- HIGH confidence
 - [Azure TTS Avatar Real-Time Synthesis](https://learn.microsoft.com/en-us/azure/ai-services/speech-service/text-to-speech-avatar/real-time-synthesis-avatar) -- HIGH confidence (updated 2026-03-03)
 - [Azure TTS Avatar Standard Avatars](https://learn.microsoft.com/en-us/azure/ai-services/speech-service/text-to-speech-avatar/standard-avatars) -- HIGH confidence
 - [Azure OpenAI Models](https://learn.microsoft.com/en-us/azure/ai-services/openai/concepts/models) -- HIGH confidence
-- [Azure China Developer Guide](https://learn.microsoft.com/en-us/azure/china/resources-developer-guide) -- HIGH confidence
-- [Azure China Service Availability](https://learn.microsoft.com/en-us/azure/china/concepts-service-availability) -- HIGH confidence
 - [Azure Content Understanding Overview](https://learn.microsoft.com/en-us/azure/ai-services/content-understanding/overview) -- HIGH confidence (updated 2026-03-13)
 - [Azure Speech Language Support](https://learn.microsoft.com/en-us/azure/ai-services/speech-service/language-support) -- HIGH confidence

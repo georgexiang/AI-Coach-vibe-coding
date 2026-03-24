@@ -23,7 +23,11 @@ export function AdminRoute() {
 }
 
 export function GuestRoute() {
-  const { token } = useAuthStore();
-  if (token) return <Navigate to="/user/dashboard" replace />;
+  const { token, user } = useAuthStore();
+  if (token) {
+    const target =
+      user?.role === "admin" ? "/admin/dashboard" : "/user/dashboard";
+    return <Navigate to={target} replace />;
+  }
   return <Outlet />;
 }

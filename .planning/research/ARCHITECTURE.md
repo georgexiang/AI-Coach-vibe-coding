@@ -744,12 +744,12 @@ Build order is driven by dependencies and demo value. Each layer builds on the p
 ### Per-Region Deployment (Data Residency)
 
 ```
-China Region:
-  - Azure China (mooncake): OpenAI, Speech, PostgreSQL
-  - Chinese locale default, Chinese voices
-  - Data stays in China
+Azure Global (Primary):
+  - Recommended region: swedencentral or westus2 (supports Avatar + OpenAI + Speech)
+  - Chinese + English locale support
+  - All Azure AI services available
 
-Europe Region:
+Europe Region (if needed for GDPR):
   - Azure West Europe / Sweden Central: OpenAI, Speech, PostgreSQL
   - European locale default, multilingual voices
   - GDPR compliant, data stays in EU

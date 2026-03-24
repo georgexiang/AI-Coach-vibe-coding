@@ -6,7 +6,7 @@
 
 ## Executive Summary
 
-The AI Coach Platform for BeiGene requires integrating five distinct Azure AI services (OpenAI, Speech, Avatar, Content Understanding, Voice Live) into an existing FastAPI + React skeleton. Research confirms all core services are GA and well-documented, but with significant regional constraints that shape the architecture: Azure TTS Avatar is available in only 7 regions, and Azure China (21Vianet) sovereign cloud lacks both Azure OpenAI and Avatar entirely. This is the single most impactful finding -- the architecture must be designed with provider abstraction and graceful degradation from day 1.
+The AI Coach Platform for BeiGene requires integrating five distinct Azure AI services (OpenAI, Speech, Avatar, Content Understanding, Voice Live) into an existing FastAPI + React skeleton. Research confirms all core services are GA and well-documented. The project deploys on Azure Global, where all required services (OpenAI, Speech, Avatar, Content Understanding) are available. Azure TTS Avatar is available in 7 regions -- region selection matters for co-locating services.
 
 The existing codebase skeleton (FastAPI, React 18, SQLAlchemy async, Pydantic v2, Vite 6, TanStack Query v5) is well-chosen and should be kept as-is. The investment goes entirely into Azure AI service integrations and the domain-specific coaching features. The new Azure OpenAI v1 API (GA since August 2025) eliminates the previous pain of monthly api-version updates and allows using the standard `OpenAI()` client with an Azure base_url -- a significant developer experience improvement.
 
@@ -20,7 +20,7 @@ For the prototype demo (week of 2026-03-24), the critical path is: text chat wit
 
 **Architecture:** Backend WebSocket proxy pattern for Realtime/Voice Live (browser cannot connect directly to Azure due to CORS/credentials). Browser-side WebRTC for Avatar rendering via Speech SDK JS. Provider-agnostic adapter layer (BaseCoachingAdapter) already in skeleton -- extend it.
 
-**Critical pitfall:** Azure TTS Avatar is only in 7 regions. Azure China 21Vianet has NEITHER Azure OpenAI NOR Avatar. Design abstraction layers and fallbacks from day 1.
+**Critical pitfall:** Azure TTS Avatar is only in 7 regions. Select deployment region carefully to co-locate all services (Avatar + OpenAI + Speech).
 
 ## Implications for Roadmap
 
@@ -38,7 +38,7 @@ Based on research, suggested phase structure:
 
 3. **Phase 3: Avatar + Premium Voice** - Add TTS Avatar for visual HCP, Voice Live API as unified premium path
    - Addresses: FR-6.1 (HCP visual), differentiator features
-   - Avoids: Pitfall of Avatar region lock-in (fallback to non-avatar for China)
+   - Avoids: Pitfall of Avatar region lock-in (select region with avatar support)
    - Dependencies: Phase 2 (voice pipeline must work before adding avatar)
 
 4. **Phase 4: Conference Mode + Content Understanding** - One-to-many presentation simulation, training material analysis
@@ -51,7 +51,7 @@ Based on research, suggested phase structure:
    - Avoids: Pitfall of building dashboards before data exists
    - Dependencies: Phases 1-3 (needs accumulated scoring data)
 
-6. **Phase 6: Production Hardening** - Azure AD SSO, per-region deployment, data retention policies, Teams Tab embedding
+6. **Phase 6: Production Hardening** - Azure AD SSO, data retention policies, Teams Tab embedding
    - Addresses: NFR-1 through NFR-6, out-of-scope items preparation
    - Dependencies: All previous phases
 
@@ -67,7 +67,7 @@ Based on research, suggested phase structure:
 - Phase 3: LIKELY NEEDS DEEPER RESEARCH -- Avatar WebRTC setup is complex, Voice Live API is newer. Check sample code carefully.
 - Phase 4: LIKELY NEEDS DEEPER RESEARCH -- Conference mode multi-HCP turn management has no standard pattern. Content Understanding custom analyzer configuration needs investigation.
 - Phase 5: Standard patterns for charting and export
-- Phase 6: NEEDS RESEARCH -- Azure China (21Vianet) LLM availability must be confirmed with Microsoft account team. Data residency compliance requirements are region-specific.
+- Phase 6: Standard patterns for Azure AD SSO and data retention policies.
 
 ## Confidence Assessment
 
@@ -76,15 +76,13 @@ Based on research, suggested phase structure:
 | Stack | HIGH | All versions verified from official docs and PyPI/npm. Azure v1 API confirmed GA. |
 | Features | HIGH | Based on detailed requirements doc + Capgemini reference solution + competitor landscape |
 | Architecture | HIGH | WebSocket proxy pattern and adapter pattern are well-established. Avatar WebRTC is documented with sample code. |
-| Pitfalls | HIGH for global, MEDIUM for China | Avatar region constraints verified. Azure China 21Vianet limitations need confirmation with Microsoft. |
+| Pitfalls | HIGH | Avatar region constraints verified. All services available on Azure Global. |
 | i18n | HIGH | react-i18next is de facto standard, Vite compatible, TypeScript supported |
 | Voice Live API | MEDIUM | Newer service (2025), well-documented but less battle-tested than individual services |
 
 ## Gaps to Address
 
-- **Azure China 21Vianet:** Need to confirm with Microsoft account team whether Azure OpenAI is available through enterprise agreement. This affects the entire China deployment strategy.
 - **Voice Live API pricing:** Pricing effective July 2025, but actual cost per session for this use case needs estimation. Consider cost modeling before committing to Voice Live for all interactions.
-- **Avatar in China:** No direct solution. Need to design and validate the non-avatar fallback UX with the client before building it.
 - **Content Understanding custom analyzers:** The pre-built analyzers handle generic document types. Training material extraction (key messages, scoring criteria from pharma content) will likely need custom analyzer configuration -- this needs investigation in Phase 4.
 - **Chinese TTS voice quality:** Azure TTS Chinese voices are available but quality compared to English HD voices needs hands-on evaluation. Consider testing `zh-CN-XiaoxiaoNeural` and `zh-CN-YunxiNeural` early.
 - **Recharts radar chart customization:** Multi-dimensional scoring requires a customized radar/spider chart. Recharts supports RadarChart but specific design matching the Figma mockups needs validation during implementation.

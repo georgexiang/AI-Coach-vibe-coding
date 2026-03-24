@@ -16,8 +16,7 @@ const ConfigContext = createContext<FeatureFlags>(defaultFlags);
 
 export function ConfigProvider({ children }: { children: ReactNode }) {
   const { isAuthenticated } = useAuthStore();
-  const { data } = useFeatureFlags();
-  // Only use fetched data when authenticated; use defaults otherwise
+  const { data } = useFeatureFlags(isAuthenticated);
   const flags = isAuthenticated && data ? data.features : defaultFlags;
   return (
     <ConfigContext.Provider value={flags}>{children}</ConfigContext.Provider>

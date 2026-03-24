@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import apiClient from "@/api/client";
 import type { AppConfig } from "@/types/config";
 
-export function useFeatureFlags() {
+export function useFeatureFlags(isAuthenticated: boolean = false) {
   return useQuery({
     queryKey: ["config", "features"],
     queryFn: async () => {
@@ -11,5 +11,6 @@ export function useFeatureFlags() {
     },
     staleTime: 10 * 60 * 1000, // 10 minutes -- feature flags don't change often
     retry: 1,
+    enabled: isAuthenticated,
   });
 }

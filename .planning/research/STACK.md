@@ -118,7 +118,7 @@ npm install microsoft-cognitiveservices-speech-sdk
 **Avatar Region Constraints (CRITICAL):**
 Real-time avatar is only available in: `eastus2`, `northeurope`, `southcentralus`, `southeastasia`, `swedencentral`, `westeurope`, `westus2`
 
-For China deployment: use `southeastasia` (closest to China with avatar support). Azure China sovereign cloud does NOT currently support TTS Avatar.
+For Asia-Pacific users, use `southeastasia` (avatar + speech + OpenAI all available).
 
 **Confidence:** HIGH -- verified from official Azure Speech regions page (updated 2026-03-17).
 
@@ -375,17 +375,17 @@ npm install -D @types/recharts
 
 ## Azure Service Configuration Summary
 
-| Azure Service | Resource Type | Recommended Region (Global) | Recommended Region (China-adjacent) | Pricing Tier |
-|---------------|---------------|----------------------------|--------------------------------------|-------------|
-| Azure OpenAI | Foundry Resource | `swedencentral` or `eastus2` | `southeastasia` or `eastasia` | Standard (pay-per-token) |
-| Azure Speech | Foundry Resource (shared) | `swedencentral` or `eastus2` | `southeastasia` | Standard S0 |
-| Azure TTS Avatar | Same Speech resource | `westus2` or `swedencentral` | `southeastasia` | Standard S0 (premium add-on) |
-| Azure Content Understanding | Foundry Resource (shared) | `eastus` or `westeurope` | Check regional availability | Standard |
-| Azure Database for PostgreSQL | Flexible Server | Same region as app | Same region as app | Burstable B1ms (dev), GP D2s (prod) |
-| Azure Blob Storage | Storage Account (v2) | Same region as app | Same region as app | Hot tier |
-| Azure Container Apps | Container Apps Environment | Same region as app | Same region as app | Consumption plan |
+| Azure Service | Resource Type | Recommended Region | Pricing Tier |
+|---------------|---------------|-------------------|-------------|
+| Azure OpenAI | Foundry Resource | `swedencentral` or `eastus2` | Standard (pay-per-token) |
+| Azure Speech | Foundry Resource (shared) | `swedencentral` or `eastus2` | Standard S0 |
+| Azure TTS Avatar | Same Speech resource | `westus2` or `swedencentral` | Standard S0 (premium add-on) |
+| Azure Content Understanding | Foundry Resource (shared) | `eastus` or `westeurope` | Standard |
+| Azure Database for PostgreSQL | Flexible Server | Same region as app | Burstable B1ms (dev), GP D2s (prod) |
+| Azure Blob Storage | Storage Account (v2) | Same region as app | Hot tier |
+| Azure Container Apps | Container Apps Environment | Same region as app | Consumption plan |
 
-**Critical Region Constraint:** Avatar is only available in 7 regions. For maximum feature availability, use `swedencentral` (Europe) or `westus2` (US) or `southeastasia` (Asia/China-adjacent). Deploy all resources in the same region to minimize latency.
+**Critical Region Constraint:** Avatar is only available in 7 regions. For maximum feature availability, use `swedencentral` (Europe) or `westus2` (US). Deploy all resources in the same region to minimize latency.
 
 ---
 
