@@ -85,3 +85,7 @@ export {
   FormMessage,
   FormField,
 } from "./form";
+export { ScrollArea, ScrollBar } from "./scroll-area";
+export { Tabs, TabsList, TabsTrigger, TabsContent } from "./tabs";
+export { Progress } from "./progress";
+export { Textarea } from "./textarea";
