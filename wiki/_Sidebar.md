@@ -9,6 +9,7 @@
 ---
 
 **Quick Links**
-- [Requirements](../docs/requirements.md)
-- [Best Practices](../docs/best-practices.md)
-- [CLAUDE.md](../CLAUDE.md)
+- [README](../blob/main/README.md)
+- [Requirements](../blob/main/docs/requirements.md)
+- [Best Practices](../blob/main/docs/best-practices.md)
+- [CLAUDE.md](../blob/main/CLAUDE.md)

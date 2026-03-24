@@ -1,29 +1,32 @@
 # Roadmap
 
-## Phase 1: Foundation (Current)
+## Phase 1: Foundation ✅
 
 | Task | Status | Description |
 |------|--------|-------------|
-| Project skeleton | Done | Backend + Frontend + CI/CD |
-| Auth system | Pending | JWT login, user roles (Admin, MR, Manager) |
-| Database models | Pending | User, HCPProfile, Scenario, Session, Assessment |
-| Shared UI components | Pending | PageHeader, Card, FormField, Badge, etc. |
+| Project skeleton | ✅ Done | Backend + Frontend + CI/CD |
+| Auth system | ✅ Done | JWT login, user roles (Admin, MR) |
+| Database models | ✅ Done | User, HCPProfile, Scenario, Session, Score |
+| Shared UI components | ✅ Done | 114 React components (PageHeader, Card, etc.) |
+| CI/CD Pipeline | ✅ Done | GitHub Actions: lint, test, build, deploy |
 
-## Phase 2: Core Training Module
-
-| Task | Status | Description |
-|------|--------|-------------|
-| HCP Profile management | Pending | CRUD for virtual doctor configurations |
-| Scenario management | Pending | Training scenario definitions |
-| Chat interface | Pending | Audio/text dual-mode interaction |
-| AI adapter framework | Pending | BaseCoachingAdapter + Claude/Azure/Mock |
-| Session lifecycle | Pending | Create → Start → End → Score flow |
-
-## Phase 3: Scoring & Assessment
+## Phase 2: Core Training Module ✅
 
 | Task | Status | Description |
 |------|--------|-------------|
-| Multi-dimensional scoring | Pending | Key message, objection handling, communication, etc. |
+| HCP Profile management | ✅ Done | CRUD API + admin UI |
+| Scenario management | ✅ Done | Scenario config with scoring weights |
+| AI adapter framework | ✅ Done | BaseCoachingAdapter + Claude/Azure/Mock |
+| Session lifecycle | ✅ Done | Create → Start → End → Score flow |
+| Scoring system | ✅ Done | Multi-dimensional scoring with details |
+| Backend tests | ✅ Done | 269 test cases across 25 test files |
+| E2E tests | ✅ Done | 13 Playwright specs |
+
+## Phase 3: Scoring & Assessment (Current)
+
+| Task | Status | Description |
+|------|--------|-------------|
+| Multi-dimensional scoring | ✅ Done | Key message, objection handling, communication |
 | Real-time suggestions | Pending | In-session coaching tips |
 | Post-session reports | Pending | Strengths, weaknesses, improvement areas |
 | Customizable criteria | Pending | Configurable scoring rubrics |

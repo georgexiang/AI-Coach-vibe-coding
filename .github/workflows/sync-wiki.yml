@@ -44,14 +44,10 @@ jobs:
           if git clone "$WIKI_URL" "$WIKI_DIR" 2>/dev/null; then
             echo "Wiki repo cloned successfully"
           else
-            echo "Wiki not initialized yet — creating first page"
-            cd "$WIKI_DIR"
-            git init
-            git remote add origin "$WIKI_URL"
-            echo "# Wiki" > Home.md
-            git add . && git commit -m "Initialize wiki"
-            git push -u origin HEAD:master || git push -u origin HEAD:main
-            cd -
+            echo "::warning::Wiki not initialized yet. Please create the first wiki page manually at:"
+            echo "  https://github.com/${REPO}/wiki/_new"
+            echo "Once a page exists, this workflow will sync automatically."
+            exit 0
           fi
 
           cp wiki/*.md "$WIKI_DIR/"
