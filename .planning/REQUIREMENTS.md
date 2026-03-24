@@ -126,64 +126,64 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| ARCH-01 | — | Pending |
-| ARCH-02 | — | Pending |
-| ARCH-03 | — | Pending |
-| ARCH-04 | — | Pending |
-| ARCH-05 | — | Pending |
-| UI-01 | — | Pending |
-| UI-02 | — | Pending |
-| UI-03 | — | Pending |
-| UI-04 | — | Pending |
-| UI-05 | — | Pending |
-| UI-06 | — | Pending |
-| UI-07 | — | Pending |
-| AUTH-01 | — | Pending |
-| AUTH-02 | — | Pending |
-| AUTH-03 | — | Pending |
-| AUTH-04 | — | Pending |
-| HCP-01 | — | Pending |
-| HCP-02 | — | Pending |
-| HCP-03 | — | Pending |
-| HCP-04 | — | Pending |
-| HCP-05 | — | Pending |
-| COACH-01 | — | Pending |
-| COACH-02 | — | Pending |
-| COACH-03 | — | Pending |
-| COACH-04 | — | Pending |
-| COACH-05 | — | Pending |
-| COACH-06 | — | Pending |
-| COACH-07 | — | Pending |
-| COACH-08 | — | Pending |
-| COACH-09 | — | Pending |
-| SCORE-01 | — | Pending |
-| SCORE-02 | — | Pending |
-| SCORE-03 | — | Pending |
-| SCORE-04 | — | Pending |
-| SCORE-05 | — | Pending |
-| CONF-01 | — | Pending |
-| CONF-02 | — | Pending |
-| CONF-03 | — | Pending |
-| CONF-04 | — | Pending |
-| CONTENT-01 | — | Pending |
-| CONTENT-02 | — | Pending |
-| CONTENT-03 | — | Pending |
-| ANLYT-01 | — | Pending |
-| ANLYT-02 | — | Pending |
-| ANLYT-03 | — | Pending |
-| ANLYT-04 | — | Pending |
-| ANLYT-05 | — | Pending |
-| PLAT-01 | — | Pending |
-| PLAT-02 | — | Pending |
-| PLAT-03 | — | Pending |
-| PLAT-04 | — | Pending |
-| PLAT-05 | — | Pending |
+| ARCH-01 | Phase 1 | Pending |
+| ARCH-02 | Phase 1 | Pending |
+| ARCH-03 | Phase 1 | Pending |
+| ARCH-04 | Phase 1 | Pending |
+| ARCH-05 | Phase 1 | Pending |
+| UI-01 | Phase 1 | Pending |
+| UI-02 | Phase 1 | Pending |
+| UI-03 | Phase 2 | Pending |
+| UI-04 | Phase 4 | Pending |
+| UI-05 | Phase 2 | Pending |
+| UI-06 | Phase 4 | Pending |
+| UI-07 | Phase 1 | Pending |
+| AUTH-01 | Phase 1 | Pending |
+| AUTH-02 | Phase 1 | Pending |
+| AUTH-03 | Phase 1 | Pending |
+| AUTH-04 | Phase 1 | Pending |
+| HCP-01 | Phase 2 | Pending |
+| HCP-02 | Phase 2 | Pending |
+| HCP-03 | Phase 2 | Pending |
+| HCP-04 | Phase 2 | Pending |
+| HCP-05 | Phase 2 | Pending |
+| COACH-01 | Phase 2 | Pending |
+| COACH-02 | Phase 2 | Pending |
+| COACH-03 | Phase 2 | Pending |
+| COACH-04 | Phase 3 | Pending |
+| COACH-05 | Phase 3 | Pending |
+| COACH-06 | Phase 3 | Pending |
+| COACH-07 | Phase 3 | Pending |
+| COACH-08 | Phase 2 | Pending |
+| COACH-09 | Phase 2 | Pending |
+| SCORE-01 | Phase 2 | Pending |
+| SCORE-02 | Phase 2 | Pending |
+| SCORE-03 | Phase 2 | Pending |
+| SCORE-04 | Phase 2 | Pending |
+| SCORE-05 | Phase 2 | Pending |
+| CONF-01 | Phase 3 | Pending |
+| CONF-02 | Phase 3 | Pending |
+| CONF-03 | Phase 3 | Pending |
+| CONF-04 | Phase 3 | Pending |
+| CONTENT-01 | Phase 3 | Pending |
+| CONTENT-02 | Phase 3 | Pending |
+| CONTENT-03 | Phase 3 | Pending |
+| ANLYT-01 | Phase 4 | Pending |
+| ANLYT-02 | Phase 4 | Pending |
+| ANLYT-03 | Phase 4 | Pending |
+| ANLYT-04 | Phase 4 | Pending |
+| ANLYT-05 | Phase 4 | Pending |
+| PLAT-01 | Phase 1 | Pending |
+| PLAT-02 | Phase 1 | Pending |
+| PLAT-03 | Phase 2 | Pending |
+| PLAT-04 | Phase 1 | Pending |
+| PLAT-05 | Phase 1 | Pending |
 
 **Coverage:**
-- v1 requirements: 46 total
-- Mapped to phases: 0
-- Unmapped: 46 (will be mapped during roadmap creation)
+- v1 requirements: 52 total
+- Mapped to phases: 52
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-24*
-*Last updated: 2026-03-24 after initial definition*
+*Last updated: 2026-03-24 after roadmap creation -- all requirements mapped to phases*
