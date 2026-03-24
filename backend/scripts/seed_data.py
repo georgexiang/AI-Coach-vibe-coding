@@ -42,7 +42,14 @@ SEED_USERS = [
 
 async def seed_users() -> None:
     """Create seed users if they do not already exist."""
+    from app.models.base import Base
+
     engine = create_async_engine(settings.database_url, echo=False)
+
+    # Ensure tables exist before seeding
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
     session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
     async with session_factory() as session:
