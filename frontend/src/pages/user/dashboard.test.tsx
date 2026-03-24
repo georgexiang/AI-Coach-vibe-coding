@@ -1,0 +1,157 @@
+import { describe, it, expect, vi } from "vitest";
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
+import UserDashboard from "./dashboard";
+
+const mockNavigate = vi.fn();
+
+vi.mock("react-i18next", () => ({
+  useTranslation: () => ({
+    t: (key: string, opts?: Record<string, string>) => {
+      if (opts) return `${key}:${JSON.stringify(opts)}`;
+      return key;
+    },
+    i18n: { changeLanguage: vi.fn(), language: "en" },
+  }),
+}));
+
+vi.mock("react-router-dom", async () => {
+  const actual = await vi.importActual<typeof import("react-router-dom")>("react-router-dom");
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate,
+  };
+});
+
+vi.mock("@/stores/auth-store", () => ({
+  useAuthStore: () => ({
+    user: { full_name: "Test User", role: "user", username: "testuser" },
+    token: "mock-token",
+    isAuthenticated: true,
+    setAuth: vi.fn(),
+    clearAuth: vi.fn(),
+  }),
+}));
+
+vi.mock("@/components/shared", () => ({
+  StatCard: ({ label, value }: { label: string; value: string | number }) => (
+    <div data-testid="stat-card">{label}: {value}</div>
+  ),
+  SessionItem: ({ hcpName }: { hcpName: string }) => (
+    <div data-testid="session-item">{hcpName}</div>
+  ),
+  ActionCard: ({ title, onStart }: { title: string; onStart: () => void }) => (
+    <div data-testid="action-card">
+      <span>{title}</span>
+      <button onClick={onStart}>Start</button>
+    </div>
+  ),
+  RecommendedScenario: ({ hcpName, onStart }: { hcpName: string; onStart: () => void }) => (
+    <div data-testid="recommended-scenario">
+      <span>{hcpName}</span>
+      <button onClick={onStart}>Start</button>
+    </div>
+  ),
+  MiniRadarChart: () => <div data-testid="mini-radar-chart" />,
+  MiniTrendChart: () => <div data-testid="mini-trend-chart" />,
+}));
+
+describe("UserDashboard", () => {
+  it("renders the welcome message with user name", () => {
+    render(
+      <MemoryRouter>
+        <UserDashboard />
+      </MemoryRouter>,
+    );
+
+    // The t() mock returns the key with params
+    expect(screen.getByText(/welcome/)).toBeInTheDocument();
+  });
+
+  it("renders the overview subtitle", () => {
+    render(
+      <MemoryRouter>
+        <UserDashboard />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText("overview")).toBeInTheDocument();
+  });
+
+  it("renders all four stat cards", () => {
+    render(
+      <MemoryRouter>
+        <UserDashboard />
+      </MemoryRouter>,
+    );
+
+    const statCards = screen.getAllByTestId("stat-card");
+    expect(statCards).toHaveLength(4);
+  });
+
+  it("renders recent session items", () => {
+    render(
+      <MemoryRouter>
+        <UserDashboard />
+      </MemoryRouter>,
+    );
+
+    const sessions = screen.getAllByTestId("session-item");
+    expect(sessions).toHaveLength(5);
+    expect(screen.getByText("Dr. Sarah Mitchell")).toBeInTheDocument();
+    expect(screen.getByText("Dr. James Wong")).toBeInTheDocument();
+  });
+
+  it("renders action cards for F2F and Conference training", () => {
+    render(
+      <MemoryRouter>
+        <UserDashboard />
+      </MemoryRouter>,
+    );
+
+    const actionCards = screen.getAllByTestId("action-card");
+    expect(actionCards).toHaveLength(2);
+    expect(screen.getByText("f2fTraining")).toBeInTheDocument();
+    expect(screen.getByText("conferenceTraining")).toBeInTheDocument();
+  });
+
+  it("renders recommended scenario section", () => {
+    render(
+      <MemoryRouter>
+        <UserDashboard />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText("recommendedScenario")).toBeInTheDocument();
+    expect(screen.getByText("Dr. Amanda Hayes")).toBeInTheDocument();
+  });
+
+  it("navigates to training page when View All is clicked", async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <UserDashboard />
+      </MemoryRouter>,
+    );
+
+    const viewAllButton = screen.getByText("viewAll");
+    await user.click(viewAllButton);
+
+    expect(mockNavigate).toHaveBeenCalledWith("/user/training");
+  });
+
+  it("navigates to training when action card Start is clicked", async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <UserDashboard />
+      </MemoryRouter>,
+    );
+
+    const startButtons = screen.getAllByText("Start");
+    await user.click(startButtons[0]!);
+
+    expect(mockNavigate).toHaveBeenCalledWith("/user/training");
+  });
+});
