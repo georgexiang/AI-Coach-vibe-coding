@@ -22,7 +22,7 @@ created: 2026-03-24
 | Preset | Custom — Figma Make "Design System for SaaS" adapted in Phase 1 |
 | Component library | Radix UI primitives (via shadcn/ui) |
 | Icon library | lucide-react 0.460.0 |
-| Font | Inter + Noto Sans SC (400, 500, 600, 700) via Google Fonts |
+| Font | Inter + Noto Sans SC (400, 600) via Google Fonts |
 | Charting | recharts (new dependency for Phase 2 — RadarChart, BarChart) |
 | Form validation | react-hook-form + zod (already installed) |
 
@@ -74,18 +74,24 @@ Exceptions:
 ## Typography
 
 All values extracted from Figma Make `theme.css` base layer and Figma Make component files.
+Consolidated to 4 sizes and 2 weights for design consistency.
 
 | Role | Size | Weight | Line Height | Usage |
 |------|------|--------|-------------|-------|
-| Body | 14px (`text-sm`) | 400 (normal) | 1.5 (`leading-relaxed`) | Chat messages, form descriptions, panel content |
-| Label | 16px (`text-base`) | 500 (medium) | 1.5 | Form labels, button text, card titles, panel headers |
-| Small | 12px (`text-xs`) | 400/500 | 1.5 (`leading-tight`) | Timestamps, scoring criteria values, key message checklist, hints, badge text |
-| Heading | 18px (`text-lg`) | 600 (semibold) | 1.5 | Panel titles, section headings, dimension names |
-| Display | 30px (`text-3xl`) | 700 (bold) | 1.2 | Page titles ("Training Scenarios", "HCP Profiles"), overall score number |
-| Score | 36px (`text-4xl`) | 600 (semibold) | 1.2 | Large score display on ScoreCard |
+| Body | 14px (`text-sm`) | 400 (normal) | 1.5 (`leading-relaxed`) | Chat messages, form descriptions, panel content, timestamps (use `text-muted-foreground` or `opacity-70` to differentiate secondary text), scoring criteria values, key message checklist, hints, badge text |
+| Label | 16px (`text-base`) | 600 (semibold) | 1.5 (`leading-normal`) | Form labels, button text, card titles, panel headers |
+| Heading | 18px (`text-lg`) | 600 (semibold) | 1.5 (`leading-normal`) | Panel titles, section headings, dimension names |
+| Display | 30px (`text-3xl`) | 600 (semibold) | 1.2 (`leading-tight`) | Page titles ("Training Scenarios", "HCP Profiles"), overall score number, large score display on ScoreCard |
 
 Font stack: `'Inter', 'Noto Sans SC', sans-serif` (via `--font-sans` token).
 Mono font for timer: `'JetBrains Mono', 'Fira Code', monospace` (via `--font-mono` token).
+
+**Weight differentiation guide:**
+- 400 (normal): Body text, descriptions, metadata, timestamps, placeholder text, hints
+- 600 (semibold): Headings, labels, buttons, emphasis, display numbers, card titles, panel headers
+
+**Size differentiation for former "Small" elements:**
+- Timestamps, hints, badge text, scoring criteria values, key message checklist items: Use 14px (`text-sm`) at weight 400 with `text-muted-foreground` or `opacity-70` to visually distinguish from primary body text.
 
 ---
 
@@ -149,7 +155,7 @@ All values extracted from existing `frontend/src/styles/index.css` design tokens
 ### Accent Reserved For
 
 Accent color (`#1E40AF` / `bg-primary` / `bg-blue-600`) is reserved exclusively for:
-1. Primary action buttons ("Start Training", "Save", "Send")
+1. Primary action buttons ("Start Training", "Save Profile", "Save Scenario", "Send")
 2. Active navigation items and tab indicators
 3. HCP avatar fallback background (`bg-blue-100 text-blue-700` for light, `bg-blue-600 text-white` for large)
 4. Radar chart current-session fill
@@ -169,18 +175,18 @@ Accent color (`#1E40AF` / `bg-primary` / `bg-blue-600`) is reserved exclusively 
 **Layout:** Standard page within user layout shell (Phase 1).
 - Page padding: `p-4 lg:p-8`
 - Max width: `max-w-7xl mx-auto`
-- Title: `text-3xl font-bold text-gray-900 mb-8`
+- Title: `text-3xl font-semibold text-gray-900 mb-8`
 
 **Scenario Card Grid:**
 - Grid: `grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6`
 - Card: `bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow`
 - Card header: `h-48 bg-gradient-to-br from-blue-500 to-blue-600` with centered `PlayCircle` icon (w-16 h-16 text-white opacity-80)
 - Card body: `p-6`
-- Title: `text-lg font-bold text-gray-900 mb-2`
+- Title: `text-lg font-semibold text-gray-900 mb-2`
 - Description: `text-sm text-gray-600 mb-4`
 - Metadata row: `flex items-center gap-4 mb-4 text-sm text-gray-600` with Clock + Star icons
-- Difficulty badge: `px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium`
-- Start button: `px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors`
+- Difficulty badge: `px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-semibold`
+- Start button: `px-4 py-2 bg-blue-600 text-white rounded-lg text-base font-semibold hover:bg-blue-700 transition-colors`
 
 **Filter Bar (from Figma prompt, not yet in Training.tsx):**
 - Tabs: "F2F Training" (active) | "Conference Training"
@@ -206,9 +212,9 @@ Accent color (`#1E40AF` / `bg-primary` / `bg-blue-600`) is reserved exclusively 
 - Toggle: `Button variant="ghost" size="icon"` with ChevronLeft
 - Sections (each a Card with `mb-4`):
   1. Scenario Briefing: CardTitle `text-sm`, content `space-y-2 text-sm`
-  2. HCP Profile: Avatar `h-[60px] w-[60px]`, fallback `bg-blue-100 text-blue-700`, name `font-semibold`, details `text-xs text-slate-600`
-  3. Key Messages: Checkbox + label list, checkbox `mt-0.5`, label `text-xs text-slate-700 cursor-pointer leading-tight`
-  4. Scoring Criteria: Key-value pairs `flex justify-between`, label `text-slate-600`, value `font-medium`, all `text-xs`
+  2. HCP Profile: Avatar `h-[60px] w-[60px]`, fallback `bg-blue-100 text-blue-700`, name `font-semibold`, details `text-sm text-slate-600`
+  3. Key Messages: Checkbox + label list, checkbox `mt-0.5`, label `text-sm text-slate-700 cursor-pointer leading-relaxed`
+  4. Scoring Criteria: Key-value pairs `flex justify-between`, label `text-slate-600`, value `font-semibold`, all `text-sm`
 
 **Center Panel (Chat):**
 - Container: `flex-1 flex flex-col bg-white`
@@ -217,30 +223,30 @@ Accent color (`#1E40AF` / `bg-primary` / `bg-blue-600`) is reserved exclusively 
   - End Session: `Button variant="destructive" size="sm"` with AlertCircle icon
 - Avatar display: `h-[240px] bg-slate-900 relative flex items-center justify-center`
   - Avatar: `h-32 w-32 border-4 border-white`
-  - Label badge: `px-3 py-1 bg-slate-800/80 rounded text-white text-xs`
+  - Label badge: `px-3 py-1 bg-slate-800/80 rounded text-white text-sm`
   - Toggle: `absolute top-3 right-3` with Switch + Label in `bg-slate-800/80 px-3 py-1.5 rounded`
 - Chat area: `ScrollArea className="flex-1 p-6"`, messages in `space-y-4 max-w-4xl mx-auto`
   - HCP bubble: `max-w-[70%] rounded-lg px-4 py-2.5 bg-blue-500 text-white`
   - MR bubble: `max-w-[70%] rounded-lg px-4 py-2.5 bg-slate-200 text-slate-900`
   - Message text: `text-sm leading-relaxed`
-  - Timestamp: `text-xs opacity-70 mt-1 block`
+  - Timestamp: `text-sm opacity-70 mt-1 block text-muted-foreground`
   - Typing indicator: `bg-blue-500 text-white rounded-lg px-4 py-2.5` with 3 dots: `w-2 h-2 bg-white rounded-full animate-bounce` with staggered delays
 - Input area: `border-t border-slate-200 p-4 bg-slate-50`
   - Layout: `max-w-4xl mx-auto space-y-3`
   - Row: `flex items-center gap-3`
   - Textarea: `flex-1 min-h-[44px] max-h-32 resize-none`
   - Mic button: `h-11 w-11 rounded-full`, idle=`bg-blue-600 hover:bg-blue-700`, recording=`bg-red-600 hover:bg-red-700 animate-pulse`, processing=`bg-yellow-600 hover:bg-yellow-700`
-  - Send button: `h-11 w-11 rounded-full` (primary)
-  - Mode toggle: `px-3 py-1 rounded text-xs`, active=`bg-blue-600 text-white`, inactive=`bg-slate-200 text-slate-600`
+  - Send button: `h-11 w-11 rounded-full` (primary), `aria-label="Send message"`
+  - Mode toggle: `px-3 py-1 rounded text-sm`, active=`bg-blue-600 text-white`, inactive=`bg-slate-200 text-slate-600`
 
 **Right Panel (Coaching Panel):**
 - Expanded: `w-[260px] bg-slate-50 border-l border-slate-200 p-4 overflow-y-auto`
 - Collapsed: `w-12 bg-slate-50 border-l border-slate-200 flex flex-col items-center pt-4`
 - Toggle: `Button variant="ghost" size="icon"` with ChevronRight
 - Sections:
-  1. AI Coach Hints: `Card className="mb-4 bg-yellow-50 border-yellow-200"`, hints `text-xs text-slate-700 leading-tight`
+  1. AI Coach Hints: `Card className="mb-4 bg-yellow-50 border-yellow-200"`, hints `text-sm text-slate-700 leading-relaxed`
   2. Message Tracker: Status icons — delivered: `Check h-4 w-4 text-green-600`, in-progress: `div h-2 w-2 bg-blue-600 rounded-full`, pending: `Circle h-4 w-4 text-slate-400`. Text color: delivered=`text-green-700`, in-progress=`text-blue-700`, pending=`text-slate-500`
-  3. Session Stats: Key-value pairs `flex justify-between text-xs`
+  3. Session Stats: Key-value pairs `flex justify-between text-sm`
 
 ### Page 3: Scoring Feedback
 
@@ -251,7 +257,7 @@ Accent color (`#1E40AF` / `bg-primary` / `bg-blue-600`) is reserved exclusively 
 - Max width: `max-w-7xl mx-auto`
 
 **Top Section:**
-- Overall score: Large number (`text-4xl font-semibold`) with circular progress ring (recharts PieChart or custom SVG), Grade badge
+- Overall score: Large number (`text-3xl font-semibold`) with circular progress ring (recharts PieChart or custom SVG), Grade badge
 - Trend indicator: `flex items-center gap-1 text-sm text-strength` with TrendingUp icon
 - Session info: `text-sm text-muted-foreground`
 
@@ -260,8 +266,8 @@ Accent color (`#1E40AF` / `bg-primary` / `bg-blue-600`) is reserved exclusively 
 **Left Column:**
 - Radar chart: `h-80` (320px), `ResponsiveContainer` with recharts `RadarChart`
   - Grid stroke: `#E5E7EB`
-  - Angle axis tick: `fill: '#64748B', fontSize: 12`
-  - Radius axis tick: `fill: '#64748B', fontSize: 10`
+  - Angle axis tick: `fill: '#64748B', fontSize: 14`
+  - Radius axis tick: `fill: '#64748B', fontSize: 14`
   - Current session: `stroke="#1E40AF" fill="#1E40AF" fillOpacity={0.5}`
   - Previous session: `stroke="#475569" strokeDasharray="5 5" fill="none"` (overlay comparison)
 - Dimension bars (below radar): Stack of `DimensionBar` components
@@ -306,9 +312,9 @@ Accent color (`#1E40AF` / `bg-primary` / `bg-blue-600`) is reserved exclusively 
   4. Knowledge (Card): Multi-select tag input for expertise, textareas for habits and concerns
   5. Interaction Rules (Card): Editable objection list, key topics list, difficulty radio
 - Bottom actions: `flex items-center gap-3`
-  - "Save": `Button variant="default"` (primary)
+  - "Save Profile": `Button variant="default"` (primary)
   - "Test Chat": `Button variant="outline"` — opens Dialog with mini-chat
-  - "Cancel": `Button variant="ghost"`
+  - "Discard Changes": `Button variant="ghost"`
 
 ### Page 5: Admin Scenario Management
 
@@ -323,7 +329,7 @@ Accent color (`#1E40AF` / `bg-primary` / `bg-blue-600`) is reserved exclusively 
 
 **Scenario Editor (Dialog modal):**
 - Form fields: Name, Description (Textarea), Product (Select), Therapeutic Area (Select), Assigned HCP (Select with avatar), Mode (radio), Key Messages (editable checklist), Scoring Weights (5 linked Sliders totaling 100%), Pass Threshold (Input type number, default 70)
-- Actions: "Save" primary button, "Clone Scenario" outline button
+- Actions: "Save Scenario" primary button, "Clone Scenario" outline button
 
 ### Page 6: Admin Azure Service Configuration (PLAT-03)
 
@@ -462,9 +468,9 @@ All UI text MUST use i18n translation keys. Values below are the en-US defaults.
 |---------|-----------|----------|
 | Page title | HCP Profiles | `admin.hcp.title` |
 | Create button | Create New HCP | `admin.hcp.createButton` |
-| Save button | Save | `admin.hcp.save` |
+| Save button | Save Profile | `admin.hcp.save` |
 | Test chat button | Test Chat | `admin.hcp.testChat` |
-| Cancel button | Cancel | `admin.hcp.cancel` |
+| Discard changes button | Discard Changes | `admin.hcp.discardChanges` |
 | Empty state heading | No HCP Profiles | `admin.hcp.emptyTitle` |
 | Empty state body | Create your first HCP profile to start building training scenarios. | `admin.hcp.emptyBody` |
 | Delete confirmation | Delete HCP Profile: This will permanently remove this profile and unassign it from all scenarios. This action cannot be undone. | `admin.hcp.deleteConfirm` |
@@ -476,6 +482,7 @@ All UI text MUST use i18n translation keys. Values below are the en-US defaults.
 |---------|-----------|----------|
 | Page title | Training Scenarios | `admin.scenarios.title` |
 | Create button | Create Scenario | `admin.scenarios.createButton` |
+| Save button | Save Scenario | `admin.scenarios.save` |
 | Clone button | Clone Scenario | `admin.scenarios.cloneButton` |
 | Empty state heading | No Scenarios | `admin.scenarios.emptyTitle` |
 | Empty state body | Create your first training scenario by assigning an HCP profile and configuring key messages. | `admin.scenarios.emptyBody` |
@@ -561,6 +568,7 @@ These components from `figma-make/Design System for SaaS/src/app/components/` sh
 - Scoring dimension bars must include `role="progressbar"` with `aria-valuenow`, `aria-valuemin="0"`, `aria-valuemax="100"`
 - Panel collapse toggles must use `aria-expanded` and `aria-controls`
 - Mic button states must use `aria-label` that changes with state ("Start recording" / "Recording..." / "Processing...")
+- Send button must use `aria-label="Send message"` for screen reader accessibility
 - All form inputs in admin pages must have associated labels (enforced by shadcn Form component)
 - Color-coded scores must also have text labels (never rely on color alone)
 - Keyboard: Enter sends message in chat, Shift+Enter for newline
