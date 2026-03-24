@@ -40,6 +40,21 @@ Plans:
 
 **UI hint**: yes
 
+### Phase 01.1: UI Figma Alignment (INSERTED)
+
+**Goal:** Align existing frontend with 5 Figma Make generated screens -- login polish, full user dashboard, scenario selection page, F2F training session page, and 11 new shared domain components. All pages use i18n, design tokens, and mock data (backend integration deferred to Phase 2).
+**Requirements**: UI-01, UI-02, UI-03, UI-04, UI-05
+**Depends on:** Phase 1
+**Plans:** 6 plans
+
+Plans:
+- [ ] 01.1-01-PLAN.md -- Install Radix deps, 4 new UI base components (ScrollArea, Tabs, Progress, Textarea), i18n namespaces
+- [ ] 01.1-02-PLAN.md -- Login page polish: SVG logo, card shadow, auth layout gradient/language switcher/copyright
+- [ ] 01.1-03-PLAN.md -- 11 shared domain components: StatCard, SessionItem, ActionCard, HCPProfileCard, ChatBubble, ChatInput, etc.
+- [ ] 01.1-04-PLAN.md -- User dashboard page + scenario selection page + route registration
+- [ ] 01.1-05-PLAN.md -- F2F training session: 3 coach panels + full-screen training page + route registration
+- [ ] 01.1-06-PLAN.md -- Build validation + visual verification checkpoint
+
 ### Phase 2: F2F Text Coaching and Scoring
 **Goal**: An MR can select a scenario, have a text-based F2F conversation with an AI HCP that behaves according to its profile, and receive a multi-dimensional scored feedback report after the session
 **Depends on**: Phase 1
@@ -81,11 +96,12 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 -> 2 -> 3 -> 4
+Phases execute in numeric order: 1 -> 01.1 -> 2 -> 3 -> 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation, Auth, and Design System | 0/5 | Planning complete | - |
+| 1. Foundation, Auth, and Design System | 5/5 | Complete | - |
+| 01.1. UI Figma Alignment | 0/6 | Planning complete | - |
 | 2. F2F Text Coaching and Scoring | 0/TBD | Not started | - |
 | 3. Voice, Avatar, and Conference Mode | 0/TBD | Not started | - |
 | 4. Dashboards, Analytics, and Reports | 0/TBD | Not started | - |
