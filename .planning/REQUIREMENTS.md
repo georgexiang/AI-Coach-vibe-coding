@@ -89,7 +89,7 @@
 
 - [x] **PLAT-01**: i18n framework (react-i18next) integrated from day 1 — all UI strings externalized, zh-CN and en-US
 - [x] **PLAT-02**: Responsive web design — same app works on desktop, tablet, mobile, and Teams Tab (iframe)
-- [ ] **PLAT-03**: Admin can configure Azure service connections (OpenAI, Speech, Avatar, Content Understanding) from web UI with connection testing
+- [x] **PLAT-03**: Admin can configure Azure service connections (OpenAI, Speech, Avatar, Content Understanding) from web UI with connection testing
 - [x] **PLAT-04**: Per-region deployment supported — single codebase, per-region configuration for data residency (China, EU)
 - [x] **PLAT-05**: Voice interaction mode (STT/TTS vs GPT Realtime vs Voice Live) configurable per deployment and per session
 
@@ -175,7 +175,7 @@
 | ANLYT-05 | Phase 4 | Pending |
 | PLAT-01 | Phase 1 | Complete |
 | PLAT-02 | Phase 1 | Complete |
-| PLAT-03 | Phase 2 | Pending |
+| PLAT-03 | Phase 2 | Complete |
 | PLAT-04 | Phase 1 | Complete |
 | PLAT-05 | Phase 1 | Complete |
 

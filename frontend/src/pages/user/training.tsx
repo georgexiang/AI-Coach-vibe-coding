@@ -13,137 +13,71 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Skeleton,
 } from "@/components/ui";
-import { HCPProfileCard } from "@/components/shared";
-
-// TODO: Replace with TanStack Query hook in Phase 2
-const mockHCPs = [
-  {
-    id: "1",
-    name: "Dr. Wang Wei",
-    nameZh: "\u738B\u4F1F",
-    specialty: "Oncologist",
-    hospital: "Beijing Cancer Hospital",
-    personality: ["Skeptical", "Detail-oriented"],
-    difficulty: "Hard" as const,
-    product: "PD-1 Inhibitor",
-    avatar: "https://api.dicebear.com/9.x/avataaars/svg?seed=WangWei&backgroundColor=b6e3f4",
-  },
-  {
-    id: "2",
-    name: "Dr. Li Na",
-    nameZh: "\u674E\u5A1C",
-    specialty: "Cardiologist",
-    hospital: "Shanghai Cardiovascular Center",
-    personality: ["Friendly"],
-    difficulty: "Easy" as const,
-    product: "ACE Inhibitor",
-    avatar: "https://api.dicebear.com/9.x/avataaars/svg?seed=LiNa&backgroundColor=ffd5dc",
-  },
-  {
-    id: "3",
-    name: "Dr. Zhang Ming",
-    nameZh: "\u5F20\u660E",
-    specialty: "Neurologist",
-    hospital: "Guangzhou General Hospital",
-    personality: ["Busy"],
-    difficulty: "Medium" as const,
-    product: "Migraine Treatment",
-    avatar: "https://api.dicebear.com/9.x/avataaars/svg?seed=ZhangMing&backgroundColor=c0aede",
-  },
-  {
-    id: "4",
-    name: "Dr. Chen Hui",
-    nameZh: "\u9648\u6167",
-    specialty: "Pulmonologist",
-    hospital: "Shenzhen Respiratory Institute",
-    personality: ["Detail-oriented"],
-    difficulty: "Medium" as const,
-    product: "COPD Inhaler",
-    avatar: "https://api.dicebear.com/9.x/avataaars/svg?seed=ChenHui&backgroundColor=d1f4d1",
-  },
-  {
-    id: "5",
-    name: "Dr. Liu Yang",
-    nameZh: "\u5218\u6D0B",
-    specialty: "Endocrinologist",
-    hospital: "Hangzhou Diabetes Center",
-    personality: ["Skeptical"],
-    difficulty: "Hard" as const,
-    product: "GLP-1 Agonist",
-    avatar: "https://api.dicebear.com/9.x/avataaars/svg?seed=LiuYang&backgroundColor=ffdfba",
-  },
-  {
-    id: "6",
-    name: "Dr. Zhao Lin",
-    nameZh: "\u8D75\u7433",
-    specialty: "Hematologist",
-    hospital: "Nanjing Blood Disease Hospital",
-    personality: ["Friendly"],
-    difficulty: "Easy" as const,
-    product: "Anticoagulant Therapy",
-    avatar: "https://api.dicebear.com/9.x/avataaars/svg?seed=ZhaoLin&backgroundColor=b6e3f4",
-  },
-];
+import { EmptyState } from "@/components/shared";
+import { ScenarioCard } from "@/components/coach";
+import { useActiveScenarios } from "@/hooks/use-scenarios";
+import { useCreateSession } from "@/hooks/use-session";
 
 const ALL_VALUE = "__all__";
 
 export default function ScenarioSelection() {
-  const { t } = useTranslation("training");
+  const { t } = useTranslation("coach");
   const navigate = useNavigate();
 
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedProduct, setSelectedProduct] = useState(ALL_VALUE);
   const [selectedDifficulty, setSelectedDifficulty] = useState(ALL_VALUE);
-  const [selectedSpecialty, setSelectedSpecialty] = useState(ALL_VALUE);
+
+  const { data, isLoading } = useActiveScenarios();
+  const createSession = useCreateSession();
+
+  const scenarios = data?.items ?? [];
 
   const products = useMemo(
-    () => [...new Set(mockHCPs.map((h) => h.product))],
-    [],
+    () => [...new Set(scenarios.map((s) => s.product))],
+    [scenarios]
   );
   const difficulties = useMemo(
-    () => [...new Set(mockHCPs.map((h) => h.difficulty))],
-    [],
-  );
-  const specialties = useMemo(
-    () => [...new Set(mockHCPs.map((h) => h.specialty))],
-    [],
+    () => [...new Set(scenarios.map((s) => s.difficulty))],
+    [scenarios]
   );
 
-  const filteredHCPs = useMemo(() => {
-    return mockHCPs.filter((hcp) => {
+  const filteredScenarios = useMemo(() => {
+    return scenarios.filter((s) => {
       const matchesSearch =
         searchTerm === "" ||
-        hcp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        hcp.specialty.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        hcp.hospital.toLowerCase().includes(searchTerm.toLowerCase());
-
+        s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        s.description.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesProduct =
-        selectedProduct === ALL_VALUE || hcp.product === selectedProduct;
+        selectedProduct === ALL_VALUE || s.product === selectedProduct;
       const matchesDifficulty =
         selectedDifficulty === ALL_VALUE ||
-        hcp.difficulty === selectedDifficulty;
-      const matchesSpecialty =
-        selectedSpecialty === ALL_VALUE ||
-        hcp.specialty === selectedSpecialty;
-
-      return (
-        matchesSearch &&
-        matchesProduct &&
-        matchesDifficulty &&
-        matchesSpecialty
-      );
+        s.difficulty === selectedDifficulty;
+      return matchesSearch && matchesProduct && matchesDifficulty;
     });
-  }, [searchTerm, selectedProduct, selectedDifficulty, selectedSpecialty]);
+  }, [scenarios, searchTerm, selectedProduct, selectedDifficulty]);
+
+  const handleStartTraining = async (scenarioId: string) => {
+    try {
+      const session = await createSession.mutateAsync({
+        scenario_id: scenarioId,
+      });
+      navigate(`/user/training/session?id=${session.id}`);
+    } catch {
+      // Error handled by TanStack Query
+    }
+  };
 
   const filterRow = (
-    <div className="mb-8 flex flex-wrap gap-4">
+    <div className="mb-6 flex flex-wrap items-center gap-4">
       <Select value={selectedProduct} onValueChange={setSelectedProduct}>
         <SelectTrigger className="w-[180px]">
-          <SelectValue placeholder={t("allProducts")} />
+          <SelectValue placeholder={t("scenarioSelection.filterAllDifficulties")} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value={ALL_VALUE}>{t("allProducts")}</SelectItem>
+          <SelectItem value={ALL_VALUE}>All Products</SelectItem>
           {products.map((product) => (
             <SelectItem key={product} value={product}>
               {product}
@@ -152,39 +86,30 @@ export default function ScenarioSelection() {
         </SelectContent>
       </Select>
 
-      <Select value={selectedDifficulty} onValueChange={setSelectedDifficulty}>
+      <Select
+        value={selectedDifficulty}
+        onValueChange={setSelectedDifficulty}
+      >
         <SelectTrigger className="w-[180px]">
-          <SelectValue placeholder={t("allDifficulties")} />
+          <SelectValue placeholder={t("scenarioSelection.filterAllDifficulties")} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value={ALL_VALUE}>{t("allDifficulties")}</SelectItem>
-          {difficulties.map((difficulty) => (
-            <SelectItem key={difficulty} value={difficulty}>
-              {difficulty}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-
-      <Select value={selectedSpecialty} onValueChange={setSelectedSpecialty}>
-        <SelectTrigger className="w-[180px]">
-          <SelectValue placeholder={t("allSpecialties")} />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value={ALL_VALUE}>{t("allSpecialties")}</SelectItem>
-          {specialties.map((specialty) => (
-            <SelectItem key={specialty} value={specialty}>
-              {specialty}
+          <SelectItem value={ALL_VALUE}>
+            {t("scenarioSelection.filterAllDifficulties")}
+          </SelectItem>
+          {difficulties.map((d) => (
+            <SelectItem key={d} value={d}>
+              {d}
             </SelectItem>
           ))}
         </SelectContent>
       </Select>
 
       <div className="relative flex-1">
-        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           className="pl-9"
-          placeholder={t("search")}
+          placeholder="Search scenarios..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
@@ -192,47 +117,70 @@ export default function ScenarioSelection() {
     </div>
   );
 
-  const cardGrid = (
-    <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-      {filteredHCPs.map((hcp) => (
-        <HCPProfileCard
-          key={hcp.id}
-          name={hcp.name}
-          nameZh={hcp.nameZh}
-          specialty={hcp.specialty}
-          hospital={hcp.hospital}
-          personality={hcp.personality}
-          difficulty={hcp.difficulty}
-          product={hcp.product}
-          avatar={hcp.avatar}
-          onStartTraining={() => navigate("/user/training/session")}
+  const renderGrid = () => {
+    if (isLoading) {
+      return (
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="overflow-hidden rounded-xl border">
+              <Skeleton className="h-48 w-full" />
+              <div className="space-y-3 p-6">
+                <Skeleton className="h-5 w-3/4" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-1/2" />
+              </div>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    if (filteredScenarios.length === 0) {
+      return (
+        <EmptyState
+          title={t("scenarioSelection.emptyTitle")}
+          body={t("scenarioSelection.emptyBody")}
         />
-      ))}
-    </div>
-  );
+      );
+    }
+
+    return (
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {filteredScenarios.map((scenario) => (
+          <ScenarioCard
+            key={scenario.id}
+            scenario={scenario}
+            onStart={handleStartTraining}
+          />
+        ))}
+      </div>
+    );
+  };
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-3xl font-semibold text-foreground">
-        {t("selectScenario")}
+    <div className="mx-auto max-w-7xl p-4 lg:p-8">
+      <h1 className="mb-8 text-3xl font-semibold text-gray-900">
+        {t("scenarioSelection.title")}
       </h1>
 
       <Tabs defaultValue="f2f">
         <TabsList>
-          <TabsTrigger value="f2f">{t("f2fTraining")}</TabsTrigger>
+          <TabsTrigger value="f2f">
+            {t("scenarioSelection.tabF2F")}
+          </TabsTrigger>
           <TabsTrigger value="conference">
-            {t("conferenceTraining")}
+            {t("scenarioSelection.tabConference")}
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="f2f" className="mt-6">
           {filterRow}
-          {cardGrid}
+          {renderGrid()}
         </TabsContent>
 
         <TabsContent value="conference" className="mt-6">
           {filterRow}
-          {cardGrid}
+          {renderGrid()}
         </TabsContent>
       </Tabs>
     </div>

@@ -1,3 +1,12 @@
 export { LeftPanel } from "./left-panel";
 export { CenterPanel } from "./center-panel";
 export { RightPanel } from "./right-panel";
+export { ScenarioCard } from "./scenario-card";
+export { ScenarioPanel } from "./scenario-panel";
+export { ChatArea } from "./chat-area";
+export { ChatMessage } from "./chat-message";
+export { TypingIndicator } from "./typing-indicator";
+export { KeyMessages } from "./key-messages";
+export { HintsPanel } from "./hints-panel";
+export { MessageTracker } from "./message-tracker";
+export { SessionTimer } from "./session-timer";
