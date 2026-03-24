@@ -8,7 +8,16 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
 from app.config import get_settings
-from app.models import Base, User  # noqa: F401 — import all models for autogenerate
+from app.models import (  # noqa: F401
+    Base,
+    CoachingSession,
+    HcpProfile,
+    Scenario,
+    ScoreDetail,
+    SessionMessage,
+    SessionScore,
+    User,
+)
 
 settings = get_settings()
 config = context.config
