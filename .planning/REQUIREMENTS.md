@@ -13,28 +13,28 @@
 
 ### Architecture (ARCH)
 
-- [ ] **ARCH-01**: System uses pluggable adapter pattern for all AI services (LLM, STT, TTS, Avatar) — providers can be swapped via configuration without code changes
-- [ ] **ARCH-02**: All features are component-based and configurable — feature toggles control availability per deployment
-- [ ] **ARCH-03**: Backend services use dependency injection — any service can be replaced with a mock, alternative provider, or upgraded implementation
-- [ ] **ARCH-04**: Frontend uses shared design system component library extracted from Figma Design System — all pages reuse common components with property variations
-- [ ] **ARCH-05**: Azure service connections are configurable per environment — endpoints, keys, models, regions are config, not code
+- [x] **ARCH-01**: System uses pluggable adapter pattern for all AI services (LLM, STT, TTS, Avatar) — providers can be swapped via configuration without code changes
+- [x] **ARCH-02**: All features are component-based and configurable — feature toggles control availability per deployment
+- [x] **ARCH-03**: Backend services use dependency injection — any service can be replaced with a mock, alternative provider, or upgraded implementation
+- [x] **ARCH-04**: Frontend uses shared design system component library extracted from Figma Design System — all pages reuse common components with property variations
+- [x] **ARCH-05**: Azure service connections are configurable per environment — endpoints, keys, models, regions are config, not code
 
 ### User Interface (UI)
 
-- [ ] **UI-01**: Shared component library based on Figma "Design System for SaaS" — buttons, cards, inputs, charts, navigation as reusable components
-- [ ] **UI-02**: Login page and app layout shell implemented from Figma "Design Login and Layout Shell" — sidebar navigation, header, responsive shell
+- [x] **UI-01**: Shared component library based on Figma "Design System for SaaS" — buttons, cards, inputs, charts, navigation as reusable components
+- [x] **UI-02**: Login page and app layout shell implemented from Figma "Design Login and Layout Shell" — sidebar navigation, header, responsive shell
 - [ ] **UI-03**: F2F HCP Training page implemented from Figma "F2F HCP Training Page Design" — chat area, HCP display, controls, coaching hints panel
 - [ ] **UI-04**: MR Dashboard implemented from Figma "Medical Representative Dashboard" — score overview, recent sessions, skill radar chart
 - [ ] **UI-05**: Scenario Selection page implemented from Figma "Scenario Selection Page Design" — scenario cards, filters, difficulty indicators
 - [ ] **UI-06**: Additional pages (admin, config, reports, session history) follow same design principles as Figma pages — self-developed using shared components
-- [ ] **UI-07**: All UI text externalized via react-i18next — Chinese (zh-CN) and English (en-US) supported from day 1
+- [x] **UI-07**: All UI text externalized via react-i18next — Chinese (zh-CN) and English (en-US) supported from day 1
 
 ### Authentication (AUTH)
 
-- [ ] **AUTH-01**: User can log in with simple username and password
-- [ ] **AUTH-02**: User session persists across browser refresh via JWT
-- [ ] **AUTH-03**: Two roles: User (MR) and Admin — role-based route protection
-- [ ] **AUTH-04**: Auth module uses dependency injection — architecture ready for Azure AD, Teams SSO, or Enterprise WeChat integration later
+- [x] **AUTH-01**: User can log in with simple username and password
+- [x] **AUTH-02**: User session persists across browser refresh via JWT
+- [x] **AUTH-03**: Two roles: User (MR) and Admin — role-based route protection
+- [x] **AUTH-04**: Auth module uses dependency injection — architecture ready for Azure AD, Teams SSO, or Enterprise WeChat integration later
 
 ### HCP & Scenario Configuration (HCP)
 
@@ -87,11 +87,11 @@
 
 ### Platform (PLAT)
 
-- [ ] **PLAT-01**: i18n framework (react-i18next) integrated from day 1 — all UI strings externalized, zh-CN and en-US
-- [ ] **PLAT-02**: Responsive web design — same app works on desktop, tablet, mobile, and Teams Tab (iframe)
+- [x] **PLAT-01**: i18n framework (react-i18next) integrated from day 1 — all UI strings externalized, zh-CN and en-US
+- [x] **PLAT-02**: Responsive web design — same app works on desktop, tablet, mobile, and Teams Tab (iframe)
 - [ ] **PLAT-03**: Admin can configure Azure service connections (OpenAI, Speech, Avatar, Content Understanding) from web UI with connection testing
-- [ ] **PLAT-04**: Per-region deployment supported — single codebase, per-region configuration for data residency (China, EU)
-- [ ] **PLAT-05**: Voice interaction mode (STT/TTS vs GPT Realtime vs Voice Live) configurable per deployment and per session
+- [x] **PLAT-04**: Per-region deployment supported — single codebase, per-region configuration for data residency (China, EU)
+- [x] **PLAT-05**: Voice interaction mode (STT/TTS vs GPT Realtime vs Voice Live) configurable per deployment and per session
 
 ## v2 Requirements
 
@@ -126,22 +126,22 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| ARCH-01 | Phase 1 | Pending |
-| ARCH-02 | Phase 1 | Pending |
-| ARCH-03 | Phase 1 | Pending |
-| ARCH-04 | Phase 1 | Pending |
-| ARCH-05 | Phase 1 | Pending |
-| UI-01 | Phase 1 | Pending |
-| UI-02 | Phase 1 | Pending |
+| ARCH-01 | Phase 1 | Complete |
+| ARCH-02 | Phase 1 | Complete |
+| ARCH-03 | Phase 1 | Complete |
+| ARCH-04 | Phase 1 | Complete |
+| ARCH-05 | Phase 1 | Complete |
+| UI-01 | Phase 1 | Complete |
+| UI-02 | Phase 1 | Complete |
 | UI-03 | Phase 2 | Pending |
 | UI-04 | Phase 4 | Pending |
 | UI-05 | Phase 2 | Pending |
 | UI-06 | Phase 4 | Pending |
-| UI-07 | Phase 1 | Pending |
-| AUTH-01 | Phase 1 | Pending |
-| AUTH-02 | Phase 1 | Pending |
-| AUTH-03 | Phase 1 | Pending |
-| AUTH-04 | Phase 1 | Pending |
+| UI-07 | Phase 1 | Complete |
+| AUTH-01 | Phase 1 | Complete |
+| AUTH-02 | Phase 1 | Complete |
+| AUTH-03 | Phase 1 | Complete |
+| AUTH-04 | Phase 1 | Complete |
 | HCP-01 | Phase 2 | Pending |
 | HCP-02 | Phase 2 | Pending |
 | HCP-03 | Phase 2 | Pending |
@@ -173,11 +173,11 @@
 | ANLYT-03 | Phase 4 | Pending |
 | ANLYT-04 | Phase 4 | Pending |
 | ANLYT-05 | Phase 4 | Pending |
-| PLAT-01 | Phase 1 | Pending |
-| PLAT-02 | Phase 1 | Pending |
+| PLAT-01 | Phase 1 | Complete |
+| PLAT-02 | Phase 1 | Complete |
 | PLAT-03 | Phase 2 | Pending |
-| PLAT-04 | Phase 1 | Pending |
-| PLAT-05 | Phase 1 | Pending |
+| PLAT-04 | Phase 1 | Complete |
+| PLAT-05 | Phase 1 | Complete |
 
 **Coverage:**
 - v1 requirements: 52 total
