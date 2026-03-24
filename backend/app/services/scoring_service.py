@@ -11,6 +11,7 @@ from app.models.message import SessionMessage
 from app.models.scenario import Scenario
 from app.models.score import ScoreDetail, SessionScore
 from app.models.session import CoachingSession
+from app.services.rubric_service import get_default_rubric
 from app.utils.exceptions import AppException, NotFoundException
 
 
@@ -58,8 +59,18 @@ async def score_session(db: AsyncSession, session_id: str) -> SessionScore:
     scenario = session.scenario
     key_messages_status = json.loads(session.key_messages_status)
 
+    # Check for default rubric to override scenario weights
+    rubric = await get_default_rubric(db, scenario.mode if hasattr(scenario, "mode") else "f2f")
+    if rubric is not None:
+        rubric_dims = json.loads(rubric.dimensions)
+        rubric_weights = {d["name"]: d["weight"] for d in rubric_dims}
+    else:
+        rubric_weights = None
+
     # Generate scores (mock for now, real LLM scoring when adapter available)
-    mock_scores = _generate_mock_scores(scenario, messages, key_messages_status)
+    mock_scores = _generate_mock_scores(
+        scenario, messages, key_messages_status, rubric_weights=rubric_weights
+    )
 
     # Create SessionScore
     session_score = SessionScore(
@@ -113,18 +124,98 @@ async def get_session_score(db: AsyncSession, session_id: str) -> SessionScore |
     return result.scalar_one_or_none()
 
 
+async def get_score_history(db: AsyncSession, user_id: str, limit: int = 10) -> list[dict]:
+    """Return last N scored sessions with dimension scores and trend data.
+
+    For each session, computes improvement_pct per dimension by comparing
+    with the previous (older) session's scores.
+    """
+    # Load scored sessions ordered by completed_at desc
+    result = await db.execute(
+        select(CoachingSession)
+        .options(selectinload(CoachingSession.scenario))
+        .where(
+            CoachingSession.user_id == user_id,
+            CoachingSession.status == "scored",
+        )
+        .order_by(CoachingSession.completed_at.desc())
+        .limit(limit)
+    )
+    sessions = list(result.scalars().all())
+
+    if not sessions:
+        return []
+
+    # Build history entries with dimension details
+    history: list[dict] = []
+    for session in sessions:
+        # Load score with details
+        score_result = await db.execute(
+            select(SessionScore)
+            .options(selectinload(SessionScore.details))
+            .where(SessionScore.session_id == session.id)
+        )
+        score = score_result.scalar_one_or_none()
+        if score is None:
+            continue
+
+        dimensions = [
+            {
+                "dimension": detail.dimension,
+                "score": detail.score,
+                "weight": detail.weight,
+            }
+            for detail in score.details
+        ]
+
+        history.append(
+            {
+                "session_id": session.id,
+                "scenario_name": session.scenario.name if session.scenario else "",
+                "overall_score": score.overall_score,
+                "passed": score.passed,
+                "completed_at": (
+                    session.completed_at.isoformat() if session.completed_at else None
+                ),
+                "dimensions": dimensions,
+            }
+        )
+
+    # Compute trends: compare each entry with the next (older) one
+    for i, entry in enumerate(history):
+        next_entry = history[i + 1] if i + 1 < len(history) else None
+        if next_entry is None:
+            # Oldest session — no previous to compare
+            for dim in entry["dimensions"]:
+                dim["improvement_pct"] = None
+        else:
+            # Build lookup for previous session dimensions
+            prev_dims = {d["dimension"]: d["score"] for d in next_entry["dimensions"]}
+            for dim in entry["dimensions"]:
+                prev_score = prev_dims.get(dim["dimension"])
+                if prev_score is not None:
+                    dim["improvement_pct"] = round(dim["score"] - prev_score, 1)
+                else:
+                    dim["improvement_pct"] = None
+
+    return history
+
+
 def _generate_mock_scores(
     scenario: Scenario,
     messages: list[SessionMessage],
     key_messages_status: list[dict],
+    rubric_weights: dict | None = None,
 ) -> dict:
     """Generate realistic-looking mock scores for development/testing.
 
     Produces scores between 60-95 with personality-appropriate feedback,
     strengths with transcript quotes, weaknesses referencing missed key messages,
     and actionable suggestions per dimension.
+
+    If rubric_weights is provided, uses those weights instead of scenario weights.
     """
-    weights = scenario.get_scoring_weights()
+    weights = rubric_weights if rubric_weights else scenario.get_scoring_weights()
     key_messages = json.loads(scenario.key_messages)
 
     # Determine delivered/missed key messages
