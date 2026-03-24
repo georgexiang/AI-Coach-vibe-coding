@@ -1,0 +1,27 @@
+{
+  "enabledPlugins": {
+    "superpowers@claude-plugins-official": true
+  },
+  "hooks": {
+  "Stop": [
+    {
+      "hooks": [
+        {
+          "type": "command",
+          "command": "/opt/homebrew/bin/terminal-notifier -title \"Claude Code\" -message \"Task finished\" -sound Glass"
+        }
+      ]
+    }
+  ],
+  "PermissionRequest": [
+    {
+      "hooks": [
+        {
+          "type": "command",
+          "command": "/opt/homebrew/bin/terminal-notifier -title \"Claude Code\" -message \"Waiting for permission\""
+        }
+      ]
+    }
+  ]
+}
+}

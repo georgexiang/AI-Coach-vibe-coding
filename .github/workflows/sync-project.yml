@@ -1,0 +1,24 @@
+name: Sync Project Board
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/plans/**"
+      - "docs/specs/**"
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  sync-project:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Sync plans to GitHub Project
+        env:
+          GH_TOKEN: ${{ secrets.PROJECT_TOKEN }}
+          PROJECT_NUMBER: ${{ vars.PROJECT_NUMBER }}
+        run: bash .github/scripts/sync-plans-project.sh
