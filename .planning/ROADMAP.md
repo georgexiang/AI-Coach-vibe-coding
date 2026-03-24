@@ -65,7 +65,18 @@ Plans:
   3. AI HCP responds in character (personality, knowledge, objections) based on its profile -- conversation feels realistic and contextual
   4. During the session, a side panel shows real-time key message delivery checklist and coaching hints
   5. After session completion, user sees a multi-dimensional scoring report with per-dimension scores, strengths/weaknesses with conversation quotes, and actionable improvement suggestions
-**Plans**: TBD
+**Plans**: 8 plans
+
+Plans:
+- [ ] 02-01-PLAN.md -- Backend data models, Pydantic schemas, Alembic migration, sse-starlette dependency
+- [ ] 02-02-PLAN.md -- Frontend TypeScript types, i18n namespaces (coach/admin/scoring), Slider component, recharts install
+- [ ] 02-03-PLAN.md -- Backend HCP profile + scenario CRUD API routers, service layer, seed data
+- [ ] 02-04-PLAN.md -- Backend session lifecycle + SSE streaming chat + scoring service + enhanced mock adapter
+- [ ] 02-05-PLAN.md -- Frontend API client modules + TanStack Query hooks + SSE streaming hook
+- [ ] 02-06-PLAN.md -- Admin pages: HCP profile management, scenario management, Azure config
+- [ ] 02-07-PLAN.md -- User pages: scenario selection, F2F coaching session with live chat, scoring feedback with radar chart
+- [ ] 02-08-PLAN.md -- Integration wiring: router, admin sidebar, Azure config API, full flow verification
+
 **UI hint**: yes
 
 ### Phase 3: Voice, Avatar, and Conference Mode
@@ -102,6 +113,6 @@ Phases execute in numeric order: 1 -> 01.1 -> 2 -> 3 -> 4
 |-------|----------------|--------|-----------|
 | 1. Foundation, Auth, and Design System | 5/5 | Complete | - |
 | 01.1. UI Figma Alignment | 4/6 | In Progress|  |
-| 2. F2F Text Coaching and Scoring | 0/TBD | Not started | - |
+| 2. F2F Text Coaching and Scoring | 0/8 | Not started | - |
 | 3. Voice, Avatar, and Conference Mode | 0/TBD | Not started | - |
 | 4. Dashboards, Analytics, and Reports | 0/TBD | Not started | - |
