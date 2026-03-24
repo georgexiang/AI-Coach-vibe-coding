@@ -1,0 +1,20 @@
+{
+  "emptyState": {
+    "title": "Nothing here yet",
+    "body": "Content will appear here once data is available."
+  },
+  "error": {
+    "title": "Something went wrong",
+    "body": "An unexpected error occurred. Please refresh the page or try again later."
+  },
+  "loading": "Loading...",
+  "lang": { "zhCN": "Chinese", "enUS": "English" },
+  "logout": "Sign Out",
+  "profile": "Profile",
+  "startTraining": "Start Training",
+  "noData": "No data yet",
+  "noDataDescription": "Complete your first training session to see results here",
+  "errorTitle": "Something went wrong",
+  "errorDescription": "Please try again or contact support if the problem persists",
+  "ariaSwitchLanguage": "Switch language"
+}

@@ -1,0 +1,67 @@
+{
+  "hcp": {
+    "title": "HCP Profiles",
+    "createButton": "Create New HCP",
+    "save": "Save Profile",
+    "testChat": "Test Chat",
+    "discardChanges": "Discard Changes",
+    "emptyTitle": "No HCP Profiles",
+    "emptyBody": "Create your first HCP profile to start building training scenarios.",
+    "deleteConfirm": "Delete HCP Profile: This will permanently remove this profile and unassign it from all scenarios. This action cannot be undone.",
+    "searchPlaceholder": "Search HCP profiles...",
+    "personalityType": "Personality Type",
+    "emotionalState": "Emotional State",
+    "communicationStyle": "Communication Style",
+    "expertiseAreas": "Expertise Areas",
+    "prescribingHabits": "Prescribing Habits",
+    "concerns": "Concerns",
+    "objections": "Objections",
+    "probeTopics": "Probe Topics",
+    "addObjection": "Add Objection",
+    "addTopic": "Add Topic",
+    "identity": "Identity",
+    "personality": "Personality",
+    "knowledge": "Knowledge Background",
+    "interactionRules": "Interaction Rules"
+  },
+  "scenarios": {
+    "title": "Training Scenarios",
+    "createButton": "Create Scenario",
+    "save": "Save Scenario",
+    "cloneButton": "Clone Scenario",
+    "emptyTitle": "No Scenarios",
+    "emptyBody": "Create your first training scenario by assigning an HCP profile and configuring key messages.",
+    "deleteConfirm": "Delete Scenario: This will permanently remove this scenario. Existing session history will be preserved.",
+    "keyMessages": "Key Messages",
+    "addKeyMessage": "Add Key Message",
+    "scoringWeights": "Scoring Weights",
+    "passThreshold": "Pass Threshold",
+    "keyMessageDelivery": "Key Message Delivery",
+    "objectionHandling": "Objection Handling",
+    "communicationSkills": "Communication Skills",
+    "productKnowledge": "Product Knowledge",
+    "scientificInfo": "Scientific Information"
+  },
+  "azureConfig": {
+    "title": "Azure Service Configuration",
+    "testConnection": "Test Connection",
+    "connectionSuccess": "Connection successful",
+    "connectionFailed": "Connection test failed. Verify the endpoint and API key are correct.",
+    "endpoint": "Endpoint",
+    "apiKey": "API Key",
+    "model": "Model/Deployment",
+    "region": "Region",
+    "services": {
+      "openai": "Azure OpenAI",
+      "speechStt": "Azure Speech (STT)",
+      "speechTts": "Azure Speech (TTS)",
+      "avatar": "Azure AI Avatar",
+      "contentUnderstanding": "Azure Content Understanding"
+    }
+  },
+  "errors": {
+    "hcpSaveFailed": "Could not save HCP profile. Check required fields and try again.",
+    "scenarioSaveFailed": "Could not save scenario. Check required fields and try again.",
+    "connectionTestFailed": "Connection test failed. Verify the endpoint and API key are correct."
+  }
+}

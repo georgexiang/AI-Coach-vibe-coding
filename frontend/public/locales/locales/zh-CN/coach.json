@@ -1,0 +1,41 @@
+{
+  "scenarioSelection": {
+    "title": "培训场景",
+    "startButton": "开始培训",
+    "emptyTitle": "暂无可用场景",
+    "emptyBody": "培训场景尚未配置，请联系管理员进行设置。",
+    "filterAllDifficulties": "所有难度",
+    "filterAllProducts": "所有产品",
+    "filterAllSpecialties": "所有专科",
+    "tabF2F": "面对面培训",
+    "tabConference": "会议培训",
+    "searchPlaceholder": "搜索场景..."
+  },
+  "session": {
+    "trainingPanel": "培训面板",
+    "coachingPanel": "辅导面板",
+    "scenarioBriefing": "场景介绍",
+    "hcpProfile": "HCP 档案",
+    "keyMessages": "关键信息",
+    "scoringCriteria": "评分标准",
+    "aiCoachHints": "AI 教练提示",
+    "messageTracker": "消息追踪",
+    "sessionStats": "会话统计",
+    "endSession": "结束会话",
+    "inputPlaceholder": "输入您的消息...",
+    "endConfirm": "确定要结束此培训会话吗？",
+    "endConfirmTitle": "结束会话",
+    "endConfirmCancel": "继续培训",
+    "endConfirmOk": "结束会话",
+    "duration": "时长",
+    "wordCount": "字数",
+    "messagesCount": "消息数",
+    "startingSession": "正在启动会话...",
+    "scoringInProgress": "正在评分..."
+  },
+  "errors": {
+    "sendFailed": "消息发送失败，请检查网络连接后重试。",
+    "sessionLoadFailed": "无法加载会话，请返回场景选择页面重试。",
+    "sseDisconnected": "与辅导服务器的连接已断开，正在尝试重新连接..."
+  }
+}
