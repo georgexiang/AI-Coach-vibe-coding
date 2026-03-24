@@ -46,9 +46,9 @@
 
 ### F2F Coaching Simulation (COACH)
 
-- [ ] **COACH-01**: User can start a text-based F2F coaching session with an AI-powered HCP based on selected scenario
+- [x] **COACH-01**: User can start a text-based F2F coaching session with an AI-powered HCP based on selected scenario
 - [ ] **COACH-02**: AI HCP responds in character (personality, knowledge, objections) as defined by HCP profile and scenario context
-- [ ] **COACH-03**: System tracks key message delivery in real-time — checklist shows which messages were delivered and which were missed
+- [x] **COACH-03**: System tracks key message delivery in real-time — checklist shows which messages were delivered and which were missed
 - [ ] **COACH-04**: User can use voice input (Azure Speech STT) — speech recognized and sent as text to AI HCP (zh-CN + en-US)
 - [ ] **COACH-05**: AI HCP responses are spoken via Azure Speech TTS — natural-sounding voices in Chinese and English
 - [ ] **COACH-06**: Voice interaction supports GPT Realtime API (WebSocket) for sub-1s conversational latency as configurable premium option
@@ -147,9 +147,9 @@
 | HCP-03 | Phase 2 | Complete |
 | HCP-04 | Phase 2 | Complete |
 | HCP-05 | Phase 2 | Complete |
-| COACH-01 | Phase 2 | Pending |
+| COACH-01 | Phase 2 | Complete |
 | COACH-02 | Phase 2 | Pending |
-| COACH-03 | Phase 2 | Pending |
+| COACH-03 | Phase 2 | Complete |
 | COACH-04 | Phase 3 | Pending |
 | COACH-05 | Phase 3 | Pending |
 | COACH-06 | Phase 3 | Pending |
