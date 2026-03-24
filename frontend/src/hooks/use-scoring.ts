@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { triggerScoring, getSessionScore } from "@/api/scoring";
+import { triggerScoring, getSessionScore, getScoreHistory } from "@/api/scoring";
 
 export function useSessionScore(sessionId: string | undefined) {
   return useQuery({
@@ -17,5 +17,12 @@ export function useTriggerScoring() {
       queryClient.invalidateQueries({ queryKey: ["scoring", sessionId] });
       queryClient.invalidateQueries({ queryKey: ["sessions", sessionId] });
     },
+  });
+}
+
+export function useScoreHistory(limit: number = 10) {
+  return useQuery({
+    queryKey: ["scoring", "history", limit],
+    queryFn: () => getScoreHistory(limit),
   });
 }
