@@ -49,9 +49,7 @@ class TestJWTCreation:
 
         from app.services.auth import create_access_token
 
-        token = create_access_token(
-            data={"sub": "user-456"}, expires_delta=timedelta(minutes=5)
-        )
+        token = create_access_token(data={"sub": "user-456"}, expires_delta=timedelta(minutes=5))
         payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
         assert payload["sub"] == "user-456"
 
