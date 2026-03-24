@@ -13,10 +13,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from app.config import get_settings
+from app.models import hcp_profile, message, scenario, score, session, user  # noqa: F401
 from app.models.base import Base
-
-# Import all models so Base.metadata knows about them
-from app.models import user, hcp_profile, scenario, session, message, score  # noqa: F401
 
 settings = get_settings()
 
