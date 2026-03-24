@@ -91,7 +91,14 @@ Plans:
   3. Admin can configure customizable scoring rubrics -- defining dimensions, weights, and criteria per scenario type
   4. Scoring results are persisted and queryable for historical trend analysis
   5. All new code has unit tests with >=95% coverage maintained
-**Plans**: TBD
+**Plans**: 4 plans
+
+Plans:
+- [x] 03-01-PLAN.md -- Backend services: rubric CRUD, scoring rubric integration, SSE suggestion wiring, report/suggestions/history endpoints, tests
+- [x] 03-02-PLAN.md -- Frontend data layer: TypeScript types, API clients, TanStack Query hooks for rubrics/reports/history
+- [x] 03-03-PLAN.md -- Frontend pages: admin rubric management, enhanced scoring feedback with full report + PDF, session history
+- [ ] 03-04-PLAN.md -- Integration wiring: router registration, sidebar nav, seed default rubric, full flow verification
+
 **UI hint**: yes
 
 ### Phase 4: Dashboard & Reporting
@@ -143,7 +150,7 @@ Phases execute in numeric order: 1 -> 01.1 -> 2 -> 3 -> 4 -> 5 -> 6
 | 1. Foundation, Auth, and Design System | 5/5 | Complete | - |
 | 01.1. UI Figma Alignment | 6/6 | Complete | - |
 | 2. F2F Text Coaching and Scoring | 8/8 | Complete | - |
-| 3. Scoring & Assessment | 0/TBD | Not started | - |
+| 3. Scoring & Assessment | 0/4 | Planning complete | - |
 | 4. Dashboard & Reporting | 0/TBD | Not started | - |
 | 5. Training Material Management | 0/TBD | Not started | - |
 | 6. Conference Presentation Module | 0/TBD | Not started | - |
