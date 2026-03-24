@@ -1,0 +1,189 @@
+# Requirements: AI Coach Platform (BeiGene)
+
+**Defined:** 2026-03-24
+**Core Value:** MRs can practice realistic conversations with AI-powered digital HCPs and receive immediate, multi-dimensional feedback to improve their communication skills — anytime, without needing a real HCP or trainer.
+
+## Guiding Principles
+
+> **Architecture-first: configurable, pluggable, component-based** is the highest priority.
+> Features may be incomplete, but config options, interfaces, and extension points MUST exist from day 1.
+> Common components are reusable — changes happen at component level, not page level.
+
+## v1 Requirements
+
+### Architecture (ARCH)
+
+- [ ] **ARCH-01**: System uses pluggable adapter pattern for all AI services (LLM, STT, TTS, Avatar) — providers can be swapped via configuration without code changes
+- [ ] **ARCH-02**: All features are component-based and configurable — feature toggles control availability per deployment
+- [ ] **ARCH-03**: Backend services use dependency injection — any service can be replaced with a mock, alternative provider, or upgraded implementation
+- [ ] **ARCH-04**: Frontend uses shared design system component library extracted from Figma Design System — all pages reuse common components with property variations
+- [ ] **ARCH-05**: Azure service connections are configurable per environment — endpoints, keys, models, regions are config, not code
+
+### User Interface (UI)
+
+- [ ] **UI-01**: Shared component library based on Figma "Design System for SaaS" — buttons, cards, inputs, charts, navigation as reusable components
+- [ ] **UI-02**: Login page and app layout shell implemented from Figma "Design Login and Layout Shell" — sidebar navigation, header, responsive shell
+- [ ] **UI-03**: F2F HCP Training page implemented from Figma "F2F HCP Training Page Design" — chat area, HCP display, controls, coaching hints panel
+- [ ] **UI-04**: MR Dashboard implemented from Figma "Medical Representative Dashboard" — score overview, recent sessions, skill radar chart
+- [ ] **UI-05**: Scenario Selection page implemented from Figma "Scenario Selection Page Design" — scenario cards, filters, difficulty indicators
+- [ ] **UI-06**: Additional pages (admin, config, reports, session history) follow same design principles as Figma pages — self-developed using shared components
+- [ ] **UI-07**: All UI text externalized via react-i18next — Chinese (zh-CN) and English (en-US) supported from day 1
+
+### Authentication (AUTH)
+
+- [ ] **AUTH-01**: User can log in with simple username and password
+- [ ] **AUTH-02**: User session persists across browser refresh via JWT
+- [ ] **AUTH-03**: Two roles: User (MR) and Admin — role-based route protection
+- [ ] **AUTH-04**: Auth module uses dependency injection — architecture ready for Azure AD, Teams SSO, or Enterprise WeChat integration later
+
+### HCP & Scenario Configuration (HCP)
+
+- [ ] **HCP-01**: Admin can create and edit HCP profiles with name, specialty, personality type, emotional state, communication style, knowledge background
+- [ ] **HCP-02**: Admin can define typical objections and interaction rules per HCP profile
+- [ ] **HCP-03**: Admin can create and edit training scenarios with product, therapeutic area, key messages, and difficulty level
+- [ ] **HCP-04**: Admin can assign HCP profiles to scenarios and configure scoring dimension weights per scenario
+- [ ] **HCP-05**: Admin can set pass/fail threshold per scenario with weighted scoring criteria totaling 100%
+
+### F2F Coaching Simulation (COACH)
+
+- [ ] **COACH-01**: User can start a text-based F2F coaching session with an AI-powered HCP based on selected scenario
+- [ ] **COACH-02**: AI HCP responds in character (personality, knowledge, objections) as defined by HCP profile and scenario context
+- [ ] **COACH-03**: System tracks key message delivery in real-time — checklist shows which messages were delivered and which were missed
+- [ ] **COACH-04**: User can use voice input (Azure Speech STT) — speech recognized and sent as text to AI HCP (zh-CN + en-US)
+- [ ] **COACH-05**: AI HCP responses are spoken via Azure Speech TTS — natural-sounding voices in Chinese and English
+- [ ] **COACH-06**: Voice interaction supports GPT Realtime API (WebSocket) for sub-1s conversational latency as configurable premium option
+- [ ] **COACH-07**: Azure AI Avatar renders digital human visual for HCP as configurable premium option — falls back to TTS-only when disabled or unavailable
+- [ ] **COACH-08**: Real-time coaching hints displayed in side panel during conversation — contextual suggestions based on conversation progress
+- [ ] **COACH-09**: Conversations are immutable once completed — only scoring and feedback can be added after completion
+
+### Scoring & Feedback (SCORE)
+
+- [ ] **SCORE-01**: System scores completed sessions across 5-6 configurable dimensions (key message delivery, objection handling, communication skills, product knowledge, scientific accuracy)
+- [ ] **SCORE-02**: Scoring uses Azure OpenAI to analyze conversation transcript against scenario criteria and HCP expectations
+- [ ] **SCORE-03**: Post-session feedback report shows strengths and weaknesses per dimension with specific conversation quotes
+- [ ] **SCORE-04**: Post-session feedback includes actionable improvement suggestions per dimension
+- [ ] **SCORE-05**: Scoring dimension weights are configurable per scenario — admin sets relative importance via weighted sliders
+
+### Conference Mode (CONF)
+
+- [ ] **CONF-01**: User can start a conference presentation mode with multiple virtual HCP audience members
+- [ ] **CONF-02**: Multiple AI HCPs ask questions from audience — questions queue with turn management
+- [ ] **CONF-03**: Conference session includes live transcription display
+- [ ] **CONF-04**: Conference sessions are scored using the same multi-dimensional scoring system as F2F
+
+### Content Management (CONTENT)
+
+- [ ] **CONTENT-01**: Admin can upload training materials (PDF, Word, Excel) organized by product and therapeutic area
+- [ ] **CONTENT-02**: Uploaded materials feed into AI knowledge base for more accurate HCP simulation (RAG-style grounding)
+- [ ] **CONTENT-03**: Training materials support versioning and folder organization
+
+### Analytics & Reports (ANLYT)
+
+- [ ] **ANLYT-01**: User can view session history — list of past sessions with date, scenario, score, duration
+- [ ] **ANLYT-02**: User can view personal performance trends — score improvement over time per dimension
+- [ ] **ANLYT-03**: Admin can view organization-level analytics — BU comparisons, skill gap heatmaps, training completion rates
+- [ ] **ANLYT-04**: System recommends next training scenarios based on user's scoring history and identified weaknesses
+- [ ] **ANLYT-05**: Reports and dashboards use Recharts radar/spider charts for multi-dimensional score visualization
+
+### Platform (PLAT)
+
+- [ ] **PLAT-01**: i18n framework (react-i18next) integrated from day 1 — all UI strings externalized, zh-CN and en-US
+- [ ] **PLAT-02**: Responsive web design — same app works on desktop, tablet, mobile, and Teams Tab (iframe)
+- [ ] **PLAT-03**: Admin can configure Azure service connections (OpenAI, Speech, Avatar, Content Understanding) from web UI with connection testing
+- [ ] **PLAT-04**: Per-region deployment supported — single codebase, per-region configuration for data residency (China, EU)
+- [ ] **PLAT-05**: Voice interaction mode (STT/TTS vs GPT Realtime vs Voice Live) configurable per deployment and per session
+
+## v2 Requirements
+
+### Extended Authentication
+
+- **AUTH-V2-01**: Azure AD (Entra ID) SSO integration
+- **AUTH-V2-02**: Microsoft Teams SSO for Teams Tab embedding
+- **AUTH-V2-03**: Enterprise WeChat (企业微信) SSO integration
+- **AUTH-V2-04**: Complex role hierarchy (DM, MSL, BU Head, Regional Director)
+
+### Extended Features
+
+- **EXT-01**: Teams Bot integration (full Bot Framework, adaptive cards)
+- **EXT-02**: WeChat Mini Program frontend
+- **EXT-03**: PDF/Excel export for reports and session transcripts
+- **EXT-04**: Azure Voice Live API as unified premium voice+avatar path
+- **EXT-05**: Custom analyzer configuration for Content Understanding
+
+## Out of Scope
+
+| Feature | Reason |
+|---------|--------|
+| Live video conferencing | Training simulator, not video call — use Avatar for visual |
+| Mobile native app (iOS/Android) | Responsive web covers mobile; company phones have browsers |
+| Multi-tenancy | Single tenant per-region; deploy separate instances if needed |
+| Gamification (leaderboards, badges) | Professional training, not a game; focus on improvement trends |
+| Conversation editing/retry from mid-point | Breaks simulation realism; MRs can "Try Again" with new session |
+| Custom LLM fine-tuning | Prompt engineering + RAG achieves 90% of value at lower cost |
+| Real-time collaborative training | Edge case; DMs review scores after, not observe live |
+
+## Traceability
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| ARCH-01 | — | Pending |
+| ARCH-02 | — | Pending |
+| ARCH-03 | — | Pending |
+| ARCH-04 | — | Pending |
+| ARCH-05 | — | Pending |
+| UI-01 | — | Pending |
+| UI-02 | — | Pending |
+| UI-03 | — | Pending |
+| UI-04 | — | Pending |
+| UI-05 | — | Pending |
+| UI-06 | — | Pending |
+| UI-07 | — | Pending |
+| AUTH-01 | — | Pending |
+| AUTH-02 | — | Pending |
+| AUTH-03 | — | Pending |
+| AUTH-04 | — | Pending |
+| HCP-01 | — | Pending |
+| HCP-02 | — | Pending |
+| HCP-03 | — | Pending |
+| HCP-04 | — | Pending |
+| HCP-05 | — | Pending |
+| COACH-01 | — | Pending |
+| COACH-02 | — | Pending |
+| COACH-03 | — | Pending |
+| COACH-04 | — | Pending |
+| COACH-05 | — | Pending |
+| COACH-06 | — | Pending |
+| COACH-07 | — | Pending |
+| COACH-08 | — | Pending |
+| COACH-09 | — | Pending |
+| SCORE-01 | — | Pending |
+| SCORE-02 | — | Pending |
+| SCORE-03 | — | Pending |
+| SCORE-04 | — | Pending |
+| SCORE-05 | — | Pending |
+| CONF-01 | — | Pending |
+| CONF-02 | — | Pending |
+| CONF-03 | — | Pending |
+| CONF-04 | — | Pending |
+| CONTENT-01 | — | Pending |
+| CONTENT-02 | — | Pending |
+| CONTENT-03 | — | Pending |
+| ANLYT-01 | — | Pending |
+| ANLYT-02 | — | Pending |
+| ANLYT-03 | — | Pending |
+| ANLYT-04 | — | Pending |
+| ANLYT-05 | — | Pending |
+| PLAT-01 | — | Pending |
+| PLAT-02 | — | Pending |
+| PLAT-03 | — | Pending |
+| PLAT-04 | — | Pending |
+| PLAT-05 | — | Pending |
+
+**Coverage:**
+- v1 requirements: 46 total
+- Mapped to phases: 0
+- Unmapped: 46 (will be mapped during roadmap creation)
+
+---
+*Requirements defined: 2026-03-24*
+*Last updated: 2026-03-24 after initial definition*
