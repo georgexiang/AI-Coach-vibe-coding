@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Ready to execute
-stopped_at: Completed 01.1-02-PLAN.md
-last_updated: "2026-03-24T09:13:00.465Z"
+stopped_at: Completed 01.1-03-PLAN.md
+last_updated: "2026-03-24T09:54:53.971Z"
 progress:
   total_phases: 5
   completed_phases: 1
   total_plans: 11
-  completed_plans: 6
+  completed_plans: 8
 ---
 
 # Project State
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 ## Current Position
 
 Phase: 01.1 (ui-figma-figma-make-ui-sceenshot-figma-make) — EXECUTING
-Plan: 2 of 6
+Plan: 4 of 6
 
 ## Performance Metrics
 
@@ -52,6 +52,8 @@ Plan: 2 of 6
 | Phase 01 P04 | 8min | 3 tasks | 29 files |
 | Phase 01 P05 | 8min | 2 tasks | 6 files |
 | Phase 01.1 P02 | 2min | 2 tasks | 2 files |
+| Phase 01.1 P01 | 3min | 2 tasks | 16 files |
+| Phase 01.1 P03 | 3min | 2 tasks | 12 files |
 
 ## Accumulated Context
 
@@ -75,6 +77,10 @@ Recent decisions affecting current work:
 - [Phase 01]: Admin layout uses dark sidebar (#1E293B) per UI-SPEC; mobile uses Sheet overlay for both layouts
 - [Phase 01]: Mock adapters registered in lifespan for clean startup; ConfigProvider inside QueryClientProvider for global flag access
 - [Phase 01.1]: Copyright moved from login form to auth-layout for separation of concerns
+- [Phase 01.1]: Followed existing Radix UI wrapper pattern (forwardRef + cn() + displayName) for 4 new components
+- [Phase 01.1]: i18n namespaces per page domain (dashboard, training) for lazy-loading separation
+- [Phase 01.1]: Design tokens (text-foreground, bg-primary) used everywhere in shared components instead of raw Tailwind colors
+- [Phase 01.1]: ChatInput uses react-i18next training namespace for all aria labels per accessibility and i18n requirements
 
 ### Pending Todos
 
@@ -86,6 +92,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-24T09:13:00.463Z
-Stopped at: Completed 01.1-02-PLAN.md
+Last session: 2026-03-24T09:54:53.968Z
+Stopped at: Completed 01.1-03-PLAN.md
 Resume file: None
