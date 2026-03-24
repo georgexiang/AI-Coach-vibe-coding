@@ -42,6 +42,27 @@
     "productKnowledge": "Product Knowledge",
     "scientificInfo": "Scientific Information"
   },
+  "rubrics": {
+    "title": "Scoring Rubrics",
+    "createButton": "Create Rubric",
+    "save": "Rubric saved",
+    "emptyTitle": "No Scoring Rubrics",
+    "emptyBody": "Create your first scoring rubric to define custom scoring criteria for training scenarios.",
+    "deleteConfirm": "Delete Rubric: This will permanently remove this rubric. Scenarios using the default rubric will fall back to their configured weights.",
+    "name": "Rubric Name",
+    "description": "Description",
+    "scenarioType": "Scenario Type",
+    "isDefault": "Set as Default",
+    "dimensions": "Dimensions",
+    "addDimension": "Add Dimension",
+    "dimensionName": "Dimension Name",
+    "weight": "Weight",
+    "criteria": "Criteria (comma-separated)",
+    "weightSum": "Weight Total",
+    "weightSumError": "Weights must sum to 100",
+    "f2f": "Face-to-Face",
+    "conference": "Conference"
+  },
   "azureConfig": {
     "title": "Azure Service Configuration",
     "testConnection": "Test Connection",
@@ -62,6 +83,7 @@
   "errors": {
     "hcpSaveFailed": "Could not save HCP profile. Check required fields and try again.",
     "scenarioSaveFailed": "Could not save scenario. Check required fields and try again.",
-    "connectionTestFailed": "Connection test failed. Verify the endpoint and API key are correct."
+    "connectionTestFailed": "Connection test failed. Verify the endpoint and API key are correct.",
+    "rubricSaveFailed": "Could not save rubric. Check required fields and try again."
   }
 }

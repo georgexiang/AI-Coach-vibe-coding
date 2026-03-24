@@ -42,6 +42,27 @@
     "productKnowledge": "产品知识",
     "scientificInfo": "科学信息"
   },
+  "rubrics": {
+    "title": "评分标准",
+    "createButton": "创建评分标准",
+    "save": "评分标准已保存",
+    "emptyTitle": "暂无评分标准",
+    "emptyBody": "创建您的第一个评分标准以定义培训场景的自定义评分条件。",
+    "deleteConfirm": "删除评分标准：此操作将永久删除该评分标准。使用默认标准的场景将回退到其配置的权重。",
+    "name": "标准名称",
+    "description": "描述",
+    "scenarioType": "场景类型",
+    "isDefault": "设为默认",
+    "dimensions": "评分维度",
+    "addDimension": "添加维度",
+    "dimensionName": "维度名称",
+    "weight": "权重",
+    "criteria": "评分条件（逗号分隔）",
+    "weightSum": "权重合计",
+    "weightSumError": "权重之和必须为 100",
+    "f2f": "面对面",
+    "conference": "学术会议"
+  },
   "azureConfig": {
     "title": "Azure 服务配置",
     "testConnection": "测试连接",
@@ -62,6 +83,7 @@
   "errors": {
     "hcpSaveFailed": "无法保存 HCP 档案，请检查必填字段后重试。",
     "scenarioSaveFailed": "无法保存场景，请检查必填字段后重试。",
-    "connectionTestFailed": "连接测试失败。请验证端点和 API 密钥是否正确。"
+    "connectionTestFailed": "连接测试失败。请验证端点和 API 密钥是否正确。",
+    "rubricSaveFailed": "无法保存评分标准，请检查必填字段后重试。"
   }
 }
