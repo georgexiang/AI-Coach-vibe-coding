@@ -1,11 +1,11 @@
 """Real-time coaching suggestion schemas."""
 
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict
 
 
-class SuggestionType(str, Enum):
+class SuggestionType(StrEnum):
     """Types of coaching suggestions."""
 
     TIP = "tip"

@@ -49,7 +49,8 @@ class RubricUpdate(BaseModel):
     @field_validator("dimensions")
     @classmethod
     def validate_weights_sum(
-        cls, v: list[DimensionConfig] | None,
+        cls,
+        v: list[DimensionConfig] | None,
     ) -> list[DimensionConfig] | None:
         if v is not None:
             total = sum(d.weight for d in v)

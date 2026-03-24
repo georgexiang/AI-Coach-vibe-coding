@@ -71,6 +71,7 @@ async def update_rubric(db: AsyncSession, rubric_id: str, data: RubricUpdate) ->
         rubric.is_default = data.is_default
 
     await db.flush()
+    await db.refresh(rubric)
     return rubric
 
 

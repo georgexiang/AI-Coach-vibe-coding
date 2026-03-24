@@ -6,7 +6,6 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models.message import SessionMessage
 from app.models.scenario import Scenario
 from app.models.score import SessionScore
 from app.models.session import CoachingSession

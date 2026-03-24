@@ -50,10 +50,12 @@ async def _seed_in_progress_session_and_token() -> tuple[str, str, str]:
             user_id=user.id,
             scenario_id=scenario.id,
             status="in_progress",
-            key_messages_status=json.dumps([
-                {"message": "Efficacy data", "delivered": True, "detected_at": "2024-01-01"},
-                {"message": "Safety profile", "delivered": False, "detected_at": None},
-            ]),
+            key_messages_status=json.dumps(
+                [
+                    {"message": "Efficacy data", "delivered": True, "detected_at": "2024-01-01"},
+                    {"message": "Safety profile", "delivered": False, "detected_at": None},
+                ]
+            ),
         )
         db.add(session)
         await db.commit()

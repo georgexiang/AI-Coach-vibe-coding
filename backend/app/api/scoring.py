@@ -1,6 +1,6 @@
 """Scoring API: trigger scoring and retrieve scores for sessions."""
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies import get_current_user, get_db
@@ -10,6 +10,17 @@ from app.services import scoring_service, session_service
 from app.utils.exceptions import NotFoundException
 
 router = APIRouter(prefix="/scoring", tags=["scoring"])
+
+
+# Static route BEFORE parameterized /sessions/{session_id} per Gotcha #3
+@router.get("/history")
+async def get_score_history(
+    limit: int = Query(10, ge=1, le=50),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Get the current user's score history with dimension trends."""
+    return await scoring_service.get_score_history(db, user.id, limit)
 
 
 @router.post(

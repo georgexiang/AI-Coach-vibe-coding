@@ -13,13 +13,9 @@ class ScoringRubric(Base, TimestampMixin):
 
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str] = mapped_column(Text, default="")
-    scenario_type: Mapped[str] = mapped_column(
-        String(50), default="f2f"
-    )  # f2f / conference
+    scenario_type: Mapped[str] = mapped_column(String(50), default="f2f")  # f2f / conference
     dimensions: Mapped[str] = mapped_column(
         Text, default="[]"
     )  # JSON: [{name, weight, criteria[], max_score}]
     is_default: Mapped[bool] = mapped_column(Boolean, default=False)
-    created_by: Mapped[str] = mapped_column(
-        String(36), ForeignKey("users.id"), nullable=False
-    )
+    created_by: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False)

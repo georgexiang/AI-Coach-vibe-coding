@@ -9,16 +9,20 @@ from sse_starlette.sse import EventSourceResponse
 from app.config import get_settings
 from app.dependencies import get_current_user, get_db
 from app.models.user import User
+from app.schemas.report import SessionReport
 from app.schemas.session import (
     MessageResponse,
     SendMessageRequest,
     SessionCreate,
     SessionResponse,
 )
+from app.schemas.suggestion import SuggestionResponse
 from app.services import session_service
 from app.services.agents.base import CoachEventType, CoachRequest
 from app.services.agents.registry import registry
 from app.services.prompt_builder import build_hcp_system_prompt
+from app.services.report_service import generate_report
+from app.services.suggestion_service import generate_suggestions, parse_key_messages_status
 from app.utils.exceptions import AppException
 from app.utils.pagination import PaginatedResponse
 
@@ -156,6 +160,29 @@ async def send_message(
                     "event": "key_messages",
                     "data": json.dumps(km_status),
                 }
+                # Generate real-time coaching suggestions (COACH-08)
+                km_status_list = parse_key_messages_status(session.key_messages_status)
+                messages_for_hints = await session_service.get_session_messages(db, session_id)
+                msg_dicts = [{"role": m.role, "content": m.content} for m in messages_for_hints]
+                suggestions = await generate_suggestions(
+                    messages=msg_dicts,
+                    key_messages_status=km_status_list,
+                    scoring_weights=session.scenario.get_scoring_weights(),
+                )
+                for suggestion in suggestions:
+                    yield {
+                        "event": "hint",
+                        "data": json.dumps(
+                            {
+                                "content": suggestion.message,
+                                "metadata": {
+                                    "type": suggestion.type.value,
+                                    "trigger": suggestion.trigger,
+                                    "relevance": suggestion.relevance_score,
+                                },
+                            }
+                        ),
+                    }
                 yield {"event": "done", "data": ""}
 
     return EventSourceResponse(event_generator())
@@ -186,3 +213,35 @@ async def get_session_messages(
     await session_service.get_session(db, session_id, user.id)
     messages = await session_service.get_session_messages(db, session_id)
     return messages
+
+
+@router.get("/{session_id}/report", response_model=SessionReport)
+async def get_session_report(
+    session_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Get a detailed post-session report for a scored session."""
+    # Verify session belongs to user
+    await session_service.get_session(db, session_id, user.id)
+    report = await generate_report(db, session_id)
+    return report
+
+
+@router.get("/{session_id}/suggestions", response_model=list[SuggestionResponse])
+async def get_session_suggestions(
+    session_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Get coaching suggestions for a session (regenerated on demand)."""
+    session = await session_service.get_session(db, session_id, user.id)
+    messages = await session_service.get_session_messages(db, session_id)
+    msg_dicts = [{"role": m.role, "content": m.content} for m in messages]
+    km_status_list = parse_key_messages_status(session.key_messages_status)
+    suggestions = await generate_suggestions(
+        messages=msg_dicts,
+        key_messages_status=km_status_list,
+        scoring_weights=session.scenario.get_scoring_weights(),
+    )
+    return suggestions

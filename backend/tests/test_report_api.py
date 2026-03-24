@@ -51,10 +51,12 @@ async def _seed_scored_session_and_token() -> tuple[str, str, str]:
             user_id=user.id,
             scenario_id=scenario.id,
             status="completed",
-            key_messages_status=json.dumps([
-                {"message": "Key 1", "delivered": True, "detected_at": "2024-01-01T00:00:00"},
-                {"message": "Key 2", "delivered": False, "detected_at": None},
-            ]),
+            key_messages_status=json.dumps(
+                [
+                    {"message": "Key 1", "delivered": True, "detected_at": "2024-01-01T00:00:00"},
+                    {"message": "Key 2", "delivered": False, "detected_at": None},
+                ]
+            ),
         )
         db.add(session)
         await db.commit()
@@ -71,6 +73,7 @@ async def _seed_scored_session_and_token() -> tuple[str, str, str]:
 
         # Score the session
         await score_session(db, session.id)
+        await db.commit()
 
         token = create_access_token(data={"sub": user.id})
         return user.id, session.id, token
