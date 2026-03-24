@@ -1,0 +1,124 @@
+"""HCP Profile CRUD API router: admin-only management of Healthcare Professional profiles."""
+
+import json
+
+from fastapi import APIRouter, Depends, Query
+from fastapi.responses import Response
+from pydantic import BaseModel, ConfigDict, field_validator
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.dependencies import get_db, require_role
+from app.models.user import User
+from app.schemas.hcp_profile import HcpProfileCreate, HcpProfileUpdate
+from app.services import hcp_profile_service
+from app.utils.pagination import PaginatedResponse
+
+router = APIRouter(prefix="/hcp-profiles", tags=["hcp-profiles"])
+
+
+class HcpProfileOut(BaseModel):
+    """HCP profile response with JSON list fields parsed to Python lists."""
+
+    id: str
+    name: str
+    specialty: str
+    hospital: str
+    title: str
+    avatar_url: str
+    personality_type: str
+    emotional_state: int
+    communication_style: int
+    expertise_areas: list[str]
+    prescribing_habits: str
+    concerns: str
+    objections: list[str]
+    probe_topics: list[str]
+    difficulty: str
+    is_active: bool
+    created_by: str
+    created_at: str
+    updated_at: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+    @field_validator("expertise_areas", "objections", "probe_topics", mode="before")
+    @classmethod
+    def parse_json_list(cls, v: str | list[str]) -> list[str]:
+        """Parse JSON string fields into Python lists."""
+        if isinstance(v, str):
+            return json.loads(v)
+        return v
+
+    @field_validator("created_at", "updated_at", mode="before")
+    @classmethod
+    def datetime_to_str(cls, v: object) -> str:
+        """Convert datetime to ISO string."""
+        if hasattr(v, "isoformat"):
+            return v.isoformat()
+        return str(v)
+
+
+@router.post("/", response_model=HcpProfileOut, status_code=201)
+async def create_profile(
+    data: HcpProfileCreate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role("admin")),
+):
+    """Create a new HCP profile. Admin only."""
+    profile = await hcp_profile_service.create_hcp_profile(db, data, user.id)
+    return profile
+
+
+@router.get("/", response_model=PaginatedResponse[HcpProfileOut])
+async def list_profiles(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    search: str | None = Query(None),
+    is_active: bool | None = Query(None),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role("admin")),
+):
+    """List HCP profiles with optional search and filter. Admin only."""
+    items, total = await hcp_profile_service.get_hcp_profiles(
+        db, page=page, page_size=page_size, search=search, is_active=is_active
+    )
+    return PaginatedResponse.create(
+        items=[HcpProfileOut.model_validate(item) for item in items],
+        total=total,
+        page=page,
+        page_size=page_size,
+    )
+
+
+@router.get("/{profile_id}", response_model=HcpProfileOut)
+async def get_profile(
+    profile_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role("admin")),
+):
+    """Get a single HCP profile by ID. Admin only."""
+    profile = await hcp_profile_service.get_hcp_profile(db, profile_id)
+    return profile
+
+
+@router.put("/{profile_id}", response_model=HcpProfileOut)
+async def update_profile(
+    profile_id: str,
+    data: HcpProfileUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role("admin")),
+):
+    """Update an HCP profile. Admin only."""
+    profile = await hcp_profile_service.update_hcp_profile(db, profile_id, data)
+    return profile
+
+
+@router.delete("/{profile_id}", status_code=204)
+async def delete_profile(
+    profile_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role("admin")),
+):
+    """Delete an HCP profile. Admin only."""
+    await hcp_profile_service.delete_hcp_profile(db, profile_id)
+    return Response(status_code=204)
