@@ -23,9 +23,9 @@
 
 - [x] **UI-01**: Shared component library based on Figma "Design System for SaaS" — buttons, cards, inputs, charts, navigation as reusable components
 - [x] **UI-02**: Login page and app layout shell implemented from Figma "Design Login and Layout Shell" — sidebar navigation, header, responsive shell
-- [ ] **UI-03**: F2F HCP Training page implemented from Figma "F2F HCP Training Page Design" — chat area, HCP display, controls, coaching hints panel
-- [ ] **UI-04**: MR Dashboard implemented from Figma "Medical Representative Dashboard" — score overview, recent sessions, skill radar chart
-- [ ] **UI-05**: Scenario Selection page implemented from Figma "Scenario Selection Page Design" — scenario cards, filters, difficulty indicators
+- [x] **UI-03**: F2F HCP Training page implemented from Figma "F2F HCP Training Page Design" — chat area, HCP display, controls, coaching hints panel
+- [x] **UI-04**: MR Dashboard implemented from Figma "Medical Representative Dashboard" — score overview, recent sessions, skill radar chart
+- [x] **UI-05**: Scenario Selection page implemented from Figma "Scenario Selection Page Design" — scenario cards, filters, difficulty indicators
 - [ ] **UI-06**: Additional pages (admin, config, reports, session history) follow same design principles as Figma pages — self-developed using shared components
 - [x] **UI-07**: All UI text externalized via react-i18next — Chinese (zh-CN) and English (en-US) supported from day 1
 
@@ -133,9 +133,9 @@
 | ARCH-05 | Phase 1 | Complete |
 | UI-01 | Phase 1 | Complete |
 | UI-02 | Phase 1 | Complete |
-| UI-03 | Phase 2 | Pending |
-| UI-04 | Phase 4 | Pending |
-| UI-05 | Phase 2 | Pending |
+| UI-03 | Phase 2 | Complete |
+| UI-04 | Phase 4 | Complete |
+| UI-05 | Phase 2 | Complete |
 | UI-06 | Phase 4 | Pending |
 | UI-07 | Phase 1 | Complete |
 | AUTH-01 | Phase 1 | Complete |

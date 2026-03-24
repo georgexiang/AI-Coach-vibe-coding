@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Ready to execute
-stopped_at: Completed 01.1-03-PLAN.md
-last_updated: "2026-03-24T09:54:53.971Z"
+stopped_at: Completed 01.1-05-PLAN.md
+last_updated: "2026-03-24T10:01:06.683Z"
 progress:
   total_phases: 5
   completed_phases: 1
   total_plans: 11
-  completed_plans: 8
+  completed_plans: 9
 ---
 
 # Project State
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 ## Current Position
 
 Phase: 01.1 (ui-figma-figma-make-ui-sceenshot-figma-make) — EXECUTING
-Plan: 4 of 6
+Plan: 6 of 6
 
 ## Performance Metrics
 
@@ -54,6 +54,8 @@ Plan: 4 of 6
 | Phase 01.1 P02 | 2min | 2 tasks | 2 files |
 | Phase 01.1 P01 | 3min | 2 tasks | 16 files |
 | Phase 01.1 P03 | 3min | 2 tasks | 12 files |
+| Phase 01.1 P04 | 2min | 2 tasks | 3 files |
+| Phase 01.1 P05 | 3min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -81,6 +83,10 @@ Recent decisions affecting current work:
 - [Phase 01.1]: i18n namespaces per page domain (dashboard, training) for lazy-loading separation
 - [Phase 01.1]: Design tokens (text-foreground, bg-primary) used everywhere in shared components instead of raw Tailwind colors
 - [Phase 01.1]: ChatInput uses react-i18next training namespace for all aria labels per accessibility and i18n requirements
+- [Phase 01.1]: Used dual i18n namespaces (dashboard + common) at page level for lazy-loading separation
+- [Phase 01.1]: Client-side filtering on mock data with useMemo; sentinel ALL_VALUE for Radix Select compatibility
+- [Phase 01.1]: Full-screen 3-panel layout without UserLayout for immersive training experience
+- [Phase 01.1]: CenterPanel extended with inputMode/onMicClick/recordingState props for ChatInput integration
 
 ### Pending Todos
 
@@ -92,6 +98,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-24T09:54:53.968Z
-Stopped at: Completed 01.1-03-PLAN.md
+Last session: 2026-03-24T10:01:06.680Z
+Stopped at: Completed 01.1-05-PLAN.md
 Resume file: None
