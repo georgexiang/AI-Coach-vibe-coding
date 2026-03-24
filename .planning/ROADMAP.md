@@ -68,7 +68,7 @@ Plans:
 **Plans**: 8 plans
 
 Plans:
-- [ ] 02-01-PLAN.md -- Backend data models, Pydantic schemas, Alembic migration, sse-starlette dependency
+- [x] 02-01-PLAN.md -- Backend data models, Pydantic schemas, Alembic migration, sse-starlette dependency
 - [ ] 02-02-PLAN.md -- Frontend TypeScript types, i18n namespaces (coach/admin/scoring), Slider component, recharts install
 - [ ] 02-03-PLAN.md -- Backend HCP profile + scenario CRUD API routers, service layer, seed data
 - [ ] 02-04-PLAN.md -- Backend session lifecycle + SSE streaming chat + scoring service + enhanced mock adapter

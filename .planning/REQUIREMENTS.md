@@ -38,11 +38,11 @@
 
 ### HCP & Scenario Configuration (HCP)
 
-- [ ] **HCP-01**: Admin can create and edit HCP profiles with name, specialty, personality type, emotional state, communication style, knowledge background
-- [ ] **HCP-02**: Admin can define typical objections and interaction rules per HCP profile
-- [ ] **HCP-03**: Admin can create and edit training scenarios with product, therapeutic area, key messages, and difficulty level
-- [ ] **HCP-04**: Admin can assign HCP profiles to scenarios and configure scoring dimension weights per scenario
-- [ ] **HCP-05**: Admin can set pass/fail threshold per scenario with weighted scoring criteria totaling 100%
+- [x] **HCP-01**: Admin can create and edit HCP profiles with name, specialty, personality type, emotional state, communication style, knowledge background
+- [x] **HCP-02**: Admin can define typical objections and interaction rules per HCP profile
+- [x] **HCP-03**: Admin can create and edit training scenarios with product, therapeutic area, key messages, and difficulty level
+- [x] **HCP-04**: Admin can assign HCP profiles to scenarios and configure scoring dimension weights per scenario
+- [x] **HCP-05**: Admin can set pass/fail threshold per scenario with weighted scoring criteria totaling 100%
 
 ### F2F Coaching Simulation (COACH)
 
@@ -54,15 +54,15 @@
 - [ ] **COACH-06**: Voice interaction supports GPT Realtime API (WebSocket) for sub-1s conversational latency as configurable premium option
 - [ ] **COACH-07**: Azure AI Avatar renders digital human visual for HCP as configurable premium option — falls back to TTS-only when disabled or unavailable
 - [ ] **COACH-08**: Real-time coaching hints displayed in side panel during conversation — contextual suggestions based on conversation progress
-- [ ] **COACH-09**: Conversations are immutable once completed — only scoring and feedback can be added after completion
+- [x] **COACH-09**: Conversations are immutable once completed — only scoring and feedback can be added after completion
 
 ### Scoring & Feedback (SCORE)
 
-- [ ] **SCORE-01**: System scores completed sessions across 5-6 configurable dimensions (key message delivery, objection handling, communication skills, product knowledge, scientific accuracy)
+- [x] **SCORE-01**: System scores completed sessions across 5-6 configurable dimensions (key message delivery, objection handling, communication skills, product knowledge, scientific accuracy)
 - [ ] **SCORE-02**: Scoring uses Azure OpenAI to analyze conversation transcript against scenario criteria and HCP expectations
 - [ ] **SCORE-03**: Post-session feedback report shows strengths and weaknesses per dimension with specific conversation quotes
 - [ ] **SCORE-04**: Post-session feedback includes actionable improvement suggestions per dimension
-- [ ] **SCORE-05**: Scoring dimension weights are configurable per scenario — admin sets relative importance via weighted sliders
+- [x] **SCORE-05**: Scoring dimension weights are configurable per scenario — admin sets relative importance via weighted sliders
 
 ### Conference Mode (CONF)
 
@@ -142,11 +142,11 @@
 | AUTH-02 | Phase 1 | Complete |
 | AUTH-03 | Phase 1 | Complete |
 | AUTH-04 | Phase 1 | Complete |
-| HCP-01 | Phase 2 | Pending |
-| HCP-02 | Phase 2 | Pending |
-| HCP-03 | Phase 2 | Pending |
-| HCP-04 | Phase 2 | Pending |
-| HCP-05 | Phase 2 | Pending |
+| HCP-01 | Phase 2 | Complete |
+| HCP-02 | Phase 2 | Complete |
+| HCP-03 | Phase 2 | Complete |
+| HCP-04 | Phase 2 | Complete |
+| HCP-05 | Phase 2 | Complete |
 | COACH-01 | Phase 2 | Pending |
 | COACH-02 | Phase 2 | Pending |
 | COACH-03 | Phase 2 | Pending |
@@ -155,12 +155,12 @@
 | COACH-06 | Phase 3 | Pending |
 | COACH-07 | Phase 3 | Pending |
 | COACH-08 | Phase 2 | Pending |
-| COACH-09 | Phase 2 | Pending |
-| SCORE-01 | Phase 2 | Pending |
+| COACH-09 | Phase 2 | Complete |
+| SCORE-01 | Phase 2 | Complete |
 | SCORE-02 | Phase 2 | Pending |
 | SCORE-03 | Phase 2 | Pending |
 | SCORE-04 | Phase 2 | Pending |
-| SCORE-05 | Phase 2 | Pending |
+| SCORE-05 | Phase 2 | Complete |
 | CONF-01 | Phase 3 | Pending |
 | CONF-02 | Phase 3 | Pending |
 | CONF-03 | Phase 3 | Pending |
