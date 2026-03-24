@@ -61,9 +61,7 @@ export default function ScenarioSelection() {
 
   const handleStartTraining = async (scenarioId: string) => {
     try {
-      const session = await createSession.mutateAsync({
-        scenario_id: scenarioId,
-      });
+      const session = await createSession.mutateAsync(scenarioId);
       navigate(`/user/training/session?id=${session.id}`);
     } catch {
       // Error handled by TanStack Query

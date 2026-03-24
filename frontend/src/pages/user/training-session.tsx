@@ -17,6 +17,7 @@ import { useSession, useSessionMessages, useEndSession } from "@/hooks/use-sessi
 import { useScenario } from "@/hooks/use-scenarios";
 import { useSSEStream } from "@/hooks/use-sse";
 import type { SessionMessage, KeyMessageStatus, CoachingHint } from "@/types/session";
+import type { Scenario } from "@/types/scenario";
 
 export default function TrainingSession() {
   const { t } = useTranslation("coach");
@@ -66,21 +67,11 @@ export default function TrainingSession() {
       onText: (_text: string) => {
         // streamedText is updated by the hook itself
       },
-      onHint: (hintData: string) => {
-        try {
-          const parsed = JSON.parse(hintData) as CoachingHint;
-          setHints((prev) => [...prev, parsed]);
-        } catch {
-          setHints((prev) => [...prev, { content: hintData }]);
-        }
+      onHint: (hint: CoachingHint) => {
+        setHints((prev) => [...prev, hint]);
       },
-      onKeyMessages: (data: string) => {
-        try {
-          const parsed = JSON.parse(data) as KeyMessageStatus[];
-          setKeyMessagesStatus(parsed);
-        } catch {
-          // Ignore parse errors
-        }
+      onKeyMessages: (status: KeyMessageStatus[]) => {
+        setKeyMessagesStatus(status);
       },
       onDone: () => {
         // Refetch messages to get the finalized HCP response
@@ -104,6 +95,7 @@ export default function TrainingSession() {
         session_id: sessionId,
         role: "user",
         content: text,
+        message_index: messages.length,
         created_at: new Date().toISOString(),
       };
       setMessages((prev) => [...prev, userMsg]);
@@ -148,32 +140,30 @@ export default function TrainingSession() {
   }, [messages, session?.started_at]);
 
   // Default scenario for when data is still loading
-  const defaultScenario = {
+  const defaultScenario: Scenario = {
     id: "",
     name: "Loading...",
     description: "",
     product: "",
     therapeutic_area: "",
-    mode: "f2f" as const,
-    difficulty: "medium" as const,
-    status: "active" as const,
-    hcp_profile_id: null,
-    hcp_profile: undefined,
-    key_messages: [] as string[],
-    scoring_weights: {
-      key_message_delivery: 30,
-      objection_handling: 25,
-      communication_skills: 20,
-      product_knowledge: 15,
-      scientific_information: 10,
-    },
+    mode: "f2f",
+    difficulty: "medium",
+    status: "active",
+    hcp_profile_id: "",
+    key_messages: [],
+    weight_key_message: 30,
+    weight_objection_handling: 25,
+    weight_communication: 20,
+    weight_product_knowledge: 15,
+    weight_scientific_info: 10,
     pass_threshold: 70,
     estimated_duration: 15,
+    created_by: "",
     created_at: "",
     updated_at: "",
   };
 
-  const currentScenario = scenario ?? defaultScenario;
+  const currentScenario: Scenario = scenario ?? defaultScenario;
   const hcpInitials =
     currentScenario.hcp_profile?.name
       .split(" ")

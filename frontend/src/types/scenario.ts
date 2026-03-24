@@ -26,6 +26,7 @@ export interface Scenario {
   weight_product_knowledge: number;
   weight_scientific_info: number;
   pass_threshold: number;
+  estimated_duration?: number;
   created_by: string;
   created_at: string;
   updated_at: string;

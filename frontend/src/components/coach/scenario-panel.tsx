@@ -54,13 +54,12 @@ export function ScenarioPanel({
     );
   }
 
-  const weights = scenario.scoring_weights;
   const weightEntries = [
-    { label: "Key Message", value: weights.key_message_delivery },
-    { label: "Objection Handling", value: weights.objection_handling },
-    { label: "Communication", value: weights.communication_skills },
-    { label: "Product Knowledge", value: weights.product_knowledge },
-    { label: "Scientific", value: weights.scientific_information },
+    { label: "Key Message", value: scenario.weight_key_message },
+    { label: "Objection Handling", value: scenario.weight_objection_handling },
+    { label: "Communication", value: scenario.weight_communication },
+    { label: "Product Knowledge", value: scenario.weight_product_knowledge },
+    { label: "Scientific", value: scenario.weight_scientific_info },
   ];
 
   return (

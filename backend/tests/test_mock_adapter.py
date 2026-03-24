@@ -12,7 +12,7 @@ async def test_mock_adapter_is_available():
 async def test_mock_adapter_version():
     adapter = MockCoachingAdapter()
     version = await adapter.get_version()
-    assert version == "mock-1.0"
+    assert version == "mock-2.0"
 
 
 async def test_mock_adapter_execute():

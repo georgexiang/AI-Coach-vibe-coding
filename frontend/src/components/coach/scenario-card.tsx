@@ -43,7 +43,7 @@ export function ScenarioCard({ scenario, onStart }: ScenarioCardProps) {
         <div className="mb-4 flex items-center gap-4 text-sm text-gray-600">
           <span className="flex items-center gap-1">
             <Clock className="h-4 w-4" />
-            {scenario.estimated_duration} min
+            {scenario.estimated_duration ?? 15} min
           </span>
           <span className="flex items-center gap-1">
             <Star className="h-4 w-4" />
