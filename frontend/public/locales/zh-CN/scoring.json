@@ -25,6 +25,25 @@
     "productKnowledge": "产品知识",
     "scientificInfo": "科学信息"
   },
+  "report": {
+    "improvementTitle": "改进优先级",
+    "keyMessages": "关键信息传递",
+    "highPriority": "高优先级",
+    "mediumPriority": "中等优先级",
+    "lowPriority": "低优先级",
+    "previousSession": "上次会话"
+  },
+  "history": {
+    "title": "会话历史",
+    "date": "日期",
+    "scenario": "场景",
+    "score": "得分",
+    "trend": "趋势",
+    "noSessions": "暂无评分记录。完成培训会话后即可查看历史记录。",
+    "viewDetails": "查看详情",
+    "improvementPct": "较上次 {{pct}}%"
+  },
+  "scoringInProgress": "评分中...",
   "errors": {
     "scoringFailed": "评分未能完成，请尝试重新结束会话。"
   }
