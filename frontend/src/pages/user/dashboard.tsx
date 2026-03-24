@@ -54,6 +54,7 @@ const mockSessions = [
     mode: "F2F" as const,
     score: 85,
     timeAgo: "2 hours ago",
+    avatar: "https://api.dicebear.com/9.x/avataaars/svg?seed=SarahMitchell&backgroundColor=ffd5dc",
   },
   {
     id: "2",
@@ -62,6 +63,7 @@ const mockSessions = [
     mode: "Conference" as const,
     score: 72,
     timeAgo: "5 hours ago",
+    avatar: "https://api.dicebear.com/9.x/avataaars/svg?seed=JamesWong&backgroundColor=b6e3f4",
   },
   {
     id: "3",
@@ -70,6 +72,7 @@ const mockSessions = [
     mode: "F2F" as const,
     score: 92,
     timeAgo: "1 day ago",
+    avatar: "https://api.dicebear.com/9.x/avataaars/svg?seed=MichaelChen&backgroundColor=c0aede",
   },
   {
     id: "4",
@@ -78,6 +81,7 @@ const mockSessions = [
     mode: "Conference" as const,
     score: 55,
     timeAgo: "2 days ago",
+    avatar: "https://api.dicebear.com/9.x/avataaars/svg?seed=EmilyRoberts&backgroundColor=d1f4d1",
   },
   {
     id: "5",
@@ -86,6 +90,7 @@ const mockSessions = [
     mode: "F2F" as const,
     score: 88,
     timeAgo: "3 days ago",
+    avatar: "https://api.dicebear.com/9.x/avataaars/svg?seed=RobertThompson&backgroundColor=ffdfba",
   },
 ];
 
@@ -151,6 +156,7 @@ export default function UserDashboard() {
                 mode={session.mode}
                 score={session.score}
                 timeAgo={session.timeAgo}
+                avatar={session.avatar}
               />
             ))}
           </CardContent>

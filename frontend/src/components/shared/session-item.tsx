@@ -1,5 +1,5 @@
 import { ChevronRight } from "lucide-react";
-import { Avatar, AvatarFallback, Badge } from "@/components/ui";
+import { Avatar, AvatarImage, AvatarFallback, Badge } from "@/components/ui";
 import { cn } from "@/lib/utils";
 
 interface SessionItemProps {
@@ -28,6 +28,7 @@ export function SessionItem({
   mode,
   score,
   timeAgo,
+  avatar,
   onClick,
 }: SessionItemProps) {
   return (
@@ -37,6 +38,7 @@ export function SessionItem({
       onClick={onClick}
     >
       <Avatar className="size-10">
+        {avatar ? <AvatarImage src={avatar} alt={hcpName} /> : null}
         <AvatarFallback className="bg-primary/10 text-sm text-primary">
           {getInitials(hcpName)}
         </AvatarFallback>

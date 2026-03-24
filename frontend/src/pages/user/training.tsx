@@ -27,7 +27,7 @@ const mockHCPs = [
     personality: ["Skeptical", "Detail-oriented"],
     difficulty: "Hard" as const,
     product: "PD-1 Inhibitor",
-    avatar: undefined,
+    avatar: "https://api.dicebear.com/9.x/avataaars/svg?seed=WangWei&backgroundColor=b6e3f4",
   },
   {
     id: "2",
@@ -38,7 +38,7 @@ const mockHCPs = [
     personality: ["Friendly"],
     difficulty: "Easy" as const,
     product: "ACE Inhibitor",
-    avatar: undefined,
+    avatar: "https://api.dicebear.com/9.x/avataaars/svg?seed=LiNa&backgroundColor=ffd5dc",
   },
   {
     id: "3",
@@ -49,7 +49,7 @@ const mockHCPs = [
     personality: ["Busy"],
     difficulty: "Medium" as const,
     product: "Migraine Treatment",
-    avatar: undefined,
+    avatar: "https://api.dicebear.com/9.x/avataaars/svg?seed=ZhangMing&backgroundColor=c0aede",
   },
   {
     id: "4",
@@ -60,7 +60,7 @@ const mockHCPs = [
     personality: ["Detail-oriented"],
     difficulty: "Medium" as const,
     product: "COPD Inhaler",
-    avatar: undefined,
+    avatar: "https://api.dicebear.com/9.x/avataaars/svg?seed=ChenHui&backgroundColor=d1f4d1",
   },
   {
     id: "5",
@@ -71,7 +71,7 @@ const mockHCPs = [
     personality: ["Skeptical"],
     difficulty: "Hard" as const,
     product: "GLP-1 Agonist",
-    avatar: undefined,
+    avatar: "https://api.dicebear.com/9.x/avataaars/svg?seed=LiuYang&backgroundColor=ffdfba",
   },
   {
     id: "6",
@@ -82,7 +82,7 @@ const mockHCPs = [
     personality: ["Friendly"],
     difficulty: "Easy" as const,
     product: "Anticoagulant Therapy",
-    avatar: undefined,
+    avatar: "https://api.dicebear.com/9.x/avataaars/svg?seed=ZhaoLin&backgroundColor=b6e3f4",
   },
 ];
 
