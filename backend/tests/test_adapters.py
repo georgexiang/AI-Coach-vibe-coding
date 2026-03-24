@@ -1,15 +1,9 @@
 """Tests for STT, TTS, Avatar adapters and ServiceRegistry."""
 
-import pytest
-
-from app.services.agents.stt.base import BaseSTTAdapter
-from app.services.agents.stt.mock import MockSTTAdapter
-from app.services.agents.tts.base import BaseTTSAdapter
-from app.services.agents.tts.mock import MockTTSAdapter
-from app.services.agents.avatar.base import BaseAvatarAdapter
 from app.services.agents.avatar.mock import MockAvatarAdapter
 from app.services.agents.registry import ServiceRegistry
-
+from app.services.agents.stt.mock import MockSTTAdapter
+from app.services.agents.tts.mock import MockTTSAdapter
 
 # --- STT Adapter Tests ---
 
