@@ -5,6 +5,7 @@ import { AdminLayout } from "@/components/layouts/admin-layout";
 import { AuthLayout } from "@/components/layouts/auth-layout";
 import LoginPage from "@/pages/login";
 import UserDashboard from "@/pages/user/dashboard";
+import ScenarioSelection from "@/pages/user/training";
 import AdminDashboard from "@/pages/admin/dashboard";
 import TrainingSession from "@/pages/user/training-session";
 import NotFound from "@/pages/not-found";
@@ -27,7 +28,8 @@ export const router = createBrowserRouter([
         element: <UserLayout />,
         children: [
           { path: "dashboard", element: <UserDashboard /> },
-          // Phase 2+: training, history, reports
+          { path: "training", element: <ScenarioSelection /> },
+          // Phase 2+: history, reports
         ],
       },
       {
