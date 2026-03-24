@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Ready to execute
-stopped_at: Completed 01.1-05-PLAN.md
-last_updated: "2026-03-24T10:01:06.683Z"
+stopped_at: Completed 02-04-PLAN.md
+last_updated: "2026-03-24T11:54:42.540Z"
 progress:
   total_phases: 5
-  completed_phases: 1
-  total_plans: 11
-  completed_plans: 9
+  completed_phases: 2
+  total_plans: 19
+  completed_plans: 16
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-24)
 
 **Core value:** MRs can practice realistic conversations with AI-powered digital HCPs and receive immediate, multi-dimensional feedback to improve their communication skills -- anytime, without needing a real HCP or trainer.
-**Current focus:** Phase 01.1 — ui-figma-figma-make-ui-sceenshot-figma-make
+**Current focus:** Phase 02 — f2f-text-coaching-and-scoring
 
 ## Current Position
 
-Phase: 01.1 (ui-figma-figma-make-ui-sceenshot-figma-make) — EXECUTING
-Plan: 6 of 6
+Phase: 02 (f2f-text-coaching-and-scoring) — EXECUTING
+Plan: 6 of 8
 
 ## Performance Metrics
 
@@ -56,6 +56,11 @@ Plan: 6 of 6
 | Phase 01.1 P03 | 3min | 2 tasks | 12 files |
 | Phase 01.1 P04 | 2min | 2 tasks | 3 files |
 | Phase 01.1 P05 | 3min | 2 tasks | 6 files |
+| Phase 02 P02 | 3min | 2 tasks | 15 files |
+| Phase 02 P01 | 5min | 2 tasks | 14 files |
+| Phase 02 P05 | 2min | 2 tasks | 9 files |
+| Phase 02 P03 | 5min | 2 tasks | 7 files |
+| Phase 02 P04 | 9min | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -87,6 +92,16 @@ Recent decisions affecting current work:
 - [Phase 01.1]: Client-side filtering on mock data with useMemo; sentinel ALL_VALUE for Radix Select compatibility
 - [Phase 01.1]: Full-screen 3-panel layout without UserLayout for immersive training experience
 - [Phase 01.1]: CenterPanel extended with inputMode/onMicClick/recordingState props for ChatInput integration
+- [Phase 02]: Used indexed access types for HCP Create/Update interfaces to keep enum values DRY
+- [Phase 02]: i18n namespaces separated per domain (coach, admin, scoring) for lazy-loading
+- [Phase 02]: Used model_validator(mode='after') instead of field_validator for weight sum validation -- Pydantic v2 field validators do not fire on default values
+- [Phase 02]: Used native fetch for SSE streaming -- axios does not support streaming response bodies
+- [Phase 02]: Added abort() to SSE hook for clean stream cancellation on component unmount
+- [Phase 02]: Used local Pydantic Out models with field_validator for JSON list parsing in CRUD routers
+- [Phase 02]: Service layer uses db.flush() instead of db.commit() to work with session middleware commit/rollback
+- [Phase 02]: Used keyword matching for mock key message detection -- real LLM detection deferred to AI adapter wiring
+- [Phase 02]: SSE streaming via EventSourceResponse for real-time HCP response delivery with word-chunk streaming
+- [Phase 02]: Service module pattern: business logic in services/*.py, routers only handle HTTP delegation
 
 ### Pending Todos
 
@@ -98,6 +113,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-24T10:01:06.680Z
-Stopped at: Completed 01.1-05-PLAN.md
+Last session: 2026-03-24T11:54:42.538Z
+Stopped at: Completed 02-04-PLAN.md
 Resume file: None
