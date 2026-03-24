@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: Ready to plan
-stopped_at: Phase 2 context gathered
-last_updated: "2026-03-24T07:37:36.195Z"
+status: Ready to execute
+stopped_at: Completed 01.1-02-PLAN.md
+last_updated: "2026-03-24T09:13:00.465Z"
 progress:
-  total_phases: 4
+  total_phases: 5
   completed_phases: 1
-  total_plans: 5
-  completed_plans: 5
+  total_plans: 11
+  completed_plans: 6
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-24)
 
 **Core value:** MRs can practice realistic conversations with AI-powered digital HCPs and receive immediate, multi-dimensional feedback to improve their communication skills -- anytime, without needing a real HCP or trainer.
-**Current focus:** Phase 01 — foundation-auth-and-design-system
+**Current focus:** Phase 01.1 — ui-figma-figma-make-ui-sceenshot-figma-make
 
 ## Current Position
 
-Phase: 2
-Plan: Not started
+Phase: 01.1 (ui-figma-figma-make-ui-sceenshot-figma-make) — EXECUTING
+Plan: 2 of 6
 
 ## Performance Metrics
 
@@ -51,6 +51,7 @@ Plan: Not started
 | Phase 01 P03 | 7min | 2 tasks | 15 files |
 | Phase 01 P04 | 8min | 3 tasks | 29 files |
 | Phase 01 P05 | 8min | 2 tasks | 6 files |
+| Phase 01.1 P02 | 2min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -73,19 +74,18 @@ Recent decisions affecting current work:
 - [Phase 01]: i18n separated into 3 namespaces (common, auth, nav) for lazy loading and domain separation
 - [Phase 01]: Admin layout uses dark sidebar (#1E293B) per UI-SPEC; mobile uses Sheet overlay for both layouts
 - [Phase 01]: Mock adapters registered in lifespan for clean startup; ConfigProvider inside QueryClientProvider for global flag access
+- [Phase 01.1]: Copyright moved from login form to auth-layout for separation of concerns
 
 ### Pending Todos
 
 None yet.
 
-### Blockers/Concerns
+### Roadmap Evolution
 
-- Azure China (21Vianet) lacks Azure OpenAI and Avatar -- provider abstraction and fallbacks critical (Phase 1 adapter pattern)
-- Azure TTS Avatar available in only 7 regions -- must be configurable/optional (Phase 3)
-- Prototype demo needed week of 2026-03-24 -- time pressure on Phase 1 and Phase 2
+- Phase 01.1 inserted after Phase 1: UI 需要和figma对齐，他们的figma-make 文件和UI sceenshot都放在目录：figma-make (URGENT)
 
 ## Session Continuity
 
-Last session: 2026-03-24T07:37:36.184Z
-Stopped at: Phase 2 context gathered
-Resume file: .planning/phases/02-f2f-text-coaching-and-scoring/02-CONTEXT.md
+Last session: 2026-03-24T09:13:00.463Z
+Stopped at: Completed 01.1-02-PLAN.md
+Resume file: None
