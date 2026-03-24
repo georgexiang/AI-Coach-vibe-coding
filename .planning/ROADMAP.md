@@ -51,9 +51,9 @@ Plans:
 - [x] 01.1-01-PLAN.md -- Install Radix deps, 4 new UI base components (ScrollArea, Tabs, Progress, Textarea), i18n namespaces
 - [x] 01.1-02-PLAN.md -- Login page polish: SVG logo, card shadow, auth layout gradient/language switcher/copyright
 - [x] 01.1-03-PLAN.md -- 11 shared domain components: StatCard, SessionItem, ActionCard, HCPProfileCard, ChatBubble, ChatInput, etc.
-- [ ] 01.1-04-PLAN.md -- User dashboard page + scenario selection page + route registration
+- [x] 01.1-04-PLAN.md -- User dashboard page + scenario selection page + route registration
 - [x] 01.1-05-PLAN.md -- F2F training session: 3 coach panels + full-screen training page + route registration
-- [ ] 01.1-06-PLAN.md -- Build validation + visual verification checkpoint
+- [x] 01.1-06-PLAN.md -- Build validation + visual verification checkpoint
 
 ### Phase 2: F2F Text Coaching and Scoring
 **Goal**: An MR can select a scenario, have a text-based F2F conversation with an AI HCP that behaves according to its profile, and receive a multi-dimensional scored feedback report after the session
