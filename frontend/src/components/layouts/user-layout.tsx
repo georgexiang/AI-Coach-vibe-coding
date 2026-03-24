@@ -1,0 +1,182 @@
+import { useState } from "react";
+import { Outlet, NavLink, useLocation } from "react-router-dom";
+import { useTranslation } from "react-i18next";
+import {
+  LayoutDashboard,
+  GraduationCap,
+  History,
+  BarChart,
+  Menu,
+  Bell,
+  LogOut,
+} from "lucide-react";
+import {
+  Button,
+  Avatar,
+  AvatarFallback,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui";
+import { LanguageSwitcher } from "@/components/shared/language-switcher";
+import { useAuthStore } from "@/stores/auth-store";
+import { useLogout } from "@/hooks/use-auth";
+import { cn } from "@/lib/utils";
+
+const navItems = [
+  { path: "/user/dashboard", labelKey: "dashboard", icon: LayoutDashboard },
+  { path: "/user/training", labelKey: "training", icon: GraduationCap },
+  { path: "/user/history", labelKey: "history", icon: History },
+  { path: "/user/reports", labelKey: "reports", icon: BarChart },
+] as const;
+
+export function UserLayout() {
+  const { t } = useTranslation("nav");
+  const { t: tCommon } = useTranslation("common");
+  const { user } = useAuthStore();
+  const logout = useLogout();
+  const location = useLocation();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const userInitials = user?.full_name
+    ? user.full_name
+        .split(" ")
+        .map((n) => n[0])
+        .join("")
+        .toUpperCase()
+        .slice(0, 2)
+    : "U";
+
+  return (
+    <div className="flex min-h-screen flex-col">
+      {/* Top navigation bar */}
+      <header className="sticky top-0 z-40 flex h-16 items-center border-b bg-white shadow-sm">
+        <div className="flex w-full items-center px-4 lg:px-6">
+          {/* Mobile hamburger */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="md:hidden"
+            onClick={() => setMobileMenuOpen(true)}
+          >
+            <Menu className="size-5" />
+          </Button>
+
+          {/* Logo */}
+          <div className="flex items-center gap-2">
+            <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground text-sm font-bold">
+              AI
+            </div>
+            <span className="hidden font-semibold sm:inline">AI Coach</span>
+          </div>
+
+          {/* Desktop nav links */}
+          <nav className="ml-8 hidden items-center gap-1 md:flex">
+            {navItems.map((item) => {
+              const isActive = location.pathname === item.path;
+              return (
+                <NavLink
+                  key={item.path}
+                  to={item.path}
+                  className={cn(
+                    "flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors",
+                    isActive
+                      ? "text-primary font-medium"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <item.icon className="size-4" />
+                  {t(item.labelKey)}
+                  {isActive && (
+                    <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
+                  )}
+                </NavLink>
+              );
+            })}
+          </nav>
+
+          {/* Right side */}
+          <div className="ml-auto flex items-center gap-2">
+            <LanguageSwitcher />
+            <Button variant="ghost" size="icon" aria-label="Notifications">
+              <Bell className="size-5" />
+            </Button>
+
+            {/* User avatar dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className="flex items-center gap-2 px-2"
+                >
+                  <Avatar className="size-8">
+                    <AvatarFallback className="text-xs">
+                      {userInitials}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="hidden text-sm md:inline">
+                    {user?.full_name}
+                  </span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem>{tCommon("profile")}</DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={logout}>
+                  <LogOut className="size-4" />
+                  {tCommon("logout")}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+      </header>
+
+      {/* Mobile navigation sheet */}
+      <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+        <SheetContent side="left" className="w-64">
+          <SheetHeader>
+            <SheetTitle>AI Coach</SheetTitle>
+          </SheetHeader>
+          <nav className="mt-4 flex flex-col gap-1">
+            {navItems.map((item) => {
+              const isActive = location.pathname === item.path;
+              return (
+                <NavLink
+                  key={item.path}
+                  to={item.path}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={cn(
+                    "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
+                    isActive
+                      ? "bg-primary/10 text-primary font-medium"
+                      : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                  )}
+                >
+                  <item.icon className="size-5" />
+                  {t(item.labelKey)}
+                </NavLink>
+              );
+            })}
+          </nav>
+        </SheetContent>
+      </Sheet>
+
+      {/* Page content */}
+      <main className="flex-1 bg-muted p-4 lg:p-6">
+        <Outlet />
+      </main>
+
+      {/* Footer */}
+      <footer className="border-t bg-white py-3 text-center text-xs text-muted-foreground">
+        2026 AI Coach Platform
+      </footer>
+    </div>
+  );
+}

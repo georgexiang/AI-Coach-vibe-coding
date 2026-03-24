@@ -1,0 +1,14 @@
+{
+  "emptyState": {
+    "title": "Nothing here yet",
+    "body": "Content will appear here once data is available."
+  },
+  "error": {
+    "title": "Something went wrong",
+    "body": "An unexpected error occurred. Please refresh the page or try again later."
+  },
+  "loading": "Loading...",
+  "lang": { "zhCN": "Chinese", "enUS": "English" },
+  "logout": "Sign Out",
+  "profile": "Profile"
+}

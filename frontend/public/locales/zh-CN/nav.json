@@ -1,0 +1,12 @@
+{
+  "dashboard": "仪表板",
+  "training": "训练",
+  "history": "历史记录",
+  "reports": "报告",
+  "users": "用户管理",
+  "hcpProfiles": "HCP 档案",
+  "scenarios": "场景管理",
+  "materials": "资料管理",
+  "azureServices": "Azure 服务",
+  "settings": "系统设置"
+}
