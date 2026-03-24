@@ -17,6 +17,12 @@ MRs can practice realistic conversations with AI-powered digital HCPs and receiv
 - ✓ Database layer with async SQLAlchemy + Alembic migrations — existing
 - ✓ Docker Compose deployment configuration — existing
 - ✓ CI/CD pipeline with GitHub Actions — existing
+- ✓ JWT authentication with User model, RBAC (admin/user/manager), login/me endpoints — Phase 1
+- ✓ Design system with Figma Make tokens and 17 shadcn/ui components — Phase 1
+- ✓ Pluggable AI service adapters (STT/TTS/Avatar) with mock implementations — Phase 1
+- ✓ React SPA with i18n (zh-CN/en-US), auth store, router with guards — Phase 1
+- ✓ Responsive layouts (user top-nav, admin sidebar), login page — Phase 1
+- ✓ Feature toggle config API and frontend ConfigProvider — Phase 1
 
 ### Active
 
@@ -32,10 +38,7 @@ MRs can practice realistic conversations with AI-powered digital HCPs and receiv
 - [ ] Azure Speech Services (STT/TTS)
 - [ ] Azure AI Avatar (digital human for HCP)
 - [ ] Azure Content Understanding (multimodal evaluation)
-- [ ] User authentication (simple user/admin, future Azure AD)
 - [ ] Azure service configuration UI
-- [ ] i18n support (Chinese + English, extensible to European languages)
-- [ ] Responsive web app (desktop, tablet, mobile, Teams Tab ready)
 
 ### Out of Scope
 
@@ -96,4 +99,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-24 after initialization*
+*Last updated: 2026-03-24 after Phase 1 completion — Foundation Auth and Design System*
