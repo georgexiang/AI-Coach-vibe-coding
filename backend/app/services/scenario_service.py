@@ -1,0 +1,147 @@
+"""Scenario service: CRUD operations for training scenarios."""
+
+import json
+
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+
+from app.models.scenario import Scenario
+from app.schemas.scenario import ScenarioCreate, ScenarioUpdate
+from app.services import hcp_profile_service
+from app.utils.exceptions import not_found
+
+
+async def create_scenario(db: AsyncSession, data: ScenarioCreate, user_id: str) -> Scenario:
+    """Create a new scenario. Verifies the referenced HCP profile exists."""
+    # Verify HCP profile exists
+    await hcp_profile_service.get_hcp_profile(db, data.hcp_profile_id)
+
+    scenario_data = data.model_dump()
+    scenario_data["created_by"] = user_id
+
+    # Serialize key_messages list to JSON string
+    if isinstance(scenario_data.get("key_messages"), list):
+        scenario_data["key_messages"] = json.dumps(scenario_data["key_messages"])
+
+    scenario = Scenario(**scenario_data)
+    db.add(scenario)
+    await db.flush()
+    await db.refresh(scenario)
+    return scenario
+
+
+async def get_scenarios(
+    db: AsyncSession,
+    page: int = 1,
+    page_size: int = 20,
+    status: str | None = None,
+    mode: str | None = None,
+    search: str | None = None,
+) -> tuple[list[Scenario], int]:
+    """List scenarios with optional filters and eager-loaded HCP profile."""
+    query = select(Scenario).options(selectinload(Scenario.hcp_profile))
+
+    if status:
+        query = query.where(Scenario.status == status)
+    if mode:
+        query = query.where(Scenario.mode == mode)
+    if search:
+        search_filter = f"%{search}%"
+        query = query.where(Scenario.name.ilike(search_filter))
+
+    # Count total
+    count_query = select(func.count()).select_from(
+        select(Scenario.id)
+        .where(
+            *[
+                c
+                for c in [
+                    Scenario.status == status if status else None,
+                    Scenario.mode == mode if mode else None,
+                    Scenario.name.ilike(f"%{search}%") if search else None,
+                ]
+                if c is not None
+            ]
+        )
+        .subquery()
+    )
+    total_result = await db.execute(count_query)
+    total = total_result.scalar() or 0
+
+    # Paginate
+    query = query.order_by(Scenario.created_at.desc())
+    query = query.offset((page - 1) * page_size).limit(page_size)
+    result = await db.execute(query)
+    items = list(result.scalars().all())
+
+    return items, total
+
+
+async def get_scenario(db: AsyncSession, scenario_id: str) -> Scenario:
+    """Get a single scenario with eager-loaded HCP profile. Raises 404 if not found."""
+    result = await db.execute(
+        select(Scenario)
+        .options(selectinload(Scenario.hcp_profile))
+        .where(Scenario.id == scenario_id)
+    )
+    scenario = result.scalar_one_or_none()
+    if scenario is None:
+        not_found("Scenario not found")
+    return scenario
+
+
+async def update_scenario(db: AsyncSession, scenario_id: str, data: ScenarioUpdate) -> Scenario:
+    """Update an existing scenario with partial data."""
+    scenario = await get_scenario(db, scenario_id)
+    update_data = data.model_dump(exclude_unset=True)
+
+    # Serialize key_messages list to JSON string
+    if "key_messages" in update_data and isinstance(update_data["key_messages"], list):
+        update_data["key_messages"] = json.dumps(update_data["key_messages"])
+
+    # If HCP profile ID is being changed, verify the new one exists
+    if "hcp_profile_id" in update_data:
+        await hcp_profile_service.get_hcp_profile(db, update_data["hcp_profile_id"])
+
+    for field, value in update_data.items():
+        setattr(scenario, field, value)
+
+    await db.flush()
+    await db.refresh(scenario)
+    return scenario
+
+
+async def delete_scenario(db: AsyncSession, scenario_id: str) -> None:
+    """Delete a scenario by ID."""
+    scenario = await get_scenario(db, scenario_id)
+    await db.delete(scenario)
+    await db.flush()
+
+
+async def clone_scenario(db: AsyncSession, scenario_id: str, user_id: str) -> Scenario:
+    """Clone an existing scenario with a new ID, name suffixed with (Copy), and draft status."""
+    original = await get_scenario(db, scenario_id)
+
+    clone = Scenario(
+        name=f"{original.name} (Copy)",
+        description=original.description,
+        product=original.product,
+        therapeutic_area=original.therapeutic_area,
+        mode=original.mode,
+        difficulty=original.difficulty,
+        status="draft",
+        hcp_profile_id=original.hcp_profile_id,
+        key_messages=original.key_messages,
+        weight_key_message=original.weight_key_message,
+        weight_objection_handling=original.weight_objection_handling,
+        weight_communication=original.weight_communication,
+        weight_product_knowledge=original.weight_product_knowledge,
+        weight_scientific_info=original.weight_scientific_info,
+        pass_threshold=original.pass_threshold,
+        created_by=user_id,
+    )
+    db.add(clone)
+    await db.flush()
+    await db.refresh(clone)
+    return clone

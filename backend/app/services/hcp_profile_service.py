@@ -1,0 +1,102 @@
+"""HCP Profile service: CRUD operations for Healthcare Professional profiles."""
+
+import json
+
+from sqlalchemy import func, or_, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models.hcp_profile import HcpProfile
+from app.schemas.hcp_profile import HcpProfileCreate, HcpProfileUpdate
+from app.utils.exceptions import not_found
+
+# JSON list fields that need serialization/deserialization
+_JSON_LIST_FIELDS = ("expertise_areas", "objections", "probe_topics")
+
+
+async def create_hcp_profile(db: AsyncSession, data: HcpProfileCreate, user_id: str) -> HcpProfile:
+    """Create a new HCP profile."""
+    profile_data = data.model_dump()
+    profile_data["created_by"] = user_id
+
+    # Serialize list fields to JSON strings
+    for field in _JSON_LIST_FIELDS:
+        if field in profile_data and isinstance(profile_data[field], list):
+            profile_data[field] = json.dumps(profile_data[field])
+
+    profile = HcpProfile(**profile_data)
+    db.add(profile)
+    await db.flush()
+    await db.refresh(profile)
+    return profile
+
+
+async def get_hcp_profiles(
+    db: AsyncSession,
+    page: int = 1,
+    page_size: int = 20,
+    search: str | None = None,
+    is_active: bool | None = None,
+) -> tuple[list[HcpProfile], int]:
+    """List HCP profiles with optional search and active filters."""
+    query = select(HcpProfile)
+
+    if search:
+        search_filter = f"%{search}%"
+        query = query.where(
+            or_(
+                HcpProfile.name.ilike(search_filter),
+                HcpProfile.specialty.ilike(search_filter),
+            )
+        )
+
+    if is_active is not None:
+        query = query.where(HcpProfile.is_active == is_active)
+
+    # Count total
+    count_query = select(func.count()).select_from(query.subquery())
+    total_result = await db.execute(count_query)
+    total = total_result.scalar() or 0
+
+    # Paginate
+    query = query.order_by(HcpProfile.created_at.desc())
+    query = query.offset((page - 1) * page_size).limit(page_size)
+    result = await db.execute(query)
+    items = list(result.scalars().all())
+
+    return items, total
+
+
+async def get_hcp_profile(db: AsyncSession, profile_id: str) -> HcpProfile:
+    """Get a single HCP profile by ID. Raises 404 if not found."""
+    result = await db.execute(select(HcpProfile).where(HcpProfile.id == profile_id))
+    profile = result.scalar_one_or_none()
+    if profile is None:
+        not_found("HCP profile not found")
+    return profile
+
+
+async def update_hcp_profile(
+    db: AsyncSession, profile_id: str, data: HcpProfileUpdate
+) -> HcpProfile:
+    """Update an existing HCP profile with partial data."""
+    profile = await get_hcp_profile(db, profile_id)
+    update_data = data.model_dump(exclude_unset=True)
+
+    # Serialize list fields to JSON strings
+    for field in _JSON_LIST_FIELDS:
+        if field in update_data and isinstance(update_data[field], list):
+            update_data[field] = json.dumps(update_data[field])
+
+    for field, value in update_data.items():
+        setattr(profile, field, value)
+
+    await db.flush()
+    await db.refresh(profile)
+    return profile
+
+
+async def delete_hcp_profile(db: AsyncSession, profile_id: str) -> None:
+    """Delete an HCP profile by ID."""
+    profile = await get_hcp_profile(db, profile_id)
+    await db.delete(profile)
+    await db.flush()
