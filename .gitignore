@@ -34,7 +34,7 @@ playwright-report/
 .coverage
 htmlcov/
 coverage.xml
-*.html
+*.report.html
 
 # Docker
 *.log

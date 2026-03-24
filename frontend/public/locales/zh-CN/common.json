@@ -1,0 +1,14 @@
+{
+  "emptyState": {
+    "title": "暂无内容",
+    "body": "数据可用后将在此显示。"
+  },
+  "error": {
+    "title": "出现错误",
+    "body": "发生意外错误。请刷新页面或稍后重试。"
+  },
+  "loading": "加载中...",
+  "lang": { "zhCN": "中文", "enUS": "English" },
+  "logout": "退出登录",
+  "profile": "个人资料"
+}
