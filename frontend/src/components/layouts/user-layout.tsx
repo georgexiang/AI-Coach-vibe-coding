@@ -9,6 +9,7 @@ import {
   Menu,
   Bell,
   LogOut,
+  Mic,
 } from "lucide-react";
 import {
   Button,
@@ -27,6 +28,7 @@ import {
 import { LanguageSwitcher } from "@/components/shared/language-switcher";
 import { useAuthStore } from "@/stores/auth-store";
 import { useLogout } from "@/hooks/use-auth";
+import { useConfig } from "@/contexts/config-context";
 import { cn } from "@/lib/utils";
 
 const navItems = [
@@ -41,6 +43,7 @@ export function UserLayout() {
   const { t: tCommon } = useTranslation("common");
   const { user } = useAuthStore();
   const logout = useLogout();
+  const { voice_enabled: voiceEnabled } = useConfig();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -93,6 +96,10 @@ export function UserLayout() {
                 >
                   <item.icon className="size-4" />
                   {t(item.labelKey)}
+                  {/* Config-driven UI: show mic icon when voice is enabled */}
+                  {item.labelKey === "training" && voiceEnabled && (
+                    <Mic className="size-3 text-success-600" />
+                  )}
                   {isActive && (
                     <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
                   )}

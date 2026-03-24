@@ -18,6 +18,19 @@ async def lifespan(app: FastAPI):
     # Startup: create tables
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+    # Register mock adapters (always available, no Azure credentials needed)
+    from app.services.agents.adapters.mock import MockCoachingAdapter
+    from app.services.agents.avatar.mock import MockAvatarAdapter
+    from app.services.agents.registry import registry
+    from app.services.agents.stt.mock import MockSTTAdapter
+    from app.services.agents.tts.mock import MockTTSAdapter
+
+    registry.register("llm", MockCoachingAdapter())
+    registry.register("stt", MockSTTAdapter())
+    registry.register("tts", MockTTSAdapter())
+    registry.register("avatar", MockAvatarAdapter())
+
     yield
     # Shutdown: dispose engine
     await engine.dispose()
