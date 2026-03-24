@@ -70,7 +70,7 @@ Plans:
 Plans:
 - [x] 02-01-PLAN.md -- Backend data models, Pydantic schemas, Alembic migration, sse-starlette dependency
 - [x] 02-02-PLAN.md -- Frontend TypeScript types, i18n namespaces (coach/admin/scoring), Slider component, recharts install
-- [ ] 02-03-PLAN.md -- Backend HCP profile + scenario CRUD API routers, service layer, seed data
+- [x] 02-03-PLAN.md -- Backend HCP profile + scenario CRUD API routers, service layer, seed data
 - [ ] 02-04-PLAN.md -- Backend session lifecycle + SSE streaming chat + scoring service + enhanced mock adapter
 - [x] 02-05-PLAN.md -- Frontend API client modules + TanStack Query hooks + SSE streaming hook
 - [ ] 02-06-PLAN.md -- Admin pages: HCP profile management, scenario management, Azure config
