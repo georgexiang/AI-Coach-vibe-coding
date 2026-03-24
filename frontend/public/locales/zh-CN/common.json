@@ -10,5 +10,11 @@
   "loading": "加载中...",
   "lang": { "zhCN": "中文", "enUS": "English" },
   "logout": "退出登录",
-  "profile": "个人资料"
+  "profile": "个人资料",
+  "startTraining": "开始培训",
+  "noData": "暂无数据",
+  "noDataDescription": "完成您的第一次培训后即可查看结果",
+  "errorTitle": "出现错误",
+  "errorDescription": "请重试，如问题持续请联系技术支持",
+  "ariaSwitchLanguage": "切换语言"
 }
