@@ -4,7 +4,14 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api import auth_router, config_router, hcp_profiles_router, scenarios_router
+from app.api import (
+    auth_router,
+    config_router,
+    hcp_profiles_router,
+    scenarios_router,
+    scoring_router,
+    sessions_router,
+)
 from app.config import get_settings
 from app.database import engine
 from app.models.base import Base
@@ -69,6 +76,8 @@ app.include_router(auth_router, prefix=settings.api_prefix)
 app.include_router(config_router, prefix=settings.api_prefix)
 app.include_router(hcp_profiles_router, prefix=settings.api_prefix)
 app.include_router(scenarios_router, prefix=settings.api_prefix)
+app.include_router(sessions_router, prefix=settings.api_prefix)
+app.include_router(scoring_router, prefix=settings.api_prefix)
 
 
 # Health check

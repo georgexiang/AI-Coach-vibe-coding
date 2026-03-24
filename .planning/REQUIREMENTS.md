@@ -47,21 +47,21 @@
 ### F2F Coaching Simulation (COACH)
 
 - [x] **COACH-01**: User can start a text-based F2F coaching session with an AI-powered HCP based on selected scenario
-- [ ] **COACH-02**: AI HCP responds in character (personality, knowledge, objections) as defined by HCP profile and scenario context
+- [x] **COACH-02**: AI HCP responds in character (personality, knowledge, objections) as defined by HCP profile and scenario context
 - [x] **COACH-03**: System tracks key message delivery in real-time — checklist shows which messages were delivered and which were missed
 - [ ] **COACH-04**: User can use voice input (Azure Speech STT) — speech recognized and sent as text to AI HCP (zh-CN + en-US)
 - [ ] **COACH-05**: AI HCP responses are spoken via Azure Speech TTS — natural-sounding voices in Chinese and English
 - [ ] **COACH-06**: Voice interaction supports GPT Realtime API (WebSocket) for sub-1s conversational latency as configurable premium option
 - [ ] **COACH-07**: Azure AI Avatar renders digital human visual for HCP as configurable premium option — falls back to TTS-only when disabled or unavailable
-- [ ] **COACH-08**: Real-time coaching hints displayed in side panel during conversation — contextual suggestions based on conversation progress
+- [x] **COACH-08**: Real-time coaching hints displayed in side panel during conversation — contextual suggestions based on conversation progress
 - [x] **COACH-09**: Conversations are immutable once completed — only scoring and feedback can be added after completion
 
 ### Scoring & Feedback (SCORE)
 
 - [x] **SCORE-01**: System scores completed sessions across 5-6 configurable dimensions (key message delivery, objection handling, communication skills, product knowledge, scientific accuracy)
-- [ ] **SCORE-02**: Scoring uses Azure OpenAI to analyze conversation transcript against scenario criteria and HCP expectations
-- [ ] **SCORE-03**: Post-session feedback report shows strengths and weaknesses per dimension with specific conversation quotes
-- [ ] **SCORE-04**: Post-session feedback includes actionable improvement suggestions per dimension
+- [x] **SCORE-02**: Scoring uses Azure OpenAI to analyze conversation transcript against scenario criteria and HCP expectations
+- [x] **SCORE-03**: Post-session feedback report shows strengths and weaknesses per dimension with specific conversation quotes
+- [x] **SCORE-04**: Post-session feedback includes actionable improvement suggestions per dimension
 - [x] **SCORE-05**: Scoring dimension weights are configurable per scenario — admin sets relative importance via weighted sliders
 
 ### Conference Mode (CONF)
@@ -148,18 +148,18 @@
 | HCP-04 | Phase 2 | Complete |
 | HCP-05 | Phase 2 | Complete |
 | COACH-01 | Phase 2 | Complete |
-| COACH-02 | Phase 2 | Pending |
+| COACH-02 | Phase 2 | Complete |
 | COACH-03 | Phase 2 | Complete |
 | COACH-04 | Phase 3 | Pending |
 | COACH-05 | Phase 3 | Pending |
 | COACH-06 | Phase 3 | Pending |
 | COACH-07 | Phase 3 | Pending |
-| COACH-08 | Phase 2 | Pending |
+| COACH-08 | Phase 2 | Complete |
 | COACH-09 | Phase 2 | Complete |
 | SCORE-01 | Phase 2 | Complete |
-| SCORE-02 | Phase 2 | Pending |
-| SCORE-03 | Phase 2 | Pending |
-| SCORE-04 | Phase 2 | Pending |
+| SCORE-02 | Phase 2 | Complete |
+| SCORE-03 | Phase 2 | Complete |
+| SCORE-04 | Phase 2 | Complete |
 | SCORE-05 | Phase 2 | Complete |
 | CONF-01 | Phase 3 | Pending |
 | CONF-02 | Phase 3 | Pending |
