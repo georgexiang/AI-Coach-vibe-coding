@@ -1,211 +1,238 @@
-import { useCallback, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { LeftPanel, CenterPanel, RightPanel } from "@/components/coach";
-
-// TODO: Replace with TanStack Query hook in Phase 2
-interface Message {
-  id: string;
-  sender: "hcp" | "mr";
-  text: string;
-  timestamp: Date;
-}
-
-interface KeyMessage {
-  id: string;
-  label: string;
-  checked: boolean;
-}
-
-const mockKeyMessages: KeyMessage[] = [
-  { id: "1", label: "Efficacy data from Phase III trial", checked: false },
-  { id: "2", label: "Safety profile comparison", checked: false },
-  { id: "3", label: "Dosing convenience", checked: false },
-  { id: "4", label: "Patient quality of life data", checked: false },
-];
-
-const mockScoringCriteria = [
-  { label: "Key Message", weight: 30 },
-  { label: "Objection Handling", weight: 25 },
-  { label: "Communication", weight: 20 },
-  { label: "Product Knowledge", weight: 15 },
-  { label: "Scientific", weight: 10 },
-];
-
-const mockHints = [
-  {
-    id: "1",
-    text: "Consider mentioning the Phase III overall survival data",
-  },
-  { id: "2", text: "Dr. Wang values specific numbers — use statistics" },
-];
-
-const mockMessageStatuses = [
-  { id: "1", label: "Efficacy data", status: "delivered" as const },
-  { id: "2", label: "Safety profile", status: "in-progress" as const },
-  { id: "3", label: "Dosing convenience", status: "pending" as const },
-  { id: "4", label: "Quality of life", status: "pending" as const },
-];
-
-const mockHcpResponses = [
-  "Interesting. Can you tell me more about the efficacy data?",
-  "I see. How does the safety profile compare to the current standard?",
-  "What about the dosing schedule? How convenient is it for patients?",
-  "Those are good points. Do you have any real-world evidence to support this?",
-  "Thank you for the information. I will consider it for my patients.",
-];
-
-function formatTime(seconds: number): string {
-  const mins = Math.floor(seconds / 60)
-    .toString()
-    .padStart(2, "0");
-  const secs = (seconds % 60).toString().padStart(2, "0");
-  return `${mins}:${secs}`;
-}
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui";
+import { Button } from "@/components/ui";
+import { ScenarioPanel } from "@/components/coach/scenario-panel";
+import { ChatArea } from "@/components/coach/chat-area";
+import { HintsPanel } from "@/components/coach/hints-panel";
+import { useSession, useSessionMessages, useEndSession } from "@/hooks/use-session";
+import { useScenario } from "@/hooks/use-scenarios";
+import { useSSEStream } from "@/hooks/use-sse";
+import type { SessionMessage, KeyMessageStatus, CoachingHint } from "@/types/session";
 
 export default function TrainingSession() {
-  const { t } = useTranslation("training");
+  const { t } = useTranslation("coach");
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const sessionId = searchParams.get("id") ?? "";
 
-  // Panel collapse state
+  // Fetch session and messages
+  const { data: session } = useSession(sessionId || undefined);
+  const { data: apiMessages, refetch: refetchMessages } = useSessionMessages(
+    sessionId || undefined
+  );
+  const { data: scenario } = useScenario(session?.scenario_id);
+  const endSessionMutation = useEndSession();
+
+  // Local state
+  const [messages, setMessages] = useState<SessionMessage[]>([]);
+  const [keyMessagesStatus, setKeyMessagesStatus] = useState<KeyMessageStatus[]>([]);
+  const [hints, setHints] = useState<CoachingHint[]>([]);
   const [leftCollapsed, setLeftCollapsed] = useState(false);
   const [rightCollapsed, setRightCollapsed] = useState(false);
+  const [showEndDialog, setShowEndDialog] = useState(false);
 
-  // Chat state
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: "1",
-      sender: "hcp",
-      text: "Good morning, I have about 10 minutes. What brings you here today?",
-      timestamp: new Date(),
-    },
-  ]);
-  const [keyMessages, setKeyMessages] = useState(mockKeyMessages);
-  const [avatarEnabled, setAvatarEnabled] = useState(true);
-  const [inputMode, setInputMode] = useState<"text" | "audio">("text");
-  const [recordingState, setRecordingState] = useState<
-    "idle" | "recording" | "processing"
-  >("idle");
-  const [isTyping, setIsTyping] = useState(false);
-  const [wordCount, setWordCount] = useState(0);
-
-  // Session timer
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
-
+  // Sync API messages into local state
   useEffect(() => {
-    const timer = setInterval(() => {
-      setElapsedSeconds((prev) => prev + 1);
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
+    if (apiMessages && apiMessages.length > 0) {
+      setMessages(apiMessages);
+    }
+  }, [apiMessages]);
 
-  const sessionTime = formatTime(elapsedSeconds);
+  // Initialize key messages from scenario
+  useEffect(() => {
+    if (scenario && keyMessagesStatus.length === 0) {
+      setKeyMessagesStatus(
+        scenario.key_messages.map((msg) => ({
+          message: msg,
+          delivered: false,
+          detected_at: null,
+        }))
+      );
+    }
+  }, [scenario, keyMessagesStatus.length]);
 
-  // HCP info
-  const hcpName = "Dr. Wang Wei";
-  const hcpInitials = "DW";
-
-  // Handlers
-  const handleSendMessage = useCallback(
-    (text: string) => {
-      const newMessage: Message = {
-        id: Date.now().toString(),
-        sender: "mr",
-        text,
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, newMessage]);
-      setWordCount((prev) => prev + text.split(/\s+/).length);
-
-      // Simulate HCP typing and response
-      setIsTyping(true);
-      const responseIndex =
-        (messages.length - 1) % mockHcpResponses.length;
-      const responseText =
-        mockHcpResponses[responseIndex] ?? mockHcpResponses[0];
-
-      setTimeout(() => {
-        const hcpMessage: Message = {
-          id: (Date.now() + 1).toString(),
-          sender: "hcp",
-          text: responseText ?? "",
-          timestamp: new Date(),
-        };
-        setMessages((prev) => [...prev, hcpMessage]);
-        setIsTyping(false);
-      }, 1500);
-    },
-    [messages.length],
+  // SSE streaming callbacks
+  const sseCallbacks = useMemo(
+    () => ({
+      onText: (_text: string) => {
+        // streamedText is updated by the hook itself
+      },
+      onHint: (hintData: string) => {
+        try {
+          const parsed = JSON.parse(hintData) as CoachingHint;
+          setHints((prev) => [...prev, parsed]);
+        } catch {
+          setHints((prev) => [...prev, { content: hintData }]);
+        }
+      },
+      onKeyMessages: (data: string) => {
+        try {
+          const parsed = JSON.parse(data) as KeyMessageStatus[];
+          setKeyMessagesStatus(parsed);
+        } catch {
+          // Ignore parse errors
+        }
+      },
+      onDone: () => {
+        // Refetch messages to get the finalized HCP response
+        void refetchMessages();
+      },
+      onError: (error: string) => {
+        console.error("SSE error:", error);
+      },
+    }),
+    [refetchMessages]
   );
 
-  const handleEndSession = useCallback(() => {
-    if (confirm(t("endSessionConfirm"))) {
-      navigate("/user/dashboard");
-    }
-  }, [t, navigate]);
+  const { sendMessage, isStreaming, streamedText } = useSSEStream(sseCallbacks);
 
-  const handleToggleKeyMessage = useCallback((id: string) => {
-    setKeyMessages((prev) =>
-      prev.map((msg) =>
-        msg.id === id ? { ...msg, checked: !msg.checked } : msg,
-      ),
-    );
+  // Send message handler
+  const handleSendMessage = useCallback(
+    (text: string) => {
+      // Optimistically add user message
+      const userMsg: SessionMessage = {
+        id: `temp-${Date.now()}`,
+        session_id: sessionId,
+        role: "user",
+        content: text,
+        created_at: new Date().toISOString(),
+      };
+      setMessages((prev) => [...prev, userMsg]);
+
+      // Send via SSE
+      void sendMessage(sessionId, text);
+    },
+    [sessionId, sendMessage]
+  );
+
+  // End session handler
+  const handleEndSession = useCallback(() => {
+    setShowEndDialog(true);
   }, []);
 
-  const handleMicClick = useCallback(() => {
-    if (inputMode === "text") {
-      setInputMode("audio");
-      setRecordingState("idle");
-    } else if (recordingState === "idle") {
-      setRecordingState("recording");
-    } else if (recordingState === "recording") {
-      setRecordingState("processing");
-      // Simulate processing
-      setTimeout(() => {
-        setRecordingState("idle");
-        setInputMode("text");
-      }, 1000);
+  const confirmEndSession = useCallback(async () => {
+    setShowEndDialog(false);
+    try {
+      await endSessionMutation.mutateAsync(sessionId);
+      navigate(`/user/scoring?id=${sessionId}`);
+    } catch {
+      // Error handled by mutation
     }
-  }, [inputMode, recordingState]);
+  }, [sessionId, endSessionMutation, navigate]);
+
+  // Session stats
+  const sessionStats = useMemo(() => {
+    const userMessages = messages.filter((m) => m.role === "user");
+    const wordCount = userMessages.reduce(
+      (acc, m) => acc + m.content.split(/\s+/).length,
+      0
+    );
+    const startTime = session?.started_at
+      ? new Date(session.started_at).getTime()
+      : Date.now();
+    const duration = Math.floor((Date.now() - startTime) / 1000);
+    return {
+      duration,
+      wordCount,
+      messageCount: messages.length,
+    };
+  }, [messages, session?.started_at]);
+
+  // Default scenario for when data is still loading
+  const defaultScenario = {
+    id: "",
+    name: "Loading...",
+    description: "",
+    product: "",
+    therapeutic_area: "",
+    mode: "f2f" as const,
+    difficulty: "medium" as const,
+    status: "active" as const,
+    hcp_profile_id: null,
+    hcp_profile: undefined,
+    key_messages: [] as string[],
+    scoring_weights: {
+      key_message_delivery: 30,
+      objection_handling: 25,
+      communication_skills: 20,
+      product_knowledge: 15,
+      scientific_information: 10,
+    },
+    pass_threshold: 70,
+    estimated_duration: 15,
+    created_at: "",
+    updated_at: "",
+  };
+
+  const currentScenario = scenario ?? defaultScenario;
+  const hcpInitials =
+    currentScenario.hcp_profile?.name
+      .split(" ")
+      .map((n: string) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2) ?? "HC";
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden">
-      <LeftPanel
+    <div className="flex h-screen w-screen overflow-hidden bg-white">
+      {/* Left panel */}
+      <ScenarioPanel
+        scenario={currentScenario}
+        keyMessagesStatus={keyMessagesStatus}
         isCollapsed={leftCollapsed}
-        onToggleCollapse={() => setLeftCollapsed((prev) => !prev)}
-        scenarioProduct="PD-1 Inhibitor"
-        scenarioContext="Initial visit with Dr. Wang to introduce new Phase III trial data for our PD-1 Inhibitor. Focus on efficacy and safety advantages over current standard of care."
-        hcpName={hcpName}
-        hcpSpecialty="Oncologist"
-        hcpPersonality="Skeptical, Detail-oriented"
-        hcpBackground="Prefers evidence-based data, concerned about side effects"
-        keyMessages={keyMessages}
-        onToggleKeyMessage={handleToggleKeyMessage}
-        scoringCriteria={mockScoringCriteria}
+        onToggle={() => setLeftCollapsed((prev) => !prev)}
       />
 
-      <CenterPanel
-        sessionTime={sessionTime}
-        onEndSession={handleEndSession}
+      {/* Center panel */}
+      <ChatArea
+        sessionId={sessionId}
         messages={messages}
         onSendMessage={handleSendMessage}
-        avatarEnabled={avatarEnabled}
-        onToggleAvatar={setAvatarEnabled}
+        isStreaming={isStreaming}
+        streamingText={streamedText}
+        onEndSession={handleEndSession}
+        sessionStatus={session?.status ?? "created"}
+        startedAt={session?.started_at}
         hcpInitials={hcpInitials}
-        isTyping={isTyping}
-        inputMode={inputMode}
-        onMicClick={handleMicClick}
-        recordingState={recordingState}
       />
 
-      <RightPanel
+      {/* Right panel */}
+      <HintsPanel
+        hints={hints}
+        keyMessagesStatus={keyMessagesStatus}
+        sessionStats={sessionStats}
         isCollapsed={rightCollapsed}
-        onToggleCollapse={() => setRightCollapsed((prev) => !prev)}
-        hints={mockHints}
-        messageStatuses={mockMessageStatuses}
-        sessionTime={sessionTime}
-        wordCount={wordCount}
+        onToggle={() => setRightCollapsed((prev) => !prev)}
       />
+
+      {/* End session confirmation dialog */}
+      <Dialog open={showEndDialog} onOpenChange={setShowEndDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("session.endSession")}</DialogTitle>
+            <DialogDescription>
+              {t("session.endConfirm")}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEndDialog(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={confirmEndSession}>
+              {t("session.endSession")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
