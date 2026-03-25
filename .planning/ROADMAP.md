@@ -124,7 +124,13 @@ Plans:
   3. Retention policies enable auto-deletion of expired materials per configurable rules
   4. Uploaded materials are indexed and available to the AI knowledge base for enhanced HCP simulation accuracy
   5. All new code has unit tests with >=95% coverage maintained
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 05-01-PLAN.md -- Backend foundation: ORM models, Pydantic schemas, storage adapter, text extractor, Alembic migration, new dependencies
+- [ ] 05-02-PLAN.md -- Backend API: material service, REST router, prompt builder RAG integration, comprehensive tests
+- [ ] 05-03-PLAN.md -- Frontend: TypeScript types, API client, TanStack Query hooks, admin page with drag-and-drop upload, i18n, route registration
+
 **UI hint**: yes
 
 ### Phase 6: Conference Presentation Module
@@ -152,5 +158,5 @@ Phases execute in numeric order: 1 -> 01.1 -> 2 -> 3 -> 4 -> 5 -> 6
 | 2. F2F Text Coaching and Scoring | 8/8 | Complete | - |
 | 3. Scoring & Assessment | 0/4 | Planning complete | - |
 | 4. Dashboard & Reporting | 0/TBD | Not started | - |
-| 5. Training Material Management | 0/TBD | Not started | - |
+| 5. Training Material Management | 0/3 | Planning complete | - |
 | 6. Conference Presentation Module | 0/TBD | Not started | - |
