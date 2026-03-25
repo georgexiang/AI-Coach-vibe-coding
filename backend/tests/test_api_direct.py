@@ -18,7 +18,6 @@ from app.services.auth import create_access_token, get_password_hash
 from app.utils.exceptions import AppException
 from tests.conftest import TestSessionLocal
 
-
 # ────────── auth.py direct calls ──────────
 
 
@@ -260,9 +259,7 @@ class TestSessionsDirect:
 
         request = SendMessageRequest(message="Another message")
         with pytest.raises(AppException) as exc:
-            await send_message(
-                session_id=session.id, request=request, db=db_session, user=user
-            )
+            await send_message(session_id=session.id, request=request, db=db_session, user=user)
         assert exc.value.code == "SESSION_CLOSED"
 
     async def test_send_message_sse_generator_directly(self, db_session):
@@ -508,9 +505,7 @@ class TestSessionsDirect:
         await db_session.flush()
 
         msgs = [
-            SessionMessage(
-                session_id=session.id, role="user", content="PFS data", message_index=0
-            ),
+            SessionMessage(session_id=session.id, role="user", content="PFS data", message_index=0),
             SessionMessage(
                 session_id=session.id, role="assistant", content="Tell me more", message_index=1
             ),
@@ -768,11 +763,10 @@ class TestDependenciesDirect:
 
     async def test_missing_sub_rejected(self, db_session):
         """Cover dependencies.py lines 28-29: missing sub claim."""
-        from app.dependencies import get_current_user
-
         from jose import jwt
 
         from app.config import get_settings
+        from app.dependencies import get_current_user
 
         settings = get_settings()
         token = jwt.encode({}, settings.secret_key, algorithm=settings.algorithm)

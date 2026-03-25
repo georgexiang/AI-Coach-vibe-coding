@@ -22,7 +22,6 @@ from app.models.user import User
 from app.services.auth import create_access_token, get_password_hash
 from tests.conftest import TestSessionLocal
 
-
 # ────────────────── helpers ──────────────────
 
 
@@ -254,7 +253,7 @@ class TestScoringApiCoverage:
 
 
 class TestSessionsApiCoverage:
-    """Cover sessions.py: create, list, active, get, message (SSE), end, messages, report, suggestions."""
+    """Cover sessions.py: create, list, active, get, message, end, report."""
 
     async def test_create_session_returns_201(self, client):
         """Cover line 42."""
@@ -629,7 +628,7 @@ class TestHcpProfilesCoverage:
 
 
 class TestScenariosCoverage:
-    """Cover scenarios.py lines: create, list, get, update, delete, clone, active, datetime_to_str."""
+    """Cover scenarios.py: create, list, get, update, delete, clone, active."""
 
     async def _create_hcp(self, client, admin_token, admin_id) -> str:
         resp = await client.post(
@@ -798,7 +797,7 @@ class TestScenariosCoverage:
         assert resp.json()["name"].startswith("Clone Src")
 
 
-# ────────────────── scoring_rubric.py: weight validation (lines 33-34, 58-59, 85) ──────────────────
+# ── scoring_rubric.py: weight validation (lines 33-34, 58-59, 85) ──
 
 
 class TestScoringRubricValidation:

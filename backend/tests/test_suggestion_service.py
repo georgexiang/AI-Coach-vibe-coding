@@ -1,7 +1,5 @@
 """Unit tests for suggestion_service covering all branches."""
 
-import pytest
-
 from app.services.suggestion_service import generate_suggestions, parse_key_messages_status
 
 
@@ -52,7 +50,9 @@ class TestGenerateSuggestions:
         assert "undelivered_key_message" in triggers
 
     async def test_low_coverage_warning(self):
-        msgs = [{"role": "user" if i % 2 == 0 else "assistant", "content": f"msg{i}"} for i in range(8)]
+        msgs = [
+            {"role": "user" if i % 2 == 0 else "assistant", "content": f"msg{i}"} for i in range(8)
+        ]
         result = await generate_suggestions(
             messages=msgs,
             key_messages_status=[

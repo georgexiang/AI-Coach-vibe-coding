@@ -46,3 +46,6 @@ coverage/
 *.egg
 build/
 *.tsbuildinfo
+
+# Claude Code
+.claude/worktrees/
