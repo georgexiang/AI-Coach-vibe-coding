@@ -9,6 +9,7 @@ from app.api import (
     azure_config_router,
     config_router,
     hcp_profiles_router,
+    materials_router,
     rubrics_router,
     scenarios_router,
     scoring_router,
@@ -82,6 +83,7 @@ app.include_router(sessions_router, prefix=settings.api_prefix)
 app.include_router(scoring_router, prefix=settings.api_prefix)
 app.include_router(rubrics_router, prefix=settings.api_prefix)
 app.include_router(azure_config_router, prefix=settings.api_prefix)
+app.include_router(materials_router, prefix=settings.api_prefix)
 
 
 # Health check

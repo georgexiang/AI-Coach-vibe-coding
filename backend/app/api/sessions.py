@@ -17,7 +17,7 @@ from app.schemas.session import (
     SessionResponse,
 )
 from app.schemas.suggestion import SuggestionResponse
-from app.services import session_service
+from app.services import material_service, session_service
 from app.services.agents.base import CoachEventType, CoachRequest
 from app.services.agents.registry import registry
 from app.services.prompt_builder import build_hcp_system_prompt
@@ -114,10 +114,17 @@ async def send_message(
 
         # Build HCP system prompt
         key_messages = json.loads(session.scenario.key_messages)
+
+        # Inject training material context for RAG (CONTENT-02)
+        material_ctx = await material_service.get_material_context(
+            db, product=session.scenario.product, limit=20
+        )
+
         hcp_prompt = build_hcp_system_prompt(
             session.scenario.hcp_profile,
             session.scenario,
             key_messages,
+            material_context=material_ctx if material_ctx else None,
         )
 
         # Build coach request
