@@ -127,6 +127,13 @@
     "chunkContent": "Content",
     "pageLabel": "Page/Section"
   },
+  "scenarioMode": {
+    "conference": "Conference"
+  },
+  "audienceConfig": "Audience Configuration",
+  "addAudienceHcp": "Add HCP to Audience",
+  "minAudienceWarning": "Conference scenarios require at least 2 HCP audience members.",
+  "voiceMapping": "TTS Voice",
   "errors": {
     "hcpSaveFailed": "Could not save HCP profile. Check required fields and try again.",
     "scenarioSaveFailed": "Could not save scenario. Check required fields and try again.",

@@ -127,6 +127,13 @@
     "chunkContent": "内容",
     "pageLabel": "页面/章节"
   },
+  "scenarioMode": {
+    "conference": "会议演讲"
+  },
+  "audienceConfig": "听众配置",
+  "addAudienceHcp": "添加听众 HCP",
+  "minAudienceWarning": "会议演讲场景至少需要 2 位 HCP 听众。",
+  "voiceMapping": "TTS 语音",
   "errors": {
     "hcpSaveFailed": "无法保存 HCP 档案，请检查必填字段后重试。",
     "scenarioSaveFailed": "无法保存场景，请检查必填字段后重试。",

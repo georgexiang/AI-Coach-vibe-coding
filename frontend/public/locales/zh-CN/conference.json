@@ -1,0 +1,35 @@
+{
+  "title": "会议演讲",
+  "startPresentation": "开始演讲",
+  "subState": {
+    "presenting": "演讲中",
+    "qa": "问答环节"
+  },
+  "topicGuide": "关键话题",
+  "audience": "听众",
+  "transcription": "实时转录",
+  "questionQueue": "提问",
+  "respond": "回应",
+  "voiceMode": "语音输入",
+  "avatarToggle": "AI 头像",
+  "status": {
+    "listening": "聆听中",
+    "asking": "提问中",
+    "waiting": "等待中"
+  },
+  "audienceCount": "{{count}} 位 HCP 听众",
+  "ariaCollapseTopics": "收起话题指南",
+  "ariaExpandTopics": "展开话题指南",
+  "ariaCollapseTranscript": "收起转录",
+  "ariaExpandTranscript": "展开转录",
+  "emptyTranscription": "会话开始后，转录内容将在此显示。",
+  "noScenarios": "暂无会议演讲场景。请联系管理员创建。",
+  "endPresentation": "结束演讲",
+  "endConfirm": "确定要结束此次会议演讲吗？您的会话将被评分，且无法恢复演讲。",
+  "continuePresenting": "继续演讲",
+  "error": {
+    "loadFailed": "加载会议演讲失败。请刷新页面重试。",
+    "streamFailed": "会话连接已断开。正在尝试重新连接...",
+    "voiceUnavailable": "语音输入不可用。Azure Speech 未配置。"
+  }
+}
