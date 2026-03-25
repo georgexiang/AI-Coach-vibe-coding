@@ -34,6 +34,19 @@ vi.mock("@/stores/auth-store", () => ({
   }),
 }));
 
+vi.mock("@/hooks/use-scoring", () => ({
+  useScoreHistory: () => ({
+    data: [
+      { session_id: "s1", scenario_name: "Dr. Sarah Mitchell", overall_score: 85, completed_at: "2026-03-20T10:00:00Z", dimensions: [] },
+      { session_id: "s2", scenario_name: "Dr. James Wong", overall_score: 78, completed_at: "2026-03-19T10:00:00Z", dimensions: [] },
+      { session_id: "s3", scenario_name: "Dr. Emily Chen", overall_score: 90, completed_at: "2026-03-18T10:00:00Z", dimensions: [] },
+      { session_id: "s4", scenario_name: "Dr. Michael Lee", overall_score: 72, completed_at: "2026-03-17T10:00:00Z", dimensions: [] },
+      { session_id: "s5", scenario_name: "Dr. Lisa Park", overall_score: 88, completed_at: "2026-03-16T10:00:00Z", dimensions: [] },
+    ],
+    isLoading: false,
+  }),
+}));
+
 vi.mock("@/components/shared", () => ({
   StatCard: ({ label, value }: { label: string; value: string | number }) => (
     <div data-testid="stat-card">{label}: {value}</div>
@@ -138,7 +151,7 @@ describe("UserDashboard", () => {
     const viewAllButton = screen.getByText("viewAll");
     await user.click(viewAllButton);
 
-    expect(mockNavigate).toHaveBeenCalledWith("/user/training");
+    expect(mockNavigate).toHaveBeenCalledWith("/user/history");
   });
 
   it("navigates to training when action card Start is clicked", async () => {

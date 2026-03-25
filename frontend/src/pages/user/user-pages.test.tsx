@@ -34,6 +34,11 @@ vi.mock("@/hooks/use-scoring", () => ({
     mutate: vi.fn(),
     isPending: false,
   }),
+  useScoreHistory: () => ({ data: undefined, isLoading: false }),
+}));
+
+vi.mock("@/hooks/use-reports", () => ({
+  useSessionReport: () => ({ data: undefined, isLoading: false }),
 }));
 
 vi.mock("@/hooks/use-sse", () => ({

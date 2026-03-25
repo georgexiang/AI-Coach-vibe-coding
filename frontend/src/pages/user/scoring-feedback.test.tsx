@@ -49,10 +49,15 @@ let scoreLoading = false;
 vi.mock("@/hooks/use-scoring", () => ({
   useSessionScore: () => ({ data: scoreData, isLoading: scoreLoading }),
   useTriggerScoring: () => ({ mutate: mockMutate, isPending: false }),
+  useScoreHistory: () => ({ data: undefined, isLoading: false }),
 }));
 
 vi.mock("@/hooks/use-session", () => ({
   useSession: () => ({ data: sessionData }),
+}));
+
+vi.mock("@/hooks/use-reports", () => ({
+  useSessionReport: () => ({ data: undefined, isLoading: false }),
 }));
 
 // Mock child scoring components to simplify
