@@ -42,6 +42,26 @@ async def lifespan(app: FastAPI):
     registry.register("tts", MockTTSAdapter())
     registry.register("avatar", MockAvatarAdapter())
 
+    # Register Azure Speech adapters if credentials are configured
+    if settings.azure_speech_key and settings.azure_speech_region:
+        from app.services.agents.stt.azure import AzureSTTAdapter
+        from app.services.agents.tts.azure import AzureTTSAdapter
+
+        registry.register(
+            "stt", AzureSTTAdapter(settings.azure_speech_key, settings.azure_speech_region)
+        )
+        registry.register(
+            "tts", AzureTTSAdapter(settings.azure_speech_key, settings.azure_speech_region)
+        )
+
+    # Register Azure Avatar adapter stub (premium option behind feature toggle)
+    if settings.azure_avatar_endpoint and settings.azure_avatar_key:
+        from app.services.agents.avatar.azure import AzureAvatarAdapter
+
+        registry.register(
+            "avatar", AzureAvatarAdapter(settings.azure_avatar_endpoint, settings.azure_avatar_key)
+        )
+
     yield
     # Shutdown: dispose engine
     await engine.dispose()
