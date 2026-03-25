@@ -18,5 +18,9 @@ class SessionMessage(Base, TimestampMixin):
     content: Mapped[str] = mapped_column(Text, nullable=False)
     message_index: Mapped[int] = mapped_column(nullable=False)  # ordering within session
 
+    # Conference speaker attribution
+    speaker_id: Mapped[str | None] = mapped_column(String(36), nullable=True, default=None)
+    speaker_name: Mapped[str] = mapped_column(String(255), default="")
+
     # Relationships
     session = relationship("CoachingSession", back_populates="messages")
