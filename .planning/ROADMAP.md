@@ -111,7 +111,15 @@ Plans:
   3. Admin can view organization-level analytics including BU comparisons, skill gap heatmaps, and training completion rates
   4. Reports can be exported as PDF/Excel for offline review
   5. All new code has unit tests with >=95% coverage maintained
-**Plans**: TBD
+**Plans**: 5 plans
+
+Plans:
+- [ ] 04-01-PLAN.md -- Backend foundation: Alembic migration (business_unit), analytics schemas, analytics service, export service, recommendation engine
+- [ ] 04-02-PLAN.md -- Frontend data layer: TypeScript types, API client, TanStack Query hooks, i18n analytics namespace, file-saver install
+- [ ] 04-03-PLAN.md -- Backend API: analytics router with 7 endpoints, main.py registration, seed data with BU values
+- [ ] 04-04-PLAN.md -- Frontend user pages: enhanced dashboard with live stats, session history with skill radar, chart components
+- [ ] 04-05-PLAN.md -- Frontend admin pages: org analytics dashboard, reports page, BU bar chart, skill gap heatmap, route registration, backend tests
+
 **UI hint**: yes
 
 ### Phase 5: Training Material Management
@@ -149,8 +157,8 @@ Plans:
 - [x] 06-01-PLAN.md -- Backend foundation: ConferenceAudienceHcp model, session/message extensions, Alembic migration, schemas, TurnManager, voice dependency
 - [x] 06-02-PLAN.md -- Frontend data layer: TypeScript types, API client, TanStack Query hooks, multi-speaker SSE hook, i18n conference namespace
 - [x] 06-03-PLAN.md -- Backend services + API: conference_service, conference router with SSE, prompt builder extension, Azure STT/TTS adapters
-- [ ] 06-04-PLAN.md -- Frontend components + page: 11 conference components, extended ChatBubble, full-screen conference session page
-- [ ] 06-05-PLAN.md -- Integration wiring: route registration, navigation, seed data, admin audience config, full-flow verification
+- [x] 06-04-PLAN.md -- Frontend components + page: 11 conference components, extended ChatBubble, full-screen conference session page
+- [x] 06-05-PLAN.md -- Integration wiring: route registration, navigation, seed data, admin audience config, full-flow verification
 - [ ] 06-06-PLAN.md -- Comprehensive backend tests: TurnManager, conference service, API integration, STT/TTS adapters, schemas, models (>=95% coverage)
 
 **UI hint**: yes
@@ -166,6 +174,6 @@ Phases execute in numeric order: 1 -> 01.1 -> 2 -> 3 -> 4 -> 5 -> 6
 | 01.1. UI Figma Alignment | 6/6 | Complete | - |
 | 2. F2F Text Coaching and Scoring | 8/8 | Complete | - |
 | 3. Scoring & Assessment | 0/4 | Planning complete | - |
-| 4. Dashboard & Reporting | 0/TBD | Not started | - |
+| 4. Dashboard & Reporting | 0/5 | Planning complete | - |
 | 5. Training Material Management | 0/3 | Planning complete | - |
 | 6. Conference Presentation Module | 0/6 | Planning complete | - |
