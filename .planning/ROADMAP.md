@@ -17,7 +17,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 3: Scoring & Assessment** - Real-time coaching suggestions, post-session reports, customizable scoring rubrics
 - [ ] **Phase 4: Dashboard & Reporting** - Personal dashboard, group analytics, export (PDF/Excel), training progress tracking
 - [ ] **Phase 5: Training Material Management** - Document upload, versioning, retention policies, AI knowledge base integration
-- [ ] **Phase 6: Conference Presentation Module** - One-to-many simulation, live transcription, audience Q&A, presentation scoring
+- [x] **Phase 6: Conference Presentation Module** - One-to-many simulation, live transcription, audience Q&A, presentation scoring (completed 2026-03-25)
 
 ## Phase Details
 
@@ -159,7 +159,7 @@ Plans:
 - [x] 06-03-PLAN.md -- Backend services + API: conference_service, conference router with SSE, prompt builder extension, Azure STT/TTS adapters
 - [x] 06-04-PLAN.md -- Frontend components + page: 11 conference components, extended ChatBubble, full-screen conference session page
 - [x] 06-05-PLAN.md -- Integration wiring: route registration, navigation, seed data, admin audience config, full-flow verification
-- [ ] 06-06-PLAN.md -- Comprehensive backend tests: TurnManager, conference service, API integration, STT/TTS adapters, schemas, models (>=95% coverage)
+- [x] 06-06-PLAN.md -- Comprehensive backend tests: TurnManager, conference service, API integration, STT/TTS adapters, schemas, models (>=95% coverage)
 
 **UI hint**: yes
 
@@ -176,4 +176,4 @@ Phases execute in numeric order: 1 -> 01.1 -> 2 -> 3 -> 4 -> 5 -> 6
 | 3. Scoring & Assessment | 4/4 | Complete | - |
 | 4. Dashboard & Reporting | 0/5 | Planning complete | - |
 | 5. Training Material Management | 3/3 | Complete | - |
-| 6. Conference Presentation Module | 5/6 | In Progress | - |
+| 6. Conference Presentation Module | 6/6 | Complete   | 2026-03-25 |
