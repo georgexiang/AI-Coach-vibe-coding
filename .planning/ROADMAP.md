@@ -143,7 +143,7 @@ Plans:
   3. Virtual HCP audience members ask contextual questions with turn management
   4. Conference presentations are scored using the multi-dimensional scoring system with presentation-specific criteria
   5. All new code has unit tests with >=95% coverage maintained
-**Plans**: 5 plans
+**Plans**: 6 plans
 
 Plans:
 - [ ] 06-01-PLAN.md -- Backend foundation: ConferenceAudienceHcp model, session/message extensions, Alembic migration, schemas, TurnManager, voice dependency
@@ -151,6 +151,7 @@ Plans:
 - [ ] 06-03-PLAN.md -- Backend services + API: conference_service, conference router with SSE, prompt builder extension, Azure STT/TTS adapters
 - [ ] 06-04-PLAN.md -- Frontend components + page: 11 conference components, extended ChatBubble, full-screen conference session page
 - [ ] 06-05-PLAN.md -- Integration wiring: route registration, navigation, seed data, admin audience config, full-flow verification
+- [ ] 06-06-PLAN.md -- Comprehensive backend tests: TurnManager, conference service, API integration, STT/TTS adapters, schemas, models (>=95% coverage)
 
 **UI hint**: yes
 
@@ -167,4 +168,4 @@ Phases execute in numeric order: 1 -> 01.1 -> 2 -> 3 -> 4 -> 5 -> 6
 | 3. Scoring & Assessment | 0/4 | Planning complete | - |
 | 4. Dashboard & Reporting | 0/TBD | Not started | - |
 | 5. Training Material Management | 0/3 | Planning complete | - |
-| 6. Conference Presentation Module | 0/5 | Planning complete | - |
+| 6. Conference Presentation Module | 0/6 | Planning complete | - |
