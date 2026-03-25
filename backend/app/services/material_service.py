@@ -92,8 +92,17 @@ async def upload_material(
     # Update material version counter
     material.current_version = version_number
     await db.flush()
-    await db.refresh(material, attribute_names=["versions"])
-    return material
+
+    # Expunge and re-query to get fully loaded material with fresh versions
+    material_id_ref = material.id
+    db.expunge(material)
+
+    refreshed = await db.execute(
+        select(TrainingMaterial)
+        .options(selectinload(TrainingMaterial.versions))
+        .where(TrainingMaterial.id == material_id_ref)
+    )
+    return refreshed.scalar_one()
 
 
 async def get_materials(
@@ -150,8 +159,14 @@ async def update_material(
     for field, value in update_data.items():
         setattr(material, field, value)
     await db.flush()
-    await db.refresh(material, attribute_names=["versions"])
-    return material
+
+    # Re-query to get fully loaded material with versions
+    refreshed = await db.execute(
+        select(TrainingMaterial)
+        .options(selectinload(TrainingMaterial.versions))
+        .where(TrainingMaterial.id == material_id)
+    )
+    return refreshed.scalar_one()
 
 
 async def archive_material(db: AsyncSession, material_id: str) -> TrainingMaterial:
@@ -159,8 +174,14 @@ async def archive_material(db: AsyncSession, material_id: str) -> TrainingMateri
     material = await get_material(db, material_id)
     material.is_archived = True
     await db.flush()
-    await db.refresh(material, attribute_names=["versions"])
-    return material
+
+    # Re-query to get fully loaded material with versions
+    refreshed = await db.execute(
+        select(TrainingMaterial)
+        .options(selectinload(TrainingMaterial.versions))
+        .where(TrainingMaterial.id == material_id)
+    )
+    return refreshed.scalar_one()
 
 
 async def restore_material(db: AsyncSession, material_id: str) -> TrainingMaterial:
@@ -168,8 +189,14 @@ async def restore_material(db: AsyncSession, material_id: str) -> TrainingMateri
     material = await get_material(db, material_id)
     material.is_archived = False
     await db.flush()
-    await db.refresh(material, attribute_names=["versions"])
-    return material
+
+    # Re-query to get fully loaded material with versions
+    refreshed = await db.execute(
+        select(TrainingMaterial)
+        .options(selectinload(TrainingMaterial.versions))
+        .where(TrainingMaterial.id == material_id)
+    )
+    return refreshed.scalar_one()
 
 
 async def get_versions(db: AsyncSession, material_id: str) -> list[MaterialVersion]:
