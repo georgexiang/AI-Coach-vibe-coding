@@ -12,5 +12,9 @@
   "f2fDescription": "与数字化HCP进行一对一练习",
   "conferenceTraining": "学术会议培训",
   "conferenceDescription": "练习科室学术报告",
-  "recommendedScenario": "推荐场景"
+  "recommendedScenario": "推荐场景",
+  "skillOverview": "技能概览",
+  "noImprovement": "--",
+  "exportExcel": "导出Excel",
+  "exportingExcel": "导出中..."
 }

@@ -12,5 +12,9 @@
   "f2fDescription": "Practice 1-on-1 with digital HCP",
   "conferenceTraining": "Conference Training",
   "conferenceDescription": "Practice department presentation",
-  "recommendedScenario": "Recommended Scenario"
+  "recommendedScenario": "Recommended Scenario",
+  "skillOverview": "Skill Overview",
+  "noImprovement": "--",
+  "exportExcel": "Export Excel",
+  "exportingExcel": "Exporting..."
 }

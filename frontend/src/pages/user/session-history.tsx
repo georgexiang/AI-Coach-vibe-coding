@@ -15,6 +15,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { useScoreHistory } from "@/hooks/use-scoring";
+import { PerformanceRadar } from "@/components/analytics";
 
 const DIMENSION_COLORS = [
   "#1E40AF",
@@ -75,9 +76,33 @@ export default function SessionHistory() {
     );
   }
 
+  // Latest session radar data
+  const latestSession = history[0];
+  const latestRadarScores = latestSession
+    ? latestSession.dimensions.map((d) => ({ dimension: d.dimension, score: d.score }))
+    : [];
+  const previousSession = history[1];
+  const previousRadarScores = previousSession
+    ? previousSession.dimensions.map((d) => ({ dimension: d.dimension, score: d.score }))
+    : undefined;
+
   return (
     <div className="mx-auto max-w-5xl p-4 lg:p-8">
       <h1 className="mb-6 text-3xl font-semibold">{t("history.title")}</h1>
+
+      {/* Skill overview radar for latest session */}
+      {latestRadarScores.length > 0 && (
+        <div className="mb-8 rounded-lg border p-4">
+          <h2 className="mb-4 text-lg font-medium">
+            {t("history.skillOverview", { defaultValue: "Skill Overview" })}
+          </h2>
+          <PerformanceRadar
+            currentScores={latestRadarScores}
+            previousScores={previousRadarScores}
+            height={280}
+          />
+        </div>
+      )}
 
       {/* Trend chart */}
       {chartData.length > 1 && (
@@ -136,6 +161,9 @@ export default function SessionHistory() {
               <th className="px-4 py-3 text-left font-medium">
                 {t("history.score")}
               </th>
+              <th className="px-4 py-3 text-left font-medium">
+                {t("history.duration", { defaultValue: "Duration" })}
+              </th>
               <th className="hidden px-4 py-3 text-left font-medium md:table-cell">
                 {t("rubrics.dimensions", { ns: "admin", defaultValue: "Dimensions" })}
               </th>
@@ -178,6 +206,8 @@ export default function SessionHistory() {
                     </Badge>
                   </div>
                 </td>
+                {/* TODO: Backend service will be enhanced in Plan 05 to return duration_seconds from CoachingSession */}
+                <td className="px-4 py-3 text-muted-foreground">--</td>
                 <td className="hidden px-4 py-3 md:table-cell">
                   <div className="flex items-center gap-2">
                     {item.dimensions.slice(0, 3).map((dim) => (
