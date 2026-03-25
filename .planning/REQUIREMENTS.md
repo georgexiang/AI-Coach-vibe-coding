@@ -26,7 +26,7 @@
 - [x] **UI-03**: F2F HCP Training page implemented from Figma "F2F HCP Training Page Design" — chat area, HCP display, controls, coaching hints panel
 - [x] **UI-04**: MR Dashboard implemented from Figma "Medical Representative Dashboard" — score overview, recent sessions, skill radar chart
 - [x] **UI-05**: Scenario Selection page implemented from Figma "Scenario Selection Page Design" — scenario cards, filters, difficulty indicators
-- [ ] **UI-06**: Additional pages (admin, config, reports, session history) follow same design principles as Figma pages — self-developed using shared components
+- [x] **UI-06**: Additional pages (admin, config, reports, session history) follow same design principles as Figma pages — self-developed using shared components
 - [x] **UI-07**: All UI text externalized via react-i18next — Chinese (zh-CN) and English (en-US) supported from day 1
 
 ### Authentication (AUTH)
@@ -79,11 +79,11 @@
 
 ### Analytics & Reports (ANLYT)
 
-- [ ] **ANLYT-01**: User can view session history — list of past sessions with date, scenario, score, duration
-- [ ] **ANLYT-02**: User can view personal performance trends — score improvement over time per dimension
-- [ ] **ANLYT-03**: Admin can view organization-level analytics — BU comparisons, skill gap heatmaps, training completion rates
-- [ ] **ANLYT-04**: System recommends next training scenarios based on user's scoring history and identified weaknesses
-- [ ] **ANLYT-05**: Reports and dashboards use Recharts radar/spider charts for multi-dimensional score visualization
+- [x] **ANLYT-01**: User can view session history — list of past sessions with date, scenario, score, duration
+- [x] **ANLYT-02**: User can view personal performance trends — score improvement over time per dimension
+- [x] **ANLYT-03**: Admin can view organization-level analytics — BU comparisons, skill gap heatmaps, training completion rates
+- [x] **ANLYT-04**: System recommends next training scenarios based on user's scoring history and identified weaknesses
+- [x] **ANLYT-05**: Reports and dashboards use Recharts radar/spider charts for multi-dimensional score visualization
 
 ### Platform (PLAT)
 
@@ -136,7 +136,7 @@
 | UI-03 | Phase 2 | Complete |
 | UI-04 | Phase 4 | Complete |
 | UI-05 | Phase 2 | Complete |
-| UI-06 | Phase 4 | Pending |
+| UI-06 | Phase 4 | Complete |
 | UI-07 | Phase 1 | Complete |
 | AUTH-01 | Phase 1 | Complete |
 | AUTH-02 | Phase 1 | Complete |
@@ -168,11 +168,11 @@
 | CONTENT-01 | Phase 3 | Complete |
 | CONTENT-02 | Phase 3 | Complete |
 | CONTENT-03 | Phase 3 | Complete |
-| ANLYT-01 | Phase 4 | Pending |
-| ANLYT-02 | Phase 4 | Pending |
-| ANLYT-03 | Phase 4 | Pending |
-| ANLYT-04 | Phase 4 | Pending |
-| ANLYT-05 | Phase 4 | Pending |
+| ANLYT-01 | Phase 4 | Complete |
+| ANLYT-02 | Phase 4 | Complete |
+| ANLYT-03 | Phase 4 | Complete |
+| ANLYT-04 | Phase 4 | Complete |
+| ANLYT-05 | Phase 4 | Complete |
 | PLAT-01 | Phase 1 | Complete |
 | PLAT-02 | Phase 1 | Complete |
 | PLAT-03 | Phase 2 | Complete |
