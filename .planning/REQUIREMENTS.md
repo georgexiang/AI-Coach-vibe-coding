@@ -73,9 +73,9 @@
 
 ### Content Management (CONTENT)
 
-- [ ] **CONTENT-01**: Admin can upload training materials (PDF, Word, Excel) organized by product and therapeutic area
+- [x] **CONTENT-01**: Admin can upload training materials (PDF, Word, Excel) organized by product and therapeutic area
 - [ ] **CONTENT-02**: Uploaded materials feed into AI knowledge base for more accurate HCP simulation (RAG-style grounding)
-- [ ] **CONTENT-03**: Training materials support versioning and folder organization
+- [x] **CONTENT-03**: Training materials support versioning and folder organization
 
 ### Analytics & Reports (ANLYT)
 
@@ -165,9 +165,9 @@
 | CONF-02 | Phase 3 | Pending |
 | CONF-03 | Phase 3 | Pending |
 | CONF-04 | Phase 3 | Pending |
-| CONTENT-01 | Phase 3 | Pending |
+| CONTENT-01 | Phase 3 | Complete |
 | CONTENT-02 | Phase 3 | Pending |
-| CONTENT-03 | Phase 3 | Pending |
+| CONTENT-03 | Phase 3 | Complete |
 | ANLYT-01 | Phase 4 | Pending |
 | ANLYT-02 | Phase 4 | Pending |
 | ANLYT-03 | Phase 4 | Pending |
