@@ -12,10 +12,14 @@ from app.models import (  # noqa: F401
     Base,
     CoachingSession,
     HcpProfile,
+    MaterialChunk,
+    MaterialVersion,
     Scenario,
     ScoreDetail,
+    ScoringRubric,
     SessionMessage,
     SessionScore,
+    TrainingMaterial,
     User,
 )
 

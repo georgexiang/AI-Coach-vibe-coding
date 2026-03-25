@@ -51,6 +51,11 @@ class Settings(BaseSettings):
     azure_content_endpoint: str = ""
     azure_content_key: str = ""
 
+    # Training Material Management
+    material_storage_path: str = "./storage/materials"
+    material_max_size_mb: int = 50
+    material_retention_days: int = 365
+
     # Default AI provider per category
     default_llm_provider: str = "mock"
     default_stt_provider: str = "mock"
