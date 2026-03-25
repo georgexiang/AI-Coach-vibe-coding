@@ -1,27 +1,33 @@
 {
-  "enabledPlugins": {
-    "superpowers@claude-plugins-official": true
+  "permissions": {
+    "allow": [
+      "Bash(python3 -m pytest --cov=app --cov-report=term-missing --tb=no -q)",
+      "Bash(npx vitest:*)"
+    ]
   },
   "hooks": {
-  "Stop": [
-    {
-      "hooks": [
-        {
-          "type": "command",
-          "command": "/opt/homebrew/bin/terminal-notifier -title \"Claude Code\" -message \"Task finished\" -sound Glass"
-        }
-      ]
-    }
-  ],
-  "PermissionRequest": [
-    {
-      "hooks": [
-        {
-          "type": "command",
-          "command": "/opt/homebrew/bin/terminal-notifier -title \"Claude Code\" -message \"Waiting for permission\""
-        }
-      ]
-    }
-  ]
-}
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/opt/homebrew/bin/terminal-notifier -title \"Claude Code\" -message \"Task finished\" -sound Glass"
+          }
+        ]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/opt/homebrew/bin/terminal-notifier -title \"Claude Code\" -message \"Waiting for permission\""
+          }
+        ]
+      }
+    ]
+  },
+  "enabledPlugins": {
+    "superpowers@claude-plugins-official": true
+  }
 }

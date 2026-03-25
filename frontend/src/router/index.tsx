@@ -15,6 +15,7 @@ import SessionHistory from "@/pages/user/session-history";
 import TrainingSession from "@/pages/user/training-session";
 import ScoringRubricsPage from "@/pages/admin/scoring-rubrics";
 import TrainingMaterialsPage from "@/pages/admin/training-materials";
+import AdminReportsPage from "@/pages/admin/reports";
 import NotFound from "@/pages/not-found";
 
 export const router = createBrowserRouter([
@@ -57,6 +58,7 @@ export const router = createBrowserRouter([
               { path: "azure-config", element: <AzureConfigPage /> },
               { path: "scoring-rubrics", element: <ScoringRubricsPage /> },
               { path: "materials", element: <TrainingMaterialsPage /> },
+              { path: "reports", element: <AdminReportsPage /> },
             ],
           },
         ],
