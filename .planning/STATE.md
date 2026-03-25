@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Ready to execute
-stopped_at: Completed 05-02-PLAN.md
-last_updated: "2026-03-25T08:09:37.443Z"
+stopped_at: Completed 05-03-PLAN.md
+last_updated: "2026-03-25T08:18:00.929Z"
 last_activity: 2026-03-25
 progress:
   total_phases: 7
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 26
-  completed_plans: 25
+  completed_plans: 26
 ---
 
 # Project State
@@ -25,7 +25,7 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 ## Current Position
 
 Phase: 05 (training-material-management) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 
 ## Performance Metrics
 
@@ -68,6 +68,7 @@ Plan: 2 of 3
 | Phase 03 P03 | 9min | 2 tasks | 18 files |
 | Phase 05 P01 | 9min | 2 tasks | 12 files |
 | Phase 05 P02 | 9min | 2 tasks | 8 files |
+| Phase 05 P03 | 5min | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -118,6 +119,8 @@ Recent decisions affecting current work:
 - [Phase 05]: Used expunge+re-query pattern for async SQLAlchemy relationship loading to avoid MissingGreenlet errors
 - [Phase 05]: Content type derived from file extension rather than trusting upload MIME type for reliability
 - [Phase 05]: search_chunks uses latest-active-version subquery to only return chunks from current versions
+- [Phase 05]: Used react-dropzone for drag-and-drop file upload with MIME type restriction (PDF, DOCX, XLSX)
+- [Phase 05]: Used inline HTML table for material list since no dedicated Table UI component exists in the shared UI library
 
 ### Pending Todos
 
@@ -136,6 +139,6 @@ None yet.
 ## Session Continuity
 
 Last activity: 2026-03-25
-Last session: 2026-03-25T08:09:37.436Z
-Stopped at: Completed 05-02-PLAN.md
+Last session: 2026-03-25T08:18:00.926Z
+Stopped at: Completed 05-03-PLAN.md
 Resume file: None
