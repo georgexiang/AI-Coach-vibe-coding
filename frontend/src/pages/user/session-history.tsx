@@ -1,7 +1,7 @@
-import { useMemo } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Loader2, TrendingUp, TrendingDown } from "lucide-react";
+import { Loader2, TrendingUp, TrendingDown, Search } from "lucide-react";
 import {
   ResponsiveContainer,
   LineChart,
@@ -12,7 +12,16 @@ import {
   Line,
   Legend,
 } from "recharts";
-import { Badge } from "@/components/ui/badge";
+import {
+  Badge,
+  Button,
+  Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui";
 import { cn } from "@/lib/utils";
 import { useScoreHistory } from "@/hooks/use-scoring";
 import { PerformanceRadar } from "@/components/analytics";
@@ -25,12 +34,54 @@ const DIMENSION_COLORS = [
   "#7C3AED",
 ];
 
+const ALL_VALUE = "__all__";
+const PAGE_SIZE = 10;
+
 export default function SessionHistory() {
   const { t } = useTranslation("scoring");
   const navigate = useNavigate();
-  const { data: history, isLoading } = useScoreHistory(20);
+  const { data: history, isLoading } = useScoreHistory(50);
 
-  // Prepare trend chart data: reverse chronological to show oldest-first on x-axis
+  // Filter state
+  const [searchTerm, setSearchTerm] = useState("");
+  const [modeFilter, setModeFilter] = useState(ALL_VALUE);
+  const [scoreFilter, setScoreFilter] = useState(ALL_VALUE);
+  const [page, setPage] = useState(1);
+
+  // Filter logic
+  const filteredHistory = useMemo(() => {
+    if (!history) return [];
+    return history.filter((item) => {
+      const matchesSearch =
+        searchTerm === "" ||
+        item.scenario_name.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesMode =
+        modeFilter === ALL_VALUE ||
+        (modeFilter === "passed" && item.passed) ||
+        (modeFilter === "failed" && !item.passed);
+      const matchesScore =
+        scoreFilter === ALL_VALUE ||
+        (scoreFilter === "high" && item.overall_score >= 80) ||
+        (scoreFilter === "mid" && item.overall_score >= 60 && item.overall_score < 80) ||
+        (scoreFilter === "low" && item.overall_score < 60);
+      return matchesSearch && matchesMode && matchesScore;
+    });
+  }, [history, searchTerm, modeFilter, scoreFilter]);
+
+  // Pagination
+  const totalPages = Math.max(1, Math.ceil(filteredHistory.length / PAGE_SIZE));
+  const pagedHistory = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE;
+    return filteredHistory.slice(start, start + PAGE_SIZE);
+  }, [filteredHistory, page]);
+
+  // Reset page when filters change
+  const handleFilterChange = (setter: (v: string) => void) => (value: string) => {
+    setter(value);
+    setPage(1);
+  };
+
+  // Prepare trend chart data
   const chartData = useMemo(() => {
     if (!history) return [];
     return [...history].reverse().map((item) => {
@@ -47,7 +98,6 @@ export default function SessionHistory() {
     });
   }, [history]);
 
-  // Get unique dimension names for line series
   const dimensionNames = useMemo(() => {
     if (!history || history.length === 0) return [];
     const first = history[0];
@@ -76,7 +126,6 @@ export default function SessionHistory() {
     );
   }
 
-  // Latest session radar data
   const latestSession = history[0];
   const latestRadarScores = latestSession
     ? latestSession.dimensions.map((d) => ({ dimension: d.dimension, score: d.score }))
@@ -90,7 +139,7 @@ export default function SessionHistory() {
     <div className="mx-auto max-w-5xl p-4 lg:p-8">
       <h1 className="mb-6 text-3xl font-semibold">{t("history.title")}</h1>
 
-      {/* Skill overview radar for latest session */}
+      {/* Skill overview radar */}
       {latestRadarScores.length > 0 && (
         <div className="mb-8 rounded-lg border p-4">
           <h2 className="mb-4 text-lg font-medium">
@@ -112,14 +161,8 @@ export default function SessionHistory() {
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                <XAxis
-                  dataKey="date"
-                  tick={{ fill: "#64748B", fontSize: 12 }}
-                />
-                <YAxis
-                  domain={[0, 100]}
-                  tick={{ fill: "#64748B", fontSize: 12 }}
-                />
+                <XAxis dataKey="date" tick={{ fill: "#64748B", fontSize: 12 }} />
+                <YAxis domain={[0, 100]} tick={{ fill: "#64748B", fontSize: 12 }} />
                 <Tooltip />
                 <Legend />
                 <Line
@@ -147,6 +190,56 @@ export default function SessionHistory() {
         </div>
       )}
 
+      {/* Filter bar */}
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <div className="relative flex-1 min-w-[200px] max-w-sm">
+          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            className="pl-9"
+            placeholder={t("history.searchPlaceholder", { defaultValue: "Search scenarios..." })}
+            value={searchTerm}
+            onChange={(e) => {
+              setSearchTerm(e.target.value);
+              setPage(1);
+            }}
+          />
+        </div>
+        <Select value={modeFilter} onValueChange={handleFilterChange(setModeFilter)}>
+          <SelectTrigger className="w-[140px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL_VALUE}>
+              {t("history.allResults", { defaultValue: "All Results" })}
+            </SelectItem>
+            <SelectItem value="passed">{t("passed")}</SelectItem>
+            <SelectItem value="failed">{t("failed")}</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={scoreFilter} onValueChange={handleFilterChange(setScoreFilter)}>
+          <SelectTrigger className="w-[150px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL_VALUE}>
+              {t("history.allScores", { defaultValue: "All Scores" })}
+            </SelectItem>
+            <SelectItem value="high">
+              {t("history.scoreHigh", { defaultValue: "80+ (High)" })}
+            </SelectItem>
+            <SelectItem value="mid">
+              {t("history.scoreMid", { defaultValue: "60-79 (Mid)" })}
+            </SelectItem>
+            <SelectItem value="low">
+              {t("history.scoreLow", { defaultValue: "<60 (Low)" })}
+            </SelectItem>
+          </SelectContent>
+        </Select>
+        <span className="text-sm text-muted-foreground">
+          {filteredHistory.length} {t("history.results", { defaultValue: "results" })}
+        </span>
+      </div>
+
       {/* History table */}
       <div className="rounded-md border">
         <table className="w-full text-sm">
@@ -157,6 +250,9 @@ export default function SessionHistory() {
               </th>
               <th className="px-4 py-3 text-left font-medium">
                 {t("history.scenario")}
+              </th>
+              <th className="hidden px-4 py-3 text-left font-medium sm:table-cell">
+                {t("history.mode", { defaultValue: "Mode" })}
               </th>
               <th className="px-4 py-3 text-left font-medium">
                 {t("history.score")}
@@ -173,13 +269,11 @@ export default function SessionHistory() {
             </tr>
           </thead>
           <tbody>
-            {history.map((item) => (
+            {pagedHistory.map((item) => (
               <tr
                 key={item.session_id}
                 className="cursor-pointer border-b transition-colors hover:bg-slate-50/50"
-                onClick={() =>
-                  navigate(`/user/scoring?id=${item.session_id}`)
-                }
+                onClick={() => navigate(`/user/scoring/${item.session_id}`)}
               >
                 <td className="px-4 py-3 text-muted-foreground">
                   {item.completed_at
@@ -189,9 +283,23 @@ export default function SessionHistory() {
                 <td className="px-4 py-3 font-medium">
                   {item.scenario_name}
                 </td>
+                <td className="hidden px-4 py-3 sm:table-cell">
+                  <Badge variant="outline" className="text-xs">
+                    F2F
+                  </Badge>
+                </td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2">
-                    <span className="font-semibold">
+                    <span
+                      className={cn(
+                        "inline-flex h-7 w-10 items-center justify-center rounded font-semibold text-xs",
+                        item.overall_score >= 80
+                          ? "bg-green-100 text-green-700"
+                          : item.overall_score >= 60
+                            ? "bg-orange-100 text-orange-700"
+                            : "bg-red-100 text-red-700",
+                      )}
+                    >
                       {item.overall_score}
                     </span>
                     <Badge
@@ -206,7 +314,6 @@ export default function SessionHistory() {
                     </Badge>
                   </div>
                 </td>
-                {/* TODO: Backend service will be enhanced in Plan 05 to return duration_seconds from CoachingSession */}
                 <td className="px-4 py-3 text-muted-foreground">--</td>
                 <td className="hidden px-4 py-3 md:table-cell">
                   <div className="flex items-center gap-2">
@@ -257,6 +364,31 @@ export default function SessionHistory() {
             ))}
           </tbody>
         </table>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-center gap-2 border-t px-4 py-3">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+            >
+              {t("history.previous", { defaultValue: "Previous" })}
+            </Button>
+            <span className="text-sm text-muted-foreground">
+              {page} / {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page >= totalPages}
+              onClick={() => setPage((p) => p + 1)}
+            >
+              {t("history.next", { defaultValue: "Next" })}
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );

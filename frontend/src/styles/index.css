@@ -16,8 +16,8 @@
   /* Medical/Pharma Brand Colors (D-04, UI-SPEC overrides) */
   --primary: #1E40AF;
   --primary-foreground: #FFFFFF;
-  --secondary: oklch(0.95 0.0058 264.53);
-  --secondary-foreground: #030213;
+  --secondary: #475569;
+  --secondary-foreground: #ffffff;
 
   /* Scoring semantic colors */
   --strength: #22C55E;

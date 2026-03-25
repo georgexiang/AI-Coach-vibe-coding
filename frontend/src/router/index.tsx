@@ -16,6 +16,9 @@ import TrainingSession from "@/pages/user/training-session";
 import ScoringRubricsPage from "@/pages/admin/scoring-rubrics";
 import TrainingMaterialsPage from "@/pages/admin/training-materials";
 import AdminReportsPage from "@/pages/admin/reports";
+import ConferenceSession from "@/pages/user/conference-session";
+import UserReportsPage from "@/pages/user/reports";
+import UserManagementPage from "@/pages/admin/users";
 import NotFound from "@/pages/not-found";
 
 export const router = createBrowserRouter([
@@ -39,11 +42,16 @@ export const router = createBrowserRouter([
           { path: "training", element: <ScenarioSelection /> },
           { path: "scoring/:sessionId", element: <ScoringFeedback /> },
           { path: "history", element: <SessionHistory /> },
+          { path: "reports", element: <UserReportsPage /> },
         ],
       },
       {
         path: "/user/training/session",
         element: <TrainingSession />,
+      },
+      {
+        path: "/user/training/conference",
+        element: <ConferenceSession />,
       },
       {
         element: <AdminRoute />,
@@ -59,6 +67,7 @@ export const router = createBrowserRouter([
               { path: "scoring-rubrics", element: <ScoringRubricsPage /> },
               { path: "materials", element: <TrainingMaterialsPage /> },
               { path: "reports", element: <AdminReportsPage /> },
+              { path: "users", element: <UserManagementPage /> },
             ],
           },
         ],

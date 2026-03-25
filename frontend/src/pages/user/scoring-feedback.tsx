@@ -77,12 +77,51 @@ export default function ScoringFeedback() {
         {t("title")}
       </h1>
 
-      {/* Top section: Score summary */}
-      <div className="mb-8">
-        <ScoreSummary
-          overallScore={score.overall_score}
-          passed={score.passed}
-        />
+      {/* Session metadata */}
+      {session && (
+        <div className="mb-4 flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+          <span>{t("scenario", { defaultValue: "Scenario" })}: <strong className="text-foreground">{session.scenario_id ?? "—"}</strong></span>
+          <span className="text-border">|</span>
+          <span>{t("mode", { defaultValue: "Mode" })}: <strong className="text-foreground">F2F</strong></span>
+          <span className="text-border">|</span>
+          <span>{t("date", { defaultValue: "Date" })}: <strong className="text-foreground">{session.created_at ? new Date(session.created_at).toLocaleDateString() : "—"}</strong></span>
+        </div>
+      )}
+
+      {/* Top section: Circular progress + Score summary */}
+      <div className="mb-8 flex items-center gap-8">
+        {/* Circular progress ring */}
+        <div className="relative flex-shrink-0">
+          <svg width="120" height="120" viewBox="0 0 120 120">
+            <circle
+              cx="60" cy="60" r="52"
+              fill="none"
+              stroke="#E5E7EB"
+              strokeWidth="8"
+            />
+            <circle
+              cx="60" cy="60" r="52"
+              fill="none"
+              stroke={score.overall_score >= 80 ? "#059669" : score.overall_score >= 60 ? "#D97706" : "#DC2626"}
+              strokeWidth="8"
+              strokeLinecap="round"
+              strokeDasharray={`${(score.overall_score / 100) * 2 * Math.PI * 52} ${2 * Math.PI * 52}`}
+              transform="rotate(-90 60 60)"
+            />
+            <text x="60" y="55" textAnchor="middle" className="fill-foreground text-2xl font-bold" fontSize="28" fontWeight="700">
+              {score.overall_score}
+            </text>
+            <text x="60" y="75" textAnchor="middle" className="fill-muted-foreground" fontSize="12">
+              / 100
+            </text>
+          </svg>
+        </div>
+        <div className="flex-1">
+          <ScoreSummary
+            overallScore={score.overall_score}
+            passed={score.passed}
+          />
+        </div>
       </div>
 
       {/* Two-column layout */}
