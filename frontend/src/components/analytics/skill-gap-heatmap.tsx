@@ -7,7 +7,7 @@ interface SkillGapHeatmapProps {
   data: SkillGapCell[];
 }
 
-function getHeatColor(score: number): string {
+export function getHeatColor(score: number): string {
   if (score >= 80) return "bg-green-100 text-green-800";
   if (score >= 70) return "bg-yellow-100 text-yellow-800";
   if (score >= 60) return "bg-orange-100 text-orange-800";
