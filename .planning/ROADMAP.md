@@ -173,7 +173,7 @@ Phases execute in numeric order: 1 -> 01.1 -> 2 -> 3 -> 4 -> 5 -> 6
 | 1. Foundation, Auth, and Design System | 5/5 | Complete | - |
 | 01.1. UI Figma Alignment | 6/6 | Complete | - |
 | 2. F2F Text Coaching and Scoring | 8/8 | Complete | - |
-| 3. Scoring & Assessment | 0/4 | Planning complete | - |
+| 3. Scoring & Assessment | 4/4 | Complete | - |
 | 4. Dashboard & Reporting | 0/5 | Planning complete | - |
-| 5. Training Material Management | 0/3 | Planning complete | - |
-| 6. Conference Presentation Module | 0/6 | Planning complete | - |
+| 5. Training Material Management | 3/3 | Complete | - |
+| 6. Conference Presentation Module | 5/6 | In Progress | - |
