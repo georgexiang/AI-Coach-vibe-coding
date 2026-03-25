@@ -30,14 +30,34 @@ SEED_USERS = [
         "role": "admin",
         "full_name": "System Admin",
         "preferred_language": "zh-CN",
+        "business_unit": "",
     },
     {
         "username": "user1",
         "email": "user1@aicoach.com",
         "password": "user123",
         "role": "user",
-        "full_name": "Test MR",
+        "full_name": "Zhang Wei",
         "preferred_language": "zh-CN",
+        "business_unit": "Oncology BU",
+    },
+    {
+        "username": "user2",
+        "email": "user2@aicoach.com",
+        "password": "user123",
+        "role": "user",
+        "full_name": "Li Ming",
+        "preferred_language": "zh-CN",
+        "business_unit": "Hematology BU",
+    },
+    {
+        "username": "user3",
+        "email": "user3@aicoach.com",
+        "password": "user123",
+        "role": "user",
+        "full_name": "Wang Fang",
+        "preferred_language": "en-US",
+        "business_unit": "Solid Tumor BU",
     },
 ]
 
@@ -147,6 +167,7 @@ async def seed_users() -> None:
                 full_name=user_data["full_name"],
                 role=user_data["role"],
                 preferred_language=user_data["preferred_language"],
+                business_unit=user_data.get("business_unit", ""),
             )
             session.add(user)
             print(f"  [created] User '{user_data['username']}' (role={user_data['role']})")
