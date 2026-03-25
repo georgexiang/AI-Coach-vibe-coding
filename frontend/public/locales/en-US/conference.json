@@ -1,0 +1,35 @@
+{
+  "title": "Conference Presentation",
+  "startPresentation": "Start Presentation",
+  "subState": {
+    "presenting": "Presenting",
+    "qa": "Q&A"
+  },
+  "topicGuide": "Key Topics",
+  "audience": "Audience",
+  "transcription": "Live Transcription",
+  "questionQueue": "Questions",
+  "respond": "Respond",
+  "voiceMode": "Voice Input",
+  "avatarToggle": "AI Avatar",
+  "status": {
+    "listening": "Listening",
+    "asking": "Asking",
+    "waiting": "Waiting"
+  },
+  "audienceCount": "{{count}} HCP audience members",
+  "ariaCollapseTopics": "Collapse topic guide",
+  "ariaExpandTopics": "Expand topic guide",
+  "ariaCollapseTranscript": "Collapse transcription",
+  "ariaExpandTranscript": "Expand transcription",
+  "emptyTranscription": "Transcription will appear here once the session starts.",
+  "noScenarios": "No conference scenarios available. Ask your admin to create one.",
+  "endPresentation": "End Presentation",
+  "endConfirm": "Are you sure you want to end this conference presentation? Your session will be scored and the presentation cannot be resumed.",
+  "continuePresenting": "Continue Presenting",
+  "error": {
+    "loadFailed": "Failed to load conference session. Please refresh and try again.",
+    "streamFailed": "Connection to the session was lost. Attempting to reconnect...",
+    "voiceUnavailable": "Voice input is not available. Azure Speech is not configured."
+  }
+}
