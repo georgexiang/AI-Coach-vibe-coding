@@ -146,8 +146,8 @@ Plans:
 **Plans**: 6 plans
 
 Plans:
-- [ ] 06-01-PLAN.md -- Backend foundation: ConferenceAudienceHcp model, session/message extensions, Alembic migration, schemas, TurnManager, voice dependency
-- [ ] 06-02-PLAN.md -- Frontend data layer: TypeScript types, API client, TanStack Query hooks, multi-speaker SSE hook, i18n conference namespace
+- [x] 06-01-PLAN.md -- Backend foundation: ConferenceAudienceHcp model, session/message extensions, Alembic migration, schemas, TurnManager, voice dependency
+- [x] 06-02-PLAN.md -- Frontend data layer: TypeScript types, API client, TanStack Query hooks, multi-speaker SSE hook, i18n conference namespace
 - [ ] 06-03-PLAN.md -- Backend services + API: conference_service, conference router with SSE, prompt builder extension, Azure STT/TTS adapters
 - [ ] 06-04-PLAN.md -- Frontend components + page: 11 conference components, extended ChatBubble, full-screen conference session page
 - [ ] 06-05-PLAN.md -- Integration wiring: route registration, navigation, seed data, admin audience config, full-flow verification

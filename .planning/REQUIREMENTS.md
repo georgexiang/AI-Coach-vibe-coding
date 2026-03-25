@@ -51,7 +51,7 @@
 - [x] **COACH-03**: System tracks key message delivery in real-time — checklist shows which messages were delivered and which were missed
 - [ ] **COACH-04**: User can use voice input (Azure Speech STT) — speech recognized and sent as text to AI HCP (zh-CN + en-US)
 - [ ] **COACH-05**: AI HCP responses are spoken via Azure Speech TTS — natural-sounding voices in Chinese and English
-- [ ] **COACH-06**: Voice interaction supports GPT Realtime API (WebSocket) for sub-1s conversational latency as configurable premium option
+- [x] **COACH-06**: Voice interaction supports GPT Realtime API (WebSocket) for sub-1s conversational latency as configurable premium option
 - [ ] **COACH-07**: Azure AI Avatar renders digital human visual for HCP as configurable premium option — falls back to TTS-only when disabled or unavailable
 - [x] **COACH-08**: Real-time coaching hints displayed in side panel during conversation — contextual suggestions based on conversation progress
 - [x] **COACH-09**: Conversations are immutable once completed — only scoring and feedback can be added after completion
@@ -66,9 +66,9 @@
 
 ### Conference Mode (CONF)
 
-- [ ] **CONF-01**: User can start a conference presentation mode with multiple virtual HCP audience members
-- [ ] **CONF-02**: Multiple AI HCPs ask questions from audience — questions queue with turn management
-- [ ] **CONF-03**: Conference session includes live transcription display
+- [x] **CONF-01**: User can start a conference presentation mode with multiple virtual HCP audience members
+- [x] **CONF-02**: Multiple AI HCPs ask questions from audience — questions queue with turn management
+- [x] **CONF-03**: Conference session includes live transcription display
 - [ ] **CONF-04**: Conference sessions are scored using the same multi-dimensional scoring system as F2F
 
 ### Content Management (CONTENT)
@@ -152,7 +152,7 @@
 | COACH-03 | Phase 2 | Complete |
 | COACH-04 | Phase 3 | Pending |
 | COACH-05 | Phase 3 | Pending |
-| COACH-06 | Phase 3 | Pending |
+| COACH-06 | Phase 3 | Complete |
 | COACH-07 | Phase 3 | Pending |
 | COACH-08 | Phase 2 | Complete |
 | COACH-09 | Phase 2 | Complete |
@@ -161,9 +161,9 @@
 | SCORE-03 | Phase 2 | Complete |
 | SCORE-04 | Phase 2 | Complete |
 | SCORE-05 | Phase 2 | Complete |
-| CONF-01 | Phase 3 | Pending |
-| CONF-02 | Phase 3 | Pending |
-| CONF-03 | Phase 3 | Pending |
+| CONF-01 | Phase 3 | Complete |
+| CONF-02 | Phase 3 | Complete |
+| CONF-03 | Phase 3 | Complete |
 | CONF-04 | Phase 3 | Pending |
 | CONTENT-01 | Phase 3 | Complete |
 | CONTENT-02 | Phase 3 | Complete |

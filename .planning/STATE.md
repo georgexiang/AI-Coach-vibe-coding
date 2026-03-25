@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Ready to execute
-stopped_at: Completed 05-03-PLAN.md
-last_updated: "2026-03-25T08:18:00.929Z"
+stopped_at: Completed 06-01-PLAN.md
+last_updated: "2026-03-25T10:21:16.915Z"
 last_activity: 2026-03-25
 progress:
   total_phases: 7
   completed_phases: 5
-  total_plans: 26
-  completed_plans: 26
+  total_plans: 32
+  completed_plans: 28
 ---
 
 # Project State
@@ -20,12 +20,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-24)
 
 **Core value:** MRs can practice realistic conversations with AI-powered digital HCPs and receive immediate, multi-dimensional feedback to improve their communication skills -- anytime, without needing a real HCP or trainer.
-**Current focus:** Phase 05 — training-material-management
+**Current focus:** Phase 06 — conference-presentation-module
 
 ## Current Position
 
-Phase: 05 (training-material-management) — EXECUTING
-Plan: 3 of 3
+Phase: 06 (conference-presentation-module) — EXECUTING
+Plan: 3 of 6
 
 ## Performance Metrics
 
@@ -69,6 +69,8 @@ Plan: 3 of 3
 | Phase 05 P01 | 9min | 2 tasks | 12 files |
 | Phase 05 P02 | 9min | 2 tasks | 8 files |
 | Phase 05 P03 | 5min | 2 tasks | 9 files |
+| Phase 06 P02 | 5min | 2 tasks | 8 files |
+| Phase 06 P01 | 6min | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -121,6 +123,10 @@ Recent decisions affecting current work:
 - [Phase 05]: search_chunks uses latest-active-version subquery to only return chunks from current versions
 - [Phase 05]: Used react-dropzone for drag-and-drop file upload with MIME type restriction (PDF, DOCX, XLSX)
 - [Phase 05]: Used inline HTML table for material list since no dedicated Table UI component exists in the shared UI library
+- [Phase 06]: Used separate conference query key namespaces to avoid F2F cache collisions
+- [Phase 06]: Conference SSE hook uses fetch-based ReadableStream with typed multi-speaker event dispatch
+- [Phase 06]: Used server_default in Alembic migration for conference columns for SQLite compatibility with existing rows
+- [Phase 06]: TurnManager uses in-memory dict for real-time question queues, not database persistence
 
 ### Pending Todos
 
@@ -139,6 +145,6 @@ None yet.
 ## Session Continuity
 
 Last activity: 2026-03-25
-Last session: 2026-03-25T08:18:00.926Z
-Stopped at: Completed 05-03-PLAN.md
+Last session: 2026-03-25T10:21:16.912Z
+Stopped at: Completed 06-01-PLAN.md
 Resume file: None
