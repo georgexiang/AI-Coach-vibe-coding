@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api import (
+    analytics_router,
     auth_router,
     azure_config_router,
     config_router,
@@ -84,6 +85,7 @@ app.include_router(scoring_router, prefix=settings.api_prefix)
 app.include_router(rubrics_router, prefix=settings.api_prefix)
 app.include_router(azure_config_router, prefix=settings.api_prefix)
 app.include_router(materials_router, prefix=settings.api_prefix)
+app.include_router(analytics_router, prefix=settings.api_prefix)
 
 
 # Health check
