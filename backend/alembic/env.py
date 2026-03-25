@@ -11,6 +11,7 @@ from app.config import get_settings
 from app.models import (  # noqa: F401
     Base,
     CoachingSession,
+    ConferenceAudienceHcp,
     HcpProfile,
     MaterialChunk,
     MaterialVersion,

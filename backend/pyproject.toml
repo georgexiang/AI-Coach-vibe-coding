@@ -43,8 +43,12 @@ postgresql = [
     "asyncpg>=0.29.0",
     "psycopg2-binary>=2.9.0",
 ]
+voice = [
+    "azure-cognitiveservices-speech>=1.48.0",
+    # GPT Realtime API deferred to post-MVP per user decision
+]
 all = [
-    "ai-coach-backend[dev,postgresql]",
+    "ai-coach-backend[dev,postgresql,voice]",
 ]
 
 [tool.setuptools.packages.find]

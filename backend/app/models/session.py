@@ -27,6 +27,16 @@ class CoachingSession(Base, TimestampMixin):
     overall_score: Mapped[float | None] = mapped_column(nullable=True)
     passed: Mapped[bool | None] = mapped_column(nullable=True)
 
+    # Conference fields
+    session_type: Mapped[str] = mapped_column(String(20), default="f2f")  # f2f / conference
+    sub_state: Mapped[str] = mapped_column(
+        String(20), default=""
+    )  # presenting / qa / empty for f2f
+    presentation_topic: Mapped[str | None] = mapped_column(Text, nullable=True, default=None)
+    audience_config: Mapped[str | None] = mapped_column(
+        Text, nullable=True, default=None
+    )  # JSON string
+
     # Relationships
     scenario = relationship("Scenario")
     user = relationship("User")
