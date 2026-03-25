@@ -1,5 +1,7 @@
 """Conference presentation module request/response schemas."""
 
+from datetime import datetime
+
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -47,7 +49,7 @@ class ConferenceSessionResponse(BaseModel):
     presentation_topic: str | None = None
     audience_config: str | None = None
     key_messages_status: str | None = None
-    created_at: str | None = None
+    created_at: datetime | None = None
 
 
 class ConferenceMessageSend(BaseModel):
