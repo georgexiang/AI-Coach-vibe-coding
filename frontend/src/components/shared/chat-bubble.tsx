@@ -4,6 +4,8 @@ interface ChatBubbleProps {
   sender: "hcp" | "mr";
   text: string;
   timestamp: Date;
+  speakerName?: string;
+  speakerColor?: string;
 }
 
 function formatTime(date: Date): string {
@@ -12,7 +14,13 @@ function formatTime(date: Date): string {
   return `${hours}:${minutes}`;
 }
 
-export function ChatBubble({ sender, text, timestamp }: ChatBubbleProps) {
+export function ChatBubble({
+  sender,
+  text,
+  timestamp,
+  speakerName,
+  speakerColor,
+}: ChatBubbleProps) {
   return (
     <div
       className={cn(
@@ -21,6 +29,14 @@ export function ChatBubble({ sender, text, timestamp }: ChatBubbleProps) {
       )}
     >
       <div className="max-w-[75%]">
+        {speakerName && (
+          <p
+            className="mb-1 text-xs font-medium"
+            style={speakerColor ? { color: speakerColor } : undefined}
+          >
+            {speakerName}
+          </p>
+        )}
         <div
           className={cn(
             "rounded-2xl px-4 py-2",
