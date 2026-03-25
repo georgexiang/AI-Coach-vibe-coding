@@ -1,5 +1,11 @@
 """Analytics API endpoint tests covering all 7 analytics endpoints."""
 
+from datetime import UTC, datetime
+
+from app.models.hcp_profile import HcpProfile
+from app.models.scenario import Scenario
+from app.models.score import ScoreDetail, SessionScore
+from app.models.session import CoachingSession
 from app.models.user import User
 from app.services.auth import create_access_token, get_password_hash
 from tests.conftest import TestSessionLocal
@@ -225,3 +231,232 @@ class TestAdminExport:
     async def test_unauthenticated_returns_401(self, client):
         response = await client.get("/api/v1/analytics/export/admin-report")
         assert response.status_code == 401
+
+    async def test_admin_export_has_content_disposition(self, client):
+        """Admin export should have correct Content-Disposition header."""
+        _, token = await _create_admin_and_token()
+        response = await client.get(
+            "/api/v1/analytics/export/admin-report",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 200
+        disposition = response.headers.get("content-disposition", "")
+        assert "attachment" in disposition
+        assert "admin-report.xlsx" in disposition
+
+
+# ---------------------------------------------------------------------------
+# Edge case tests for parameter validation and empty data
+# ---------------------------------------------------------------------------
+
+
+async def _create_user_with_data_and_token() -> tuple[str, str]:
+    """Create a user with scored sessions, scores, and return (user_id, bearer_token)."""
+    async with TestSessionLocal() as session:
+        admin = User(
+            username="admin_edge",
+            email="admin_edge@test.com",
+            hashed_password=get_password_hash("pass"),
+            full_name="Admin Edge",
+            role="admin",
+            business_unit="HQ",
+        )
+        session.add(admin)
+        await session.flush()
+
+        user = User(
+            username="user_edge",
+            email="user_edge@test.com",
+            hashed_password=get_password_hash("pass"),
+            full_name="User Edge",
+            role="user",
+            business_unit="BU-Edge",
+        )
+        session.add(user)
+        await session.flush()
+
+        hcp = HcpProfile(
+            name="Dr. Edge",
+            specialty="Oncology",
+            created_by=admin.id,
+        )
+        session.add(hcp)
+        await session.flush()
+
+        scenario = Scenario(
+            name="Edge Scenario",
+            product="Drug",
+            status="active",
+            hcp_profile_id=hcp.id,
+            created_by=admin.id,
+        )
+        session.add(scenario)
+        await session.flush()
+
+        cs = CoachingSession(
+            user_id=user.id,
+            scenario_id=scenario.id,
+            status="scored",
+            overall_score=75.0,
+            passed=True,
+            completed_at=datetime.now(UTC),
+            duration_seconds=300,
+        )
+        session.add(cs)
+        await session.flush()
+
+        score = SessionScore(
+            session_id=cs.id,
+            overall_score=75.0,
+            passed=True,
+        )
+        session.add(score)
+        await session.flush()
+
+        detail = ScoreDetail(
+            score_id=score.id,
+            dimension="key_message",
+            score=75.0,
+            weight=30,
+        )
+        session.add(detail)
+
+        await session.commit()
+        await session.refresh(user)
+        token = create_access_token(data={"sub": user.id})
+        return user.id, token
+
+
+class TestEdgeCases:
+    """Edge case tests for analytics endpoints."""
+
+    async def test_invalid_token_returns_401(self, client):
+        """Invalid bearer token should return 401 for all endpoints."""
+        invalid_token = "invalid.jwt.token"
+        endpoints = [
+            "/api/v1/analytics/dashboard",
+            "/api/v1/analytics/trends",
+            "/api/v1/analytics/recommendations",
+            "/api/v1/analytics/export/sessions",
+        ]
+        for endpoint in endpoints:
+            response = await client.get(
+                endpoint,
+                headers={"Authorization": f"Bearer {invalid_token}"},
+            )
+            assert response.status_code == 401, f"Expected 401 for {endpoint}"
+
+    async def test_trends_limit_validation_too_low(self, client):
+        """Trends limit below 1 should be rejected (422)."""
+        _, token = await _create_user_and_token()
+        response = await client.get(
+            "/api/v1/analytics/trends",
+            params={"limit": 0},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 422
+
+    async def test_trends_limit_validation_too_high(self, client):
+        """Trends limit above 100 should be rejected (422)."""
+        _, token = await _create_user_and_token()
+        response = await client.get(
+            "/api/v1/analytics/trends",
+            params={"limit": 101},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 422
+
+    async def test_recommendations_limit_validation_too_low(self, client):
+        """Recommendations limit below 1 should be rejected (422)."""
+        _, token = await _create_user_and_token()
+        response = await client.get(
+            "/api/v1/analytics/recommendations",
+            params={"limit": 0},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 422
+
+    async def test_recommendations_limit_validation_too_high(self, client):
+        """Recommendations limit above 10 should be rejected (422)."""
+        _, token = await _create_user_and_token()
+        response = await client.get(
+            "/api/v1/analytics/recommendations",
+            params={"limit": 11},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 422
+
+    async def test_dashboard_empty_data_types(self, client):
+        """Dashboard empty data should have correct types."""
+        _, token = await _create_user_and_token()
+        response = await client.get(
+            "/api/v1/analytics/dashboard",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        data = response.json()
+        assert isinstance(data["total_sessions"], int)
+        assert isinstance(data["avg_score"], float)
+        assert isinstance(data["this_week"], int)
+        assert data["improvement"] is None
+
+    async def test_export_sessions_content_disposition_filename(self, client):
+        """Sessions export should have correct filename in Content-Disposition."""
+        _, token = await _create_user_and_token()
+        response = await client.get(
+            "/api/v1/analytics/export/sessions",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        disposition = response.headers.get("content-disposition", "")
+        assert "sessions-report.xlsx" in disposition
+
+    async def test_admin_overview_empty_arrays_in_response(self, client):
+        """Admin overview with no BU data should have empty arrays."""
+        _, token = await _create_admin_and_token()
+        response = await client.get(
+            "/api/v1/analytics/admin/overview",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        data = response.json()
+        assert isinstance(data["bu_stats"], list)
+        assert isinstance(data["skill_gaps"], list)
+
+    async def test_trends_with_scored_data(self, client):
+        """Trends endpoint with actual scored data returns trend points."""
+        _, token = await _create_user_with_data_and_token()
+        response = await client.get(
+            "/api/v1/analytics/trends",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert isinstance(data, list)
+
+    async def test_export_sessions_content_type(self, client):
+        """Sessions export should have the correct XLSX content type."""
+        _, token = await _create_user_and_token()
+        response = await client.get(
+            "/api/v1/analytics/export/sessions",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        content_type = response.headers.get("content-type", "")
+        assert "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" in content_type
+
+    async def test_admin_export_content_type(self, client):
+        """Admin export should have the correct XLSX content type."""
+        _, token = await _create_admin_and_token()
+        response = await client.get(
+            "/api/v1/analytics/export/admin-report",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        content_type = response.headers.get("content-type", "")
+        assert "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" in content_type
+
+    async def test_admin_skill_gaps_empty_returns_list(self, client):
+        """Admin skill-gaps with no data should return empty list."""
+        _, token = await _create_admin_and_token()
+        response = await client.get(
+            "/api/v1/analytics/admin/skill-gaps",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 200
+        assert response.json() == []
