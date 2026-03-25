@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Ready to execute
-stopped_at: Completed 05-01-PLAN.md
-last_updated: "2026-03-25T07:55:48.006Z"
+stopped_at: Completed 05-02-PLAN.md
+last_updated: "2026-03-25T08:09:37.443Z"
 last_activity: 2026-03-25
 progress:
   total_phases: 7
   completed_phases: 4
   total_plans: 26
-  completed_plans: 24
+  completed_plans: 25
 ---
 
 # Project State
@@ -67,6 +67,7 @@ Plan: 2 of 3
 | Phase 02 P08 | 5min | 2 tasks | 5 files |
 | Phase 03 P03 | 9min | 2 tasks | 18 files |
 | Phase 05 P01 | 9min | 2 tasks | 12 files |
+| Phase 05 P02 | 9min | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -114,6 +115,9 @@ Recent decisions affecting current work:
 - [Phase 02]: Azure config API uses format validation for MVP test endpoint
 - [Phase 05]: StorageBackend as Protocol for structural typing; local filesystem for MVP, Azure Blob stub for production
 - [Phase 05]: Page-level chunking for PDF, paragraph-group for DOCX, sheet-per-chunk for XLSX; 2000-char chunks with 200-char overlap
+- [Phase 05]: Used expunge+re-query pattern for async SQLAlchemy relationship loading to avoid MissingGreenlet errors
+- [Phase 05]: Content type derived from file extension rather than trusting upload MIME type for reliability
+- [Phase 05]: search_chunks uses latest-active-version subquery to only return chunks from current versions
 
 ### Pending Todos
 
@@ -132,6 +136,6 @@ None yet.
 ## Session Continuity
 
 Last activity: 2026-03-25
-Last session: 2026-03-25T07:55:48.003Z
-Stopped at: Completed 05-01-PLAN.md
+Last session: 2026-03-25T08:09:37.436Z
+Stopped at: Completed 05-02-PLAN.md
 Resume file: None

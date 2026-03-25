@@ -128,7 +128,7 @@ Plans:
 
 Plans:
 - [x] 05-01-PLAN.md -- Backend foundation: ORM models, Pydantic schemas, storage adapter, text extractor, Alembic migration, new dependencies
-- [ ] 05-02-PLAN.md -- Backend API: material service, REST router, prompt builder RAG integration, comprehensive tests
+- [x] 05-02-PLAN.md -- Backend API: material service, REST router, prompt builder RAG integration, comprehensive tests
 - [ ] 05-03-PLAN.md -- Frontend: TypeScript types, API client, TanStack Query hooks, admin page with drag-and-drop upload, i18n, route registration
 
 **UI hint**: yes
