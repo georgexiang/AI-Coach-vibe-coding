@@ -14,6 +14,7 @@ import ScoringFeedback from "@/pages/user/scoring-feedback";
 import SessionHistory from "@/pages/user/session-history";
 import TrainingSession from "@/pages/user/training-session";
 import ScoringRubricsPage from "@/pages/admin/scoring-rubrics";
+import TrainingMaterialsPage from "@/pages/admin/training-materials";
 import NotFound from "@/pages/not-found";
 
 export const router = createBrowserRouter([
@@ -55,6 +56,7 @@ export const router = createBrowserRouter([
               { path: "scenarios", element: <ScenariosPage /> },
               { path: "azure-config", element: <AzureConfigPage /> },
               { path: "scoring-rubrics", element: <ScoringRubricsPage /> },
+              { path: "materials", element: <TrainingMaterialsPage /> },
             ],
           },
         ],
