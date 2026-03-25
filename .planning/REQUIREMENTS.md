@@ -49,10 +49,10 @@
 - [x] **COACH-01**: User can start a text-based F2F coaching session with an AI-powered HCP based on selected scenario
 - [x] **COACH-02**: AI HCP responds in character (personality, knowledge, objections) as defined by HCP profile and scenario context
 - [x] **COACH-03**: System tracks key message delivery in real-time — checklist shows which messages were delivered and which were missed
-- [ ] **COACH-04**: User can use voice input (Azure Speech STT) — speech recognized and sent as text to AI HCP (zh-CN + en-US)
-- [ ] **COACH-05**: AI HCP responses are spoken via Azure Speech TTS — natural-sounding voices in Chinese and English
+- [x] **COACH-04**: User can use voice input (Azure Speech STT) — speech recognized and sent as text to AI HCP (zh-CN + en-US)
+- [x] **COACH-05**: AI HCP responses are spoken via Azure Speech TTS — natural-sounding voices in Chinese and English
 - [x] **COACH-06**: Voice interaction supports GPT Realtime API (WebSocket) for sub-1s conversational latency as configurable premium option
-- [ ] **COACH-07**: Azure AI Avatar renders digital human visual for HCP as configurable premium option — falls back to TTS-only when disabled or unavailable
+- [x] **COACH-07**: Azure AI Avatar renders digital human visual for HCP as configurable premium option — falls back to TTS-only when disabled or unavailable
 - [x] **COACH-08**: Real-time coaching hints displayed in side panel during conversation — contextual suggestions based on conversation progress
 - [x] **COACH-09**: Conversations are immutable once completed — only scoring and feedback can be added after completion
 
@@ -69,7 +69,7 @@
 - [x] **CONF-01**: User can start a conference presentation mode with multiple virtual HCP audience members
 - [x] **CONF-02**: Multiple AI HCPs ask questions from audience — questions queue with turn management
 - [x] **CONF-03**: Conference session includes live transcription display
-- [ ] **CONF-04**: Conference sessions are scored using the same multi-dimensional scoring system as F2F
+- [x] **CONF-04**: Conference sessions are scored using the same multi-dimensional scoring system as F2F
 
 ### Content Management (CONTENT)
 
@@ -150,10 +150,10 @@
 | COACH-01 | Phase 2 | Complete |
 | COACH-02 | Phase 2 | Complete |
 | COACH-03 | Phase 2 | Complete |
-| COACH-04 | Phase 3 | Pending |
-| COACH-05 | Phase 3 | Pending |
+| COACH-04 | Phase 3 | Complete |
+| COACH-05 | Phase 3 | Complete |
 | COACH-06 | Phase 3 | Complete |
-| COACH-07 | Phase 3 | Pending |
+| COACH-07 | Phase 3 | Complete |
 | COACH-08 | Phase 2 | Complete |
 | COACH-09 | Phase 2 | Complete |
 | SCORE-01 | Phase 2 | Complete |
@@ -164,7 +164,7 @@
 | CONF-01 | Phase 3 | Complete |
 | CONF-02 | Phase 3 | Complete |
 | CONF-03 | Phase 3 | Complete |
-| CONF-04 | Phase 3 | Pending |
+| CONF-04 | Phase 3 | Complete |
 | CONTENT-01 | Phase 3 | Complete |
 | CONTENT-02 | Phase 3 | Complete |
 | CONTENT-03 | Phase 3 | Complete |
