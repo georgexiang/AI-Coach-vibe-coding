@@ -1,6 +1,7 @@
-"""Prompt builders for HCP system prompts, scoring analysis, and key message detection."""
+"""Prompt builders for HCP system prompts, scoring, key message detection, and conference."""
 
 import json
+from typing import Any
 
 from app.models.hcp_profile import HcpProfile
 from app.models.scenario import Scenario
@@ -310,5 +311,171 @@ latest message:
 {json.dumps(key_messages[:1])}
 
 Return an empty array [] if no key messages were detected in this message."""
+
+    return prompt
+
+
+def build_conference_audience_prompt(
+    hcp_config: dict[str, Any],
+    scenario: Scenario | None,
+    presentation_topic: str,
+    conversation_history: list[dict],
+    other_hcp_questions: list[dict],
+) -> str:
+    """Build a system prompt for a specific HCP in a conference audience.
+
+    Each HCP generates questions based on:
+    1. Their personality and specialty
+    2. The MR's presentation content
+    3. Questions already asked by other HCPs (to avoid duplication)
+    """
+    hcp_name = hcp_config.get("name", "Doctor")
+    specialty = hcp_config.get("specialty", "General Medicine")
+    personality_type = hcp_config.get("personality_type", "friendly")
+    role = hcp_config.get("role", "audience")
+
+    # Personality behaviors reused from build_hcp_system_prompt
+    personality_behaviors = {
+        "skeptical": "You are SKEPTICAL. Question claims and demand evidence.",
+        "friendly": "You are FRIENDLY. Ask curious follow-up questions.",
+        "busy": "You are BUSY. Ask concise, pointed questions.",
+        "analytical": "You are ANALYTICAL. Focus on specific data and numbers.",
+        "cautious": "You are CAUTIOUS. Focus on safety and side effects.",
+    }
+    personality_instruction = personality_behaviors.get(
+        personality_type,
+        "Maintain a professional demeanor appropriate to your specialty.",
+    )
+
+    product = scenario.product if scenario else "the product"
+    therapeutic_area = scenario.therapeutic_area if scenario else ""
+
+    prompt_parts = [
+        "# Conference Audience Role",
+        f"You are Dr. {hcp_name}, a {specialty} specialist attending a medical conference.",
+        f"You are a {role} member in the audience.",
+        "",
+        "# Personality",
+        personality_instruction,
+        "",
+        "# Presentation Context",
+        f"The Medical Representative is presenting about: {product}",
+    ]
+
+    if therapeutic_area:
+        prompt_parts.append(f"Therapeutic area: {therapeutic_area}")
+
+    if presentation_topic:
+        prompt_parts.append(f"Presentation topic: {presentation_topic}")
+
+    # Include conversation history
+    if conversation_history:
+        prompt_parts.extend(["", "# Conversation So Far"])
+        for msg in conversation_history[-10:]:
+            speaker = msg.get("speaker_name") or ("MR" if msg.get("role") == "user" else "HCP")
+            prompt_parts.append(f"{speaker}: {msg.get('content', '')}")
+
+    # Include other HCPs' questions to avoid duplication
+    if other_hcp_questions:
+        prompt_parts.extend(["", "# Questions Already Asked by Other Audience Members"])
+        for q in other_hcp_questions:
+            prompt_parts.append(f"- {q['hcp_name']}: {q['question']}")
+        prompt_parts.append(
+            "Do NOT repeat or closely paraphrase these questions. "
+            "You may follow up on them or ask about a different aspect."
+        )
+
+    prompt_parts.extend(
+        [
+            "",
+            "# Instructions",
+            "Based on the MR's presentation, generate a relevant question from your "
+            "perspective as a conference audience member.",
+            "- Your question should reflect your specialty and personality.",
+            "- If other HCPs have already asked similar questions, focus on a different angle.",
+            "- If you have no relevant question, respond with an empty string.",
+            "- Respond in the same language the MR uses (Chinese or English).",
+            "- Keep your question concise (1-3 sentences).",
+            "- Do NOT provide coaching feedback. You ARE a conference attendee.",
+        ]
+    )
+
+    return "\n".join(prompt_parts)
+
+
+def build_conference_scoring_prompt(
+    scenario: Scenario, messages: list[dict], audience_config: list[dict]
+) -> str:
+    """Build scoring prompt adapted for conference presentation evaluation.
+
+    Maps existing 5 dimensions to conference context:
+    - key_message -> presentation completeness
+    - objection_handling -> Q&A handling
+    - communication -> presentation delivery
+    - product_knowledge -> product knowledge depth
+    - scientific_info -> scientific rigor
+    """
+    weights = scenario.get_scoring_weights()
+    key_messages = json.loads(scenario.key_messages)
+
+    # Format transcript with speaker attribution
+    transcript_lines = []
+    for msg in messages:
+        speaker = msg.get("speaker_name", "")
+        if msg.get("role") == "user":
+            label = "MR"
+        elif speaker:
+            label = f"HCP ({speaker})"
+        else:
+            label = "HCP"
+        transcript_lines.append(f"{label}: {msg.get('content', '')}")
+    formatted_transcript = "\n".join(transcript_lines)
+
+    # Audience info
+    audience_info = ", ".join(
+        f"Dr. {a.get('name', '?')} ({a.get('specialty', '?')}, {a.get('personality_type', '?')})"
+        for a in audience_config
+    )
+
+    prompt = f"""# Conference Presentation Scoring Task
+
+You are an expert medical sales training evaluator. Analyze the following conference
+presentation by a Medical Representative (MR) to an audience of Healthcare Professionals.
+
+## Audience
+{audience_info}
+
+## Scoring Dimensions and Weights (adapted for conference)
+
+1. **Presentation Completeness (key_message)** (weight: {weights["key_message"]}%)
+   - Did the MR cover all required key messages during the presentation?
+   - Were they woven naturally into the presentation flow?
+
+2. **Q&A Handling (objection_handling)** (weight: {weights["objection_handling"]}%)
+   - How well did the MR handle audience questions?
+   - Were responses specific, evidence-based, and addressed to the questioner?
+
+3. **Presentation Delivery (communication)** (weight: {weights["communication"]}%)
+   - Was the presentation clear, structured, and engaging?
+   - Did the MR maintain audience engagement?
+
+4. **Product Knowledge** (weight: {weights["product_knowledge"]}%)
+   - Did the MR demonstrate deep product knowledge under audience questioning?
+
+5. **Scientific Rigor (scientific_info)** (weight: {weights["scientific_info"]}%)
+   - Were clinical references accurate and well-cited?
+   - Did the MR handle scientific challenges from the audience competently?
+
+## Key Messages Expected
+{chr(10).join(f"{i + 1}. {msg}" for i, msg in enumerate(key_messages))}
+
+## Conference Transcript
+{formatted_transcript}
+
+## Required Output Format
+
+Return ONLY valid JSON matching the standard scoring format with dimensions:
+key_message, objection_handling, communication, product_knowledge, scientific_info.
+Each with score (0-100), weight, strengths, weaknesses, and suggestions arrays."""
 
     return prompt
