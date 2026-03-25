@@ -18,3 +18,4 @@ class User(Base, TimestampMixin):
     role: Mapped[str] = mapped_column(String(20), default="user")  # "user" or "admin"
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     preferred_language: Mapped[str] = mapped_column(String(10), default="zh-CN")
+    business_unit: Mapped[str] = mapped_column(String(100), default="")
