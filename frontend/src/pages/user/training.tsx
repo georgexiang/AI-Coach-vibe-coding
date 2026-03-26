@@ -24,6 +24,7 @@ const ALL_VALUE = "__all__";
 
 export default function ScenarioSelection() {
   const { t } = useTranslation("coach");
+  const { t: tc } = useTranslation("common");
   const navigate = useNavigate();
 
   const [searchTerm, setSearchTerm] = useState("");
@@ -75,7 +76,7 @@ export default function ScenarioSelection() {
           <SelectValue placeholder={t("scenarioSelection.filterAllDifficulties")} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value={ALL_VALUE}>All Products</SelectItem>
+          <SelectItem value={ALL_VALUE}>{tc("allProducts")}</SelectItem>
           {products.map((product) => (
             <SelectItem key={product} value={product}>
               {product}
@@ -107,7 +108,7 @@ export default function ScenarioSelection() {
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           className="pl-9"
-          placeholder="Search scenarios..."
+          placeholder={t("scenarioSelection.searchPlaceholder", { defaultValue: tc("search") })}
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />

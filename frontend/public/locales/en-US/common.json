@@ -16,5 +16,19 @@
   "noDataDescription": "Complete your first training session to see results here",
   "errorTitle": "Something went wrong",
   "errorDescription": "Please try again or contact support if the problem persists",
-  "ariaSwitchLanguage": "Switch language"
+  "ariaSwitchLanguage": "Switch language",
+  "cancel": "Cancel",
+  "save": "Save",
+  "delete": "Delete",
+  "previous": "Previous",
+  "next": "Next",
+  "all": "All",
+  "search": "Search",
+  "modeF2F": "F2F",
+  "modeConference": "Conference",
+  "difficultyEasy": "Easy",
+  "difficultyMedium": "Medium",
+  "difficultyHard": "Hard",
+  "difficultyIntermediate": "Intermediate",
+  "allProducts": "All Products"
 }

@@ -16,5 +16,19 @@
   "noDataDescription": "完成您的第一次培训后即可查看结果",
   "errorTitle": "出现错误",
   "errorDescription": "请重试，如问题持续请联系技术支持",
-  "ariaSwitchLanguage": "切换语言"
+  "ariaSwitchLanguage": "切换语言",
+  "cancel": "取消",
+  "save": "保存",
+  "delete": "删除",
+  "previous": "上一页",
+  "next": "下一页",
+  "all": "全部",
+  "search": "搜索",
+  "modeF2F": "面对面",
+  "modeConference": "学术会议",
+  "difficultyEasy": "简单",
+  "difficultyMedium": "中等",
+  "difficultyHard": "困难",
+  "difficultyIntermediate": "中等",
+  "allProducts": "所有产品"
 }

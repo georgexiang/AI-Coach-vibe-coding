@@ -548,6 +548,11 @@ async def main() -> None:
     await engine.dispose()
     print("Seed complete.")
 
+    # Also seed training materials
+    from scripts.seed_materials import seed_materials
+
+    await seed_materials()
+
 
 if __name__ == "__main__":
     asyncio.run(main())
