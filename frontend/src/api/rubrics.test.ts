@@ -27,7 +27,7 @@ beforeEach(() => vi.clearAllMocks());
 
 describe("Rubrics API client", () => {
   describe("getRubrics", () => {
-    it("calls GET /scoring/rubrics with params", async () => {
+    it("calls GET /rubrics with params", async () => {
       const rubrics = [
         { id: "r-1", name: "Default Rubric", scenario_type: "f2f" },
       ];
@@ -35,19 +35,19 @@ describe("Rubrics API client", () => {
 
       const result = await getRubrics({ scenario_type: "f2f" });
 
-      expect(mockClient.get).toHaveBeenCalledWith("/scoring/rubrics", {
+      expect(mockClient.get).toHaveBeenCalledWith("/rubrics", {
         params: { scenario_type: "f2f" },
       });
       expect(result).toHaveLength(1);
       expect(result[0]?.name).toBe("Default Rubric");
     });
 
-    it("calls GET /scoring/rubrics without params", async () => {
+    it("calls GET /rubrics without params", async () => {
       mockClient.get.mockResolvedValue({ data: [] });
 
       const result = await getRubrics();
 
-      expect(mockClient.get).toHaveBeenCalledWith("/scoring/rubrics", {
+      expect(mockClient.get).toHaveBeenCalledWith("/rubrics", {
         params: undefined,
       });
       expect(result).toHaveLength(0);
@@ -55,7 +55,7 @@ describe("Rubrics API client", () => {
   });
 
   describe("createRubric", () => {
-    it("calls POST /scoring/rubrics with payload", async () => {
+    it("calls POST /rubrics with payload", async () => {
       const payload = {
         name: "New Rubric",
         dimensions: [{ name: "Knowledge", weight: 1, criteria: [], max_score: 100 }],
@@ -67,7 +67,7 @@ describe("Rubrics API client", () => {
       const result = await createRubric(payload);
 
       expect(mockClient.post).toHaveBeenCalledWith(
-        "/scoring/rubrics",
+        "/rubrics",
         payload,
       );
       expect(result.id).toBe("r-new");
@@ -83,7 +83,7 @@ describe("Rubrics API client", () => {
   });
 
   describe("updateRubric", () => {
-    it("calls PUT /scoring/rubrics/:id with payload", async () => {
+    it("calls PUT /rubrics/:id with payload", async () => {
       const payload = { name: "Updated Rubric" };
       mockClient.put.mockResolvedValue({
         data: { id: "r-1", name: "Updated Rubric" },
@@ -92,7 +92,7 @@ describe("Rubrics API client", () => {
       const result = await updateRubric("r-1", payload);
 
       expect(mockClient.put).toHaveBeenCalledWith(
-        "/scoring/rubrics/r-1",
+        "/rubrics/r-1",
         payload,
       );
       expect(result.name).toBe("Updated Rubric");
@@ -100,12 +100,12 @@ describe("Rubrics API client", () => {
   });
 
   describe("deleteRubric", () => {
-    it("calls DELETE /scoring/rubrics/:id", async () => {
+    it("calls DELETE /rubrics/:id", async () => {
       mockClient.delete.mockResolvedValue({ status: 204 });
 
       await deleteRubric("r-1");
 
-      expect(mockClient.delete).toHaveBeenCalledWith("/scoring/rubrics/r-1");
+      expect(mockClient.delete).toHaveBeenCalledWith("/rubrics/r-1");
     });
 
     it("propagates errors on delete", async () => {
