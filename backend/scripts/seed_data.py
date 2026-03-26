@@ -18,6 +18,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.config import get_settings
+from app.models.message import SessionMessage
 from app.models.scenario import Scenario
 from app.models.score import ScoreDetail, SessionScore
 from app.models.scoring_rubric import ScoringRubric
@@ -144,10 +145,194 @@ async def seed_default_rubric(session: AsyncSession, admin_user_id: str) -> None
     print("  [created] Default F2F scoring rubric (5 dimensions, weights sum to 100)")
 
 
+SAMPLE_CONVERSATIONS = [
+    # Conversation 1: Zanubrutinib discussion with skeptical oncologist
+    [
+        ("user", "张教授，您好！感谢您在百忙之中抽出时间与我见面。我是百济神州的医学代表，今天想和您分享一下泽布替尼在CLL/SLL治疗中的最新临床数据。"),
+        ("assistant", "你好，请坐。我对BTK抑制剂有一定了解，目前我们科室主要使用伊布替尼。泽布替尼和伊布替尼相比有什么不同呢？我更关心的是实际临床获益。"),
+        ("user", "非常好的问题！ALPINE研究头对头比较了泽布替尼和伊布替尼在复发/难治性CLL/SLL患者中的疗效。结果显示泽布替尼的ORR达到78.3%，显著优于伊布替尼的62.5%。"),
+        ("assistant", "ORR的差异确实明显。但我更关心PFS和安全性数据，尤其是心脏相关的不良事件，这是我在使用伊布替尼时最担心的问题。"),
+        ("user", "您的关注非常专业。在ALPINE研究中，泽布替尼组的房颤/房扑发生率仅为2.5%，而伊布替尼组为10.1%。在PFS方面，中位随访28.1个月，泽布替尼组的PFS优势显著。"),
+        ("assistant", "心脏安全性数据确实很有说服力。那在其他不良反应方面呢？比如出血风险和感染率如何？"),
+        ("user", "在出血方面，泽布替尼的任何级别出血事件发生率为45.4%，低于伊布替尼的51.9%。严重出血事件的发生率也更低。在感染方面，两组相当，但泽布替尼组的3级以上感染略低。"),
+        ("assistant", "数据看起来不错。我有几位患者目前正在使用伊布替尼但出现了房颤，可以考虑换用泽布替尼。你能帮我安排一次科室内的学术分享会吗？"),
+    ],
+    # Conversation 2: Tislelizumab quarterly update with cardiologist
+    [
+        ("user", "李教授，很高兴再次见到您！上次我们讨论了替雷利珠单抗在食管鳞癌中的数据，今天我想给您更新一下最新的长期随访结果。"),
+        ("assistant", "好的，我记得上次你提到了RATIONALE-302研究，长期随访的结果怎么样？我最近也在关注免疫治疗在消化道肿瘤中的进展。"),
+        ("user", "是的，RATIONALE-302研究的最新随访数据显示，替雷利珠单抗在PD-L1 TAP≥10%的患者中，中位OS达到了17.2个月，较化疗组的10.6个月有显著提升。"),
+        ("assistant", "OS数据确实可以。不过实际上我们科室遇到的患者往往合并心血管基础疾病，免疫治疗的心脏毒性是我比较担心的。"),
+        ("user", "这是非常重要的考量。从临床研究数据来看，替雷利珠单抗的心肌炎发生率低于1%，且大多数为1-2级。我们建议在治疗前进行基线心脏评估，包括心电图和肌钙蛋白检测。"),
+        ("assistant", "嗯，这个监测方案比较完善。那么在联合治疗方案方面有什么新的进展吗？"),
+        ("user", "在联合化疗方面，RATIONALE-306研究显示替雷利珠单抗联合化疗作为一线治疗，显著改善了晚期NSCLC患者的PFS和OS，且安全性可控。"),
+        ("assistant", "好的，这些数据我会认真看一下。能否把最新的研究论文和处方信息发给我？下周我有一个MDT讨论会可以分享。"),
+    ],
+    # Conversation 3: More detailed Zanubrutinib discussion
+    [
+        ("user", "王教授，您好！我是百济神州的医学代表。今天想与您分享泽布替尼在华氏巨球蛋白血症（WM）中的最新治疗进展。"),
+        ("assistant", "你好。WM的治疗选择确实有限，目前我们主要用利妥昔单抗联合化疗。BTK抑制剂在WM中的数据怎么样？"),
+        ("user", "ASPEN研究比较了泽布替尼和伊布替尼在WM患者中的疗效。泽布替尼组的VGPR率达到28.4%，高于伊布替尼组的19.2%。在MYD88突变患者中优势更为明显。"),
+        ("assistant", "VGPR率的提升有意义。WM患者通常需要长期治疗，那长期安全性如何？特别是血小板减少和中性粒细胞减少的情况。"),
+        ("user", "在长期安全性方面，泽布替尼表现出更好的耐受性。中性粒细胞减少的发生率与伊布替尼相当，但心脏事件、高血压和肌肉骨骼事件的发生率明显更低。中位治疗持续时间超过24个月。"),
+        ("assistant", "明白了。对于那些一线治疗后进展的WM患者，泽布替尼是一个值得考虑的选择。请帮我准备一些患者教育材料。"),
+    ],
+    # Conversation 4: Conference-style shorter discussion
+    [
+        ("user", "教授，感谢您来参加今天的学术沙龙。我想简要介绍一下百济神州在血液肿瘤领域的最新研发进展。"),
+        ("assistant", "好的，请开始吧。我对百济神州的管线很感兴趣，尤其是在淋巴瘤和多发性骨髓瘤方面的布局。"),
+        ("user", "在淋巴瘤领域，泽布替尼已获批多个适应症，包括MCL、CLL/SLL、WM和MZL。全球注册研究覆盖超过5000名患者，是目前数据最丰富的新一代BTK抑制剂。"),
+        ("assistant", "全球化的注册研究确实是一个优势。最近有什么值得关注的新数据发布吗？"),
+        ("user", "最值得关注的是泽布替尼在一线CLL治疗中的SEQUOIA研究数据。结果显示在初治CLL/SLL患者中，泽布替尼单药的24个月PFS率达到85%，显著优于苯达莫司汀联合利妥昔单抗方案。"),
+        ("assistant", "一线治疗的数据很重要，这可能会改变我们的临床实践。期待看到更长期的随访数据。"),
+    ],
+]
+
+# Rich strengths/weaknesses/suggestions per dimension level
+DIMENSION_FEEDBACK = {
+    "key_message": {
+        "high": {
+            "strengths": [
+                {"text": "清晰传达了核心临床数据", "quote": "ALPINE研究ORR达到78.3%"},
+                {"text": "关键信息传递逻辑连贯", "quote": "有序呈现疗效和安全性数据"},
+            ],
+            "weaknesses": [],
+            "suggestions": ["可以更多关联患者实际获益场景"],
+        },
+        "mid": {
+            "strengths": [
+                {"text": "提及了主要临床数据", "quote": "引用了研究结果"},
+            ],
+            "weaknesses": [
+                {"text": "部分关键信息遗漏", "quote": "未提及PFS长期随访数据"},
+            ],
+            "suggestions": ["建议使用结构化话术确保覆盖所有关键信息", "准备简洁的数据卡片辅助记忆"],
+        },
+        "low": {
+            "strengths": [],
+            "weaknesses": [
+                {"text": "关键信息传递不完整", "quote": "遗漏了核心疗效数据"},
+                {"text": "信息呈现缺乏逻辑", "quote": "数据呈现顺序混乱"},
+            ],
+            "suggestions": ["建议提前准备关键信息清单", "每次拜访前复习3个核心卖点"],
+        },
+    },
+    "objection_handling": {
+        "high": {
+            "strengths": [
+                {"text": "有效回应了安全性顾虑", "quote": "房颤发生率仅为2.5%，远低于伊布替尼"},
+                {"text": "用数据支撑回应", "quote": "引用ALPINE研究头对头比较数据"},
+            ],
+            "weaknesses": [],
+            "suggestions": ["继续保持用循证医学数据回应质疑的方式"],
+        },
+        "mid": {
+            "strengths": [
+                {"text": "能够识别并回应主要顾虑", "quote": "回应了心脏安全性问题"},
+            ],
+            "weaknesses": [
+                {"text": "回应略显被动", "quote": "等待医生提问而非主动引导"},
+            ],
+            "suggestions": ["主动预判常见顾虑并提前准备回应", "使用FAB话术框架"],
+        },
+        "low": {
+            "strengths": [],
+            "weaknesses": [
+                {"text": "未能有效回应质疑", "quote": "对安全性问题缺乏数据支持"},
+                {"text": "面对异议时表现紧张", "quote": "回答犹豫不够自信"},
+            ],
+            "suggestions": ["熟练掌握竞品对比数据", "进行异议处理情景演练"],
+        },
+    },
+    "communication": {
+        "high": {
+            "strengths": [
+                {"text": "交流自然流畅", "quote": "能够根据医生反馈灵活调整话题"},
+                {"text": "专业且有亲和力", "quote": "始终保持尊重和专业的沟通态度"},
+            ],
+            "weaknesses": [],
+            "suggestions": ["可以适当增加开放式问题提高互动性"],
+        },
+        "mid": {
+            "strengths": [
+                {"text": "基本沟通礼仪良好", "quote": "开场白和结束语得体"},
+            ],
+            "weaknesses": [
+                {"text": "互动性不足", "quote": "更多是单向信息传递"},
+            ],
+            "suggestions": ["多使用开放式问题引导对话", "注意观察医生的非语言反馈"],
+        },
+        "low": {
+            "strengths": [],
+            "weaknesses": [
+                {"text": "沟通过于生硬", "quote": "照本宣科，缺乏互动"},
+                {"text": "未能有效倾听", "quote": "忽略了医生的提问直接推进话术"},
+            ],
+            "suggestions": ["练习积极倾听技巧", "学习SPIN销售对话模型"],
+        },
+    },
+    "product_knowledge": {
+        "high": {
+            "strengths": [
+                {"text": "产品知识扎实全面", "quote": "准确引用临床数据和适应症信息"},
+                {"text": "能够进行竞品比较", "quote": "清晰对比泽布替尼与伊布替尼的差异"},
+            ],
+            "weaknesses": [],
+            "suggestions": ["持续关注最新研究进展和指南更新"],
+        },
+        "mid": {
+            "strengths": [
+                {"text": "基本产品信息掌握准确", "quote": "适应症和用法用量正确"},
+            ],
+            "weaknesses": [
+                {"text": "竞品比较不够深入", "quote": "未能详细说明差异化优势"},
+            ],
+            "suggestions": ["深入学习头对头研究数据", "准备竞品比较速查表"],
+        },
+        "low": {
+            "strengths": [],
+            "weaknesses": [
+                {"text": "产品知识薄弱", "quote": "数据引用不准确"},
+                {"text": "无法回答深入的医学问题", "quote": "对临床细节问题含糊其辞"},
+            ],
+            "suggestions": ["系统学习产品培训材料", "参加内部医学知识培训"],
+        },
+    },
+    "scientific_info": {
+        "high": {
+            "strengths": [
+                {"text": "准确引用关键临床研究", "quote": "详细介绍ALPINE和SEQUOIA研究"},
+                {"text": "数据引用精确", "quote": "准确报告了ORR、PFS等关键终点"},
+            ],
+            "weaknesses": [],
+            "suggestions": ["可以增加真实世界研究数据的引用"],
+        },
+        "mid": {
+            "strengths": [
+                {"text": "能够引用主要研究名称", "quote": "提到了关键注册研究"},
+            ],
+            "weaknesses": [
+                {"text": "数据细节不够精确", "quote": "部分数据点引用模糊"},
+            ],
+            "suggestions": ["准备研究数据速查卡", "关注最新学术会议报告"],
+        },
+        "low": {
+            "strengths": [],
+            "weaknesses": [
+                {"text": "缺乏科学文献支持", "quote": "未引用任何具体研究数据"},
+                {"text": "对研究设计理解不足", "quote": "混淆了研究终点和人群"},
+            ],
+            "suggestions": ["学习如何阅读和理解临床研究报告", "背诵3个核心研究的关键数据"],
+        },
+    },
+}
+
+
 async def seed_sessions(session: AsyncSession) -> None:
-    """Seed 12 scored training sessions with scores and score details.
+    """Seed 12 scored training sessions with messages, scores, and rich feedback.
 
     Creates 4 sessions per MR user (user1, user2, user3) spread over the last 30 days.
+    Includes realistic conversation history and detailed scoring feedback.
     Idempotent: skips if coaching sessions already exist for seed users.
     """
     # Check if sessions already exist for seed users
@@ -210,6 +395,24 @@ async def seed_sessions(session: AsyncSession) -> None:
             completed = started + timedelta(seconds=duration)
             passed = overall >= 70
 
+            # Key messages status (simulate partial delivery based on score)
+            key_msgs_raw = scenario.key_messages
+            try:
+                key_msgs = json.loads(key_msgs_raw) if isinstance(key_msgs_raw, str) else key_msgs_raw
+            except (json.JSONDecodeError, TypeError):
+                key_msgs = ["关键信息1", "关键信息2", "关键信息3"]
+            km_delivered = max(1, int(len(key_msgs) * (overall / 100.0)))
+            km_status = []
+            for km_idx, km in enumerate(key_msgs):
+                delivered = km_idx < km_delivered
+                km_status.append({
+                    "message": km,
+                    "delivered": delivered,
+                    "detected_at": (started + timedelta(minutes=2 + km_idx * 3)).isoformat()
+                    if delivered
+                    else None,
+                })
+
             cs_id = str(uuid.uuid4())
             cs = CoachingSession(
                 id=cs_id,
@@ -222,8 +425,35 @@ async def seed_sessions(session: AsyncSession) -> None:
                 duration_seconds=duration,
                 overall_score=float(overall),
                 passed=passed,
+                key_messages_status=json.dumps(km_status, ensure_ascii=False),
             )
             session.add(cs)
+
+            # Add conversation messages
+            conversation = SAMPLE_CONVERSATIONS[sess_idx % len(SAMPLE_CONVERSATIONS)]
+            for msg_idx, (role, content) in enumerate(conversation):
+                msg = SessionMessage(
+                    id=str(uuid.uuid4()),
+                    session_id=cs_id,
+                    role=role,
+                    content=content,
+                    message_index=msg_idx,
+                )
+                session.add(msg)
+
+            # Determine feedback level based on score
+            if overall >= 80:
+                fb_level = "high"
+            elif overall >= 70:
+                fb_level = "mid"
+            else:
+                fb_level = "low"
+
+            feedback_summary = (
+                f"本次训练总分 {overall}/100，"
+                + ("达到通过标准。" if passed else "未达到通过标准。")
+                + f"共传递了{km_delivered}/{len(key_msgs)}个关键信息。"
+            )
 
             score_id = str(uuid.uuid4())
             ss = SessionScore(
@@ -231,7 +461,7 @@ async def seed_sessions(session: AsyncSession) -> None:
                 session_id=cs_id,
                 overall_score=float(overall),
                 passed=passed,
-                feedback_summary=f"Session score: {overall}/100",
+                feedback_summary=feedback_summary,
             )
             session.add(ss)
 
@@ -249,19 +479,25 @@ async def seed_sessions(session: AsyncSession) -> None:
                 # Vary dimension score around overall (+/- 10, clamped 0-100)
                 offset = (dim_idx * 5) - 10  # -10, -5, 0, 5, 10
                 dim_score = max(0.0, min(100.0, float(overall + offset)))
+
+                # Get rich feedback for this dimension
+                fb = DIMENSION_FEEDBACK.get(dim_name, {}).get(fb_level, {})
                 sd = ScoreDetail(
                     id=str(uuid.uuid4()),
                     score_id=score_id,
                     dimension=dim_name,
                     score=dim_score,
                     weight=weight_list[dim_idx],
+                    strengths=json.dumps(fb.get("strengths", []), ensure_ascii=False),
+                    weaknesses=json.dumps(fb.get("weaknesses", []), ensure_ascii=False),
+                    suggestions=json.dumps(fb.get("suggestions", []), ensure_ascii=False),
                 )
                 session.add(sd)
 
             session_count += 1
 
     await session.commit()
-    print(f"  [created] {session_count} scored sessions with scores and details")
+    print(f"  [created] {session_count} scored sessions with messages, scores, and feedback")
 
 
 async def main() -> None:
