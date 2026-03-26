@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import UserDashboard from "./dashboard";
 
 const mockNavigate = vi.fn();
@@ -47,6 +48,25 @@ vi.mock("@/hooks/use-scoring", () => ({
   }),
 }));
 
+vi.mock("@/hooks/use-analytics", () => ({
+  useDashboardStats: () => ({
+    data: { total_sessions: 42, avg_score: 78, this_week: 5, improvement: 3 },
+    isLoading: false,
+  }),
+  useRecommendedScenarios: () => ({
+    data: [{ scenario_name: "Dr. Amanda Hayes", difficulty: "Intermediate", reason: "Focus area" }],
+    isLoading: false,
+  }),
+  useExportSessionsExcel: () => ({
+    mutate: vi.fn(),
+    isPending: false,
+  }),
+}));
+
+vi.mock("@/components/analytics", () => ({
+  PerformanceRadar: () => <div data-testid="performance-radar" />,
+}));
+
 vi.mock("@/components/shared", () => ({
   StatCard: ({ label, value }: { label: string; value: string | number }) => (
     <div data-testid="stat-card">{label}: {value}</div>
@@ -70,46 +90,36 @@ vi.mock("@/components/shared", () => ({
   MiniTrendChart: () => <div data-testid="mini-trend-chart" />,
 }));
 
-describe("UserDashboard", () => {
-  it("renders the welcome message with user name", () => {
-    render(
+function renderDashboard() {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={qc}>
       <MemoryRouter>
         <UserDashboard />
-      </MemoryRouter>,
-    );
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+}
 
-    // The t() mock returns the key with params
+describe("UserDashboard", () => {
+  it("renders the welcome message with user name", () => {
+    renderDashboard();
     expect(screen.getByText(/welcome/)).toBeInTheDocument();
   });
 
   it("renders the overview subtitle", () => {
-    render(
-      <MemoryRouter>
-        <UserDashboard />
-      </MemoryRouter>,
-    );
-
+    renderDashboard();
     expect(screen.getByText("overview")).toBeInTheDocument();
   });
 
   it("renders all four stat cards", () => {
-    render(
-      <MemoryRouter>
-        <UserDashboard />
-      </MemoryRouter>,
-    );
-
+    renderDashboard();
     const statCards = screen.getAllByTestId("stat-card");
     expect(statCards).toHaveLength(4);
   });
 
   it("renders recent session items", () => {
-    render(
-      <MemoryRouter>
-        <UserDashboard />
-      </MemoryRouter>,
-    );
-
+    renderDashboard();
     const sessions = screen.getAllByTestId("session-item");
     expect(sessions).toHaveLength(5);
     expect(screen.getByText("Dr. Sarah Mitchell")).toBeInTheDocument();
@@ -117,12 +127,7 @@ describe("UserDashboard", () => {
   });
 
   it("renders action cards for F2F and Conference training", () => {
-    render(
-      <MemoryRouter>
-        <UserDashboard />
-      </MemoryRouter>,
-    );
-
+    renderDashboard();
     const actionCards = screen.getAllByTestId("action-card");
     expect(actionCards).toHaveLength(2);
     expect(screen.getByText("f2fTraining")).toBeInTheDocument();
@@ -130,41 +135,24 @@ describe("UserDashboard", () => {
   });
 
   it("renders recommended scenario section", () => {
-    render(
-      <MemoryRouter>
-        <UserDashboard />
-      </MemoryRouter>,
-    );
-
+    renderDashboard();
     expect(screen.getByText("recommendedScenario")).toBeInTheDocument();
     expect(screen.getByText("Dr. Amanda Hayes")).toBeInTheDocument();
   });
 
   it("navigates to training page when View All is clicked", async () => {
     const user = userEvent.setup();
-    render(
-      <MemoryRouter>
-        <UserDashboard />
-      </MemoryRouter>,
-    );
-
+    renderDashboard();
     const viewAllButton = screen.getByText("viewAll");
     await user.click(viewAllButton);
-
     expect(mockNavigate).toHaveBeenCalledWith("/user/history");
   });
 
   it("navigates to training when action card Start is clicked", async () => {
     const user = userEvent.setup();
-    render(
-      <MemoryRouter>
-        <UserDashboard />
-      </MemoryRouter>,
-    );
-
+    renderDashboard();
     const startButtons = screen.getAllByText("Start");
     await user.click(startButtons[0]!);
-
     expect(mockNavigate).toHaveBeenCalledWith("/user/training");
   });
 });

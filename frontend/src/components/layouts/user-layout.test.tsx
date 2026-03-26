@@ -47,14 +47,14 @@ describe("UserLayout", () => {
     vi.clearAllMocks();
   });
 
-  it("renders the AI Coach logo and brand name", () => {
+  it("renders the AI Coach brand name", () => {
     render(
       <MemoryRouter initialEntries={["/user/dashboard"]}>
         <UserLayout />
       </MemoryRouter>,
     );
 
-    expect(screen.getByText("AI")).toBeInTheDocument();
+    // Logo is now an SVG icon; brand text shows "AI Coach"
     expect(screen.getByText("AI Coach")).toBeInTheDocument();
   });
 

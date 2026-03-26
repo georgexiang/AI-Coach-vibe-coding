@@ -56,9 +56,10 @@ const mockScenario: Scenario = {
 };
 
 describe("ScenarioCard", () => {
-  it("renders scenario name and description", () => {
+  it("renders HCP name and description", () => {
     render(<ScenarioCard scenario={mockScenario} onStart={vi.fn()} />);
-    expect(screen.getByText("Oncology Visit")).toBeInTheDocument();
+    // Component shows hcp_profile.name as the main heading
+    expect(screen.getByText("Dr. Jane Doe")).toBeInTheDocument();
     expect(screen.getByText("Practice F2F with oncologist")).toBeInTheDocument();
   });
 
@@ -81,8 +82,8 @@ describe("ScenarioCard", () => {
     expect(onStart).toHaveBeenCalledWith("sc-1");
   });
 
-  it("renders estimated duration", () => {
+  it("renders product badge", () => {
     render(<ScenarioCard scenario={mockScenario} onStart={vi.fn()} />);
-    expect(screen.getByText("20 min")).toBeInTheDocument();
+    expect(screen.getByText("DrugX")).toBeInTheDocument();
   });
 });

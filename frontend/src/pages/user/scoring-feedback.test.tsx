@@ -7,10 +7,15 @@ import ScoringFeedback from "./scoring-feedback";
 const mockNavigate = vi.fn();
 const mockMutate = vi.fn();
 
-vi.mock("react-router-dom", () => ({
-  useNavigate: () => mockNavigate,
-  useSearchParams: () => [new URLSearchParams("id=session-1")],
-}));
+vi.mock("react-router-dom", async () => {
+  const actual = await vi.importActual<typeof import("react-router-dom")>("react-router-dom");
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate,
+    useParams: () => ({ sessionId: "session-1" }),
+    useSearchParams: () => [new URLSearchParams("id=session-1")],
+  };
+});
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
