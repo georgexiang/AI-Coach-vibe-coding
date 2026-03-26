@@ -31,11 +31,15 @@ async def get_dashboard_stats(
 @router.get("/trends")
 async def get_dimension_trends(
     limit: int = Query(20, ge=1, le=100),
+    start_date: str | None = Query(None),
+    end_date: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
     """Get per-dimension performance trends for the current user."""
-    return await analytics_service.get_user_dimension_trends(db, user.id, limit)
+    return await analytics_service.get_user_dimension_trends(
+        db, user.id, limit, start_date=start_date, end_date=end_date
+    )
 
 
 @router.get("/recommendations", response_model=list[RecommendedScenarioItem])
@@ -70,11 +74,13 @@ async def export_sessions(
 
 @router.get("/admin/overview", response_model=OrgAnalytics)
 async def get_org_overview(
+    start_date: str | None = Query(None),
+    end_date: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role("admin")),
 ):
     """Get organization-level analytics (admin only)."""
-    return await analytics_service.get_org_analytics(db)
+    return await analytics_service.get_org_analytics(db, start_date=start_date, end_date=end_date)
 
 
 @router.get("/admin/skill-gaps")

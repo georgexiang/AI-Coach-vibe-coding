@@ -460,3 +460,28 @@ class TestEdgeCases:
         )
         assert response.status_code == 200
         assert response.json() == []
+
+
+class TestDateRangeFiltering:
+    """Tests for date range query params on analytics endpoints."""
+
+    async def test_trends_accepts_date_params(self, client):
+        """Trends endpoint should accept start_date and end_date params."""
+        _, token = await _create_user_and_token()
+        response = await client.get(
+            "/api/v1/analytics/trends",
+            params={"start_date": "2026-01-01", "end_date": "2026-12-31"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 200
+        assert isinstance(response.json(), list)
+
+    async def test_admin_overview_accepts_date_params(self, client):
+        """Admin overview endpoint should accept start_date and end_date params."""
+        _, token = await _create_admin_and_token()
+        response = await client.get(
+            "/api/v1/analytics/admin/overview",
+            params={"start_date": "2026-01-01", "end_date": "2026-12-31"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 200
