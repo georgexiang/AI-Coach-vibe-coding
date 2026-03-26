@@ -111,14 +111,15 @@ Plans:
   3. Admin can view organization-level analytics including BU comparisons, skill gap heatmaps, and training completion rates
   4. Reports can be exported as PDF/Excel for offline review
   5. All new code has unit tests with >=95% coverage maintained
-**Plans**: 5 plans
+**Plans**: 6 plans
 
 Plans:
-- [ ] 04-01-PLAN.md -- Backend foundation: Alembic migration (business_unit), analytics schemas, analytics service, export service, recommendation engine
+- [x] 04-01-PLAN.md -- Backend foundation: Alembic migration (business_unit), analytics schemas, analytics service, export service, recommendation engine
 - [x] 04-02-PLAN.md -- Frontend data layer: TypeScript types, API client, TanStack Query hooks, i18n analytics namespace, file-saver install
 - [x] 04-03-PLAN.md -- Backend API: analytics router with 7 endpoints, main.py registration, seed data with BU values
-- [ ] 04-04-PLAN.md -- Frontend user pages: enhanced dashboard with live stats, session history with skill radar, chart components
-- [ ] 04-05-PLAN.md -- Frontend admin pages: org analytics dashboard, reports page, BU bar chart, skill gap heatmap, route registration, backend tests
+- [x] 04-04-PLAN.md -- Frontend user pages: enhanced dashboard with live stats, session history with skill radar, chart components
+- [x] 04-05-PLAN.md -- Frontend admin pages: org analytics dashboard, reports page, BU bar chart, skill gap heatmap, route registration, backend tests
+- [x] 04-06-PLAN.md -- Gap closure: seed session data, wire reports pages to live data, date range filtering, PDF print export
 
 **UI hint**: yes
 
@@ -174,6 +175,6 @@ Phases execute in numeric order: 1 -> 01.1 -> 2 -> 3 -> 4 -> 5 -> 6
 | 01.1. UI Figma Alignment | 6/6 | Complete | - |
 | 2. F2F Text Coaching and Scoring | 8/8 | Complete | - |
 | 3. Scoring & Assessment | 4/4 | Complete | - |
-| 4. Dashboard & Reporting | 0/5 | Planning complete | - |
+| 4. Dashboard & Reporting | 3/6 | Executing | - |
 | 5. Training Material Management | 3/3 | Complete | - |
 | 6. Conference Presentation Module | 6/6 | Complete   | 2026-03-25 |
