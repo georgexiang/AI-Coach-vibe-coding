@@ -15,6 +15,61 @@ vi.mock("react-i18next", () => ({
 }));
 
 // Mock recharts to avoid rendering actual SVG charts in jsdom
+vi.mock("@/hooks/use-analytics", () => ({
+  useDashboardStats: () => ({
+    data: {
+      total_sessions: 24,
+      avg_score: 76.5,
+      this_week: 3,
+      improvement: 4.2,
+    },
+    isLoading: false,
+  }),
+  useDimensionTrends: () => ({
+    data: [
+      {
+        session_date: "2026-03-20",
+        overall_score: 78,
+        dimensions: [
+          { dimension: "Product Knowledge", score: 82 },
+          { dimension: "Clinical Discussion", score: 75 },
+          { dimension: "Objection Handling", score: 68 },
+        ],
+      },
+      {
+        session_date: "2026-03-10",
+        overall_score: 72,
+        dimensions: [
+          { dimension: "Product Knowledge", score: 76 },
+          { dimension: "Clinical Discussion", score: 70 },
+          { dimension: "Objection Handling", score: 62 },
+        ],
+      },
+    ],
+    isLoading: false,
+  }),
+  useRecommendedScenarios: () => ({
+    data: [
+      {
+        scenario_id: "s1",
+        scenario_name: "Product Launch",
+        product: "Zanubrutinib",
+        difficulty: "Medium",
+        reason: "Practice recommended",
+      },
+    ],
+  }),
+  useExportSessionsExcel: () => ({
+    mutate: vi.fn(),
+    isPending: false,
+  }),
+}));
+
+vi.mock("@/components/analytics", () => ({
+  PerformanceRadar: () => <div data-testid="performance-radar" />,
+  TrendLineChart: () => <div data-testid="trend-line-chart" />,
+}));
+
 vi.mock("recharts", () => ({
   ResponsiveContainer: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="responsive-container">{children}</div>
@@ -110,49 +165,45 @@ function renderReportsPage() {
 describe("UserReportsPage", () => {
   it("renders the page title", () => {
     renderReportsPage();
-    expect(screen.getByText("Personal Reports")).toBeInTheDocument();
+    expect(screen.getByText("Analytics & Reports")).toBeInTheDocument();
   });
 
   it("renders export buttons", () => {
     renderReportsPage();
-    expect(screen.getByText("Export PDF")).toBeInTheDocument();
+    expect(screen.getByText("Print Report")).toBeInTheDocument();
     expect(screen.getByText("Export Excel")).toBeInTheDocument();
   });
 
-  it("renders time period tabs", () => {
+  it("renders summary stat cards", () => {
     renderReportsPage();
-    expect(screen.getByText("Week")).toBeInTheDocument();
-    expect(screen.getByText("Month")).toBeInTheDocument();
-    expect(screen.getByText("Quarter")).toBeInTheDocument();
-    expect(screen.getByText("Year")).toBeInTheDocument();
+    expect(screen.getByText("Total Sessions")).toBeInTheDocument();
+    expect(screen.getByText("24")).toBeInTheDocument();
+    expect(screen.getByText("Avg Score")).toBeInTheDocument();
+    expect(screen.getByText("76.5")).toBeInTheDocument();
   });
 
   it("renders chart sections", () => {
     renderReportsPage();
-    expect(screen.getAllByText("Score Trend").length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText("Skill Radar").length).toBeGreaterThanOrEqual(1);
-    expect(
-      screen.getAllByText("Training Frequency").length,
-    ).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText("Focus Areas").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText("Performance Trend")).toBeInTheDocument();
+    expect(screen.getByText("Skill Radar")).toBeInTheDocument();
   });
 
-  it("renders focus area cards", () => {
+  it("renders dimension data", () => {
     renderReportsPage();
-    expect(screen.getAllByText("Product Knowledge").length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText("Clinical Discussion").length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText("Objection Handling").length).toBeGreaterThanOrEqual(1);
+    // PerformanceRadar and TrendLineChart are mocked
+    expect(screen.getByTestId("performance-radar")).toBeInTheDocument();
+    expect(screen.getByTestId("trend-line-chart")).toBeInTheDocument();
   });
 
-  it("renders the tabs list", () => {
+  it("renders recommendations section", () => {
     renderReportsPage();
-    expect(screen.getByTestId("tabs-list")).toBeInTheDocument();
+    expect(screen.getByText("Recommended Scenarios")).toBeInTheDocument();
+    expect(screen.getByText("Product Launch")).toBeInTheDocument();
   });
 
-  it("renders multiple chart containers", () => {
+  it("renders improvement stat", () => {
     renderReportsPage();
-    const containers = screen.getAllByTestId("responsive-container");
-    // 3 charts (line, radar, bar) x 4 tabs = 12
-    expect(containers.length).toBeGreaterThanOrEqual(3);
+    expect(screen.getByText("Improvement")).toBeInTheDocument();
+    expect(screen.getByText("+4.2")).toBeInTheDocument();
   });
 });

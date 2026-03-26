@@ -33,7 +33,7 @@ export default function ScenarioSelection() {
   const { data, isLoading } = useActiveScenarios();
   const createSession = useCreateSession();
 
-  const scenarios = data?.items ?? [];
+  const scenarios = data ?? [];
 
   const products = useMemo(
     () => [...new Set(scenarios.map((s) => s.product))],

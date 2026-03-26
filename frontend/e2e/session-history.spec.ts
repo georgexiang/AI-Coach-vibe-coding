@@ -62,12 +62,13 @@ test.describe("Session History Page", () => {
     // Wait for loading to finish
     await page.waitForTimeout(2000);
 
-    const emptyState = page.getByText(/No scored sessions yet/i);
-    const isEmpty = (await emptyState.count()) > 0;
+    const noSessions = page.getByText(/No scored sessions yet/i);
+    const noSessionsCount = await noSessions.count();
 
-    if (!isEmpty) {
-      // Results count text should be visible
-      await expect(page.getByText(/results/i)).toBeVisible();
+    if (noSessionsCount === 0) {
+      // Results count text: "{N} results" shown in the filter bar
+      // The text comes from session-history.tsx: `{filteredHistory.length} results`
+      await expect(page.getByText(/\d+\s+results/i)).toBeVisible({ timeout: 3000 });
     }
   });
 });

@@ -107,7 +107,7 @@ describe("Scenarios API", () => {
   });
 
   it("getActiveScenarios calls GET /scenarios/active", async () => {
-    const data = { items: [], total: 0, page: 1, page_size: 20, total_pages: 0 };
+    const data: never[] = [];
     mockClient.get.mockResolvedValue({ data });
 
     const result = await getActiveScenarios();

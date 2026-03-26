@@ -19,8 +19,19 @@ function getScoreColor(score: number): string {
   return "text-red-600";
 }
 
+function parseJsonArray<T>(val: T[] | string | undefined): T[] {
+  if (Array.isArray(val)) return val;
+  if (typeof val === "string") {
+    try { const parsed = JSON.parse(val); return Array.isArray(parsed) ? parsed : []; } catch { return []; }
+  }
+  return [];
+}
+
 export function FeedbackCard({ detail }: FeedbackCardProps) {
   const { t } = useTranslation("scoring");
+  const strengths = parseJsonArray(detail.strengths);
+  const weaknesses = parseJsonArray(detail.weaknesses);
+  const suggestions = parseJsonArray<string>(detail.suggestions);
 
   return (
     <Card>
@@ -34,14 +45,14 @@ export function FeedbackCard({ detail }: FeedbackCardProps) {
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Strengths */}
-        {detail.strengths.length > 0 && (
+        {strengths.length > 0 && (
           <div>
             <h4 className="mb-2 flex items-center gap-1.5 text-sm font-medium text-green-600">
               <Check className="h-4 w-4" />
               {t("strengths")}
             </h4>
             <ul className="space-y-2">
-              {detail.strengths.map((s, idx) => (
+              {strengths.map((s, idx) => (
                 <li key={idx} className="text-sm text-slate-700">
                   {s.text}
                   {s.quote && (
@@ -56,14 +67,14 @@ export function FeedbackCard({ detail }: FeedbackCardProps) {
         )}
 
         {/* Areas to improve */}
-        {detail.weaknesses.length > 0 && (
+        {weaknesses.length > 0 && (
           <div>
             <h4 className="mb-2 flex items-center gap-1.5 text-sm font-medium text-orange-600">
               <X className="h-4 w-4" />
               {t("areasToImprove")}
             </h4>
             <ul className="space-y-2">
-              {detail.weaknesses.map((w, idx) => (
+              {weaknesses.map((w, idx) => (
                 <li key={idx} className="text-sm text-slate-700">
                   {w.text}
                   {w.quote && (
@@ -78,14 +89,14 @@ export function FeedbackCard({ detail }: FeedbackCardProps) {
         )}
 
         {/* Suggestions */}
-        {detail.suggestions.length > 0 && (
+        {suggestions.length > 0 && (
           <div>
             <h4 className="mb-2 flex items-center gap-1.5 text-sm font-medium text-purple-600">
               <Lightbulb className="h-4 w-4" />
               {t("suggestions")}
             </h4>
             <ul className="list-disc space-y-1 pl-5">
-              {detail.suggestions.map((s, idx) => (
+              {suggestions.map((s, idx) => (
                 <li key={idx} className="text-sm text-slate-700">
                   {s}
                 </li>

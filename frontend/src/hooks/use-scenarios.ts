@@ -24,8 +24,7 @@ export function useScenarios(params?: {
 }
 
 export function useActiveScenarios(params?: {
-  page?: number;
-  page_size?: number;
+  mode?: string;
 }) {
   return useQuery({
     queryKey: ["scenarios", "active", params],

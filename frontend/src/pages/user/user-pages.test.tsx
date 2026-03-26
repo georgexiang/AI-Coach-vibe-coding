@@ -12,7 +12,7 @@ vi.mock("react-i18next", () => ({
 
 vi.mock("@/hooks/use-scenarios", () => ({
   useActiveScenarios: () => ({
-    data: { items: [] },
+    data: [],
     isLoading: false,
   }),
   useScenario: () => ({ data: undefined }),

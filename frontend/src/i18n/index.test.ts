@@ -70,6 +70,7 @@ describe("i18n initialization", () => {
       "coach",
       "admin",
       "scoring",
+      "analytics",
     ]);
   });
 

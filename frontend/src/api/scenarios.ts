@@ -19,16 +19,9 @@ export async function getScenarios(params?: {
 }
 
 export async function getActiveScenarios(params?: {
-  page?: number;
-  page_size?: number;
+  mode?: string;
 }) {
-  const { data } = await apiClient.get<{
-    items: Scenario[];
-    total: number;
-    page: number;
-    page_size: number;
-    total_pages: number;
-  }>("/scenarios/active", { params });
+  const { data } = await apiClient.get<Scenario[]>("/scenarios/active", { params });
   return data;
 }
 

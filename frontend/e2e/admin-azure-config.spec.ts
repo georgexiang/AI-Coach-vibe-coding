@@ -11,18 +11,21 @@ test.describe("Admin Azure Configuration", () => {
     await page.goto("/admin/azure-config");
   });
 
-  test("renders Azure config page with all 5 service cards", async ({
+  test("renders Azure config page with all 7 service cards", async ({
     page,
   }) => {
     // Page heading should be visible
     await expect(page.locator("h1")).toBeVisible();
 
-    // All 5 Azure service cards should be displayed
-    await expect(page.getByText("Azure OpenAI")).toBeVisible();
+    // All 7 Azure service cards should be displayed
+    // Use exact: true to avoid "Azure OpenAI" matching "Azure OpenAI Realtime"
+    await expect(page.getByText("Azure OpenAI", { exact: true })).toBeVisible();
     await expect(page.getByText("Azure Speech (STT)")).toBeVisible();
     await expect(page.getByText("Azure Speech (TTS)")).toBeVisible();
     await expect(page.getByText("Azure AI Avatar")).toBeVisible();
     await expect(page.getByText("Azure Content Understanding")).toBeVisible();
+    await expect(page.getByText("Azure OpenAI Realtime")).toBeVisible();
+    await expect(page.getByText("Azure Database for PostgreSQL")).toBeVisible();
 
     // Service descriptions should be visible
     await expect(

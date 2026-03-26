@@ -75,7 +75,7 @@ describe("useActiveScenarios", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("should fetch active scenarios", async () => {
-    vi.mocked(getActiveScenarios).mockResolvedValueOnce(mockPaginated);
+    vi.mocked(getActiveScenarios).mockResolvedValueOnce([{ id: "s1", name: "Scenario 1" } as Scenario]);
 
     const { result } = renderHook(() => useActiveScenarios(), {
       wrapper: createWrapper(),

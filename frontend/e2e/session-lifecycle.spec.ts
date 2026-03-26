@@ -27,17 +27,16 @@ test.describe("Session Lifecycle (Phase 3 Scoring)", () => {
   test("user can navigate to training from dashboard", async ({ page }) => {
     await page.goto("/user/dashboard");
 
-    // Look for Start Training or View All button
-    const trainButton = page
-      .getByRole("button", {
-        name: /start|training|view all/i,
-      })
+    // The ActionCard renders a "Start" button that navigates to /user/training
+    // Look specifically for the "Start" button inside the action cards area
+    const startButton = page
+      .getByRole("button", { name: /^start$/i })
       .first();
-    const count = await trainButton.count();
+    const count = await startButton.count();
 
     if (count > 0) {
-      await trainButton.click();
-      // Should navigate to training or training session
+      await startButton.click();
+      // Should navigate to training page
       await expect(page).toHaveURL(/\/user\/training/, { timeout: 5000 });
     }
   });

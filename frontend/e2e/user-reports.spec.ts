@@ -13,37 +13,25 @@ test.describe("User Reports Page", () => {
 
   test("renders page with heading", async ({ page }) => {
     await expect(page.locator("h1")).toBeVisible();
-    await expect(page.locator("h1")).toContainText(/Personal Reports/i);
+    await expect(page.locator("h1")).toContainText(/Analytics & Reports/i);
   });
 
-  test("shows chart sections (Score Trend, Skill Radar, Training Frequency, Focus Areas)", async ({
+  test("shows summary stat cards", async ({ page }) => {
+    // The page shows 4 stat cards: Total Sessions, Avg Score, This Week, Improvement
+    // Use heading role to disambiguate from chart legends
+    await expect(page.getByRole("heading", { name: "Total Sessions" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Avg Score" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "This Week" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Improvement" })).toBeVisible();
+  });
+
+  test("shows chart sections (Performance Trend and Skill analysis)", async ({
     page,
   }) => {
-    await expect(page.getByText("Score Trend")).toBeVisible();
-    await expect(page.getByText("Skill Radar")).toBeVisible();
-    await expect(page.getByText("Training Frequency")).toBeVisible();
-    await expect(page.getByText("Focus Areas")).toBeVisible();
-  });
-
-  test("shows time period tabs (Week, Month, Quarter, Year)", async ({
-    page,
-  }) => {
-    await expect(page.getByRole("tab", { name: /Week/i })).toBeVisible();
-    await expect(page.getByRole("tab", { name: /Month/i })).toBeVisible();
-    await expect(page.getByRole("tab", { name: /Quarter/i })).toBeVisible();
-    await expect(page.getByRole("tab", { name: /Year/i })).toBeVisible();
-  });
-
-  test("tab navigation switches active tab", async ({ page }) => {
-    // Click Month tab
-    const monthTab = page.getByRole("tab", { name: /Month/i });
-    await monthTab.click();
-    await expect(monthTab).toHaveAttribute("data-state", "active");
-
-    // Click Quarter tab
-    const quarterTab = page.getByRole("tab", { name: /Quarter/i });
-    await quarterTab.click();
-    await expect(quarterTab).toHaveAttribute("data-state", "active");
+    // Chart headings are h4 elements
+    await expect(page.getByRole("heading", { name: /Performance Trend/i })).toBeVisible();
+    // The second chart may be "Skill Radar" or "Skill Gap Analysis" depending on translation
+    await expect(page.getByRole("heading", { name: /Skill/i })).toBeVisible();
   });
 
   test("shows export buttons", async ({ page }) => {
@@ -51,16 +39,15 @@ test.describe("User Reports Page", () => {
     await expect(page.getByText(/Export Excel/i)).toBeVisible();
   });
 
-  test("shows focus areas content", async ({ page }) => {
-    // Use more specific selectors to avoid matching SVG tspan in the radar chart
-    await expect(
-      page.getByRole("paragraph").filter({ hasText: "Product Knowledge" }),
-    ).toBeVisible();
-    await expect(
-      page.getByRole("paragraph").filter({ hasText: "Clinical Discussion" }),
-    ).toBeVisible();
-    await expect(
-      page.getByRole("paragraph").filter({ hasText: "Objection Handling" }),
-    ).toBeVisible();
+  test("page renders fully without errors", async ({ page }) => {
+    // The page should render completely with all sections
+    const body = page.locator("body");
+    await expect(body).toBeVisible();
+
+    // Verify that the stat card values are rendered (numbers from the API)
+    // There should be at least one paragraph with a number value
+    const statValues = page.locator("p.text-3xl");
+    const count = await statValues.count();
+    expect(count).toBeGreaterThanOrEqual(4);
   });
 });

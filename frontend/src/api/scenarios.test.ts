@@ -69,34 +69,26 @@ describe("Scenarios API client", () => {
 
   describe("getActiveScenarios", () => {
     it("calls GET /scenarios/active with params", async () => {
-      const paginated = {
-        items: [{ id: "sc-active" }],
-        total: 1,
-        page: 1,
-        page_size: 20,
-        total_pages: 1,
-      };
-      mockClient.get.mockResolvedValue({ data: paginated });
+      const scenarios = [{ id: "sc-active", name: "Active Scenario" }];
+      mockClient.get.mockResolvedValue({ data: scenarios });
 
-      const result = await getActiveScenarios({ page: 1 });
+      const result = await getActiveScenarios({ mode: "f2f" });
 
       expect(mockClient.get).toHaveBeenCalledWith("/scenarios/active", {
-        params: { page: 1 },
+        params: { mode: "f2f" },
       });
-      expect(result.total).toBe(1);
+      expect(result).toHaveLength(1);
     });
 
     it("calls GET /scenarios/active without params", async () => {
-      mockClient.get.mockResolvedValue({
-        data: { items: [], total: 0, page: 1, page_size: 20, total_pages: 0 },
-      });
+      mockClient.get.mockResolvedValue({ data: [] });
 
       const result = await getActiveScenarios();
 
       expect(mockClient.get).toHaveBeenCalledWith("/scenarios/active", {
         params: undefined,
       });
-      expect(result.items).toHaveLength(0);
+      expect(result).toHaveLength(0);
     });
   });
 

@@ -124,23 +124,16 @@ test.describe("Admin Scenarios Management", () => {
     page,
   }) => {
     // Wait for table rows to load
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(2000);
 
-    // Find action buttons (the MoreHorizontal icon buttons in the last column)
-    const actionButtons = page.getByRole("button").filter({
-      has: page.locator("svg"),
-    });
-
-    // Look for the three-dot menu buttons in table rows
-    const moreButtons = page.locator("table button").or(
-      page.locator("td button"),
-    );
-    const count = await moreButtons.count();
+    // Find the MoreHorizontal action buttons in table body rows (td cells only, not th)
+    const actionButtons = page.locator("td").last().locator("button");
+    const count = await actionButtons.count();
 
     if (count > 0) {
-      // Click the first action menu button
-      await moreButtons.first().click();
-      await page.waitForTimeout(300);
+      // Click the first action menu button in a table row
+      await actionButtons.first().click();
+      await page.waitForTimeout(500);
 
       // The dropdown menu should contain Edit, Clone, Delete items
       await expect(

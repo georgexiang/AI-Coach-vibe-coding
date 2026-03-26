@@ -5,7 +5,7 @@ import { MemoryRouter } from "react-router-dom";
 
 const mockNavigate = vi.fn();
 const mockMutateAsync = vi.fn();
-let scenarioData: { items: unknown[] } | undefined;
+let scenarioData: unknown[] | undefined;
 let isLoading = false;
 
 vi.mock("react-router-dom", async () => {
@@ -85,7 +85,7 @@ let ScenarioSelection: React.ComponentType;
 
 beforeEach(async () => {
   vi.clearAllMocks();
-  scenarioData = { items: [] };
+  scenarioData = [];
   isLoading = false;
   const mod = await import("./training");
   ScenarioSelection = mod.default;
@@ -106,7 +106,7 @@ describe("ScenarioSelection (Training) Page", () => {
   });
 
   it("shows empty state when no scenarios available", () => {
-    scenarioData = { items: [] };
+    scenarioData = [];
     renderPage();
     expect(screen.getAllByTestId("empty-state").length).toBeGreaterThan(0);
   });
@@ -124,28 +124,26 @@ describe("ScenarioSelection (Training) Page", () => {
   });
 
   it("renders scenario cards when scenarios exist", () => {
-    scenarioData = {
-      items: [
-        {
-          id: "sc-1",
-          name: "F2F Scenario",
-          description: "Test",
-          product: "Brukinsa",
-          mode: "f2f",
-          difficulty: "medium",
-          status: "active",
-        },
-        {
-          id: "sc-2",
-          name: "Conference Scenario",
-          description: "Test 2",
-          product: "Tislelizumab",
-          mode: "conference",
-          difficulty: "hard",
-          status: "active",
-        },
-      ],
-    };
+    scenarioData = [
+      {
+        id: "sc-1",
+        name: "F2F Scenario",
+        description: "Test",
+        product: "Brukinsa",
+        mode: "f2f",
+        difficulty: "medium",
+        status: "active",
+      },
+      {
+        id: "sc-2",
+        name: "Conference Scenario",
+        description: "Test 2",
+        product: "Tislelizumab",
+        mode: "conference",
+        difficulty: "hard",
+        status: "active",
+      },
+    ];
     renderPage();
 
     const cards = screen.getAllByTestId("scenario-card");
