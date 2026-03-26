@@ -232,9 +232,7 @@ class TestMaterialServiceCoverage:
 
     @patch("app.services.material_service.extract_text")
     @patch("app.services.material_service.get_storage")
-    async def test_upload_new_version_of_existing(
-        self, mock_get_storage, mock_extract, db_session
-    ):
+    async def test_upload_new_version_of_existing(self, mock_get_storage, mock_extract, db_session):
         """upload_material with existing material_id creates version 2."""
         mock_storage = MagicMock()
         mock_storage.save = AsyncMock(return_value="/storage/materials/v2.pdf")
@@ -293,9 +291,7 @@ class TestMaterialServiceCoverage:
         user_id = await _create_user(db_session)
         mat_id = await _create_material_with_chunks(db_session, user_id, product="OldProduct")
 
-        update_data = MaterialUpdate(
-            name="Updated Name", product="NewProduct", tags="new-tag"
-        )
+        update_data = MaterialUpdate(name="Updated Name", product="NewProduct", tags="new-tag")
         result = await material_service.update_material(db_session, mat_id, update_data)
 
         assert result.name == "Updated Name"
@@ -349,9 +345,7 @@ class TestMaterialServiceCoverage:
         await _create_material_with_chunks(db_session, user_id, product="Brukinsa")
         await _create_material_with_chunks(db_session, user_id, product="OtherDrug")
 
-        items, total = await material_service.get_materials(
-            db_session, product="Brukinsa"
-        )
+        items, total = await material_service.get_materials(db_session, product="Brukinsa")
 
         assert total == 1
         assert len(items) == 1
@@ -377,9 +371,7 @@ class TestMaterialServiceCoverage:
         db_session.add_all([m1, m2])
         await db_session.flush()
 
-        items, total = await material_service.get_materials(
-            db_session, search="Clinical"
-        )
+        items, total = await material_service.get_materials(db_session, search="Clinical")
 
         assert total == 1
         assert len(items) == 1
@@ -398,7 +390,5 @@ class TestMaterialServiceCoverage:
         assert total == 0
 
         # With include_archived, should return 1
-        items, total = await material_service.get_materials(
-            db_session, include_archived=True
-        )
+        items, total = await material_service.get_materials(db_session, include_archived=True)
         assert total == 1

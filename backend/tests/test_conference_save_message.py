@@ -8,7 +8,6 @@ from datetime import UTC, datetime
 import pytest
 from sqlalchemy import select
 
-from app.models.message import SessionMessage
 from app.models.session import CoachingSession
 from app.services.conference_service import _save_conference_message
 
@@ -65,15 +64,11 @@ class TestSaveConferenceMessage:
 
     async def test_message_index_increments(self, db_session, conference_session):
         """Subsequent messages have incrementing indices."""
-        await _save_conference_message(
-            db_session, conference_session.id, "user", "First message"
-        )
+        await _save_conference_message(db_session, conference_session.id, "user", "First message")
         msg2 = await _save_conference_message(
             db_session, conference_session.id, "assistant", "Question?"
         )
-        msg3 = await _save_conference_message(
-            db_session, conference_session.id, "user", "Answer"
-        )
+        msg3 = await _save_conference_message(db_session, conference_session.id, "user", "Answer")
         assert msg2.message_index == 1
         assert msg3.message_index == 2
 
@@ -115,16 +110,12 @@ class TestSaveConferenceMessage:
         session = result.scalar_one()
         assert session.status == "in_progress"
 
-    async def test_started_at_set_on_first_user_message(
-        self, db_session, conference_session
-    ):
+    async def test_started_at_set_on_first_user_message(self, db_session, conference_session):
         """started_at timestamp is set when first user message is saved."""
         assert conference_session.started_at is None
 
-        before = datetime.now(UTC)
-        await _save_conference_message(
-            db_session, conference_session.id, "user", "Starting now"
-        )
+        datetime.now(UTC)
+        await _save_conference_message(db_session, conference_session.id, "user", "Starting now")
 
         result = await db_session.execute(
             select(CoachingSession).where(CoachingSession.id == conference_session.id)
@@ -148,9 +139,7 @@ class TestSaveConferenceMessage:
 
     async def test_no_double_transition(self, db_session, conference_session):
         """Second user message does not re-trigger status transition."""
-        await _save_conference_message(
-            db_session, conference_session.id, "user", "First"
-        )
+        await _save_conference_message(db_session, conference_session.id, "user", "First")
         # Manually set status to something else to verify no re-transition
         result = await db_session.execute(
             select(CoachingSession).where(CoachingSession.id == conference_session.id)
@@ -159,9 +148,7 @@ class TestSaveConferenceMessage:
         assert session.status == "in_progress"
 
         # Second user message -- message_index is 1, not 0, so no transition
-        await _save_conference_message(
-            db_session, conference_session.id, "user", "Second"
-        )
+        await _save_conference_message(db_session, conference_session.id, "user", "Second")
         result = await db_session.execute(
             select(CoachingSession).where(CoachingSession.id == conference_session.id)
         )

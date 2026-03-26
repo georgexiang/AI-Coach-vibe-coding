@@ -294,9 +294,7 @@ class TestBuildConferenceScoringPrompt:
 
     def test_includes_key_messages_from_scenario(self):
         """Prompt includes key messages parsed from scenario JSON."""
-        scenario = _make_scenario(
-            key_messages=json.dumps(["PFS superiority", "Safety advantage"])
-        )
+        scenario = _make_scenario(key_messages=json.dumps(["PFS superiority", "Safety advantage"]))
         prompt = build_conference_scoring_prompt(scenario, [], [])
 
         assert "PFS superiority" in prompt

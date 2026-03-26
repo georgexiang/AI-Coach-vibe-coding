@@ -1,7 +1,5 @@
 """Tests for AzureAvatarAdapter stub implementation."""
 
-import pytest
-
 from app.services.agents.avatar.azure import AzureAvatarAdapter
 
 

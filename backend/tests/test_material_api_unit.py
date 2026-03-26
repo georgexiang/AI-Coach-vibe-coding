@@ -141,9 +141,7 @@ class TestSearchChunksEndpoint:
         db = AsyncMock()
         user = _make_user()
 
-        result = await search_chunks(
-            product="Drug", query="", limit=10, db=db, _user=user
-        )
+        result = await search_chunks(product="Drug", query="", limit=10, db=db, _user=user)
         assert result == mock_chunks
 
 
@@ -200,9 +198,7 @@ class TestUpdateMaterialEndpoint:
         user = _make_user()
         data = MaterialUpdate(name="Updated")
 
-        result = await update_material(
-            material_id="m1", data=data, db=db, _user=user
-        )
+        result = await update_material(material_id="m1", data=data, db=db, _user=user)
         assert result == mock_material
 
 
@@ -265,7 +261,5 @@ class TestGetVersionChunksEndpoint:
         db = AsyncMock()
         user = _make_user()
 
-        result = await get_version_chunks(
-            material_id="m1", version_id="v1", db=db, _user=user
-        )
+        result = await get_version_chunks(material_id="m1", version_id="v1", db=db, _user=user)
         assert result == mock_chunks

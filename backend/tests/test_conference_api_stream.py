@@ -3,7 +3,6 @@
 Follows the same direct-call mocking pattern as test_conference_api_unit.py.
 """
 
-import json
 from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -149,9 +148,7 @@ class TestStreamConferenceReturnsSSE:
 
     @patch("app.api.conference.conference_service")
     @patch("app.api.conference.turn_manager")
-    async def test_present_returns_event_source_response(
-        self, mock_tm, mock_service
-    ):
+    async def test_present_returns_event_source_response(self, mock_tm, mock_service):
         """Present action returns an EventSourceResponse object."""
         from sse_starlette.sse import EventSourceResponse
 
