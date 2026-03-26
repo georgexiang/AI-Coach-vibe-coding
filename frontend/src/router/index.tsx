@@ -19,6 +19,7 @@ import AdminReportsPage from "@/pages/admin/reports";
 import ConferenceSession from "@/pages/user/conference-session";
 import UserReportsPage from "@/pages/user/reports";
 import UserManagementPage from "@/pages/admin/users";
+import AdminSettingsPage from "@/pages/admin/settings";
 import NotFound from "@/pages/not-found";
 
 export const router = createBrowserRouter([
@@ -68,6 +69,7 @@ export const router = createBrowserRouter([
               { path: "materials", element: <TrainingMaterialsPage /> },
               { path: "reports", element: <AdminReportsPage /> },
               { path: "users", element: <UserManagementPage /> },
+              { path: "settings", element: <AdminSettingsPage /> },
             ],
           },
         ],

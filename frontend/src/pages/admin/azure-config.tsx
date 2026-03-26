@@ -2,11 +2,14 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Brain,
+  Database,
   Mic,
   Volume2,
   User,
   FileSearch,
+  Loader2,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { ServiceConfigCard } from "@/components/admin/service-config-card";
 
 interface AzureService {
@@ -58,6 +61,20 @@ const AZURE_SERVICES: AzureService[] = [
     icon: <FileSearch className="size-6 text-primary" />,
     defaultConfig: { endpoint: "", apiKey: "", model: "", region: "eastus" },
   },
+  {
+    key: "realtime",
+    name: "Azure OpenAI Realtime",
+    description: "Real-time audio streaming for voice conversations",
+    icon: <Mic className="size-6 text-primary" />,
+    defaultConfig: { endpoint: "", apiKey: "", model: "", region: "eastus" },
+  },
+  {
+    key: "database",
+    name: "Azure Database for PostgreSQL",
+    description: "Managed PostgreSQL database for production data",
+    icon: <Database className="size-6 text-primary" />,
+    defaultConfig: { endpoint: "", apiKey: "", model: "", region: "eastus" },
+  },
 ];
 
 export default function AzureConfigPage() {
@@ -83,9 +100,23 @@ export default function AzureConfigPage() {
     return Math.random() > 0.3; // 70% success for demo
   };
 
+  const [testingAll, setTestingAll] = useState(false);
+
+  const handleTestAll = async () => {
+    setTestingAll(true);
+    await handleTestConnection();
+    setTestingAll(false);
+  };
+
   return (
     <div className="p-6 space-y-6">
-      <h1 className="text-3xl font-semibold">{t("azureConfig.title")}</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-semibold">{t("azureConfig.title")}</h1>
+        <Button variant="outline" onClick={handleTestAll} disabled={testingAll}>
+          {testingAll && <Loader2 className="size-4 animate-spin" />}
+          {t("azureConfig.testAll", { defaultValue: "Test All Connections" })}
+        </Button>
+      </div>
       <div className="space-y-4 max-w-4xl">
         {AZURE_SERVICES.map((svc) => (
           <ServiceConfigCard

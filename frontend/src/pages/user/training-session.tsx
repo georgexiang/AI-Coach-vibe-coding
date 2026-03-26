@@ -115,7 +115,7 @@ export default function TrainingSession() {
     setShowEndDialog(false);
     try {
       await endSessionMutation.mutateAsync(sessionId);
-      navigate(`/user/scoring?id=${sessionId}`);
+      navigate(`/user/scoring/${sessionId}`);
     } catch {
       // Error handled by mutation
     }

@@ -1,6 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { PlayCircle, Clock, Star } from "lucide-react";
-import { Avatar, AvatarFallback } from "@/components/ui";
+import { Avatar, AvatarFallback, AvatarImage, Badge } from "@/components/ui";
 import { cn } from "@/lib/utils";
 import type { Scenario } from "@/types/scenario";
 
@@ -26,68 +25,61 @@ export function ScenarioCard({ scenario, onStart }: ScenarioCardProps) {
     .slice(0, 2) ?? "HC";
 
   return (
-    <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition-shadow hover:shadow-md">
-      {/* Card header */}
-      <div className="flex h-48 items-center justify-center bg-gradient-to-br from-blue-500 to-blue-600">
-        <PlayCircle className="h-16 w-16 text-white opacity-80" />
-      </div>
-
-      {/* Card body */}
-      <div className="p-6">
-        <h3 className="mb-2 text-lg font-semibold text-gray-900">
-          {scenario.name}
-        </h3>
-        <p className="mb-4 text-sm text-gray-600">{scenario.description}</p>
-
-        {/* Metadata row */}
-        <div className="mb-4 flex items-center gap-4 text-sm text-gray-600">
-          <span className="flex items-center gap-1">
-            <Clock className="h-4 w-4" />
-            {scenario.estimated_duration ?? 15} min
-          </span>
-          <span className="flex items-center gap-1">
-            <Star className="h-4 w-4" />
-            {scenario.difficulty}
-          </span>
-        </div>
-
-        {/* HCP info */}
-        {scenario.hcp_profile && (
-          <div className="mb-4 flex items-center gap-3">
-            <Avatar className="h-10 w-10">
-              <AvatarFallback className="bg-blue-100 text-sm text-blue-700">
-                {hcpInitials}
-              </AvatarFallback>
-            </Avatar>
-            <div>
-              <p className="text-sm font-medium text-gray-900">
-                {scenario.hcp_profile.name}
-              </p>
-              <p className="text-sm text-gray-600">
-                {scenario.hcp_profile.specialty}
-              </p>
-            </div>
-          </div>
+    <div className="relative overflow-hidden rounded-xl border border-gray-200 bg-white p-6 shadow-sm transition-shadow hover:shadow-md">
+      {/* Difficulty badge — upper right */}
+      <span
+        className={cn(
+          "absolute right-3 top-3 rounded-full px-2.5 py-0.5 text-xs font-semibold",
+          difficultyStyles[scenario.difficulty]
         )}
+      >
+        {scenario.difficulty}
+      </span>
 
-        {/* Difficulty badge + Start button */}
-        <div className="flex items-center justify-between">
-          <span
-            className={cn(
-              "rounded-full px-3 py-1 text-sm font-semibold",
-              difficultyStyles[scenario.difficulty]
-            )}
-          >
-            {scenario.difficulty}
-          </span>
-          <button
-            onClick={() => onStart(scenario.id)}
-            className="rounded-lg bg-blue-600 px-4 py-2 text-base font-semibold text-white transition-colors hover:bg-blue-700"
-          >
-            {t("scenarioSelection.startButton")}
-          </button>
-        </div>
+      {/* HCP Avatar */}
+      <div className="flex flex-col items-center text-center">
+        <Avatar className="size-20 border-2 border-primary/20">
+          <AvatarImage src={scenario.hcp_profile?.avatar_url} />
+          <AvatarFallback className="bg-primary/10 text-lg text-primary">
+            {hcpInitials}
+          </AvatarFallback>
+        </Avatar>
+
+        {/* HCP Name (bilingual) */}
+        <h3 className="mt-3 text-lg font-semibold text-gray-900">
+          {scenario.hcp_profile?.name ?? scenario.name}
+        </h3>
+        {scenario.hcp_profile?.specialty && (
+          <p className="text-sm text-gray-500">{scenario.hcp_profile.specialty}</p>
+        )}
       </div>
+
+      {/* Product + traits badges */}
+      <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5">
+        {scenario.product && (
+          <Badge variant="outline" className="text-xs">
+            {scenario.product}
+          </Badge>
+        )}
+        {scenario.hcp_profile?.personality_type && (
+          <Badge variant="secondary" className="text-xs">
+            {scenario.hcp_profile.personality_type}
+          </Badge>
+        )}
+      </div>
+
+      {/* Description */}
+      <p className="mt-3 line-clamp-2 text-center text-sm text-gray-600">
+        {scenario.description}
+      </p>
+
+      {/* Full-width Start button */}
+      <button
+        onClick={() => onStart(scenario.id)}
+        className="mt-4 w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary/90"
+      >
+        {t("scenarioSelection.startButton", { defaultValue: "Start Training" })}
+      </button>
     </div>
   );
 }

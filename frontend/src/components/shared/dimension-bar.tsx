@@ -4,26 +4,30 @@ interface DimensionBarProps {
   label: string;
   value: number;
   maxValue?: number;
+  color?: string;
 }
 
 export function DimensionBar({
   label,
   value,
   maxValue = 100,
+  color,
 }: DimensionBarProps) {
   const percentage = Math.min(Math.round((value / maxValue) * 100), 100);
+  const barColor = color ?? "bg-primary";
+  const trackColor = color ? `${color}/20` : "bg-primary/20";
 
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between">
         <span className="text-sm font-medium text-foreground">{label}</span>
-        <span className={cn("text-sm font-medium text-foreground")}>
+        <span className="text-sm font-medium text-foreground">
           {percentage}%
         </span>
       </div>
-      <div className="h-2 w-full rounded-full bg-primary/20">
+      <div className={cn("h-2 w-full rounded-full", trackColor)}>
         <div
-          className="h-full rounded-full bg-primary transition-all"
+          className={cn("h-full rounded-full transition-all", barColor)}
           style={{ width: `${percentage}%` }}
         />
       </div>

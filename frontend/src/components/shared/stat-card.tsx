@@ -7,6 +7,7 @@ interface StatCardProps {
   label: string;
   value: string | number;
   icon?: LucideIcon;
+  colorClass?: string;
   trend?: { value: string; direction: "up" | "down" };
   chart?: React.ReactNode;
   progress?: { current: number; total: number };
@@ -16,6 +17,7 @@ export function StatCard({
   label,
   value,
   icon: Icon,
+  colorClass,
   trend,
   chart,
   progress,
@@ -25,15 +27,15 @@ export function StatCard({
       <CardContent className="p-6">
         <div className="flex items-start justify-between">
           {Icon && (
-            <div className="flex size-10 items-center justify-center rounded-lg bg-primary/10">
-              <Icon className="size-5 text-primary" />
+            <div className={cn("flex size-10 items-center justify-center rounded-lg", colorClass ?? "bg-primary/10")}>
+              <Icon className={cn("size-5", colorClass ? "" : "text-primary")} />
             </div>
           )}
           {chart && <div className="ml-auto">{chart}</div>}
         </div>
 
         <div className="mt-3">
-          <p className="text-3xl font-semibold text-foreground">{value}</p>
+          <p className="text-3xl font-bold text-foreground">{value}</p>
           <p className="text-sm text-muted-foreground">{label}</p>
         </div>
 

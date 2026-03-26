@@ -56,22 +56,26 @@ export default function UserDashboard() {
       label: "sessionsCompleted",
       value: dashStats?.total_sessions ?? 0,
       icon: CheckCircle,
+      colorClass: "bg-green-100 text-green-600",
       trend: undefined,
     },
     {
       label: "averageScore",
       value: dashStats?.avg_score ?? 0,
       icon: Target,
+      colorClass: "bg-blue-100 text-blue-600",
       trend: undefined,
     },
     {
       label: "thisWeek",
       value: dashStats?.this_week ?? 0,
       icon: Calendar,
+      colorClass: "bg-purple-100 text-purple-600",
       progress: undefined,
     },
     {
       label: "improvement",
+      colorClass: "bg-orange-100 text-orange-600",
       value: dashStats?.improvement != null
         ? `${dashStats.improvement > 0 ? "+" : ""}${dashStats.improvement}`
         : ta("noImprovement", { defaultValue: "--" }),
@@ -110,6 +114,7 @@ export default function UserDashboard() {
             label={t(stat.label)}
             value={stat.value}
             icon={stat.icon}
+            colorClass={stat.colorClass}
             trend={stat.trend}
             progress={stat.progress}
             chart={getChartForStat(index)}
@@ -165,21 +170,28 @@ export default function UserDashboard() {
 
         {/* Right: Action cards + recommended scenario + skill overview */}
         <div className="flex flex-col gap-6 lg:col-span-2">
-          <ActionCard
-            title={t("f2fTraining")}
-            description={t("f2fDescription")}
-            icon={Users}
-            gradient="blue"
-            onStart={() => navigate("/user/training")}
-          />
+          <Card>
+            <CardHeader>
+              <CardTitle>{t("startTraining", { defaultValue: "Start Training" })}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <ActionCard
+                title={t("f2fTraining")}
+                description={t("f2fDescription")}
+                icon={Users}
+                gradient="blue"
+                onStart={() => navigate("/user/training")}
+              />
 
-          <ActionCard
-            title={t("conferenceTraining")}
-            description={t("conferenceDescription")}
-            icon={Mic}
-            gradient="purple"
-            onStart={() => navigate("/user/training")}
-          />
+              <ActionCard
+                title={t("conferenceTraining")}
+                description={t("conferenceDescription")}
+                icon={Mic}
+                gradient="purple"
+                onStart={() => navigate("/user/training")}
+              />
+            </CardContent>
+          </Card>
 
           <Card>
             <CardHeader>

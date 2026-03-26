@@ -49,6 +49,16 @@ import { cn } from "@/lib/utils";
 
 const ALL_PRODUCTS = "__all__";
 
+function getFileTypeBadge(name: string): { label: string; className: string } | null {
+  const ext = name.split(".").pop()?.toLowerCase() ?? "";
+  if (ext === name.toLowerCase()) return null; // no extension
+  if (ext === "pdf") return { label: "PDF", className: "bg-red-100 text-red-700" };
+  if (ext === "docx" || ext === "doc") return { label: "Word", className: "bg-blue-100 text-blue-700" };
+  if (ext === "xlsx" || ext === "xls") return { label: "Excel", className: "bg-green-100 text-green-700" };
+  if (ext === "pptx" || ext === "ppt") return { label: "PPT", className: "bg-orange-100 text-orange-700" };
+  return { label: ext.toUpperCase() || "File", className: "bg-gray-100 text-gray-700" };
+}
+
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -384,7 +394,19 @@ export default function TrainingMaterialsPage() {
                     key={material.id}
                     className="border-b last:border-b-0 hover:bg-muted/30 transition-colors"
                   >
-                    <td className="px-4 py-3 font-medium">{material.name}</td>
+                    <td className="px-4 py-3 font-medium">
+                      <span className="flex items-center gap-2">
+                        {material.name}
+                        {(() => {
+                          const badge = getFileTypeBadge(material.name);
+                          return badge ? (
+                            <Badge variant="secondary" className={cn("text-xs px-1.5 py-0", badge.className)}>
+                              {badge.label}
+                            </Badge>
+                          ) : null;
+                        })()}
+                      </span>
+                    </td>
                     <td className="px-4 py-3 text-muted-foreground">
                       {material.product}
                     </td>

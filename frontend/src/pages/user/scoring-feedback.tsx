@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Loader2 } from "lucide-react";
 import { Button, ScrollArea } from "@/components/ui";
@@ -15,8 +15,8 @@ import { useSession } from "@/hooks/use-session";
 export default function ScoringFeedback() {
   const { t } = useTranslation("scoring");
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const sessionId = searchParams.get("id") ?? "";
+  const params = useParams();
+  const sessionId = params.sessionId ?? "";
 
   const { data: session } = useSession(sessionId || undefined);
   const { data: score, isLoading: scoreLoading } = useSessionScore(

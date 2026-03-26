@@ -19,7 +19,7 @@ export function ChatMessage({ message, isStreaming }: ChatMessageProps) {
         className={cn(
           "max-w-[70%] rounded-lg px-4 py-2.5",
           isAssistant
-            ? "bg-blue-500 text-white"
+            ? "bg-primary/10 text-foreground"
             : "bg-slate-200 text-slate-900"
         )}
       >

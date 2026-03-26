@@ -1,5 +1,4 @@
 import { useTranslation } from "react-i18next";
-import { Globe } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,18 +8,21 @@ import {
 import { Button } from "@/components/ui";
 
 const languages = [
-  { code: "zh-CN", labelKey: "lang.zhCN" },
-  { code: "en-US", labelKey: "lang.enUS" },
+  { code: "zh-CN", labelKey: "lang.zhCN", flag: "\u{1F1E8}\u{1F1F3}" },
+  { code: "en-US", labelKey: "lang.enUS", flag: "\u{1F1FA}\u{1F1F8}" },
 ] as const;
 
 export function LanguageSwitcher() {
   const { t, i18n } = useTranslation("common");
 
+  const currentLang = languages.find((l) => l.code === i18n.language) ?? languages[0];
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" aria-label="Switch language">
-          <Globe className="size-5" />
+        <Button variant="ghost" size="sm" aria-label="Switch language" className="gap-1.5">
+          <span className="text-base leading-none">{currentLang.flag}</span>
+          <span className="text-sm">{(currentLang.code.split("-")[0] ?? "").toUpperCase()}</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
@@ -32,6 +34,7 @@ export function LanguageSwitcher() {
               i18n.language === lang.code ? "font-medium text-primary" : ""
             }
           >
+            <span className="mr-2">{lang.flag}</span>
             {t(lang.labelKey)}
           </DropdownMenuItem>
         ))}

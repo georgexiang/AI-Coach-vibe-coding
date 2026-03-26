@@ -104,6 +104,10 @@ export function CenterPanel({
           <span className="text-xs text-slate-300">{t("avatar")}</span>
           <Switch checked={avatarEnabled} onCheckedChange={onToggleAvatar} />
         </div>
+        {/* Azure AI Avatar label */}
+        <p className="absolute bottom-2 left-0 right-0 text-center text-[10px] tracking-wide text-slate-500">
+          Azure AI Avatar
+        </p>
       </div>
 
       {/* Chat area */}

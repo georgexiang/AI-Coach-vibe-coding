@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronDown, ChevronUp, Loader2 } from "lucide-react";
+import { ChevronDown, ChevronUp, Eye, EyeOff, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -49,6 +49,7 @@ export function ServiceConfigCard({
   const [localConfig, setLocalConfig] = useState(config);
   const [testing, setTesting] = useState(false);
   const [status, setStatus] = useState<ServiceStatus>(service.status);
+  const [showApiKey, setShowApiKey] = useState(false);
 
   const handleTest = async () => {
     setTesting(true);
@@ -116,14 +117,25 @@ export function ServiceConfigCard({
             </div>
             <div className="grid gap-2">
               <Label>{t("azureConfig.apiKey")}</Label>
-              <Input
-                type="password"
-                value={localConfig.apiKey}
-                onChange={(e) =>
-                  setLocalConfig((c) => ({ ...c, apiKey: e.target.value }))
-                }
-                placeholder="Enter API key"
-              />
+              <div className="relative">
+                <Input
+                  type={showApiKey ? "text" : "password"}
+                  value={localConfig.apiKey}
+                  onChange={(e) =>
+                    setLocalConfig((c) => ({ ...c, apiKey: e.target.value }))
+                  }
+                  placeholder="Enter API key"
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  onClick={() => setShowApiKey((v) => !v)}
+                  tabIndex={-1}
+                >
+                  {showApiKey ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </button>
+              </div>
             </div>
             <div className="grid gap-2">
               <Label>{t("azureConfig.model")}</Label>

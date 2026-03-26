@@ -43,16 +43,13 @@ export default function LoginPage() {
   return (
     <Card className="w-full max-w-[480px] rounded-2xl shadow-xl">
       <CardHeader className="items-center space-y-2">
-        <div className="flex size-16 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
-          <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="3" />
-            <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
-          </svg>
+        <div className="flex size-16 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 text-primary-foreground">
+          <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg>
         </div>
-        <CardTitle className="text-3xl font-semibold">{t("title")}</CardTitle>
+        <CardTitle className="text-3xl font-bold">{t("title")}</CardTitle>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-2">
             <Label htmlFor="username">{t("email")}</Label>
             <Input
@@ -63,6 +60,7 @@ export default function LoginPage() {
               required
               autoComplete="username"
               disabled={loginMutation.isPending}
+              placeholder={t("emailPlaceholder", { defaultValue: "Enter your email" })}
             />
           </div>
 
@@ -78,6 +76,7 @@ export default function LoginPage() {
                 autoComplete="current-password"
                 disabled={loginMutation.isPending}
                 className="pr-10"
+                placeholder={t("passwordPlaceholder", { defaultValue: "Enter your password" })}
               />
               <Button
                 type="button"

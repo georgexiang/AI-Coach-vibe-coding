@@ -62,18 +62,20 @@ export function SessionItem({
 
       <div className="flex shrink-0 items-center gap-2">
         <div className="text-right">
-          <p
+          <div
             className={cn(
-              "text-sm font-semibold",
+              "rounded-md px-2 py-0.5",
               score >= 80
-                ? "text-strength"
+                ? "bg-green-50 text-green-700"
                 : score >= 60
-                  ? "text-foreground"
-                  : "text-destructive",
+                  ? "bg-yellow-50 text-yellow-700"
+                  : "bg-red-50 text-red-700",
             )}
           >
-            {score}
-          </p>
+            <p className="text-sm font-semibold">
+              {score}
+            </p>
+          </div>
           <p className="text-xs text-muted-foreground">{timeAgo}</p>
         </div>
         <ChevronRight className="size-4 text-muted-foreground" />
