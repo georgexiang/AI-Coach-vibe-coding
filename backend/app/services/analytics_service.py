@@ -88,21 +88,29 @@ async def get_user_dashboard_stats(db: AsyncSession, user_id: str) -> UserDashbo
 
 
 async def get_user_dimension_trends(
-    db: AsyncSession, user_id: str, limit: int = 20
+    db: AsyncSession,
+    user_id: str,
+    limit: int = 20,
+    start_date: str | None = None,
+    end_date: str | None = None,
 ) -> list[DimensionTrendPoint]:
     """Load scored sessions with per-dimension details for trend charts."""
+    filters = [
+        CoachingSession.user_id == user_id,
+        CoachingSession.status == "scored",
+    ]
+    if start_date:
+        filters.append(CoachingSession.completed_at >= datetime.fromisoformat(start_date))
+    if end_date:
+        filters.append(CoachingSession.completed_at <= datetime.fromisoformat(end_date))
+
     result = await db.execute(
         select(CoachingSession)
         .options(
             selectinload(CoachingSession.scenario),
             selectinload(CoachingSession.score).selectinload(SessionScore.details),
         )
-        .where(
-            and_(
-                CoachingSession.user_id == user_id,
-                CoachingSession.status == "scored",
-            )
-        )
+        .where(and_(*filters))
         .order_by(CoachingSession.completed_at.desc())
         .limit(limit)
     )
@@ -132,20 +140,30 @@ async def get_user_dimension_trends(
     return points
 
 
-async def get_org_analytics(db: AsyncSession) -> OrgAnalytics:
+async def get_org_analytics(
+    db: AsyncSession,
+    start_date: str | None = None,
+    end_date: str | None = None,
+) -> OrgAnalytics:
     """Compute organization-level analytics for admin dashboard."""
-    # Total users (non-admin)
+    # Build date filters for session-based queries
+    date_filters: list = []
+    if start_date:
+        date_filters.append(CoachingSession.completed_at >= datetime.fromisoformat(start_date))
+    if end_date:
+        date_filters.append(CoachingSession.completed_at <= datetime.fromisoformat(end_date))
+
+    # Total users (non-admin) — not date-filtered
     total_users_result = await db.execute(
         select(func.count()).select_from(User).where(User.role == "user")
     )
     total_users = total_users_result.scalar() or 0
 
     # Active users: distinct user_ids with scored sessions
-    active_result = await db.execute(
-        select(func.count(func.distinct(CoachingSession.user_id))).where(
-            CoachingSession.status == "scored"
-        )
+    active_query = select(func.count(func.distinct(CoachingSession.user_id))).where(
+        and_(CoachingSession.status == "scored", *date_filters)
     )
+    active_result = await db.execute(active_query)
     active_users = active_result.scalar() or 0
 
     # Completion rate
@@ -153,13 +171,17 @@ async def get_org_analytics(db: AsyncSession) -> OrgAnalytics:
 
     # Total scored sessions
     total_sessions_result = await db.execute(
-        select(func.count()).select_from(CoachingSession).where(CoachingSession.status == "scored")
+        select(func.count())
+        .select_from(CoachingSession)
+        .where(and_(CoachingSession.status == "scored", *date_filters))
     )
     total_sessions = total_sessions_result.scalar() or 0
 
     # Org-wide average score
     avg_result = await db.execute(
-        select(func.avg(CoachingSession.overall_score)).where(CoachingSession.status == "scored")
+        select(func.avg(CoachingSession.overall_score)).where(
+            and_(CoachingSession.status == "scored", *date_filters)
+        )
     )
     avg_org_score = round(avg_result.scalar() or 0.0, 1)
 
@@ -177,6 +199,7 @@ async def get_org_analytics(db: AsyncSession) -> OrgAnalytics:
                 CoachingSession.status == "scored",
                 User.role == "user",
                 User.business_unit != "",
+                *date_filters,
             )
         )
         .group_by(User.business_unit)

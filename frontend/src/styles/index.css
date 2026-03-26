@@ -213,3 +213,9 @@
     line-height: 1.5;
   }
 }
+
+/* Print styles for PDF export via window.print() */
+@media print {
+  nav, aside, header, footer, .no-print { display: none !important; }
+  main { margin: 0 !important; padding: 0 !important; }
+}

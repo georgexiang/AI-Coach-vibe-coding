@@ -1,4 +1,4 @@
-"""Seed initial users and default scoring rubric.
+"""Seed initial users, default scoring rubric, and sample sessions/scores.
 
 Idempotent -- skips records that already exist.
 Run with: python scripts/seed_data.py
@@ -7,16 +7,21 @@ Run with: python scripts/seed_data.py
 import asyncio
 import json
 import sys
+import uuid
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 # Add backend root to path so 'app' package is importable
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.config import get_settings
+from app.models.scenario import Scenario
+from app.models.score import ScoreDetail, SessionScore
 from app.models.scoring_rubric import ScoringRubric
+from app.models.session import CoachingSession
 from app.models.user import User
 from app.services.auth import get_password_hash
 
@@ -139,8 +144,128 @@ async def seed_default_rubric(session: AsyncSession, admin_user_id: str) -> None
     print("  [created] Default F2F scoring rubric (5 dimensions, weights sum to 100)")
 
 
-async def seed_users() -> None:
-    """Create seed users and default rubric if they do not already exist."""
+async def seed_sessions(session: AsyncSession) -> None:
+    """Seed 12 scored training sessions with scores and score details.
+
+    Creates 4 sessions per MR user (user1, user2, user3) spread over the last 30 days.
+    Idempotent: skips if coaching sessions already exist for seed users.
+    """
+    # Check if sessions already exist for seed users
+    mr_usernames = ["user1", "user2", "user3"]
+    users_result = await session.execute(select(User).where(User.username.in_(mr_usernames)))
+    mr_users = list(users_result.scalars().all())
+    if not mr_users:
+        print("  [skip] No MR users found — run seed_users first")
+        return
+
+    # Check idempotency
+    user_ids = [u.id for u in mr_users]
+    existing_count_result = await session.execute(
+        select(func.count())
+        .select_from(CoachingSession)
+        .where(CoachingSession.user_id.in_(user_ids))
+    )
+    if (existing_count_result.scalar() or 0) > 0:
+        print("  [skip] Sessions already exist for seed users")
+        return
+
+    # Get active scenarios
+    scenarios_result = await session.execute(
+        select(Scenario).where(Scenario.status == "active").limit(4)
+    )
+    scenarios = list(scenarios_result.scalars().all())
+    if not scenarios:
+        print("  [skip] No active scenarios found — seed scenarios first")
+        return
+
+    # Session score templates per user (vary per user and session)
+    score_templates = [
+        # user1 (Zhang Wei) — improving over time
+        [65, 70, 78, 85],
+        # user2 (Li Ming) — steady performer
+        [72, 75, 73, 80],
+        # user3 (Wang Fang) — high performer
+        [80, 82, 88, 90],
+    ]
+
+    day_offsets = [30, 20, 10, 2]  # days ago
+    dimensions = [
+        "key_message",
+        "objection_handling",
+        "communication",
+        "product_knowledge",
+        "scientific_info",
+    ]
+    now = datetime.now(UTC)
+    session_count = 0
+
+    for user_idx, user in enumerate(mr_users):
+        scores_list = score_templates[user_idx % len(score_templates)]
+        for sess_idx in range(4):
+            scenario = scenarios[sess_idx % len(scenarios)]
+            overall = scores_list[sess_idx]
+            day_offset = day_offsets[sess_idx]
+            started = now - timedelta(days=day_offset, hours=2)
+            duration = 300 + (sess_idx * 150)  # 300, 450, 600, 750 seconds
+            completed = started + timedelta(seconds=duration)
+            passed = overall >= 70
+
+            cs_id = str(uuid.uuid4())
+            cs = CoachingSession(
+                id=cs_id,
+                user_id=user.id,
+                scenario_id=scenario.id,
+                status="scored",
+                session_type="f2f",
+                started_at=started,
+                completed_at=completed,
+                duration_seconds=duration,
+                overall_score=float(overall),
+                passed=passed,
+            )
+            session.add(cs)
+
+            score_id = str(uuid.uuid4())
+            ss = SessionScore(
+                id=score_id,
+                session_id=cs_id,
+                overall_score=float(overall),
+                passed=passed,
+                feedback_summary=f"Session score: {overall}/100",
+            )
+            session.add(ss)
+
+            # Get scenario weights
+            weights = scenario.get_scoring_weights()
+            weight_list = [
+                weights.get("key_message", 25),
+                weights.get("objection_handling", 20),
+                weights.get("communication", 20),
+                weights.get("product_knowledge", 20),
+                weights.get("scientific_info", 15),
+            ]
+
+            for dim_idx, dim_name in enumerate(dimensions):
+                # Vary dimension score around overall (+/- 10, clamped 0-100)
+                offset = (dim_idx * 5) - 10  # -10, -5, 0, 5, 10
+                dim_score = max(0.0, min(100.0, float(overall + offset)))
+                sd = ScoreDetail(
+                    id=str(uuid.uuid4()),
+                    score_id=score_id,
+                    dimension=dim_name,
+                    score=dim_score,
+                    weight=weight_list[dim_idx],
+                )
+                session.add(sd)
+
+            session_count += 1
+
+    await session.commit()
+    print(f"  [created] {session_count} scored sessions with scores and details")
+
+
+async def main() -> None:
+    """Create seed users, default rubric, and sample sessions."""
     from app.models.base import Base
 
     engine = create_async_engine(settings.database_url, echo=False)
@@ -181,9 +306,12 @@ async def seed_users() -> None:
             await seed_default_rubric(session, admin_user.id)
             await session.commit()
 
+        # Seed sample sessions and scores for analytics
+        await seed_sessions(session)
+
     await engine.dispose()
     print("Seed complete.")
 
 
 if __name__ == "__main__":
-    asyncio.run(seed_users())
+    asyncio.run(main())

@@ -26,10 +26,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui";
-import { useExportAdminReport, useExportSessionsExcel } from "@/hooks/use-analytics";
+import {
+  useExportAdminReport,
+  useExportSessionsExcel,
+  useOrgAnalytics,
+} from "@/hooks/use-analytics";
 
 // ---------------------------------------------------------------------------
-// Mock data
+// Mock data for charts (charts will be wired to live data in future plans)
 // ---------------------------------------------------------------------------
 
 const groupPerformanceData = [
@@ -87,6 +91,7 @@ export default function AdminReportsPage() {
   const { t } = useTranslation("analytics");
   const exportSessions = useExportSessionsExcel();
   const exportAdmin = useExportAdminReport();
+  const { data: orgData } = useOrgAnalytics();
 
   const [buFilter, setBuFilter] = useState("all");
   const [regionFilter, setRegionFilter] = useState("all");
@@ -197,7 +202,7 @@ export default function AdminReportsPage() {
         </CardContent>
       </Card>
 
-      {/* ---- Summary stat cards ---- */}
+      {/* ---- Summary stat cards (live from useOrgAnalytics) ---- */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card className="bg-primary/5 border-none">
           <CardHeader className="pb-2">
@@ -206,29 +211,35 @@ export default function AdminReportsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold text-primary">1,247</p>
+            <p className="text-3xl font-bold text-primary">
+              {orgData?.total_sessions ?? 0}
+            </p>
           </CardContent>
         </Card>
 
         <Card className="bg-primary/5 border-none">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              {t("averageScore", { defaultValue: "Average Score" })}
+              {t("avgOrgScore", { defaultValue: "Avg Score" })}
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold text-blue-600">73.8</p>
+            <p className="text-3xl font-bold text-blue-600">
+              {orgData?.avg_org_score ?? 0}
+            </p>
           </CardContent>
         </Card>
 
         <Card className="bg-primary/5 border-none">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              {t("passRate", { defaultValue: "Pass Rate" })}
+              {t("completionRate", { defaultValue: "Completion Rate" })}
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold text-green-600">68%</p>
+            <p className="text-3xl font-bold text-green-600">
+              {orgData?.completion_rate ?? 0}%
+            </p>
           </CardContent>
         </Card>
 
@@ -239,7 +250,9 @@ export default function AdminReportsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold text-violet-600">156</p>
+            <p className="text-3xl font-bold text-violet-600">
+              {orgData?.active_users ?? 0}
+            </p>
           </CardContent>
         </Card>
       </div>
