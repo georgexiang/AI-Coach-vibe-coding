@@ -63,12 +63,12 @@ async def _inactive_user(username="inactive") -> tuple[str, str]:
 async def _admin_scenario(client, admin_id, admin_token) -> str:
     """Create an HCP profile + active scenario. Returns scenario_id."""
     hcp = await client.post(
-        "/api/v1/hcp-profiles/",
+        "/api/v1/hcp-profiles",
         json={"name": "Dr. Cov", "specialty": "Onc", "created_by": admin_id},
         headers={"Authorization": f"Bearer {admin_token}"},
     )
     scn = await client.post(
-        "/api/v1/scenarios/",
+        "/api/v1/scenarios",
         json={
             "name": "Cov Scenario",
             "product": "Brukinsa",
@@ -262,7 +262,7 @@ class TestSessionsApiCoverage:
         uid, utoken = await _user(role="user", username="sa_user")
 
         resp = await client.post(
-            "/api/v1/sessions/",
+            "/api/v1/sessions",
             json={"scenario_id": scenario_id},
             headers={"Authorization": f"Bearer {utoken}"},
         )
@@ -276,12 +276,12 @@ class TestSessionsApiCoverage:
         _, utoken = await _user(role="user", username="sl_user")
 
         await client.post(
-            "/api/v1/sessions/",
+            "/api/v1/sessions",
             json={"scenario_id": scenario_id},
             headers={"Authorization": f"Bearer {utoken}"},
         )
         resp = await client.get(
-            "/api/v1/sessions/?page=1&page_size=10",
+            "/api/v1/sessions?page=1&page_size=10",
             headers={"Authorization": f"Bearer {utoken}"},
         )
         assert resp.status_code == 200
@@ -305,7 +305,7 @@ class TestSessionsApiCoverage:
 
         # Create and transition to in_progress via message
         create_resp = await client.post(
-            "/api/v1/sessions/",
+            "/api/v1/sessions",
             json={"scenario_id": scenario_id},
             headers={"Authorization": f"Bearer {utoken}"},
         )
@@ -330,7 +330,7 @@ class TestSessionsApiCoverage:
         _, utoken = await _user(role="user", username="gs_user")
 
         create_resp = await client.post(
-            "/api/v1/sessions/",
+            "/api/v1/sessions",
             json={"scenario_id": scenario_id},
             headers={"Authorization": f"Bearer {utoken}"},
         )
@@ -350,7 +350,7 @@ class TestSessionsApiCoverage:
         _, utoken = await _user(role="user", username="sse_user")
 
         create_resp = await client.post(
-            "/api/v1/sessions/",
+            "/api/v1/sessions",
             json={"scenario_id": scenario_id},
             headers={"Authorization": f"Bearer {utoken}"},
         )
@@ -375,7 +375,7 @@ class TestSessionsApiCoverage:
         _, utoken = await _user(role="user", username="closed_user")
 
         create_resp = await client.post(
-            "/api/v1/sessions/",
+            "/api/v1/sessions",
             json={"scenario_id": scenario_id},
             headers={"Authorization": f"Bearer {utoken}"},
         )
@@ -409,7 +409,7 @@ class TestSessionsApiCoverage:
         _, utoken = await _user(role="user", username="end_user")
 
         create_resp = await client.post(
-            "/api/v1/sessions/",
+            "/api/v1/sessions",
             json={"scenario_id": scenario_id},
             headers={"Authorization": f"Bearer {utoken}"},
         )
@@ -436,7 +436,7 @@ class TestSessionsApiCoverage:
         _, utoken = await _user(role="user", username="msg_user")
 
         create_resp = await client.post(
-            "/api/v1/sessions/",
+            "/api/v1/sessions",
             json={"scenario_id": scenario_id},
             headers={"Authorization": f"Bearer {utoken}"},
         )
@@ -549,7 +549,7 @@ class TestHcpProfilesCoverage:
         """Cover line 69: create_hcp_profile + return."""
         admin_id, admin_token = await _user(role="admin", username="hcp_admin")
         resp = await client.post(
-            "/api/v1/hcp-profiles/",
+            "/api/v1/hcp-profiles",
             json={"name": "Dr. Cover", "specialty": "Cardiology", "created_by": admin_id},
             headers={"Authorization": f"Bearer {admin_token}"},
         )
@@ -564,12 +564,12 @@ class TestHcpProfilesCoverage:
         """Cover list endpoint with search param."""
         admin_id, admin_token = await _user(role="admin", username="hcp_list_admin")
         await client.post(
-            "/api/v1/hcp-profiles/",
+            "/api/v1/hcp-profiles",
             json={"name": "Dr. Searchable", "specialty": "Oncology", "created_by": admin_id},
             headers={"Authorization": f"Bearer {admin_token}"},
         )
         resp = await client.get(
-            "/api/v1/hcp-profiles/?search=Searchable",
+            "/api/v1/hcp-profiles?search=Searchable",
             headers={"Authorization": f"Bearer {admin_token}"},
         )
         assert resp.status_code == 200
@@ -579,7 +579,7 @@ class TestHcpProfilesCoverage:
         """Cover line 101."""
         admin_id, admin_token = await _user(role="admin", username="hcp_get_admin")
         create_resp = await client.post(
-            "/api/v1/hcp-profiles/",
+            "/api/v1/hcp-profiles",
             json={"name": "Dr. GetTest", "specialty": "Derm", "created_by": admin_id},
             headers={"Authorization": f"Bearer {admin_token}"},
         )
@@ -595,7 +595,7 @@ class TestHcpProfilesCoverage:
         """Cover line 113."""
         admin_id, admin_token = await _user(role="admin", username="hcp_upd_admin")
         create_resp = await client.post(
-            "/api/v1/hcp-profiles/",
+            "/api/v1/hcp-profiles",
             json={"name": "Dr. Before", "specialty": "Neuro", "created_by": admin_id},
             headers={"Authorization": f"Bearer {admin_token}"},
         )
@@ -612,7 +612,7 @@ class TestHcpProfilesCoverage:
         """Cover line 124."""
         admin_id, admin_token = await _user(role="admin", username="hcp_del_admin")
         create_resp = await client.post(
-            "/api/v1/hcp-profiles/",
+            "/api/v1/hcp-profiles",
             json={"name": "Dr. Delete", "specialty": "Onc", "created_by": admin_id},
             headers={"Authorization": f"Bearer {admin_token}"},
         )
@@ -632,7 +632,7 @@ class TestScenariosCoverage:
 
     async def _create_hcp(self, client, admin_token, admin_id) -> str:
         resp = await client.post(
-            "/api/v1/hcp-profiles/",
+            "/api/v1/hcp-profiles",
             json={"name": "Dr. ScnCov", "specialty": "Onc", "created_by": admin_id},
             headers={"Authorization": f"Bearer {admin_token}"},
         )
@@ -643,7 +643,7 @@ class TestScenariosCoverage:
         admin_id, admin_token = await _user(role="admin", username="scn_cr_admin")
         hcp_id = await self._create_hcp(client, admin_token, admin_id)
         resp = await client.post(
-            "/api/v1/scenarios/",
+            "/api/v1/scenarios",
             json={
                 "name": "Cov Scenario",
                 "product": "Drug",
@@ -662,7 +662,7 @@ class TestScenariosCoverage:
         admin_id, admin_token = await _user(role="admin", username="scn_ls_admin")
         hcp_id = await self._create_hcp(client, admin_token, admin_id)
         await client.post(
-            "/api/v1/scenarios/",
+            "/api/v1/scenarios",
             json={
                 "name": "Active Scn",
                 "product": "Drug",
@@ -674,7 +674,7 @@ class TestScenariosCoverage:
             headers={"Authorization": f"Bearer {admin_token}"},
         )
         resp = await client.get(
-            "/api/v1/scenarios/?status=active",
+            "/api/v1/scenarios?status=active",
             headers={"Authorization": f"Bearer {admin_token}"},
         )
         assert resp.status_code == 200
@@ -685,7 +685,7 @@ class TestScenariosCoverage:
         admin_id, admin_token = await _user(role="admin", username="scn_act_admin")
         hcp_id = await self._create_hcp(client, admin_token, admin_id)
         await client.post(
-            "/api/v1/scenarios/",
+            "/api/v1/scenarios",
             json={
                 "name": "User Active Scn",
                 "product": "Drug",
@@ -709,7 +709,7 @@ class TestScenariosCoverage:
         admin_id, admin_token = await _user(role="admin", username="scn_get_admin")
         hcp_id = await self._create_hcp(client, admin_token, admin_id)
         create_resp = await client.post(
-            "/api/v1/scenarios/",
+            "/api/v1/scenarios",
             json={
                 "name": "Get Scn",
                 "product": "Drug",
@@ -732,7 +732,7 @@ class TestScenariosCoverage:
         admin_id, admin_token = await _user(role="admin", username="scn_upd_admin")
         hcp_id = await self._create_hcp(client, admin_token, admin_id)
         create_resp = await client.post(
-            "/api/v1/scenarios/",
+            "/api/v1/scenarios",
             json={
                 "name": "Before",
                 "product": "Drug",
@@ -756,7 +756,7 @@ class TestScenariosCoverage:
         admin_id, admin_token = await _user(role="admin", username="scn_del_admin")
         hcp_id = await self._create_hcp(client, admin_token, admin_id)
         create_resp = await client.post(
-            "/api/v1/scenarios/",
+            "/api/v1/scenarios",
             json={
                 "name": "Delete Scn",
                 "product": "Drug",
@@ -778,7 +778,7 @@ class TestScenariosCoverage:
         admin_id, admin_token = await _user(role="admin", username="scn_cln_admin")
         hcp_id = await self._create_hcp(client, admin_token, admin_id)
         create_resp = await client.post(
-            "/api/v1/scenarios/",
+            "/api/v1/scenarios",
             json={
                 "name": "Clone Src",
                 "product": "Drug",

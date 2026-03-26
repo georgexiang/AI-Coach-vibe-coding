@@ -58,7 +58,7 @@ class HcpProfileOut(BaseModel):
         return str(v)
 
 
-@router.post("/", response_model=HcpProfileOut, status_code=201)
+@router.post("", response_model=HcpProfileOut, status_code=201)
 async def create_profile(
     data: HcpProfileCreate,
     db: AsyncSession = Depends(get_db),
@@ -69,7 +69,7 @@ async def create_profile(
     return profile
 
 
-@router.get("/", response_model=PaginatedResponse[HcpProfileOut])
+@router.get("", response_model=PaginatedResponse[HcpProfileOut])
 async def list_profiles(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),

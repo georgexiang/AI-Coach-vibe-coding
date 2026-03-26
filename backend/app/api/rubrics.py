@@ -12,7 +12,7 @@ from app.services import rubric_service
 router = APIRouter(prefix="/rubrics", tags=["rubrics"])
 
 
-@router.post("/", response_model=RubricResponse, status_code=201)
+@router.post("", response_model=RubricResponse, status_code=201)
 async def create_rubric(
     request: RubricCreate,
     db: AsyncSession = Depends(get_db),
@@ -22,7 +22,7 @@ async def create_rubric(
     return await rubric_service.create_rubric(db, request, user.id)
 
 
-@router.get("/", response_model=list[RubricResponse])
+@router.get("", response_model=list[RubricResponse])
 async def list_rubrics(
     scenario_type: str | None = Query(None),
     db: AsyncSession = Depends(get_db),

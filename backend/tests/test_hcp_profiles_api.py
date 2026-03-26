@@ -45,7 +45,7 @@ class TestCreateProfileEndpoint:
     async def test_admin_can_create_profile(self, client):
         user_id, token = await _create_admin_and_token()
         response = await client.post(
-            "/api/v1/hcp-profiles/",
+            "/api/v1/hcp-profiles",
             json={
                 "name": "Dr. API",
                 "specialty": "Oncology",
@@ -67,7 +67,7 @@ class TestCreateProfileEndpoint:
     async def test_non_admin_gets_403(self, client):
         user_id, token = await _create_user_and_token()
         response = await client.post(
-            "/api/v1/hcp-profiles/",
+            "/api/v1/hcp-profiles",
             json={
                 "name": "Dr. Nope",
                 "specialty": "Onc",
@@ -79,7 +79,7 @@ class TestCreateProfileEndpoint:
 
     async def test_no_auth_returns_401(self, client):
         response = await client.post(
-            "/api/v1/hcp-profiles/",
+            "/api/v1/hcp-profiles",
             json={"name": "Dr. X", "specialty": "Onc", "created_by": "u1"},
         )
         assert response.status_code == 401
@@ -93,13 +93,13 @@ class TestListProfilesEndpoint:
         # Create two profiles
         for name in ["Dr. A", "Dr. B"]:
             await client.post(
-                "/api/v1/hcp-profiles/",
+                "/api/v1/hcp-profiles",
                 json={"name": name, "specialty": "Onc", "created_by": user_id},
                 headers={"Authorization": f"Bearer {token}"},
             )
 
         response = await client.get(
-            "/api/v1/hcp-profiles/",
+            "/api/v1/hcp-profiles",
             headers={"Authorization": f"Bearer {token}"},
         )
         assert response.status_code == 200
@@ -112,18 +112,18 @@ class TestListProfilesEndpoint:
     async def test_search_filter(self, client):
         user_id, token = await _create_admin_and_token()
         await client.post(
-            "/api/v1/hcp-profiles/",
+            "/api/v1/hcp-profiles",
             json={"name": "Dr. UniqueSearch", "specialty": "Onc", "created_by": user_id},
             headers={"Authorization": f"Bearer {token}"},
         )
         await client.post(
-            "/api/v1/hcp-profiles/",
+            "/api/v1/hcp-profiles",
             json={"name": "Dr. Other", "specialty": "Card", "created_by": user_id},
             headers={"Authorization": f"Bearer {token}"},
         )
 
         response = await client.get(
-            "/api/v1/hcp-profiles/?search=UniqueSearch",
+            "/api/v1/hcp-profiles?search=UniqueSearch",
             headers={"Authorization": f"Bearer {token}"},
         )
         assert response.status_code == 200
@@ -137,7 +137,7 @@ class TestGetProfileEndpoint:
     async def test_get_existing_profile(self, client):
         user_id, token = await _create_admin_and_token()
         create_resp = await client.post(
-            "/api/v1/hcp-profiles/",
+            "/api/v1/hcp-profiles",
             json={"name": "Dr. Single", "specialty": "Neuro", "created_by": user_id},
             headers={"Authorization": f"Bearer {token}"},
         )
@@ -165,7 +165,7 @@ class TestUpdateProfileEndpoint:
     async def test_updates_profile_fields(self, client):
         user_id, token = await _create_admin_and_token()
         create_resp = await client.post(
-            "/api/v1/hcp-profiles/",
+            "/api/v1/hcp-profiles",
             json={"name": "Dr. Old", "specialty": "Onc", "created_by": user_id},
             headers={"Authorization": f"Bearer {token}"},
         )
@@ -188,7 +188,7 @@ class TestDeleteProfileEndpoint:
     async def test_deletes_profile(self, client):
         user_id, token = await _create_admin_and_token()
         create_resp = await client.post(
-            "/api/v1/hcp-profiles/",
+            "/api/v1/hcp-profiles",
             json={"name": "Dr. Delete", "specialty": "Onc", "created_by": user_id},
             headers={"Authorization": f"Bearer {token}"},
         )

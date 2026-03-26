@@ -63,7 +63,7 @@ class TestCreateRubricEndpoint:
         _, token = await _create_admin_and_token()
         payload = _make_rubric_payload()
         response = await client.post(
-            "/api/v1/rubrics/",
+            "/api/v1/rubrics",
             json=payload,
             headers={"Authorization": f"Bearer {token}"},
         )
@@ -77,7 +77,7 @@ class TestCreateRubricEndpoint:
     async def test_non_admin_gets_403(self, client):
         _, token = await _create_user_and_token()
         response = await client.post(
-            "/api/v1/rubrics/",
+            "/api/v1/rubrics",
             json=_make_rubric_payload(),
             headers={"Authorization": f"Bearer {token}"},
         )
@@ -85,7 +85,7 @@ class TestCreateRubricEndpoint:
 
     async def test_no_auth_returns_401(self, client):
         response = await client.post(
-            "/api/v1/rubrics/",
+            "/api/v1/rubrics",
             json=_make_rubric_payload(),
         )
         assert response.status_code == 401
@@ -99,13 +99,13 @@ class TestListRubricsEndpoint:
         # Create two rubrics
         for name in ["R1", "R2"]:
             await client.post(
-                "/api/v1/rubrics/",
+                "/api/v1/rubrics",
                 json=_make_rubric_payload(name=name),
                 headers={"Authorization": f"Bearer {token}"},
             )
 
         response = await client.get(
-            "/api/v1/rubrics/",
+            "/api/v1/rubrics",
             headers={"Authorization": f"Bearer {token}"},
         )
         assert response.status_code == 200
@@ -115,18 +115,18 @@ class TestListRubricsEndpoint:
     async def test_filter_by_scenario_type(self, client):
         _, token = await _create_admin_and_token()
         await client.post(
-            "/api/v1/rubrics/",
+            "/api/v1/rubrics",
             json=_make_rubric_payload(name="F2F", scenario_type="f2f"),
             headers={"Authorization": f"Bearer {token}"},
         )
         await client.post(
-            "/api/v1/rubrics/",
+            "/api/v1/rubrics",
             json=_make_rubric_payload(name="Conf", scenario_type="conference"),
             headers={"Authorization": f"Bearer {token}"},
         )
 
         response = await client.get(
-            "/api/v1/rubrics/?scenario_type=f2f",
+            "/api/v1/rubrics?scenario_type=f2f",
             headers={"Authorization": f"Bearer {token}"},
         )
         assert response.status_code == 200
@@ -137,7 +137,7 @@ class TestListRubricsEndpoint:
     async def test_non_admin_gets_403(self, client):
         _, token = await _create_user_and_token()
         response = await client.get(
-            "/api/v1/rubrics/",
+            "/api/v1/rubrics",
             headers={"Authorization": f"Bearer {token}"},
         )
         assert response.status_code == 403
@@ -149,7 +149,7 @@ class TestGetRubricEndpoint:
     async def test_get_existing_rubric(self, client):
         _, token = await _create_admin_and_token()
         create_resp = await client.post(
-            "/api/v1/rubrics/",
+            "/api/v1/rubrics",
             json=_make_rubric_payload(),
             headers={"Authorization": f"Bearer {token}"},
         )
@@ -177,7 +177,7 @@ class TestUpdateRubricEndpoint:
     async def test_updates_rubric_fields(self, client):
         _, token = await _create_admin_and_token()
         create_resp = await client.post(
-            "/api/v1/rubrics/",
+            "/api/v1/rubrics",
             json=_make_rubric_payload(),
             headers={"Authorization": f"Bearer {token}"},
         )
@@ -198,7 +198,7 @@ class TestDeleteRubricEndpoint:
     async def test_deletes_rubric(self, client):
         _, token = await _create_admin_and_token()
         create_resp = await client.post(
-            "/api/v1/rubrics/",
+            "/api/v1/rubrics",
             json=_make_rubric_payload(),
             headers={"Authorization": f"Bearer {token}"},
         )

@@ -116,7 +116,7 @@ async def _upload_material(client, token, name="Test Material", product="Brukins
         pages = ["zanubrutinib clinical trial data for Brukinsa product"]
     pdf_bytes = _make_pdf_bytes(pages)
     response = await client.post(
-        "/api/v1/materials/",
+        "/api/v1/materials",
         files={"file": ("test.pdf", io.BytesIO(pdf_bytes), "application/pdf")},
         data={"name": name, "product": product},
         headers={"Authorization": f"Bearer {token}"},
@@ -143,7 +143,7 @@ class TestUploadMaterial:
         """Upload with disallowed extension returns 400."""
         _, token = await _create_admin_and_token()
         response = await client.post(
-            "/api/v1/materials/",
+            "/api/v1/materials",
             files={"file": ("test.txt", io.BytesIO(b"plain text"), "text/plain")},
             data={"name": "Bad File", "product": "Drug"},
             headers={"Authorization": f"Bearer {token}"},
@@ -160,7 +160,7 @@ class TestUploadMaterial:
         _, token = await _create_admin_and_token()
         pdf_bytes = _make_pdf_bytes(["Some content that exceeds our tiny limit"])
         response = await client.post(
-            "/api/v1/materials/",
+            "/api/v1/materials",
             files={"file": ("big.pdf", io.BytesIO(pdf_bytes), "application/pdf")},
             data={"name": "Big File", "product": "Drug"},
             headers={"Authorization": f"Bearer {token}"},
@@ -177,7 +177,7 @@ class TestUploadMaterial:
         # Upload second version
         pdf_bytes = _make_pdf_bytes(["Updated content for version 2"])
         resp2 = await client.post(
-            "/api/v1/materials/",
+            "/api/v1/materials",
             files={"file": ("updated.pdf", io.BytesIO(pdf_bytes), "application/pdf")},
             data={"name": "Test Material", "product": "Brukinsa", "material_id": material_id},
             headers={"Authorization": f"Bearer {token}"},
@@ -198,7 +198,7 @@ class TestListMaterials:
         await _upload_material(client, token, name="Material B")
 
         response = await client.get(
-            "/api/v1/materials/",
+            "/api/v1/materials",
             headers={"Authorization": f"Bearer {token}"},
         )
         assert response.status_code == 200
@@ -215,7 +215,7 @@ class TestListMaterials:
         await _upload_material(client, token, name="Drug B Material", product="DrugB")
 
         response = await client.get(
-            "/api/v1/materials/?product=DrugA",
+            "/api/v1/materials?product=DrugA",
             headers={"Authorization": f"Bearer {token}"},
         )
         data = response.json()
@@ -229,7 +229,7 @@ class TestListMaterials:
         await _upload_material(client, token, name="Other Document")
 
         response = await client.get(
-            "/api/v1/materials/?search=zanubrutinib",
+            "/api/v1/materials?search=zanubrutinib",
             headers={"Authorization": f"Bearer {token}"},
         )
         data = response.json()
@@ -250,7 +250,7 @@ class TestListMaterials:
 
         # List without include_archived
         response = await client.get(
-            "/api/v1/materials/",
+            "/api/v1/materials",
             headers={"Authorization": f"Bearer {token}"},
         )
         ids = [item["id"] for item in response.json()["items"]]
@@ -258,7 +258,7 @@ class TestListMaterials:
 
         # List with include_archived=true
         response = await client.get(
-            "/api/v1/materials/?include_archived=true",
+            "/api/v1/materials?include_archived=true",
             headers={"Authorization": f"Bearer {token}"},
         )
         ids = [item["id"] for item in response.json()["items"]]
@@ -369,7 +369,7 @@ class TestVersions:
         # Upload second version
         pdf_bytes = _make_pdf_bytes(["Version 2 content"])
         await client.post(
-            "/api/v1/materials/",
+            "/api/v1/materials",
             files={"file": ("v2.pdf", io.BytesIO(pdf_bytes), "application/pdf")},
             data={"name": "Test", "product": "Brukinsa", "material_id": material_id},
             headers={"Authorization": f"Bearer {token}"},
@@ -449,7 +449,7 @@ class TestAuthGuard:
         _, token = await _create_user_and_token()
         pdf_bytes = _make_pdf_bytes(["test"])
         response = await client.post(
-            "/api/v1/materials/",
+            "/api/v1/materials",
             files={"file": ("test.pdf", io.BytesIO(pdf_bytes), "application/pdf")},
             data={"name": "Nope", "product": "Drug"},
             headers={"Authorization": f"Bearer {token}"},
@@ -458,7 +458,7 @@ class TestAuthGuard:
 
     async def test_no_auth_returns_401(self, client):
         """Request without auth token returns 401."""
-        response = await client.get("/api/v1/materials/")
+        response = await client.get("/api/v1/materials")
         assert response.status_code == 401
 
 

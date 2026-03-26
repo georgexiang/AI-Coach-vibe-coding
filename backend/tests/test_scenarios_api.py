@@ -42,7 +42,7 @@ async def _create_user_and_token() -> tuple[str, str]:
 async def _create_hcp_profile(client, token, user_id) -> str:
     """Create an HCP profile and return its ID."""
     resp = await client.post(
-        "/api/v1/hcp-profiles/",
+        "/api/v1/hcp-profiles",
         json={"name": "Dr. Scn", "specialty": "Oncology", "created_by": user_id},
         headers={"Authorization": f"Bearer {token}"},
     )
@@ -57,7 +57,7 @@ class TestCreateScenarioEndpoint:
         hcp_id = await _create_hcp_profile(client, token, user_id)
 
         response = await client.post(
-            "/api/v1/scenarios/",
+            "/api/v1/scenarios",
             json={
                 "name": "Test Scenario",
                 "product": "Brukinsa",
@@ -80,7 +80,7 @@ class TestCreateScenarioEndpoint:
         _, user_token = await _create_user_and_token()
 
         response = await client.post(
-            "/api/v1/scenarios/",
+            "/api/v1/scenarios",
             json={
                 "name": "Nope",
                 "product": "Drug",
@@ -96,7 +96,7 @@ class TestCreateScenarioEndpoint:
         hcp_id = await _create_hcp_profile(client, token, user_id)
 
         response = await client.post(
-            "/api/v1/scenarios/",
+            "/api/v1/scenarios",
             json={
                 "name": "Bad Weights",
                 "product": "Drug",
@@ -115,7 +115,7 @@ class TestCreateScenarioEndpoint:
     async def test_nonexistent_hcp_returns_404(self, client):
         user_id, token = await _create_admin_and_token()
         response = await client.post(
-            "/api/v1/scenarios/",
+            "/api/v1/scenarios",
             json={
                 "name": "Bad HCP",
                 "product": "Drug",
@@ -136,7 +136,7 @@ class TestListScenariosEndpoint:
 
         for name in ["S1", "S2"]:
             await client.post(
-                "/api/v1/scenarios/",
+                "/api/v1/scenarios",
                 json={
                     "name": name,
                     "product": "Drug",
@@ -147,7 +147,7 @@ class TestListScenariosEndpoint:
             )
 
         response = await client.get(
-            "/api/v1/scenarios/",
+            "/api/v1/scenarios",
             headers={"Authorization": f"Bearer {token}"},
         )
         assert response.status_code == 200
@@ -160,7 +160,7 @@ class TestListScenariosEndpoint:
         hcp_id = await _create_hcp_profile(client, token, user_id)
 
         await client.post(
-            "/api/v1/scenarios/",
+            "/api/v1/scenarios",
             json={
                 "name": "Draft",
                 "product": "D",
@@ -171,7 +171,7 @@ class TestListScenariosEndpoint:
             headers={"Authorization": f"Bearer {token}"},
         )
         await client.post(
-            "/api/v1/scenarios/",
+            "/api/v1/scenarios",
             json={
                 "name": "Active",
                 "product": "D",
@@ -183,7 +183,7 @@ class TestListScenariosEndpoint:
         )
 
         response = await client.get(
-            "/api/v1/scenarios/?status=active",
+            "/api/v1/scenarios?status=active",
             headers={"Authorization": f"Bearer {token}"},
         )
         data = response.json()
@@ -200,7 +200,7 @@ class TestListActiveScenariosEndpoint:
 
         # Create active scenario as admin
         await client.post(
-            "/api/v1/scenarios/",
+            "/api/v1/scenarios",
             json={
                 "name": "Active For User",
                 "product": "Drug",
@@ -231,7 +231,7 @@ class TestGetScenarioEndpoint:
         hcp_id = await _create_hcp_profile(client, token, user_id)
 
         create_resp = await client.post(
-            "/api/v1/scenarios/",
+            "/api/v1/scenarios",
             json={
                 "name": "Single",
                 "product": "Drug",
@@ -258,7 +258,7 @@ class TestUpdateScenarioEndpoint:
         hcp_id = await _create_hcp_profile(client, token, user_id)
 
         create_resp = await client.post(
-            "/api/v1/scenarios/",
+            "/api/v1/scenarios",
             json={
                 "name": "Old",
                 "product": "Drug",
@@ -287,7 +287,7 @@ class TestDeleteScenarioEndpoint:
         hcp_id = await _create_hcp_profile(client, token, user_id)
 
         create_resp = await client.post(
-            "/api/v1/scenarios/",
+            "/api/v1/scenarios",
             json={
                 "name": "Del",
                 "product": "Drug",
@@ -313,7 +313,7 @@ class TestCloneScenarioEndpoint:
         hcp_id = await _create_hcp_profile(client, token, user_id)
 
         create_resp = await client.post(
-            "/api/v1/scenarios/",
+            "/api/v1/scenarios",
             json={
                 "name": "Original",
                 "product": "Drug",

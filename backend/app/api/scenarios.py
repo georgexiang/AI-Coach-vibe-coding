@@ -58,7 +58,7 @@ class ScenarioOut(BaseModel):
         return str(v)
 
 
-@router.post("/", response_model=ScenarioOut, status_code=201)
+@router.post("", response_model=ScenarioOut, status_code=201)
 async def create_scenario(
     data: ScenarioCreate,
     db: AsyncSession = Depends(get_db),
@@ -69,7 +69,7 @@ async def create_scenario(
     return scenario
 
 
-@router.get("/", response_model=PaginatedResponse[ScenarioOut])
+@router.get("", response_model=PaginatedResponse[ScenarioOut])
 async def list_scenarios(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),

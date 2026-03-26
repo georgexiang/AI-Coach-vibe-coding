@@ -42,14 +42,14 @@ async def _create_user_and_token(username="user_sess") -> tuple[str, str]:
 async def _create_active_scenario(client, admin_id, admin_token) -> str:
     """Create an HCP profile and active scenario. Returns scenario_id."""
     hcp_resp = await client.post(
-        "/api/v1/hcp-profiles/",
+        "/api/v1/hcp-profiles",
         json={"name": "Dr. Sess", "specialty": "Onc", "created_by": admin_id},
         headers={"Authorization": f"Bearer {admin_token}"},
     )
     hcp_id = hcp_resp.json()["id"]
 
     scn_resp = await client.post(
-        "/api/v1/scenarios/",
+        "/api/v1/scenarios",
         json={
             "name": "Active Scenario",
             "product": "Brukinsa",
@@ -72,7 +72,7 @@ class TestCreateSessionEndpoint:
 
         user_id, user_token = await _create_user_and_token()
         response = await client.post(
-            "/api/v1/sessions/",
+            "/api/v1/sessions",
             json={"scenario_id": scenario_id},
             headers={"Authorization": f"Bearer {user_token}"},
         )
@@ -84,7 +84,7 @@ class TestCreateSessionEndpoint:
 
     async def test_no_auth_returns_401(self, client):
         response = await client.post(
-            "/api/v1/sessions/",
+            "/api/v1/sessions",
             json={"scenario_id": "any"},
         )
         assert response.status_code == 401
@@ -92,7 +92,7 @@ class TestCreateSessionEndpoint:
     async def test_nonexistent_scenario_returns_404(self, client):
         _, user_token = await _create_user_and_token("user_sess_404")
         response = await client.post(
-            "/api/v1/sessions/",
+            "/api/v1/sessions",
             json={"scenario_id": "nonexistent"},
             headers={"Authorization": f"Bearer {user_token}"},
         )
@@ -109,18 +109,18 @@ class TestListSessionsEndpoint:
 
         # Create two sessions
         await client.post(
-            "/api/v1/sessions/",
+            "/api/v1/sessions",
             json={"scenario_id": scenario_id},
             headers={"Authorization": f"Bearer {user_token}"},
         )
         await client.post(
-            "/api/v1/sessions/",
+            "/api/v1/sessions",
             json={"scenario_id": scenario_id},
             headers={"Authorization": f"Bearer {user_token}"},
         )
 
         response = await client.get(
-            "/api/v1/sessions/",
+            "/api/v1/sessions",
             headers={"Authorization": f"Bearer {user_token}"},
         )
         assert response.status_code == 200
@@ -138,7 +138,7 @@ class TestGetSessionEndpoint:
         _, user_token = await _create_user_and_token()
 
         create_resp = await client.post(
-            "/api/v1/sessions/",
+            "/api/v1/sessions",
             json={"scenario_id": scenario_id},
             headers={"Authorization": f"Bearer {user_token}"},
         )
@@ -157,7 +157,7 @@ class TestGetSessionEndpoint:
         _, user_token = await _create_user_and_token()
 
         create_resp = await client.post(
-            "/api/v1/sessions/",
+            "/api/v1/sessions",
             json={"scenario_id": scenario_id},
             headers={"Authorization": f"Bearer {user_token}"},
         )
@@ -182,7 +182,7 @@ class TestEndSessionEndpoint:
 
         # Create session
         create_resp = await client.post(
-            "/api/v1/sessions/",
+            "/api/v1/sessions",
             json={"scenario_id": scenario_id},
             headers={"Authorization": f"Bearer {user_token}"},
         )
@@ -210,7 +210,7 @@ class TestEndSessionEndpoint:
         _, user_token = await _create_user_and_token()
 
         create_resp = await client.post(
-            "/api/v1/sessions/",
+            "/api/v1/sessions",
             json={"scenario_id": scenario_id},
             headers={"Authorization": f"Bearer {user_token}"},
         )
@@ -232,7 +232,7 @@ class TestGetSessionMessagesEndpoint:
         _, user_token = await _create_user_and_token()
 
         create_resp = await client.post(
-            "/api/v1/sessions/",
+            "/api/v1/sessions",
             json={"scenario_id": scenario_id},
             headers={"Authorization": f"Bearer {user_token}"},
         )

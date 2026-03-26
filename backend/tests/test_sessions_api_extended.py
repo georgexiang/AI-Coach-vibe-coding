@@ -233,7 +233,7 @@ class TestCreateSessionExtended:
             scenario_id = scenario.id
 
         response = await client.post(
-            "/api/v1/sessions/",
+            "/api/v1/sessions",
             json={"scenario_id": scenario_id},
             headers={"Authorization": f"Bearer {token}"},
         )
@@ -256,7 +256,7 @@ class TestListSessionsExtended:
         _, _, token, _ = await _setup_session()
 
         response = await client.get(
-            "/api/v1/sessions/",
+            "/api/v1/sessions",
             headers={"Authorization": f"Bearer {token}"},
         )
         assert response.status_code == 200
@@ -284,7 +284,7 @@ class TestListSessionsExtended:
             token = create_access_token(data={"sub": new_user.id})
 
         response = await client.get(
-            "/api/v1/sessions/",
+            "/api/v1/sessions",
             headers={"Authorization": f"Bearer {token}"},
         )
         assert response.status_code == 200

@@ -31,7 +31,7 @@ settings = get_settings()
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 
 
-@router.post("/", response_model=SessionResponse, status_code=201)
+@router.post("", response_model=SessionResponse, status_code=201)
 async def create_session(
     request: SessionCreate,
     db: AsyncSession = Depends(get_db),
@@ -42,7 +42,7 @@ async def create_session(
     return session
 
 
-@router.get("/", response_model=PaginatedResponse[SessionResponse])
+@router.get("", response_model=PaginatedResponse[SessionResponse])
 async def list_sessions(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),

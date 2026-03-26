@@ -32,7 +32,7 @@ EXTENSION_MIME_MAP = {
 }
 
 
-@router.post("/", response_model=MaterialOut, status_code=201)
+@router.post("", response_model=MaterialOut, status_code=201)
 async def upload_material(
     file: UploadFile = File(...),
     product: str = Form(...),
@@ -90,7 +90,7 @@ async def search_chunks(
     return chunks
 
 
-@router.get("/", response_model=PaginatedResponse[MaterialListOut])
+@router.get("", response_model=PaginatedResponse[MaterialListOut])
 async def list_materials(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
