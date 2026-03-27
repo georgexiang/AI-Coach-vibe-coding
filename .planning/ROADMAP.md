@@ -194,10 +194,10 @@ Plans (completed from original Phase 08, executed in 08-* directory):
 - [x] 08-03-PLAN.md -- Voice hooks + leaf components: useVoiceLive, useAvatarStream, useAudioHandler, 7 voice UI components, component tests
 - [x] 08-04-PLAN.md -- Container components + wiring: VoiceSession container, route registration, admin config Voice Live card, transcript flush, tests
 
-Plans (new -- remaining work):
-- [ ] 07-05-PLAN.md -- Backend adapters (Content Understanding, Realtime, Voice Live Agent/Model), region capabilities module, connection tester updates, SERVICE_DISPLAY_NAMES fix
-- [ ] 07-06-PLAN.md -- Backend tests: adapter unit tests, region capabilities tests, connection tester tests, API integration tests
-- [ ] 07-07-PLAN.md -- Frontend: region availability badges, Voice Live Agent/Model toggle, i18n updates, updated config UI
+Plans (new -- remaining work, replanned with cross-AI review feedback):
+- [ ] 07-05-PLAN.md -- New adapters (Content Understanding with bounded polling, Realtime, Voice Live with JSON mode encoding) and region capabilities module
+- [ ] 07-06-PLAN.md -- Backend wiring + tests: connection tester real API tests, azure_config 7-service support, region-capabilities endpoint, SSRF validation, SUPPORTED_REGIONS, comprehensive test suite
+- [ ] 07-07-PLAN.md -- Frontend: accessible region badges (icon+text), Voice Live Agent/Model toggle with JSON encoding and validation, i18n updates, region-capability error handling
 
 **UI hint**: yes
 
