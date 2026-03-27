@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Executing Phase 07
-stopped_at: Completed 07-01 and 07-02 (Wave 1)
-last_updated: "2026-03-27T03:18:00Z"
+stopped_at: Completed Wave 2 (07-03)
+last_updated: "2026-03-27T03:31:00Z"
 last_activity: 2026-03-27
 progress:
   total_phases: 8
   completed_phases: 7
   total_plans: 42
-  completed_plans: 40
+  completed_plans: 41
 ---
 
 # Project State
@@ -83,6 +83,7 @@ Plan: 2 of 4 complete (Wave 1 done)
 | Phase 04 P04 | 2min | 2 tasks | 7 files |
 | Phase 04 P06 | 9min | 2 tasks | 8 files |
 | Phase 07 P02 | 3min | 2 tasks | 3 files |
+| Phase 07 P03 | 3min | 2 tasks | 12 files |
 
 ## Accumulated Context
 
@@ -166,6 +167,9 @@ Recent decisions affecting current work:
 - [Phase 07]: AzureOpenAIAdapter uses constructor-level conditional import (try/except ImportError) matching stt/azure.py convention
 - [Phase 07]: conversation_history added as optional field with None default for backward compatibility
 - [Phase 07]: Error handling yields ERROR + DONE events instead of raising, matching adapter contract
+- [Phase 07]: register_adapter_from_config as reusable async fn in azure_config.py, imported by lifespan to avoid circular imports
+- [Phase 07]: Connection tester dispatch pattern: service_name routes to specialized test function
+- [Phase 07]: Startup DB config loading wrapped in try/except to tolerate missing table on first run
 
 ### Pending Todos
 
@@ -185,6 +189,6 @@ None yet.
 ## Session Continuity
 
 Last activity: 2026-03-27
-Last session: 2026-03-27T03:18:00Z
-Stopped at: Completed Wave 1 (07-01, 07-02)
+Last session: 2026-03-27T03:31:00Z
+Stopped at: Completed Wave 2 (07-03)
 Resume file: None

@@ -63,6 +63,33 @@ async def lifespan(app: FastAPI):
             "avatar", AzureAvatarAdapter(settings.azure_avatar_endpoint, settings.azure_avatar_key)
         )
 
+    # Load active configs from DB and register real adapters (overrides mocks)
+    from app.api.azure_config import register_adapter_from_config
+    from app.database import AsyncSessionLocal
+    from app.models.service_config import ServiceConfig
+    from app.utils.encryption import decrypt_value
+
+    try:
+        async with AsyncSessionLocal() as session:
+            from sqlalchemy import select
+
+            result = await session.execute(
+                select(ServiceConfig).where(ServiceConfig.is_active == True)  # noqa: E712
+            )
+            configs = result.scalars().all()
+            for cfg in configs:
+                api_key = decrypt_value(cfg.api_key_encrypted)
+                if api_key:
+                    await register_adapter_from_config(
+                        cfg.service_name,
+                        cfg.endpoint,
+                        api_key,
+                        cfg.model_or_deployment,
+                        cfg.region,
+                    )
+    except Exception:
+        pass  # DB may not have the table yet on first run
+
     yield
     # Shutdown: dispose engine
     await engine.dispose()

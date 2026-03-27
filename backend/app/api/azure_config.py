@@ -1,151 +1,149 @@
-"""Azure service configuration API endpoints (PLAT-03)."""
-
-from typing import Any
+"""Azure service configuration API: CRUD backed by DB with dynamic adapter registration."""
 
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
-from app.dependencies import require_role
+from app.dependencies import get_db, require_role
 from app.models.user import User
+from app.schemas.azure_config import (
+    ConnectionTestResult,
+    ServiceConfigResponse,
+    ServiceConfigUpdate,
+)
+from app.services import config_service
+from app.services.connection_tester import test_service_connection
+from app.utils.exceptions import AppException
 
 router = APIRouter(prefix="/azure-config", tags=["azure-config"])
 
 settings = get_settings()
 
-
-class ServiceStatus(BaseModel):
-    """Status of a single Azure service."""
-
-    name: str
-    display_name: str
-    status: str  # "connected" | "not_configured"
-    endpoint: str
-    masked_key: str
-
-
-class ServiceUpdateRequest(BaseModel):
-    """Request to update service configuration."""
-
-    endpoint: str = ""
-    api_key: str = ""
-    model: str = ""
-    region: str = ""
+# Valid service names and their display labels
+SERVICE_DISPLAY_NAMES = {
+    "azure_openai": "Azure OpenAI",
+    "azure_speech_stt": "Azure Speech (STT)",
+    "azure_speech_tts": "Azure Speech (TTS)",
+    "azure_avatar": "Azure AI Avatar",
+    "azure_content": "Azure Content Understanding",
+}
 
 
-class TestResult(BaseModel):
-    """Result of a service connection test."""
+async def register_adapter_from_config(
+    service_name: str,
+    endpoint: str,
+    api_key: str,
+    deployment: str,
+    region: str,
+) -> None:
+    """Dynamically register an adapter in the ServiceRegistry based on saved config."""
+    from app.services.agents.registry import registry
 
-    service: str
-    success: bool
-    message: str
+    if service_name == "azure_openai" and api_key:
+        from app.services.agents.adapters.azure_openai import AzureOpenAIAdapter
 
-
-def _mask_key(key: str) -> str:
-    """Mask API key, showing only last 4 characters."""
-    if not key or len(key) < 4:
-        return "****" if key else ""
-    return f"****{key[-4:]}"
-
-
-def _get_service_configs() -> list[dict[str, Any]]:
-    """Build list of Azure services from current settings."""
-    return [
-        {
-            "name": "azure_openai",
-            "display_name": "Azure OpenAI",
-            "endpoint": settings.azure_openai_endpoint,
-            "key": settings.azure_openai_api_key,
-            "model": settings.azure_openai_deployment,
-        },
-        {
-            "name": "azure_speech",
-            "display_name": "Azure Speech Services",
-            "endpoint": f"https://{settings.azure_speech_region}.api.cognitive.microsoft.com"
-            if settings.azure_speech_region
-            else "",
-            "key": settings.azure_speech_key,
-            "model": "",
-        },
-        {
-            "name": "azure_avatar",
-            "display_name": "Azure AI Avatar",
-            "endpoint": settings.azure_avatar_endpoint,
-            "key": settings.azure_avatar_key,
-            "model": "",
-        },
-        {
-            "name": "azure_content",
-            "display_name": "Azure Content Understanding",
-            "endpoint": settings.azure_content_endpoint,
-            "key": settings.azure_content_key,
-            "model": "",
-        },
-    ]
-
-
-@router.get("/services", response_model=list[ServiceStatus])
-async def list_services(
-    _admin: User = Depends(require_role("admin")),
-) -> list[ServiceStatus]:
-    """List all Azure services with their current configuration status."""
-    services = _get_service_configs()
-    result = []
-    for svc in services:
-        has_endpoint = bool(svc["endpoint"])
-        has_key = bool(svc["key"])
-        status = "connected" if (has_endpoint and has_key) else "not_configured"
-        result.append(
-            ServiceStatus(
-                name=svc["name"],
-                display_name=svc["display_name"],
-                status=status,
-                endpoint=svc["endpoint"],
-                masked_key=_mask_key(svc["key"]),
-            )
+        adapter = AzureOpenAIAdapter(
+            endpoint=endpoint, api_key=api_key, deployment=deployment
         )
-    return result
+        registry.register("llm", adapter)
+        settings.default_llm_provider = "azure_openai"
+
+    elif service_name == "azure_speech_stt" and api_key:
+        from app.services.agents.stt.azure import AzureSTTAdapter
+
+        registry.register("stt", AzureSTTAdapter(api_key, region))
+        settings.default_stt_provider = "azure"
+
+    elif service_name == "azure_speech_tts" and api_key:
+        from app.services.agents.tts.azure import AzureTTSAdapter
+
+        registry.register("tts", AzureTTSAdapter(api_key, region))
+        settings.default_tts_provider = "azure"
+
+    elif service_name == "azure_avatar" and api_key:
+        from app.services.agents.avatar.azure import AzureAvatarAdapter
+
+        registry.register("avatar", AzureAvatarAdapter(endpoint, api_key))
 
 
-@router.post("/services/{service_name}/test", response_model=TestResult)
+@router.get("/services", response_model=list[ServiceConfigResponse])
+async def list_services(
+    db: AsyncSession = Depends(get_db),
+    _admin: User = Depends(require_role("admin")),
+) -> list[ServiceConfigResponse]:
+    """List all Azure services with their current configuration from the database."""
+    return await config_service.get_all_configs(db)
+
+
+@router.put("/services/{service_name}", response_model=ServiceConfigResponse, status_code=200)
+async def update_service(
+    service_name: str,
+    update: ServiceConfigUpdate,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_role("admin")),
+) -> ServiceConfigResponse:
+    """Create or update an Azure service configuration."""
+    if service_name not in SERVICE_DISPLAY_NAMES:
+        raise AppException(
+            status_code=400,
+            code="INVALID_SERVICE",
+            message=f"Unknown service: {service_name}. Valid: {list(SERVICE_DISPLAY_NAMES.keys())}",
+        )
+
+    config = await config_service.upsert_config(
+        db, service_name, SERVICE_DISPLAY_NAMES[service_name], update, admin.id
+    )
+
+    # Determine the API key for adapter registration
+    api_key = update.api_key or await config_service.get_decrypted_key(db, service_name)
+
+    await register_adapter_from_config(
+        service_name, config.endpoint, api_key, config.model_or_deployment, config.region
+    )
+
+    # Return the saved config with masked key
+    all_configs = await config_service.get_all_configs(db)
+    for cfg in all_configs:
+        if cfg.service_name == service_name:
+            return cfg
+
+    # Fallback (should not happen after upsert)
+    return ServiceConfigResponse(
+        service_name=service_name,
+        display_name=SERVICE_DISPLAY_NAMES[service_name],
+        endpoint=config.endpoint,
+        masked_key="****",
+        model_or_deployment=config.model_or_deployment,
+        region=config.region,
+        is_active=config.is_active,
+        updated_at=config.updated_at,
+    )
+
+
+@router.post("/services/{service_name}/test", response_model=ConnectionTestResult)
 async def test_service(
     service_name: str,
+    db: AsyncSession = Depends(get_db),
     _admin: User = Depends(require_role("admin")),
-) -> TestResult:
-    """Test connection to a specific Azure service.
+) -> ConnectionTestResult:
+    """Test connection to a specific Azure service using saved credentials."""
+    config = await config_service.get_config(db, service_name)
 
-    For MVP: validates that endpoint is a valid URL and key is non-empty.
-    """
-    services = {svc["name"]: svc for svc in _get_service_configs()}
-
-    if service_name not in services:
-        return TestResult(
-            service=service_name,
+    if config is None:
+        return ConnectionTestResult(
+            service_name=service_name,
             success=False,
-            message=f"Unknown service: {service_name}",
+            message="Service not configured",
         )
 
-    svc = services[service_name]
-    endpoint = svc["endpoint"]
-    key = svc["key"]
+    api_key = await config_service.get_decrypted_key(db, service_name)
 
-    if not endpoint or not key:
-        return TestResult(
-            service=service_name,
-            success=False,
-            message="Service not configured: missing endpoint or API key",
-        )
+    success, message = await test_service_connection(
+        service_name, config.endpoint, api_key, config.model_or_deployment, config.region
+    )
 
-    if not endpoint.startswith("https://"):
-        return TestResult(
-            service=service_name,
-            success=False,
-            message="Invalid endpoint: must start with https://",
-        )
-
-    # MVP: format validation passes = success
-    return TestResult(
-        service=service_name,
-        success=True,
-        message="Configuration valid. Service endpoint and key are properly formatted.",
+    return ConnectionTestResult(
+        service_name=service_name,
+        success=success,
+        message=message,
     )

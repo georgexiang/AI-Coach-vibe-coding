@@ -26,4 +26,5 @@ __all__ = [
     "TrainingMaterial",
     "MaterialVersion",
     "MaterialChunk",
+    "ServiceConfig",
 ]
