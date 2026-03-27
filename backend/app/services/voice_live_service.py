@@ -4,8 +4,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.schemas.voice_live import VoiceLiveConfigStatus, VoiceLiveTokenResponse
 from app.services import config_service
+from app.services.region_capabilities import VOICE_LIVE_REGIONS
 
-SUPPORTED_REGIONS = {"eastus2", "swedencentral"}
+SUPPORTED_REGIONS = VOICE_LIVE_REGIONS
 
 
 async def get_voice_live_token(db: AsyncSession) -> VoiceLiveTokenResponse:

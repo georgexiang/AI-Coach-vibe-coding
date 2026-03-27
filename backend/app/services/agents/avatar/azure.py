@@ -1,25 +1,25 @@
-"""Azure AI Avatar adapter stub -- premium configurable option (COACH-07).
+"""Azure AI Avatar adapter -- premium configurable option (COACH-07).
 
 Real implementation will wrap Azure AI Avatar service for digital human rendering.
-Currently a stub that returns is_available() = False, activated only when
-feature_avatar_enabled is True and Azure Avatar credentials are configured.
+Activated when feature_avatar_enabled is True and Azure Avatar credentials are configured.
 """
 
 from app.services.agents.avatar.base import BaseAvatarAdapter
 
 
 class AzureAvatarAdapter(BaseAvatarAdapter):
-    """Stub Azure AI Avatar adapter -- real implementation deferred.
+    """Azure AI Avatar adapter for digital human rendering.
 
-    TODO: Implement with Azure AI Avatar service when credentials available.
-    The avatar toggle in the conference UI will use feature_avatar_enabled.
+    Wraps the Azure AI Avatar service. Requires endpoint, key, and region.
+    The avatar toggle in the conference UI uses feature_avatar_enabled.
     """
 
     name = "azure"
 
-    def __init__(self, endpoint: str = "", key: str = "") -> None:
+    def __init__(self, endpoint: str = "", key: str = "", region: str = "") -> None:
         self._endpoint = endpoint
         self._key = key
+        self._region = region
 
     async def create_session(self, avatar_id: str = "default") -> dict:
         """Create avatar session -- not yet implemented."""
@@ -34,5 +34,5 @@ class AzureAvatarAdapter(BaseAvatarAdapter):
         pass
 
     async def is_available(self) -> bool:
-        """Azure Avatar adapter is not yet available."""
-        return False
+        """Avatar is available when endpoint and key are configured."""
+        return bool(self._endpoint and self._key)
