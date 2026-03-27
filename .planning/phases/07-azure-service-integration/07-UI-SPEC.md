@@ -43,7 +43,7 @@ Declared values (inherited from Phase 1, multiples of 4):
 | 2xl | 48px | Major section breaks (page header to card list) |
 | 3xl | 64px | Not used in Phase 7 (no new pages) |
 
-Exceptions:
+Component Dimensions (not spacing tokens):
 - Region availability hint bar height: 40px (5 * 8px) -- inline informational bar below region input field
 - Service config card collapsed height: 72px (9 * 8px) -- icon (48px) + vertical padding, matching existing pattern
 - Agent/Model mode radio group width: fills parent grid cell (col-span-2 within the existing 2-column grid)
@@ -63,14 +63,15 @@ Exceptions:
 
 Font stack: `'Inter', 'Noto Sans SC', sans-serif`
 
-**Phase 7 additions -- no new type roles, but specific usage rules:**
-- Region availability tag text: `text-xs` (12px) at weight 500, uppercase, used inside colored badges
-- Region availability hint text: `text-sm` (14px) at weight 400, `text-muted-foreground`
-- Service status text (active/inactive/error/unavailable): `text-sm` (14px) at weight 400, color per status
-- Agent/Model mode radio label: `text-sm` (14px) at weight 500
-- Config card masked key hint: `text-xs` (12px) at weight 400, `text-muted-foreground` (already exists)
+**Phase 7 supplementary text -- inherited Tailwind utility classes (not part of the design system type scale):**
 
-**Sizes declared (4 total, unchanged):** 16px, 18px, 20px, 24px
+Phase 7 uses `text-xs` (12px) and `text-sm` (14px) from Tailwind's default utility classes for supplementary and secondary text within config cards. These are NOT additions to the Phase 7 type scale -- they are pre-existing framework defaults applied to lower-emphasis elements:
+
+- `text-xs` (12px, weight 500): Region availability tag badges (uppercase), config card masked key hint (already exists)
+- `text-sm` (14px, weight 400): Region availability hint text (`text-muted-foreground`), service status text (color per status)
+- `text-sm` (14px, weight 500): Agent/Model mode radio labels
+
+**Sizes declared (3 total, unchanged):** 16px, 18px, 24px
 **Weights declared (2 total, unchanged):** 400 (normal), 500 (medium)
 
 **Source:** Phase 1 UI-SPEC typography; existing `service-config-card.tsx` and `azure-config.tsx` patterns
@@ -115,6 +116,14 @@ Inherited from Phase 1 reserved list, plus:
 NOT used for: region availability hint background (use orange/purple/gray semantic colors), config card borders (use `--border`), test connection button (use `variant="outline"`).
 
 **Source:** Phase 1 UI-SPEC color contract; existing `service-config-card.tsx` STATUS_DOT pattern; CONTEXT.md region availability design direction
+
+---
+
+## Visual Hierarchy -- Focal Point Declaration
+
+**Primary visual anchor:** The expanded service config card with its colored status dot (green/red/purple) and region availability badge draws the eye first; the status dot and badge provide immediate at-a-glance service health.
+
+**Secondary visual anchor:** The page heading ("Azure Service Configuration") paired with the "Test All Connections" button in the top-right corner, establishing the page context and primary bulk action.
 
 ---
 
@@ -227,7 +236,7 @@ When the Voice Live card is expanded, display a radio group ABOVE the standard f
 | Agent Mode fields:                                            |
 | [Agent ID: ____________          ] [Project Name: _________ ] |
 +--------------------------------------------------------------+
-| [Save]  [Test Connection]                                     |
+| [Save Configuration]  [Test Connection]                       |
 +--------------------------------------------------------------+
 ```
 
@@ -290,7 +299,7 @@ All copy delivered via react-i18next `admin` namespace (extend existing). Englis
 
 | Element | Copy |
 |---------|------|
-| Primary CTA | **Save Configuration** (existing "Save" button in each card) |
+| Primary CTA | **Save Configuration** -- Phase 7 updates the existing "Save" button label in each config card to "Save Configuration" for specificity. i18n key: `admin.azureConfig.saveConfig`. |
 | Empty state heading | N/A -- config page always shows all 8 service cards, never empty |
 | Empty state body | N/A -- each unconfigured card shows "Inactive" status dot and form fields |
 | Error state | Toast notification via sonner: "{Service Name}: {error.message}" with problem description and solution path (see connection test copy above) |
@@ -318,7 +327,7 @@ Phase 7 does NOT create new component files. All changes are modifications to ex
 |-----------|-----------|----------|
 | `service-config-card.tsx` | (1) Add `regionStatus` prop for region availability badge display. (2) Add `unavailable` to `ServiceStatus` type with purple dot. (3) Add region availability badge below description text. | `components/admin/` |
 | `service-config-card.tsx` | (4) For Voice Live card: add Agent/Model mode radio group that toggles between model fields and agent fields. Radio selection encodes into `model_or_deployment` field. | `components/admin/` |
-| `azure-config.tsx` | (1) Remove hardcoded Voice Live region warning (`eastus2`/`swedencentral` only). (2) Add `useRegionCapabilities` hook call to fetch region data. (3) Pass `regionStatus` prop to each `ServiceConfigCard` based on fetched capabilities. (4) Add `azure_openai_realtime` to `SERVICE_KEY_MAP` if missing (already present). | `pages/admin/` |
+| `azure-config.tsx` | (1) Remove hardcoded Voice Live region warning (`eastus2`/`swedencentral` only). (2) Add `useRegionCapabilities` hook call to fetch region data. (3) Pass `regionStatus` prop to each `ServiceConfigCard` based on fetched capabilities. (4) Add `azure_openai_realtime` to `SERVICE_KEY_MAP` if missing (already present). (5) Update save button label from "Save" to "Save Configuration" (`admin.azureConfig.saveConfig`). | `pages/admin/` |
 
 ### New Hooks
 
@@ -337,7 +346,7 @@ Phase 7 does NOT create new component files. All changes are modifications to ex
 
 | Namespace | Keys Added | Count |
 |-----------|-----------|-------|
-| `admin` | `azureConfig.regionAvailable`, `azureConfig.regionUnavailable`, `azureConfig.regionUnknown`, `azureConfig.avatarRegionHint`, `azureConfig.voiceLiveRegionHint`, `azureConfig.contentHint`, `azureConfig.realtimeHint`, `voiceLive.modeLabel`, `voiceLive.modelMode`, `voiceLive.modelModeDesc`, `voiceLive.agentMode`, `voiceLive.agentModeDesc`, `voiceLive.agentId`, `voiceLive.projectName`, `voiceLive.agentIdPlaceholder`, `voiceLive.projectPlaceholder`, connection test result keys (8) | 23 total |
+| `admin` | `azureConfig.regionAvailable`, `azureConfig.regionUnavailable`, `azureConfig.regionUnknown`, `azureConfig.avatarRegionHint`, `azureConfig.voiceLiveRegionHint`, `azureConfig.contentHint`, `azureConfig.realtimeHint`, `azureConfig.saveConfig`, `voiceLive.modeLabel`, `voiceLive.modelMode`, `voiceLive.modelModeDesc`, `voiceLive.agentMode`, `voiceLive.agentModeDesc`, `voiceLive.agentId`, `voiceLive.projectName`, `voiceLive.agentIdPlaceholder`, `voiceLive.projectPlaceholder`, connection test result keys (8) | 24 total |
 
 ### Existing Components Reused Without Modification
 
@@ -345,7 +354,7 @@ Phase 7 does NOT create new component files. All changes are modifications to ex
 |-----------|--------------|
 | `Card`, `CardHeader`, `CardContent` | Service config card structure (existing) |
 | `Input`, `Label` | Config form fields (existing) |
-| `Button` | Save, Test Connection buttons (existing) |
+| `Button` | Save Configuration, Test Connection buttons (existing) |
 | `Badge` | Region availability indicators (new usage of existing component) |
 | Sonner `toast` | Success/error notifications for save and test operations (existing) |
 | `Loader2` icon | Testing spinner (existing) |
@@ -397,7 +406,7 @@ Inherited from Phase 1, plus Phase 7 additions:
 |-------------|----------------|
 | Color contrast | Purple unavailable badge: `#9333EA` on `#FAF5FF` meets WCAG AA (4.7:1). Green available badge: `#15803D` on `#F0FDF4` meets AA (5.1:1). |
 | Focus indicators | Agent/Model radio buttons receive visible focus ring. Region badge is not interactive (no focus needed). |
-| Keyboard navigation | Tab order within expanded Voice Live card: mode radio group -> endpoint -> API key -> model/agent fields -> region -> Save -> Test. |
+| Keyboard navigation | Tab order within expanded Voice Live card: mode radio group -> endpoint -> API key -> model/agent fields -> region -> Save Configuration -> Test. |
 | Screen reader | Radio group uses `role="radiogroup"` with `aria-label="Voice Live API Mode"`. Region badge uses `role="status"` with `aria-live="polite"`. |
 | Touch targets | Radio buttons: 44px minimum touch target height. All other targets unchanged (existing). |
 
@@ -437,7 +446,7 @@ Inherited from Phase 1, plus Phase 7 additions:
 
 | Namespace | Status | Files |
 |-----------|--------|-------|
-| `admin` | **Extended** | Add 23 new keys for region availability, Agent/Model mode, and connection test results |
+| `admin` | **Extended** | Add 24 new keys for region availability, Agent/Model mode, save button label, and connection test results |
 | `voice` | **Updated** | Update `error.regionUnsupported` to reflect expanded Voice Live region support |
 | `coach` | Unchanged | No changes |
 | `common` | Unchanged | No changes |
