@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Ready to execute
-stopped_at: Completed 08-02-PLAN.md
-last_updated: "2026-03-27T07:36:21.834Z"
+stopped_at: Completed 08-04-PLAN.md
+last_updated: "2026-03-27T08:19:33.079Z"
 last_activity: 2026-03-27
 progress:
   total_phases: 9
-  completed_phases: 8
+  completed_phases: 9
   total_plans: 46
-  completed_plans: 43
+  completed_plans: 46
 ---
 
 # Project State
@@ -25,7 +25,7 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 ## Current Position
 
 Phase: 08 (voice-avatar-demo-integration) — EXECUTING
-Plan: 3 of 4
+Plan: 4 of 4
 
 ## Performance Metrics
 
@@ -88,6 +88,7 @@ Plan: 3 of 4
 | Phase 08 P01 | 19min | 2 tasks | 14 files |
 | Phase 08 P02 | 5min | 3 tasks | 12 files |
 | Phase 08 P03 | 10min | 3 tasks | 15 files |
+| Phase 08 P04 | 17min | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -182,6 +183,9 @@ Recent decisions affecting current work:
 - [Phase 08]: rt-client v0.5.2 installed from reference repo as file dependency
 - [Phase 08]: Voice i18n separated as dedicated namespace for lazy-loading
 - [Phase 08]: useVoiceLiveStatus query with retry:1 and staleTime:30s for balanced UX
+- [Phase 08]: Transcript flush-before-end-session uses pendingFlushesRef with Promise.all (D-09)
+- [Phase 08]: Fallback chain: avatar failure -> voice-only -> text mode (D-10)
+- [Phase 08]: Voice session page follows conference-session full-screen pattern (no UserLayout)
 
 ### Pending Todos
 
@@ -201,6 +205,6 @@ None yet.
 ## Session Continuity
 
 Last activity: 2026-03-27
-Last session: 2026-03-27T07:36:21.828Z
-Stopped at: Completed 08-03-PLAN.md
+Last session: 2026-03-27T08:19:33.076Z
+Stopped at: Completed 08-04-PLAN.md
 Resume file: None
