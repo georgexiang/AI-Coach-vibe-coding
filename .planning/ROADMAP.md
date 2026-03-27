@@ -180,7 +180,7 @@ Plans:
   7. Voice interaction is integrated with the existing coaching session lifecycle
   8. The system shows region-based availability for each service (not a fallback chain — user-selectable modes)
   9. All new code has unit tests with >=95% coverage maintained
-**Plans**: 8+ plans (8 completed from original 07+08, new plans TBD)
+**Plans**: 11 plans
 
 Plans (completed from original Phase 07):
 - [x] 07-01-PLAN.md -- Config data foundation: ServiceConfig model, Fernet encryption, config service, schemas, migration
@@ -194,8 +194,10 @@ Plans (completed from original Phase 08, executed in 08-* directory):
 - [x] 08-03-PLAN.md -- Voice hooks + leaf components: useVoiceLive, useAvatarStream, useAudioHandler, 7 voice UI components, component tests
 - [x] 08-04-PLAN.md -- Container components + wiring: VoiceSession container, route registration, admin config Voice Live card, transcript flush, tests
 
-Plans (new — remaining work):
-- [ ] 07-05-PLAN.md -- TBD (Content Understanding, Realtime, Voice Live Agent/Model adapters, region capabilities, frontend wiring)
+Plans (new -- remaining work):
+- [ ] 07-05-PLAN.md -- Backend adapters (Content Understanding, Realtime, Voice Live Agent/Model), region capabilities module, connection tester updates, SERVICE_DISPLAY_NAMES fix
+- [ ] 07-06-PLAN.md -- Backend tests: adapter unit tests, region capabilities tests, connection tester tests, API integration tests
+- [ ] 07-07-PLAN.md -- Frontend: region availability badges, Voice Live Agent/Model toggle, i18n updates, updated config UI
 
 **UI hint**: yes
 
@@ -213,7 +215,7 @@ Phases execute in numeric order: 01 -> 01.1 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07 
 | 04. Dashboard & Reporting | 6/6 | Complete | - |
 | 05. Training Material Management | 3/3 | Complete | - |
 | 06. Conference Presentation Module | 6/6 | Complete | 2026-03-25 |
-| 07. Azure AI Service Integration & Voice/Avatar | 8/TBD | In Progress | |
+| 07. Azure AI Service Integration & Voice/Avatar | 8/11 | In Progress | |
 | 09. Integration Testing | 0/2 | Not Started | |
 
 ### Phase 09: Integration Testing with Real Azure Services
