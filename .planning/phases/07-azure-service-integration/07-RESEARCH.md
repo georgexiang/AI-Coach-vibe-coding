@@ -1,56 +1,49 @@
-# Phase 07: Azure Service Integration - Research
+# Phase 07: Azure Service Integration (Expanded Scope) - Research
 
 **Researched:** 2026-03-27
-**Domain:** Azure service configuration persistence, dynamic adapter switching, Fernet encryption, Azure OpenAI streaming
-**Confidence:** HIGH
+**Domain:** Azure AI Services integration -- 7 independently configurable service modes
+**Confidence:** MEDIUM-HIGH
 
 ## Summary
 
-Phase 07 bridges the existing disconnected Azure Config UI with real backend persistence and live Azure service connectivity. The frontend pages (`azure-config.tsx`, `service-config-card.tsx`) and backend read API (`azure_config.py`) already exist but are incomplete -- `onSave` only updates React state, `onTestConnection` uses `Math.random()`, and there is no PUT endpoint to persist configurations. The backend already has a complete adapter framework (`BaseCoachingAdapter`, `ServiceRegistry`, `MockCoachingAdapter`), Azure STT/TTS adapters from Phase 06, and the `openai` SDK (v1.51.0) with `AsyncAzureOpenAI` client support. The `cryptography` package (v46.0.5) with Fernet is already installed as a transitive dependency of `python-jose[cryptography]`.
+Phase 07 was previously completed with 4 plans covering Azure OpenAI LLM, config persistence (ServiceConfig model + Fernet encryption), connection testing, and frontend wiring. The expanded scope adds 4 NEW adapters/connectors (Azure Avatar real implementation, Content Understanding, OpenAI Realtime, Voice Live API) and a region-based capability detection system. The existing infrastructure (ServiceConfig DB model, encryption, CRUD API, frontend ServiceConfigCard) is solid and reusable -- the new work layers on top.
 
-The core work is: (1) a new `ServiceConfig` database model with Fernet-encrypted API keys, (2) CRUD API endpoints with real connection testing, (3) an `AzureOpenAIAdapter` implementing `BaseCoachingAdapter` with async streaming, (4) runtime adapter re-registration on config save, and (5) frontend wiring to call the new backend endpoints instead of local state.
+The critical architectural insight is that these 7 services have fundamentally different integration patterns: some are backend-only (OpenAI LLM, Content Understanding), some are primarily frontend (Avatar WebRTC, Realtime WebSocket), and some are hybrid (Voice Live combines backend token brokering with frontend WebSocket). The backend's role varies per service -- from full adapter (OpenAI LLM) to config-store-and-connection-tester (Avatar, Realtime). The region capability map must be a hardcoded lookup table (per user decision) since there is no single Azure API to query all service availability.
 
-**Primary recommendation:** Implement a `service_config` database table with Fernet encryption for API keys, a config service for CRUD + connection testing, the `AzureOpenAIAdapter` using `AsyncAzureOpenAI` with streaming, and wire the frontend to the real API -- following the exact adapter patterns already established by `MockCoachingAdapter` and the Phase 06 Azure STT/TTS adapters.
+**Primary recommendation:** Extend the existing connection_tester.py and azure_config.py with real API calls for the 3 new services (Content Understanding, Realtime, Voice Live), add a region capability lookup module, and implement the missing `azure_openai_realtime` service name in SERVICE_DISPLAY_NAMES. Frontend changes are minimal -- the 7 service cards already exist, just add region availability hints.
 
 <user_constraints>
 ## User Constraints (from CONTEXT.md)
 
 ### Locked Decisions
-- Store Azure service configs in a new `service_config` database table (not `.env` files)
-- Config model: service_name, endpoint, api_key (encrypted), model/deployment, region, is_active, updated_by
-- API keys must be encrypted at rest using Fernet symmetric encryption
-- On server startup, load active configs from DB and register corresponding adapters
-- `PUT /api/v1/azure-config/services/{service_name}` -- Create/update service configuration
-- `POST /api/v1/azure-config/services/{service_name}/test` -- Real connection test
-- `GET /api/v1/azure-config/services` -- Already exists, enhance to read from DB
-- All endpoints require admin role
-- Implement `AzureOpenAIAdapter` extending `BaseCoachingAdapter`
-- Use `openai` SDK with Azure configuration (already a dependency)
-- Support streaming responses via SSE (matching existing mock adapter pattern)
-- Register under category "llm" with name "azure_openai"
-- Implement `AzureSpeechSTTAdapter` and `AzureSpeechTTSAdapter` -- these ALREADY EXIST from Phase 06
-- Register under categories "stt" and "tts" -- already done in main.py lifespan
-- On config save: re-register the adapter in ServiceRegistry
-- Update `default_llm_provider`/`default_stt_provider`/`default_tts_provider` in runtime settings
-- Sessions created after config change use new provider; existing sessions continue with their current provider
-- Fallback to mock if configured service fails health check
-- `ServiceConfigCard.onSave` -> `PUT /api/v1/azure-config/services/{key}`
-- `ServiceConfigCard.onTestConnection` -> `POST /api/v1/azure-config/services/{key}/test`
-- Display real status from GET /services response
-- Show toast notifications on save/test success/failure (already using `sonner`)
+- All 7 modes are independently configurable -- NOT a fallback chain
+- Each service has its own enable/disable toggle, endpoint, API key, region
+- A service being "unavailable" in a region shows informational status, NOT auto-switch
+- Admin explicitly chooses which services to enable
+- System does NOT silently switch providers -- if a configured service fails, it reports error
+- Config persistence uses existing service_config DB table with Fernet encryption
+- API design: PUT/POST test/GET endpoints (partially implemented)
+- NEW: GET /api/v1/azure-config/region-capabilities/{region} endpoint
+- Azure OpenAI adapter already exists and is working
+- Azure Speech STT/TTS adapters already exist from Phase 06
+- Azure Avatar adapter is stub (is_available=False) -- needs real implementation
+- Azure Content Understanding adapter is NEW
+- Azure OpenAI Realtime adapter is NEW
+- Azure Voice Live API adapter is NEW with Agent mode + Model mode
+- Dynamic adapter registration on config save and on startup
 
 ### Claude's Discretion
 - Encryption key management approach (env var vs config)
 - Exact error messages for connection test failures
 - Retry/timeout strategy for Azure API calls
-- Whether to add a "Reset to Mock" button per service
+- Region capability API data source (hardcoded map vs live Azure API call)
+- Azure AD token auth implementation details for Voice Live Agent mode
 
 ### Deferred Ideas (OUT OF SCOPE)
-- Azure Content Understanding adapter (document analysis)
-- Azure OpenAI Realtime adapter (real-time audio streaming)
-- Azure Database for PostgreSQL configuration from UI (handled by deployment config)
-- Avatar WebRTC rendering in frontend
+- Azure Database for PostgreSQL configuration from UI (deployment infrastructure, not AI service)
+- Avatar WebRTC rendering in frontend (Phase 08)
 - Per-session provider override (always use deployment-wide config for now)
+- Live Azure Management API for region capability querying (start with hardcoded map)
 </user_constraints>
 
 <phase_requirements>
@@ -58,590 +51,522 @@ The core work is: (1) a new `ServiceConfig` database model with Fernet-encrypted
 
 | ID | Description | Research Support |
 |----|-------------|------------------|
-| PLAT-03 | Admin can configure Azure service connections (OpenAI, Speech, Avatar, Content Understanding) from web UI with connection testing | ServiceConfig DB model + CRUD API + real connection test endpoints + frontend wiring to existing ServiceConfigCard |
-| ARCH-05 | Azure service connections are configurable per environment -- endpoints, keys, models, regions are config, not code | DB-persisted configuration that overrides env-based settings at runtime; Fernet encryption for API keys at rest |
-| PLAT-05 | Voice interaction mode (STT/TTS vs GPT Realtime vs Voice Live) configurable per deployment and per session | Dynamic adapter switching in ServiceRegistry on config save; `default_*_provider` runtime update |
+| PLAT-03 | Admin can configure Azure service connections from web UI with connection testing | Existing CRUD API + connection_tester.py cover OpenAI/Speech/Avatar; extend for Content Understanding, Realtime, Voice Live |
+| PLAT-05 | Voice interaction mode configurable per deployment and per session | Voice Live + Realtime adapter registration enables runtime mode switching |
+| ARCH-05 | Azure service connections configurable per environment | ServiceConfig model + region capabilities endpoint enables per-env config |
+| ARCH-01 | Pluggable adapter pattern for all AI services | ServiceRegistry already supports multi-category; add new categories for realtime, content_understanding, voice_live |
+| COACH-06 | GPT Realtime API for sub-1s conversational latency as configurable premium option | Azure OpenAI Realtime adapter with connection testing |
+| COACH-07 | Azure AI Avatar as configurable premium option | Avatar adapter real implementation with config validation |
 </phase_requirements>
-
-## Project Constraints (from CLAUDE.md)
-
-- **Async everywhere**: All backend functions must be `async def`
-- **Pydantic v2** schemas with `model_config = ConfigDict(from_attributes=True)`
-- **Alembic migrations required** for any schema change -- never modify DB directly
-- **All models MUST use `TimestampMixin`** (UUID id + created_at + updated_at)
-- **Service layer** holds business logic, routers only handle HTTP
-- **No raw SQL** -- use SQLAlchemy ORM
-- **Route ordering**: Static paths before parameterized (`/{id}`)
-- **Create returns 201**, Delete returns 204
-- **TypeScript strict: true** -- no `any` types
-- **TanStack Query hooks** per domain, no inline `useQuery` in components
-- **`@/` path alias** for all frontend imports
-- **`cn()` utility** for conditional class composition
-- **Conventional commits**: `feat:`, `fix:`, `docs:`, `test:`, `ci:`
-- **Pre-commit checks**: `ruff check .`, `ruff format --check .`, `pytest -v` (backend); `npx tsc -b`, `npm run build` (frontend)
-- **render_as_batch=True** in Alembic for SQLite compatibility
-- **Ruff**: line-length 100, double quotes, Python 3.11 target
 
 ## Standard Stack
 
-### Core (Already Installed)
+### Core (Already in project)
 | Library | Version | Purpose | Why Standard |
 |---------|---------|---------|--------------|
-| openai | 1.51.0 | Azure OpenAI client (`AsyncAzureOpenAI`) | Already a dependency; supports Azure endpoint/key/deployment natively |
-| cryptography | 46.0.5 | Fernet symmetric encryption for API keys | Already installed via `python-jose[cryptography]`; no new dependency needed |
-| azure-cognitiveservices-speech | >=1.48.0 | Azure Speech STT/TTS | Already in `[voice]` optional deps; adapters exist from Phase 06 |
+| openai | >=1.50.0 | Azure OpenAI + Realtime API client | Already installed; supports AsyncAzureOpenAI and realtime WebSocket |
+| httpx | >=0.27.0 | Async HTTP client for REST API calls | Already installed; used for connection testing and Content Understanding REST calls |
+| cryptography | (via python-jose) | Fernet encryption for API keys | Already available as transitive dep |
+| azure-cognitiveservices-speech | latest | Azure Speech SDK (STT/TTS/Avatar) | Required for Avatar real-time synthesis via WebRTC; already used in Phase 06 |
 
-### Supporting (Already Installed)
+### Supporting (No new packages needed)
 | Library | Version | Purpose | When to Use |
 |---------|---------|---------|-------------|
-| sse-starlette | >=2.0.0 | Server-Sent Events for streaming | Used by sessions.py for SSE streaming; AzureOpenAI adapter will produce events consumed by same SSE endpoint |
-| sqlalchemy[asyncio] | >=2.0.35 | Async ORM for ServiceConfig model | All DB access |
-| pydantic-settings | >=2.5.0 | Runtime settings with env var defaults | Encryption key, default provider settings |
+| websockets | >=13.0 | WebSocket support | Already installed; used for Voice Live backend-to-Azure WebSocket if needed |
 
-### New Dependencies
-**None required.** All needed packages are already installed. The `cryptography` package provides Fernet and is a transitive dependency of `python-jose[cryptography]`. The `openai` package provides `AsyncAzureOpenAI`. Azure Speech SDK is in the `[voice]` optional group.
+### New Dependencies: NONE
+The expanded scope does NOT require any new Python packages. Content Understanding uses plain REST (httpx), Realtime API uses the openai SDK, and Voice Live uses httpx for connection testing (frontend handles the actual WebSocket). Avatar connection testing uses httpx REST calls.
+
+**Installation:** No new packages needed. The existing `pyproject.toml` dependencies cover everything.
 
 ## Architecture Patterns
 
-### Recommended Project Structure (New/Modified Files Only)
+### Service Classification by Integration Pattern
+
+This is the most important architectural decision for the planner:
+
+| Service | Backend Role | Frontend Role | Integration Pattern |
+|---------|-------------|---------------|---------------------|
+| Azure OpenAI (LLM) | Full adapter (execute coaching) | Consumes SSE stream | Backend-primary |
+| Azure Speech STT | Full adapter (audio -> text) | Sends audio, receives text | Backend-primary |
+| Azure Speech TTS | Full adapter (text -> audio) | Receives audio | Backend-primary |
+| Azure AI Avatar | Config store + connection test | WebRTC rendering (Phase 08) | Frontend-primary, backend config-only |
+| Azure Content Understanding | Full adapter (doc analysis) | Triggers analysis, shows results | Backend-primary |
+| Azure OpenAI Realtime | Config store + token broker | WebSocket direct to Azure | Frontend-primary, backend brokers |
+| Azure Voice Live API | Config store + token broker | WebSocket direct to Azure | Frontend-primary, backend brokers |
+
+**Key insight:** For services 4, 6, 7 the backend does NOT proxy the real-time stream. The backend stores config, tests connectivity, and provides tokens/credentials. The frontend connects directly to Azure. This means the "adapter" for these services is lighter -- it only needs `is_available()` and connection testing, not a full `execute()` method.
+
+### Recommended Project Structure (new files only)
 ```
-backend/
-├── app/
-│   ├── api/
-│   │   └── azure_config.py          # MODIFY: Add PUT + enhance GET + real test
-│   ├── models/
-│   │   ├── __init__.py              # MODIFY: Add ServiceConfig export
-│   │   └── service_config.py        # NEW: ServiceConfig ORM model
-│   ├── schemas/
-│   │   └── azure_config.py          # NEW: Pydantic schemas for config CRUD
-│   ├── services/
-│   │   ├── config_service.py        # NEW: Config CRUD + encryption + adapter switching
-│   │   └── agents/
-│   │       └── adapters/
-│   │           └── azure_openai.py  # NEW: AzureOpenAIAdapter
-│   └── utils/
-│       └── encryption.py            # NEW: Fernet encrypt/decrypt helpers
-├── alembic/
-│   └── versions/
-│       └── xxx_add_service_config.py # NEW: Migration
-└── tests/
-    ├── test_config_service.py       # NEW
-    ├── test_azure_openai_adapter.py # NEW
-    └── test_encryption.py           # NEW
-
-frontend/
-├── src/
-│   ├── api/
-│   │   └── azure-config.ts          # NEW: Typed API client for azure config endpoints
-│   ├── hooks/
-│   │   └── use-azure-config.ts      # NEW: TanStack Query hooks
-│   ├── types/
-│   │   └── azure-config.ts          # NEW: TypeScript types
-│   └── pages/admin/
-│       └── azure-config.tsx          # MODIFY: Wire to real API
+backend/app/
+  services/
+    agents/
+      adapters/
+        azure_openai.py          # EXISTS
+        azure_content.py         # NEW: Content Understanding adapter
+        azure_realtime.py        # NEW: Realtime config/availability adapter
+        azure_voice_live.py      # NEW: Voice Live config/availability adapter
+      avatar/
+        azure.py                 # EXISTS (stub) -> UPDATE with real connection test
+      stt/azure.py               # EXISTS
+      tts/azure.py               # EXISTS
+    connection_tester.py         # EXISTS -> UPDATE with real tests for all 7
+    config_service.py            # EXISTS (no changes needed)
+    voice_live_service.py        # EXISTS (token broker) -> UPDATE SUPPORTED_REGIONS
+    region_capabilities.py       # NEW: hardcoded region -> services map
+  api/
+    azure_config.py              # EXISTS -> UPDATE: add region-capabilities endpoint, add azure_openai_realtime to SERVICE_DISPLAY_NAMES
+  schemas/
+    azure_config.py              # EXISTS -> UPDATE: add RegionCapabilitiesResponse schema
 ```
 
-### Pattern 1: ServiceConfig ORM Model
-**What:** Database model storing per-service Azure configuration with encrypted API keys
-**When to use:** Any Azure service configuration that needs to persist across restarts
+### Pattern 1: Lightweight Config Adapter (for frontend-primary services)
 
+**What:** A simplified adapter that implements `is_available()` and holds config but does NOT implement full `execute()`.
+
+**When to use:** Avatar, Realtime, Voice Live -- services where the real-time interaction happens in the frontend.
+
+**Example:**
 ```python
-# backend/app/models/service_config.py
-from sqlalchemy import Boolean, String, Text
-from sqlalchemy.orm import Mapped, mapped_column
+# Source: Project convention from azure_openai.py pattern
+class AzureRealtimeAdapter(BaseCoachingAdapter):
+    """Azure OpenAI Realtime API config adapter.
 
-from app.models.base import Base, TimestampMixin
-
-
-class ServiceConfig(TimestampMixin, Base):
-    """Azure service configuration stored in database."""
-
-    __tablename__ = "service_configs"
-
-    service_name: Mapped[str] = mapped_column(
-        String(50), unique=True, nullable=False, index=True
-    )
-    display_name: Mapped[str] = mapped_column(String(100), nullable=False)
-    endpoint: Mapped[str] = mapped_column(String(500), default="")
-    api_key_encrypted: Mapped[str] = mapped_column(Text, default="")  # Fernet encrypted
-    model_or_deployment: Mapped[str] = mapped_column(String(100), default="")
-    region: Mapped[str] = mapped_column(String(50), default="")
-    is_active: Mapped[bool] = mapped_column(Boolean, default=False)
-    updated_by: Mapped[str] = mapped_column(String(36), default="")  # User ID
-```
-
-### Pattern 2: Fernet Encryption Utility
-**What:** Symmetric encryption for API keys at rest using an env-var-sourced key
-**When to use:** Encrypting/decrypting sensitive values stored in DB
-
-```python
-# backend/app/utils/encryption.py
-from cryptography.fernet import Fernet
-
-from app.config import get_settings
-
-
-def _get_fernet() -> Fernet:
-    """Get Fernet instance from settings encryption key."""
-    settings = get_settings()
-    return Fernet(settings.encryption_key.encode())
-
-
-def encrypt_value(plaintext: str) -> str:
-    """Encrypt a string value, return base64-encoded token."""
-    if not plaintext:
-        return ""
-    f = _get_fernet()
-    return f.encrypt(plaintext.encode()).decode()
-
-
-def decrypt_value(token: str) -> str:
-    """Decrypt a Fernet token back to plaintext."""
-    if not token:
-        return ""
-    f = _get_fernet()
-    return f.decrypt(token.encode()).decode()
-```
-
-**Discretion: Encryption key management** -- Use an `encryption_key` field in `Settings` (pydantic-settings), defaulting to a generated key for development. In production, set via `ENCRYPTION_KEY` env var. Generate with `Fernet.generate_key().decode()`. This follows the existing pattern of `secret_key` for JWT.
-
-### Pattern 3: AzureOpenAIAdapter (Streaming)
-**What:** LLM adapter that wraps `AsyncAzureOpenAI` and yields `CoachEvent` objects
-**When to use:** When Azure OpenAI is configured and active
-
-```python
-# backend/app/services/agents/adapters/azure_openai.py
-from collections.abc import AsyncIterator
-
-from app.services.agents.base import (
-    BaseCoachingAdapter,
-    CoachEvent,
-    CoachEventType,
-    CoachRequest,
-)
-
-
-class AzureOpenAIAdapter(BaseCoachingAdapter):
-    """Azure OpenAI adapter for LLM coaching conversations."""
-
-    name = "azure_openai"
+    Backend stores config and tests connectivity.
+    Frontend connects directly via WebSocket.
+    """
+    name = "azure_openai_realtime"
 
     def __init__(
         self,
         endpoint: str,
         api_key: str,
-        deployment: str,
-        api_version: str = "2024-06-01",
+        deployment: str = "gpt-4o-realtime-preview",
     ) -> None:
         self._endpoint = endpoint
         self._api_key = api_key
         self._deployment = deployment
-        self._api_version = api_version
 
     async def execute(self, request: CoachRequest) -> AsyncIterator[CoachEvent]:
-        """Execute Azure OpenAI chat completion with streaming."""
-        from openai import AsyncAzureOpenAI
-
-        client = AsyncAzureOpenAI(
-            azure_endpoint=self._endpoint,
-            api_key=self._api_key,
-            api_version=self._api_version,
+        """Not used -- frontend connects directly to Azure Realtime API."""
+        yield CoachEvent(
+            type=CoachEventType.ERROR,
+            content="Realtime API is frontend-direct; use token broker endpoint",
         )
-
-        messages = [
-            {"role": "system", "content": request.scenario_context},
-            {"role": "user", "content": request.message},
-        ]
-
-        try:
-            stream = await client.chat.completions.create(
-                model=self._deployment,
-                messages=messages,
-                stream=True,
-                temperature=0.7,
-                max_tokens=1024,
-            )
-
-            async for chunk in stream:
-                if chunk.choices and chunk.choices[0].delta.content:
-                    yield CoachEvent(
-                        type=CoachEventType.TEXT,
-                        content=chunk.choices[0].delta.content,
-                    )
-
-            yield CoachEvent(type=CoachEventType.DONE, content="")
-
-        except Exception as e:
-            yield CoachEvent(
-                type=CoachEventType.ERROR,
-                content=f"Azure OpenAI error: {str(e)}",
-            )
-            yield CoachEvent(type=CoachEventType.DONE, content="")
+        yield CoachEvent(type=CoachEventType.DONE, content="")
 
     async def is_available(self) -> bool:
-        """Check if Azure OpenAI credentials are configured."""
         return bool(self._endpoint and self._api_key and self._deployment)
 ```
 
-### Pattern 4: Dynamic Adapter Re-registration
-**What:** On config save, instantiate and register the new adapter in ServiceRegistry
-**When to use:** When admin saves a service configuration
+### Pattern 2: Full Backend Adapter (for backend-primary services)
 
+**What:** A complete adapter with `execute()` that makes real API calls.
+
+**When to use:** Content Understanding -- the backend needs to call the REST API, poll for results, and return structured data.
+
+**Example:**
 ```python
-# In config_service.py
-async def _register_adapter_from_config(config: ServiceConfig, api_key: str) -> None:
-    """Register or update an adapter in the ServiceRegistry based on saved config."""
-    from app.services.agents.registry import registry
+# Source: Azure Content Understanding REST API docs
+class AzureContentUnderstandingAdapter(BaseCoachingAdapter):
+    """Azure Content Understanding adapter for document/multimodal analysis."""
+    name = "azure_content"
 
-    if config.service_name == "azure_openai":
-        from app.services.agents.adapters.azure_openai import AzureOpenAIAdapter
-        adapter = AzureOpenAIAdapter(
-            endpoint=config.endpoint,
-            api_key=api_key,
-            deployment=config.model_or_deployment,
-        )
-        registry.register("llm", adapter)
-        # Update runtime setting for new sessions
-        settings = get_settings()
-        settings.default_llm_provider = "azure_openai"
-    elif config.service_name == "azure_speech_stt":
-        from app.services.agents.stt.azure import AzureSTTAdapter
-        adapter = AzureSTTAdapter(api_key, config.region)
-        registry.register("stt", adapter)
-        settings = get_settings()
-        settings.default_stt_provider = "azure"
-    # ... similar for TTS, Avatar
+    def __init__(self, endpoint: str, api_key: str) -> None:
+        self._endpoint = endpoint.rstrip("/")
+        self._api_key = api_key
+
+    async def execute(self, request: CoachRequest) -> AsyncIterator[CoachEvent]:
+        """Analyze content using Azure Content Understanding REST API."""
+        # POST {endpoint}/contentunderstanding/analyzers/{analyzer}:analyze?api-version=2025-11-01
+        # Poll Operation-Location until status=Succeeded
+        # Yield results as CoachEvent
+        ...
+
+    async def is_available(self) -> bool:
+        return bool(self._endpoint and self._api_key)
 ```
 
-### Pattern 5: Real Connection Testing
-**What:** Actually call the Azure service to verify connectivity
-**When to use:** POST /test endpoint
+### Pattern 3: Region Capability Lookup (hardcoded map)
 
+**What:** A Python dict mapping region identifiers to sets of supported services. Sourced from official Azure docs, maintained manually.
+
+**When to use:** For the region-capabilities endpoint.
+
+**Example:**
 ```python
-# For Azure OpenAI: lightweight chat completion with max_tokens=1
-async def test_azure_openai(endpoint: str, api_key: str, deployment: str) -> tuple[bool, str]:
-    """Test Azure OpenAI connection with a minimal API call."""
-    from openai import AsyncAzureOpenAI
-
-    client = AsyncAzureOpenAI(
-        azure_endpoint=endpoint,
-        api_key=api_key,
-        api_version="2024-06-01",
-        timeout=10.0,
-    )
-    try:
-        response = await client.chat.completions.create(
-            model=deployment,
-            messages=[{"role": "user", "content": "test"}],
-            max_tokens=1,
-        )
-        return True, "Connection successful"
-    except Exception as e:
-        return False, f"Connection failed: {str(e)}"
-
-# For Azure Speech: list voices as health check
-async def test_azure_speech(key: str, region: str) -> tuple[bool, str]:
-    """Test Azure Speech connection."""
-    import httpx
-    try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            url = f"https://{region}.tts.speech.microsoft.com/cognitiveservices/voices/list"
-            response = await client.get(
-                url,
-                headers={"Ocp-Apim-Subscription-Key": key},
-            )
-            if response.status_code == 200:
-                return True, "Connection successful"
-            return False, f"HTTP {response.status_code}: {response.text[:200]}"
-    except Exception as e:
-        return False, f"Connection failed: {str(e)}"
+# Source: https://learn.microsoft.com/en-us/azure/ai-services/speech-service/regions
+REGION_CAPABILITIES: dict[str, set[str]] = {
+    "eastus2": {
+        "azure_openai", "azure_speech_stt", "azure_speech_tts",
+        "azure_avatar", "azure_openai_realtime", "azure_voice_live",
+        "azure_content",
+    },
+    "swedencentral": {
+        "azure_openai", "azure_speech_stt", "azure_speech_tts",
+        "azure_avatar", "azure_openai_realtime", "azure_voice_live",
+        "azure_content",
+    },
+    "westeurope": {
+        "azure_openai", "azure_speech_stt", "azure_speech_tts",
+        "azure_avatar", "azure_voice_live", "azure_content",
+    },
+    # ... more regions
+}
 ```
 
 ### Anti-Patterns to Avoid
-- **Mutating pydantic-settings directly:** `get_settings()` is cached via `@lru_cache`. You cannot mutate fields. Instead, store runtime overrides (like `default_llm_provider`) in a separate mutable runtime config dict or clear the lru_cache when configs change. The simplest approach: since `Settings` has `default_llm_provider = "mock"`, and the session SSE endpoint reads `settings.default_llm_provider`, the cleanest fix is to use a module-level mutable dict for runtime provider overrides rather than trying to mutate the frozen Settings object.
-- **Creating AzureOpenAI client per-request:** The `AsyncAzureOpenAI` client is designed to be reused. Create it once when the adapter is instantiated, not on every `execute()` call. However, for simplicity with dynamic config changes (new endpoint/key), creating per-adapter-instance is fine -- just don't create per-request.
-- **Storing plaintext API keys in DB:** Always use Fernet encryption. Never log decrypted keys.
-- **Blocking the event loop with Azure Speech SDK:** The Azure Speech SDK is synchronous. Always use `asyncio.to_thread()` as the existing STT/TTS adapters do.
+- **Building a full execute() adapter for frontend-primary services:** Avatar, Realtime, and Voice Live are frontend-direct. The backend should NOT try to proxy WebSocket or WebRTC streams.
+- **Making region capabilities a live Azure API call:** The Azure Management REST API is complex, requires subscription-level auth, and has different endpoints per service. A hardcoded map (updated manually) is correct per user decision.
+- **Auto-fallback between services:** The user explicitly decided NO fallback chain. Each service reports its own status independently.
+- **Merging azure_openai_realtime into azure_openai:** These are completely different APIs (REST chat completion vs WebSocket real-time audio). They need separate config entries.
 
 ## Don't Hand-Roll
 
 | Problem | Don't Build | Use Instead | Why |
 |---------|-------------|-------------|-----|
-| API key encryption | Custom crypto, AES manual | `cryptography.fernet.Fernet` | Battle-tested, handles IV/padding/HMAC automatically |
-| Azure OpenAI client | Raw HTTP calls to Azure | `openai.AsyncAzureOpenAI` | Handles auth, retries, streaming, API version quirks |
-| Azure Speech testing | Manual WebSocket/REST | `httpx` GET to voices list endpoint | Simple health check, no SDK needed |
-| SSE streaming | Custom streaming implementation | `sse-starlette.EventSourceResponse` | Already used in sessions.py, proven pattern |
-| Key generation | Custom random bytes | `Fernet.generate_key()` | Produces correctly formatted URL-safe base64 key |
+| API key encryption | Custom crypto | Fernet from cryptography (already done) | Symmetric encryption with built-in key rotation support |
+| Azure OpenAI chat | Raw HTTP | openai SDK AsyncAzureOpenAI (already done) | Handles auth, retries, streaming, error parsing |
+| Content Understanding analysis | Custom HTTP polling | httpx + async polling loop | Simple REST API with Operation-Location pattern -- just poll |
+| WebSocket for Realtime | Backend WebSocket proxy | Frontend direct connection with backend token broker | Backend proxying adds latency and complexity for no benefit |
+| Region capability detection | Azure Management API | Hardcoded lookup table | Azure has no single "what's available in this region" API |
 
-**Key insight:** Every Azure SDK integration point already has an established pattern in this codebase (mock adapter, Phase 06 Azure adapters). The AzureOpenAI adapter follows the same `BaseCoachingAdapter` interface. No new architectural concepts are needed.
+**Key insight:** The 3 new services (Content Understanding, Realtime, Voice Live) each have different API patterns but none require new Python packages. Content Understanding is REST (httpx), Realtime is an openai SDK feature, and Voice Live is a WebSocket the frontend connects to directly.
+
+## Azure Service Details (Per Service)
+
+### 1. Azure OpenAI (LLM) -- ALREADY IMPLEMENTED
+- Adapter: `AzureOpenAIAdapter` in `backend/app/services/agents/adapters/azure_openai.py`
+- Connection test: `test_azure_openai()` makes a minimal chat completion call
+- No changes needed
+
+### 2. Azure Speech STT -- ALREADY IMPLEMENTED
+- Adapter: `AzureSTTAdapter` in `backend/app/services/agents/stt/azure.py`
+- Connection test: `test_azure_speech()` lists available voices
+- No changes needed
+
+### 3. Azure Speech TTS -- ALREADY IMPLEMENTED
+- Adapter: `AzureTTSAdapter` in `backend/app/services/agents/tts/azure.py`
+- Connection test: Shares `test_azure_speech()` (same endpoint)
+- No changes needed
+
+### 4. Azure AI Avatar -- NEEDS REAL IMPLEMENTATION
+- Current: Stub adapter with `is_available()=False`
+- Regions: eastus2, northeurope, southcentralus, southeastasia, swedencentral, westeurope, westus2
+- Real-time synthesis uses WebRTC (frontend, Phase 08 scope)
+- Backend for THIS phase: store config, validate, test connectivity via REST
+- Connection test: Hit the ICE token endpoint `GET /cognitiveservices/avatar/relay/token/v1` with `Ocp-Apim-Subscription-Key` header
+- Endpoint format: `https://{region}.tts.speech.microsoft.com`
+- **Confidence: HIGH** (verified from official docs)
+
+### 5. Azure Content Understanding -- NEW
+- API version: `2025-11-01` (GA)
+- Endpoint: `{foundry_endpoint}/contentunderstanding/analyzers/{analyzer-id}:analyze?api-version=2025-11-01`
+- Auth header: `Ocp-Apim-Subscription-Key: {key}`
+- Pattern: Async -- POST returns 202 + `Operation-Location`, poll until `status: "Succeeded"`
+- Prebuilt analyzers: `prebuilt-invoice`, `prebuilt-imageSearch`, `prebuilt-audioSearch`, `prebuilt-videoSearch`
+- Requires a Microsoft Foundry Resource (not just a Speech resource)
+- Supported file types: PDF, TIFF, DOCX, XLSX, PPTX, images, audio, video
+- Connection test: List analyzers or attempt a lightweight analysis
+- Regional availability: Runs on Foundry resource -- available wherever Foundry resources can be created (broad availability)
+- **Confidence: HIGH** (verified from official docs updated 2026-03-27)
+
+### 6. Azure OpenAI Realtime -- NEW
+- Uses the openai SDK with WebSocket transport
+- Endpoint format: `wss://{resource}.openai.azure.com/openai/v1`
+- **IMPORTANT:** Uses `/openai/v1` GA endpoint, NOT date-based `api-version` parameter
+- Auth: `api-key` header or Microsoft Entra Bearer token
+- Models: `gpt-4o-realtime-preview` (2024-12-17), `gpt-realtime` (2025-08-28), `gpt-realtime-mini`, `gpt-realtime-1.5`
+- Token limits: 32K input, 4K output
+- Features: VAD, session config, real-time audio streaming, transcription
+- Connection test: Attempt WebSocket handshake or validate endpoint format + try REST model list
+- The frontend connects directly; backend stores config and provides credentials
+- **Confidence: HIGH** (verified from official docs)
+
+### 7. Azure Voice Live API -- NEW
+- WebSocket endpoint: `wss://{resource}.services.ai.azure.com/voice-live/realtime?api-version=2025-10-01&model={model}`
+- Alternate endpoint (older): `wss://{resource}.cognitiveservices.azure.com/voice-live/realtime?api-version=2025-10-01`
+- Auth: `api-key` query param or header, OR Microsoft Entra Bearer token with scope `https://ai.azure.com/.default`
+- Agent mode: Add `agent_id` and `project_id` query params instead of `model`
+- Model mode: Add `model` query param (e.g., `gpt-realtime`, `gpt-4o`, `gpt-4.1`)
+- Supported models: gpt-realtime, gpt-realtime-mini, gpt-4o, gpt-4o-mini, gpt-4.1, gpt-4.1-mini, gpt-5, phi4-mm-realtime
+- Regions with Voice Live: Very broad -- eastus, eastus2, swedencentral, westeurope, westus, westus2, australiaeast, uksouth, francecentral, etc. (expanded significantly from earlier Phase 08 assumption of only eastus2/swedencentral)
+- Agent support regions: australiaeast, brazilsouth, canadaeast, eastus, eastus2, francecentral, germanywestcentral, italynorth, japaneast, norwayeast, southafricanorth, southcentralus, southeastasia, swedencentral, switzerlandnorth, uksouth, westeurope, westus, westus2, westus3
+- Avatar integration: Via `avatar` parameter in `session.update` with WebRTC (ICE servers)
+- Features: noise suppression, echo cancellation, semantic VAD, filler word removal, viseme for avatar lip sync
+- Connection test: HTTP probe to the endpoint (already partially implemented)
+- **Confidence: HIGH** (verified from official docs updated 2026-03-16)
+
+**CRITICAL UPDATE:** The existing `SUPPORTED_REGIONS` in `voice_live_service.py` is `{"eastus2", "swedencentral"}` which is now OUTDATED. Voice Live supports many more regions. This needs updating.
+
+## Region Capability Map
+
+Based on official Azure documentation (verified 2026-03-27), here is the comprehensive region map:
+
+### Avatar Regions (most restricted)
+`eastus2`, `northeurope`, `southcentralus`, `southeastasia`, `swedencentral`, `westeurope`, `westus2`
+
+### Voice Live Regions (broad)
+Almost all major regions support at least some Voice Live models. Key regions with full support including Agent mode:
+`australiaeast`, `brazilsouth`, `canadaeast`, `eastus`, `eastus2`, `francecentral`, `germanywestcentral`, `italynorth`, `japaneast`, `norwayeast`, `southafricanorth`, `southcentralus`, `southeastasia`, `swedencentral`, `switzerlandnorth`, `uksouth`, `westeurope`, `westus`, `westus2`, `westus3`
+
+### Speech STT/TTS Regions (broadest)
+Available in 30+ regions. Nearly universal Azure coverage.
+
+### OpenAI Regions
+Available wherever Azure OpenAI is deployed. Check Azure OpenAI model availability docs.
+
+### Content Understanding Regions
+Runs on Foundry resources. Available wherever Foundry resources exist (broad).
+
+### Realtime API Regions
+GPT Realtime models are available as global deployments (broad availability).
+
+### Recommendation: Hardcoded Capability Map Structure
+```python
+# Services that have LIMITED regional availability -- only these need region checks
+AVATAR_REGIONS = {
+    "eastus2", "northeurope", "southcentralus", "southeastasia",
+    "swedencentral", "westeurope", "westus2",
+}
+
+# Voice Live has broad availability but Agent mode is more restricted
+VOICE_LIVE_AGENT_REGIONS = {
+    "australiaeast", "brazilsouth", "canadaeast", "eastus", "eastus2",
+    "francecentral", "germanywestcentral", "italynorth", "japaneast",
+    "norwayeast", "southafricanorth", "southcentralus", "southeastasia",
+    "swedencentral", "switzerlandnorth", "uksouth", "westeurope",
+    "westus", "westus2", "westus3",
+}
+
+# For services with universal availability, don't restrict by region
+# azure_openai, azure_speech_stt, azure_speech_tts, azure_content,
+# azure_openai_realtime: available in most regions -- no restriction needed
+```
 
 ## Common Pitfalls
 
-### Pitfall 1: pydantic-settings @lru_cache Immutability
-**What goes wrong:** Trying to mutate `settings.default_llm_provider` at runtime fails because `get_settings()` returns a cached, frozen-like object.
-**Why it happens:** `@lru_cache` caches the Settings instance. Pydantic Settings objects do allow field assignment, but changes don't persist across `get_settings()` calls if the cache is cleared.
-**How to avoid:** Use a separate `RuntimeConfig` singleton (simple dict or dataclass) for values that change at runtime. On startup, populate from Settings + DB. On config save, update the runtime config. The SSE endpoint reads from the runtime config instead of settings.
-**Warning signs:** Tests pass but runtime provider doesn't switch after config save.
+### Pitfall 1: Missing azure_openai_realtime in SERVICE_DISPLAY_NAMES
+**What goes wrong:** The frontend has `SERVICE_KEY_MAP` with `realtime: "azure_openai_realtime"` but the backend `SERVICE_DISPLAY_NAMES` in `azure_config.py` does NOT include `azure_openai_realtime` -- only 6 services are listed.
+**Why it happens:** Phase 07 v1 was scoped to fewer services.
+**How to avoid:** Add `"azure_openai_realtime": "Azure OpenAI Realtime"` to `SERVICE_DISPLAY_NAMES`.
+**Warning signs:** Frontend save for Realtime card returns 400 "Unknown service".
 
-### Pitfall 2: Alembic render_as_batch for SQLite
-**What goes wrong:** Migration fails with `ALTER TABLE` not supported error.
-**Why it happens:** SQLite doesn't support many ALTER TABLE operations.
-**How to avoid:** The project already uses `render_as_batch=True` in `alembic/env.py`. Just ensure new migrations use batch operations. Alembic autogenerate handles this automatically when `render_as_batch=True` is set.
-**Warning signs:** Migration errors mentioning `ALTER TABLE`.
+### Pitfall 2: Outdated SUPPORTED_REGIONS for Voice Live
+**What goes wrong:** `voice_live_service.py` has `SUPPORTED_REGIONS = {"eastus2", "swedencentral"}` but the actual Voice Live API now supports 20+ regions.
+**Why it happens:** The original Phase 08 implementation was conservative.
+**How to avoid:** Update SUPPORTED_REGIONS from the official docs or refactor to use the new region_capabilities module.
+**Warning signs:** Users in valid regions get "Unsupported region" errors.
 
-### Pitfall 3: Fernet Key Must Be URL-safe Base64
-**What goes wrong:** `ValueError: Fernet key must be 32 url-safe base64-encoded bytes` when using a random string as encryption key.
-**Why it happens:** Fernet requires a specific key format.
-**How to avoid:** Always generate keys with `Fernet.generate_key()`. Store the result (a 44-char base64 string) in `ENCRYPTION_KEY` env var. Provide a default for dev: `Fernet.generate_key().decode()` called at module load time.
-**Warning signs:** App crashes on startup with Fernet key validation error.
+### Pitfall 3: Content Understanding Requires Foundry Resource
+**What goes wrong:** Content Understanding won't work with a regular Cognitive Services key.
+**Why it happens:** Content Understanding is a Foundry Tool, requiring a Microsoft Foundry Resource.
+**How to avoid:** Document this in the config UI tooltip. Connection test should verify the resource type.
+**Warning signs:** 401/403 errors on Content Understanding endpoint with valid Speech/OpenAI keys.
 
-### Pitfall 4: ServiceRegistry Overwrites by Name
-**What goes wrong:** Registering `MockCoachingAdapter` (name="mock") and then `AzureOpenAIAdapter` (name="azure_openai") in the same "llm" category works fine -- they coexist. But if you register a new `AzureOpenAIAdapter` instance with the same name, the old one is silently replaced.
-**Why it happens:** `ServiceRegistry.register()` uses `adapter.name` as the dict key.
-**How to avoid:** This is actually the desired behavior for dynamic re-registration. Just be aware that existing sessions referencing the old adapter instance will use the old adapter until their generator completes.
-**Warning signs:** None -- this is expected behavior.
+### Pitfall 4: Realtime API Uses /openai/v1 NOT api-version
+**What goes wrong:** Connection test fails because it uses `?api-version=2024-xx-xx` query param.
+**Why it happens:** Azure OpenAI standard API uses api-version, but Realtime GA uses `/openai/v1` path.
+**How to avoid:** Realtime connection test must construct URL as `wss://{endpoint}/openai/v1` or verify deployment via REST.
+**Warning signs:** 404 or upgrade-required errors on connection test.
 
-### Pitfall 5: Azure OpenAI API Version Mismatch
-**What goes wrong:** Features like structured outputs or function calling don't work, or the API returns 404.
-**Why it happens:** Azure OpenAI requires explicit `api_version` in every request. Different versions support different features.
-**How to avoid:** Default to `2024-06-01` (GA, stable). Store `api_version` in the ServiceConfig or use a sensible default. Don't use preview versions in production unless needed.
-**Warning signs:** 404 errors or unexpected response formats from Azure OpenAI.
+### Pitfall 5: Voice Live Agent Mode Needs Different Auth
+**What goes wrong:** Agent mode requires `agent_id` + `project_id` instead of `model` param. May also need Azure AD token instead of API key.
+**Why it happens:** Agent service uses Foundry AI Agent framework with different auth requirements.
+**How to avoid:** ServiceConfig `model_or_deployment` field can encode mode with convention like "agent:{agent_id}:{project_id}" or frontend sends mode info in the config update.
+**Warning signs:** 401 errors when using API key with Agent mode, missing agent_id param.
 
-### Pitfall 6: Existing Frontend Uses Local State Only
-**What goes wrong:** After wiring `onSave` to the API, the component still initializes from hardcoded `AZURE_SERVICES` defaults instead of fetching from the backend.
-**Why it happens:** The current `azure-config.tsx` uses `useState` with `AZURE_SERVICES` defaults. It never fetches from the backend.
-**How to avoid:** Replace the `useState` initialization with a TanStack Query hook that fetches from `GET /api/v1/azure-config/services`. Fall back to defaults while loading.
-**Warning signs:** Page always shows empty/default configs even after saving.
-
-### Pitfall 7: Connection Test Timeout
-**What goes wrong:** Test connection hangs for 30+ seconds when Azure endpoint is unreachable.
-**Why it happens:** Default HTTP client timeout is too long for a UI-initiated test.
-**How to avoid:** Use a 10-second timeout for connection tests. The `AsyncAzureOpenAI` client accepts a `timeout` parameter. For Speech, use `httpx.AsyncClient(timeout=10.0)`.
-**Warning signs:** Frontend shows spinner indefinitely on test click.
+### Pitfall 6: ServiceConfig Extra Fields for Voice Live Agent Mode
+**What goes wrong:** The `ServiceConfig` model only has: endpoint, api_key, model_or_deployment, region. Voice Live Agent mode needs additional fields: `project_name`, `agent_id`.
+**Why it happens:** The DB model was designed for simpler services.
+**How to avoid:** Either add nullable columns to ServiceConfig, or store agent config as JSON in a text field, or encode in model_or_deployment with a convention.
+**Warning signs:** Cannot save Agent mode configuration.
 
 ## Code Examples
 
-### Azure OpenAI Streaming with AsyncAzureOpenAI
+### Content Understanding Connection Test
 ```python
-# Verified: openai 1.51.0 installed, AsyncAzureOpenAI constructor inspected
-from openai import AsyncAzureOpenAI
-
-client = AsyncAzureOpenAI(
-    azure_endpoint="https://my-resource.openai.azure.com",
-    api_key="my-key",
-    api_version="2024-06-01",  # GA stable version
-)
-
-# Streaming chat completion
-stream = await client.chat.completions.create(
-    model="my-deployment-name",  # Azure uses deployment name, not model name
-    messages=[
-        {"role": "system", "content": "You are Dr. Chen..."},
-        {"role": "user", "content": "Hello doctor..."},
-    ],
-    stream=True,
-    temperature=0.7,
-    max_tokens=1024,
-)
-
-async for chunk in stream:
-    if chunk.choices and chunk.choices[0].delta.content:
-        content = chunk.choices[0].delta.content
-        # yield CoachEvent(type=CoachEventType.TEXT, content=content)
+# Source: https://learn.microsoft.com/en-us/azure/ai-services/content-understanding/quickstart/use-rest-api
+async def test_azure_content_understanding(
+    endpoint: str, api_key: str,
+) -> tuple[bool, str]:
+    """Test Content Understanding by listing prebuilt analyzers."""
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            url = (
+                f"{endpoint.rstrip('/')}/contentunderstanding"
+                f"/analyzers?api-version=2025-11-01"
+            )
+            response = await client.get(
+                url,
+                headers={"Ocp-Apim-Subscription-Key": api_key},
+            )
+            if response.status_code == 200:
+                return (True, "Connection successful")
+            return (False, f"HTTP {response.status_code}: {response.text[:200]}")
+    except Exception as e:
+        return (False, f"Connection failed: {e!s}")
 ```
 
-### Fernet Encryption for API Keys
+### Avatar Connection Test (Real)
 ```python
-# Verified: cryptography 46.0.5 installed, Fernet tested
-from cryptography.fernet import Fernet
-
-# Generate key (do once, store in env var)
-key = Fernet.generate_key()  # Returns bytes like b'VKaG3xtPZVya...'
-# Store key.decode() as ENCRYPTION_KEY env var
-
-# Encrypt
-f = Fernet(key)
-token = f.encrypt(b"sk-abc123def456")  # Returns bytes
-encrypted_str = token.decode()  # Store this in DB
-
-# Decrypt
-plaintext = f.decrypt(encrypted_str.encode()).decode()  # "sk-abc123def456"
+# Source: https://learn.microsoft.com/en-us/azure/ai-services/speech-service/text-to-speech-avatar/real-time-synthesis-avatar
+async def test_azure_avatar_real(
+    api_key: str, region: str,
+) -> tuple[bool, str]:
+    """Test Avatar by fetching ICE relay token."""
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            url = (
+                f"https://{region}.tts.speech.microsoft.com"
+                f"/cognitiveservices/avatar/relay/token/v1"
+            )
+            response = await client.get(
+                url,
+                headers={"Ocp-Apim-Subscription-Key": api_key},
+            )
+            if response.status_code == 200:
+                return (True, "Avatar service reachable (ICE token retrieved)")
+            return (False, f"Avatar test failed: HTTP {response.status_code}")
+    except Exception as e:
+        return (False, f"Avatar connection failed: {e!s}")
 ```
 
-### ServiceConfig Alembic Migration
+### Realtime API Connection Test
 ```python
-# Alembic migration pattern for new table
-# Uses render_as_batch=True (already configured in env.py)
-def upgrade() -> None:
-    op.create_table(
-        "service_configs",
-        sa.Column("id", sa.String(36), primary_key=True),
-        sa.Column("service_name", sa.String(50), unique=True, nullable=False, index=True),
-        sa.Column("display_name", sa.String(100), nullable=False),
-        sa.Column("endpoint", sa.String(500), server_default=""),
-        sa.Column("api_key_encrypted", sa.Text, server_default=""),
-        sa.Column("model_or_deployment", sa.String(100), server_default=""),
-        sa.Column("region", sa.String(50), server_default=""),
-        sa.Column("is_active", sa.Boolean, server_default=sa.text("0")),
-        sa.Column("updated_by", sa.String(36), server_default=""),
-        sa.Column("created_at", sa.DateTime, server_default=sa.func.now()),
-        sa.Column("updated_at", sa.DateTime, server_default=sa.func.now()),
-    )
+# Source: https://learn.microsoft.com/en-us/azure/ai-services/openai/how-to/realtime-audio
+async def test_azure_realtime(
+    endpoint: str, api_key: str, deployment: str,
+) -> tuple[bool, str]:
+    """Test Realtime API by verifying deployment exists via REST."""
+    try:
+        base = endpoint.rstrip("/")
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            url = f"{base}/openai/deployments/{deployment}?api-version=2024-06-01"
+            response = await client.get(
+                url,
+                headers={"api-key": api_key},
+            )
+            if response.status_code == 200:
+                return (True, "Realtime deployment found")
+            elif response.status_code in (401, 403):
+                return (False, f"Authentication failed: HTTP {response.status_code}")
+            elif response.status_code == 404:
+                return (False, f"Deployment '{deployment}' not found")
+            return (False, f"HTTP {response.status_code}: {response.text[:200]}")
+    except Exception as e:
+        return (False, f"Connection failed: {e!s}")
 ```
 
-### Frontend API Client for Azure Config
-```typescript
-// frontend/src/api/azure-config.ts
-import apiClient from "@/api/client";
-import type { ServiceConfigResponse, ServiceConfigUpdate, TestResult } from "@/types/azure-config";
+### Region Capabilities Endpoint
+```python
+# New endpoint in azure_config.py
+from app.services.region_capabilities import get_region_capabilities
 
-export async function getServiceConfigs(): Promise<ServiceConfigResponse[]> {
-  const { data } = await apiClient.get<ServiceConfigResponse[]>("/azure-config/services");
-  return data;
-}
-
-export async function updateServiceConfig(
-  serviceName: string,
-  config: ServiceConfigUpdate,
-): Promise<ServiceConfigResponse> {
-  const { data } = await apiClient.put<ServiceConfigResponse>(
-    `/azure-config/services/${serviceName}`,
-    config,
-  );
-  return data;
-}
-
-export async function testServiceConnection(serviceName: string): Promise<TestResult> {
-  const { data } = await apiClient.post<TestResult>(
-    `/azure-config/services/${serviceName}/test`,
-  );
-  return data;
-}
+@router.get("/region-capabilities/{region}")
+async def get_capabilities(
+    region: str,
+    _admin: User = Depends(require_role("admin")),
+) -> dict:
+    """Return which Azure AI services are available in the given region."""
+    return get_region_capabilities(region)
 ```
 
-### TanStack Query Hook for Azure Config
-```typescript
-// frontend/src/hooks/use-azure-config.ts
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { getServiceConfigs, updateServiceConfig, testServiceConnection } from "@/api/azure-config";
-
-const QUERY_KEY = ["azure-config", "services"];
-
-export function useServiceConfigs() {
-  return useQuery({
-    queryKey: QUERY_KEY,
-    queryFn: getServiceConfigs,
-  });
-}
-
-export function useUpdateServiceConfig() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ serviceName, config }: { serviceName: string; config: ServiceConfigUpdate }) =>
-      updateServiceConfig(serviceName, config),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY });
-    },
-  });
-}
-
-export function useTestServiceConnection() {
-  return useMutation({
-    mutationFn: (serviceName: string) => testServiceConnection(serviceName),
-  });
-}
+### Voice Live Agent Mode Config Convention
+```python
+# Convention: store agent config in model_or_deployment
+# Model mode: just the model name like "gpt-realtime"
+# Agent mode: "agent:{agent_id}:{project_name}"
+def parse_voice_live_config(model_or_deployment: str) -> dict:
+    if model_or_deployment.startswith("agent:"):
+        parts = model_or_deployment.split(":", 2)
+        return {
+            "mode": "agent",
+            "agent_id": parts[1],
+            "project_name": parts[2] if len(parts) > 2 else "",
+        }
+    return {
+        "mode": "model",
+        "model": model_or_deployment or "gpt-4o-realtime-preview",
+    }
 ```
 
 ## State of the Art
 
-| Old Approach (Current) | New Approach (Phase 07) | Impact |
-|------------------------|------------------------|--------|
-| Config in `.env` only, read at startup | DB-persisted config, hot-reloadable | Admin can change Azure services without restarting server |
-| `settings.default_llm_provider = "mock"` hardcoded | Runtime provider switching from DB | F2F sessions use real Azure OpenAI when configured |
-| `Math.random()` for connection test | Real API calls with timeout | Admin gets actual connectivity status |
-| Frontend `onSave` updates React state only | `PUT /api/v1/azure-config/services/{key}` | Config persists across browser sessions and server restarts |
-| MockCoachingAdapter only for LLM | AzureOpenAIAdapter with streaming | Real AI-powered coaching conversations |
+| Old Approach | Current Approach | When Changed | Impact |
+|--------------|------------------|--------------|--------|
+| Voice Live only eastus2/swedencentral | Voice Live in 20+ regions | 2025-2026 | SUPPORTED_REGIONS must be updated |
+| Azure OpenAI Realtime preview API version | GA endpoint `/openai/v1` (no api-version param) | 2025-12 | Realtime connection URL construction differs from standard OpenAI |
+| Content Understanding preview | GA at `2025-11-01` | 2025-11 | Stable API, prebuilt analyzers available |
+| Voice Live limited models | Voice Live supports gpt-4o, gpt-4.1, gpt-5, phi4 | 2025-2026 | Many model choices for Voice Live |
+| Separate Speech + Cognitive resources | Microsoft Foundry Resource (unified) | 2025-2026 | Content Understanding requires Foundry resource |
 
-**Existing and reusable:**
-- Azure STT adapter (`backend/app/services/agents/stt/azure.py`) -- already implemented in Phase 06
-- Azure TTS adapter (`backend/app/services/agents/tts/azure.py`) -- already implemented in Phase 06
-- Azure Avatar adapter (`backend/app/services/agents/avatar/azure.py`) -- stub from Phase 06, is_available()=False
+**Deprecated/outdated:**
+- `SUPPORTED_REGIONS = {"eastus2", "swedencentral"}` in voice_live_service.py -- needs expansion
+- Date-based `api-version` for Realtime API -- GA uses `/openai/v1` endpoint
 
 ## Open Questions
 
-1. **Runtime Settings Mutation Strategy**
-   - What we know: `get_settings()` uses `@lru_cache`, returning a cached instance. The session SSE endpoint reads `settings.default_llm_provider` to select the adapter.
-   - What's unclear: Whether to (a) clear the lru_cache and recreate Settings, (b) use a separate mutable runtime config dict, or (c) directly mutate the cached Settings instance (Pydantic BaseSettings does allow attribute assignment).
-   - Recommendation: Use approach (c) -- directly set attributes on the cached Settings instance. Pydantic BaseSettings allows this. Since `get_settings()` returns the same instance via lru_cache, mutations are visible everywhere. This is the simplest approach and matches how `settings` is already used as a module-level singleton throughout the codebase. If immutability is later needed, refactor to approach (b).
+1. **ServiceConfig Extra Fields for Agent Mode**
+   - What we know: Voice Live Agent mode needs `project_name` and `agent_id` beyond what ServiceConfig stores
+   - What's unclear: Best storage strategy -- add DB columns vs encode in existing field vs JSON blob
+   - Recommendation: Use `model_or_deployment` field with convention encoding (`"agent:{agent_id}:{project_name}"` vs `"gpt-realtime"`). Avoids DB migration for a simple config difference. Frontend can render different form fields based on a radio button (Agent/Model mode).
 
-2. **Service Name Mapping Between Frontend and Backend**
-   - What we know: Frontend uses keys like `openai`, `speechStt`, `speechTts`, `avatar`. Backend currently uses `azure_openai`, `azure_speech`, `azure_avatar`, `azure_content`.
-   - What's unclear: Need a consistent mapping between frontend card keys and backend service_name values.
-   - Recommendation: Use backend service_name as canonical: `azure_openai`, `azure_speech_stt`, `azure_speech_tts`, `azure_avatar`, `azure_content`. Map in the frontend API layer. This matches the adapter category/name pattern.
+2. **Content Understanding Regional Availability**
+   - What we know: It is a Foundry Tool running on Foundry Resources
+   - What's unclear: Exact region list for Content Understanding (docs don't enumerate specific regions)
+   - Recommendation: Mark as available everywhere for now. If connection test fails, the error message will indicate the issue. Flag as LOW confidence in the region map.
 
-3. **Conversation History in AzureOpenAI Requests**
-   - What we know: The current `sessions.py` SSE endpoint sends only a single message via `CoachRequest.message`. The mock adapter ignores conversation history. But for real AI coaching, the full conversation history is needed for coherent multi-turn dialogue.
-   - What's unclear: Whether to add a `conversation_history` field to `CoachRequest` or fetch it inside the adapter.
-   - Recommendation: Add a `conversation_history: list[dict] | None = None` field to `CoachRequest`. The session endpoint already has access to messages via `session_service.get_session_messages()`. Pass the full history so the Azure OpenAI adapter can construct a proper multi-turn messages array.
+3. **Azure AD Token Auth for Voice Live Agent Mode**
+   - What we know: Agent mode recommends Microsoft Entra (Azure AD) auth with scope `https://ai.azure.com/.default`
+   - What's unclear: Whether API key works for Agent mode or ONLY Entra tokens
+   - Recommendation: Support API key first (simpler). Add Azure AD as a future enhancement. The connection test will reveal if API key works.
 
 ## Environment Availability
 
-| Dependency | Required By | Available | Version | Fallback |
-|------------|------------|-----------|---------|----------|
-| Python 3.11+ | Backend | Yes | 3.11+ | -- |
-| openai SDK | AzureOpenAI adapter | Yes | 1.51.0 | -- |
-| cryptography | Fernet encryption | Yes | 46.0.5 | -- |
-| azure-cognitiveservices-speech | Speech adapters | Optional | >=1.48.0 | Mock STT/TTS adapters |
-| Node.js 20+ | Frontend build | Yes | 20+ | -- |
-| Alembic | DB migrations | Yes | >=1.13.0 | -- |
-| httpx | Speech connection testing | Yes | >=0.27.0 | -- |
+No external tools required beyond what is already installed. Phase 07 expanded scope adds backend Python code and minor frontend updates. All dependencies (openai, httpx, cryptography) are already in pyproject.toml.
 
-**Missing dependencies with no fallback:**
-- None -- all required dependencies are already installed.
+## Project Constraints (from CLAUDE.md)
 
-**Missing dependencies with fallback:**
-- `azure-cognitiveservices-speech` is in the `[voice]` optional group. If not installed, Speech STT/TTS adapters fall back to mock (conditional import pattern already used in Phase 06).
+- **Async everywhere:** All new adapter methods must be `async def`
+- **Conditional imports:** Use `try/except ImportError` pattern inside constructors (matching azure_openai.py convention)
+- **Service layer holds logic:** Connection testing logic in service, router only handles HTTP
+- **Pydantic v2:** New schemas use `model_config = ConfigDict(from_attributes=True)`
+- **Alembic for schema changes:** If adding columns to ServiceConfig, must use Alembic migration with batch operations for SQLite
+- **No raw SQL:** Use SQLAlchemy ORM
+- **Route ordering:** Static routes before parameterized (`/region-capabilities/{region}` before `/{id}`)
+- **Create returns 201, Delete returns 204**
+- **ruff check + format** must pass
+- **Tests required:** pytest with >=95% coverage per project convention
+- **Conventional commits:** `feat:`, `fix:`, `test:`
 
 ## Sources
 
 ### Primary (HIGH confidence)
-- **Codebase inspection** -- All canonical files read and analyzed:
-  - `backend/app/services/agents/base.py` -- BaseCoachingAdapter interface, CoachEvent/CoachRequest dataclasses
-  - `backend/app/services/agents/adapters/mock.py` -- MockCoachingAdapter reference implementation
-  - `backend/app/services/agents/registry.py` -- ServiceRegistry singleton with register/get/list
-  - `backend/app/api/sessions.py` -- SSE endpoint that consumes adapters
-  - `backend/app/api/azure_config.py` -- Current read-only API stub
-  - `backend/app/services/agents/stt/azure.py` -- Phase 06 AzureSTTAdapter (pattern reference)
-  - `backend/app/services/agents/tts/azure.py` -- Phase 06 AzureTTSAdapter (pattern reference)
-  - `backend/app/config.py` -- pydantic-settings with Azure env vars
-  - `backend/app/main.py` -- Lifespan adapter registration
-  - `frontend/src/pages/admin/azure-config.tsx` -- Frontend config page
-  - `frontend/src/components/admin/service-config-card.tsx` -- Config card component
-
-- **Runtime verification** -- Confirmed via Python execution:
-  - `openai` v1.51.0 installed with `AsyncAzureOpenAI` class available
-  - `AsyncAzureOpenAI` constructor accepts: azure_endpoint, api_key, api_version, azure_deployment, max_retries=2
-  - `client.chat.completions.create` method available for streaming
-  - `cryptography` v46.0.5 with working Fernet encrypt/decrypt verified
-  - Fernet key format: 44-char URL-safe base64 string
-  - Fernet token length: ~120 bytes for typical API key
+- [Azure Content Understanding Overview](https://learn.microsoft.com/en-us/azure/ai-services/content-understanding/overview) - GA service, Foundry Tool, REST API
+- [Azure Content Understanding REST API Quickstart](https://learn.microsoft.com/en-us/azure/ai-services/content-understanding/quickstart/use-rest-api) - Endpoint patterns, auth header, API version 2025-11-01
+- [Azure Content Understanding Service Limits](https://learn.microsoft.com/en-us/azure/ai-services/content-understanding/service-limits) - File types, rate limits, analyzer limits
+- [Azure OpenAI Realtime API](https://learn.microsoft.com/en-us/azure/ai-services/openai/how-to/realtime-audio) - WebSocket protocol, /openai/v1 GA endpoint, supported models
+- [Azure Voice Live API Overview](https://learn.microsoft.com/en-us/azure/ai-services/speech-service/voice-live) - Model support, pricing tiers, regions
+- [Azure Voice Live API How-To](https://learn.microsoft.com/en-us/azure/ai-services/speech-service/voice-live-how-to) - WebSocket endpoint, auth, session config, avatar integration
+- [Azure Speech Service Regions](https://learn.microsoft.com/en-us/azure/ai-services/speech-service/regions) - Complete region tables for Avatar, Voice Live, STT, TTS
+- [Azure TTS Avatar Overview](https://learn.microsoft.com/en-us/azure/ai-services/speech-service/text-to-speech-avatar/what-is-text-to-speech-avatar) - Avatar capabilities, real-time synthesis
+- [Azure Real-time Avatar Synthesis](https://learn.microsoft.com/en-us/azure/ai-services/speech-service/text-to-speech-avatar/real-time-synthesis-avatar) - WebRTC setup, ICE servers, Speech SDK
 
 ### Secondary (MEDIUM confidence)
-- **cryptography.io official docs** -- Fernet API, MultiFernet for key rotation, thread safety confirmed
-- **openai-python GitHub README** -- AzureOpenAI constructor parameters, api_version format
-
-### Tertiary (LOW confidence)
-- Azure OpenAI API version recommendations (2024-06-01 GA, 2024-10-21 with structured outputs) -- based on training data knowledge, not verified against current Azure docs. Recommend using `2024-06-01` as a safe default.
+- Existing codebase: `backend/app/services/connection_tester.py`, `azure_config.py`, `voice_live_service.py` - Current implementation patterns
+- Existing codebase: `frontend/src/pages/admin/azure-config.tsx` - 7 service cards with SERVICE_KEY_MAP
 
 ## Metadata
 
 **Confidence breakdown:**
-- Standard stack: HIGH -- all packages verified installed and working via runtime checks
-- Architecture: HIGH -- patterns directly derived from existing codebase (MockCoachingAdapter, Phase 06 Azure adapters, ServiceRegistry)
-- Pitfalls: HIGH -- identified from codebase inspection of real code patterns and gotcha list in CLAUDE.md
-- Azure OpenAI streaming: HIGH -- AsyncAzureOpenAI constructor and chat.completions.create verified via Python introspection
-- Encryption: HIGH -- Fernet encrypt/decrypt round-trip tested successfully
-- API version: MEDIUM -- using known GA version but not verified against latest Azure docs
+- Standard stack: HIGH - no new packages, all verified in existing pyproject.toml
+- Architecture (service classification): HIGH - verified each service's API pattern against official docs
+- Region capabilities: MEDIUM - Avatar and Voice Live regions verified from official tables; Content Understanding availability unclear
+- Connection test patterns: HIGH - verified endpoint URLs and auth headers from official docs
+- Voice Live Agent mode: MEDIUM - docs confirm agent_id/project_id params but API key vs Entra auth unclear
+- Pitfalls: HIGH - identified from analyzing existing code gaps vs official API requirements
 
 **Research date:** 2026-03-27
-**Valid until:** 2026-04-27 (stable -- all dependencies pinned, patterns established)
+**Valid until:** 2026-04-27 (Azure services evolve; region tables should be re-verified monthly)
