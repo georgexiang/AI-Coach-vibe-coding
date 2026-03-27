@@ -201,7 +201,7 @@ Phases execute in numeric order: 01 -> 01.1 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07 
 | 05. Training Material Management | 3/3 | Complete | - |
 | 06. Conference Presentation Module | 6/6 | Complete | 2026-03-25 |
 | 07. Azure Service Integration | 4/4 | Complete    | 2026-03-27 |
-| 08. Voice & Avatar Demo Integration | 0/4 | Not Started | - |
+| 08. Voice & Avatar Demo Integration | 1/4 | In Progress|  |
 
 ### Phase 07: Azure Service Integration
 
@@ -239,7 +239,7 @@ Plans:
 **Plans**: 4 plans
 
 Plans:
-- [ ] 08-01-PLAN.md -- Backend foundation: Alembic migration (session mode), voice_live schemas/service, token broker API, connection tester, tests
+- [x] 08-01-PLAN.md -- Backend foundation: Alembic migration (session mode), voice_live schemas/service, token broker API, connection tester, tests
 - [ ] 08-02-PLAN.md -- Frontend data layer: TypeScript types, i18n voice namespace, API client, TanStack Query hooks, audio-processor.js, tests
 - [ ] 08-03-PLAN.md -- Voice hooks + leaf components: useVoiceLive, useAvatarStream, useAudioHandler, 7 voice UI components, component tests
 - [ ] 08-04-PLAN.md -- Container components + wiring: VoiceSession container, route registration, admin config Voice Live card, transcript flush, tests
