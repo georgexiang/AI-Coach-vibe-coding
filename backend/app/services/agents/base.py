@@ -28,6 +28,7 @@ class CoachRequest:
     scenario_context: str = ""
     hcp_profile: dict | None = None
     scoring_criteria: dict | None = None
+    conversation_history: list[dict] | None = None  # For multi-turn dialogue
 
 
 class BaseCoachingAdapter(ABC):
