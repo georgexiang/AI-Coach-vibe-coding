@@ -1,4 +1,6 @@
-"""Tests for Azure Config API endpoints: service status and connection testing."""
+"""Tests for Azure Config API: DB-backed CRUD, connection testing, admin enforcement."""
+
+from unittest.mock import AsyncMock, patch
 
 from app.models.user import User
 from app.services.auth import create_access_token, get_password_hash
@@ -40,7 +42,8 @@ async def _create_user_token() -> str:
 class TestListServicesEndpoint:
     """Tests for GET /api/v1/azure-config/services."""
 
-    async def test_admin_can_list_services(self, client):
+    async def test_list_services_empty(self, client):
+        """GET returns empty list when no configs saved."""
         token = await _create_admin_token()
         response = await client.get(
             "/api/v1/azure-config/services",
@@ -49,57 +52,131 @@ class TestListServicesEndpoint:
         assert response.status_code == 200
         data = response.json()
         assert isinstance(data, list)
-        assert len(data) == 4  # azure_openai, azure_speech, azure_avatar, azure_content
+        assert len(data) == 0
 
-        service_names = {svc["name"] for svc in data}
-        assert "azure_openai" in service_names
-        assert "azure_speech" in service_names
-        assert "azure_avatar" in service_names
-        assert "azure_content" in service_names
-
-    async def test_services_have_required_fields(self, client):
+    async def test_list_services_after_save(self, client):
+        """After PUT, GET returns the saved config with masked key."""
         token = await _create_admin_token()
+        # First save a config
+        await client.put(
+            "/api/v1/azure-config/services/azure_openai",
+            headers={"Authorization": f"Bearer {token}"},
+            json={
+                "endpoint": "https://test.openai.azure.com",
+                "api_key": "sk-test-key-1234",
+                "model_or_deployment": "gpt-4o",
+                "region": "eastus",
+            },
+        )
+        # Then list
         response = await client.get(
             "/api/v1/azure-config/services",
             headers={"Authorization": f"Bearer {token}"},
         )
+        assert response.status_code == 200
         data = response.json()
-        for svc in data:
-            assert "name" in svc
-            assert "display_name" in svc
-            assert "status" in svc
-            assert svc["status"] in ("connected", "not_configured")
-            assert "masked_key" in svc
-
-    async def test_non_admin_gets_403(self, client):
-        token = await _create_user_token()
-        response = await client.get(
-            "/api/v1/azure-config/services",
-            headers={"Authorization": f"Bearer {token}"},
-        )
-        assert response.status_code == 403
+        assert len(data) == 1
+        svc = data[0]
+        assert svc["service_name"] == "azure_openai"
+        assert svc["endpoint"] == "https://test.openai.azure.com"
+        assert "****" in svc["masked_key"]
+        assert "1234" in svc["masked_key"]
+        assert svc["model_or_deployment"] == "gpt-4o"
+        assert svc["is_active"] is True
 
     async def test_no_auth_returns_401(self, client):
         response = await client.get("/api/v1/azure-config/services")
         assert response.status_code == 401
 
 
-class TestTestServiceEndpoint:
-    """Tests for POST /api/v1/azure-config/services/{service_name}/test."""
+class TestPutServiceEndpoint:
+    """Tests for PUT /api/v1/azure-config/services/{service_name}."""
 
-    async def test_unknown_service_returns_failure(self, client):
+    async def test_put_service_config(self, client):
+        """PUT creates new config, returns 200 with ServiceConfigResponse."""
         token = await _create_admin_token()
-        response = await client.post(
-            "/api/v1/azure-config/services/unknown_service/test",
+        response = await client.put(
+            "/api/v1/azure-config/services/azure_openai",
             headers={"Authorization": f"Bearer {token}"},
+            json={
+                "endpoint": "https://test.openai.azure.com",
+                "api_key": "sk-test-key-1234",
+                "model_or_deployment": "gpt-4o",
+                "region": "eastus",
+            },
         )
         assert response.status_code == 200
         data = response.json()
-        assert data["success"] is False
-        assert "Unknown service" in data["message"]
+        assert data["service_name"] == "azure_openai"
+        assert data["display_name"] == "Azure OpenAI"
+        assert data["endpoint"] == "https://test.openai.azure.com"
+        assert data["is_active"] is True
 
-    async def test_known_service_returns_result(self, client):
-        """Testing a known service should return a structured result."""
+    async def test_put_updates_existing_config(self, client):
+        """PUT updates existing config preserving key if not provided."""
+        token = await _create_admin_token()
+        # Create initial config
+        await client.put(
+            "/api/v1/azure-config/services/azure_openai",
+            headers={"Authorization": f"Bearer {token}"},
+            json={
+                "endpoint": "https://old.openai.azure.com",
+                "api_key": "sk-old-key",
+                "model_or_deployment": "gpt-4",
+                "region": "westus",
+            },
+        )
+        # Update with new endpoint but no key (should preserve old key)
+        response = await client.put(
+            "/api/v1/azure-config/services/azure_openai",
+            headers={"Authorization": f"Bearer {token}"},
+            json={
+                "endpoint": "https://new.openai.azure.com",
+                "api_key": "",
+                "model_or_deployment": "gpt-4o",
+                "region": "eastus",
+            },
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["endpoint"] == "https://new.openai.azure.com"
+        assert data["model_or_deployment"] == "gpt-4o"
+        # Key should still be masked (preserved from old)
+        assert "****" in data["masked_key"]
+
+    async def test_put_unknown_service_returns_400(self, client):
+        """PUT with unknown service name returns 400."""
+        token = await _create_admin_token()
+        response = await client.put(
+            "/api/v1/azure-config/services/unknown_svc",
+            headers={"Authorization": f"Bearer {token}"},
+            json={
+                "endpoint": "https://test.com",
+                "api_key": "key123",
+                "model_or_deployment": "",
+                "region": "",
+            },
+        )
+        assert response.status_code == 400
+
+    async def test_put_non_admin_gets_403(self, client):
+        token = await _create_user_token()
+        response = await client.put(
+            "/api/v1/azure-config/services/azure_openai",
+            headers={"Authorization": f"Bearer {token}"},
+            json={
+                "endpoint": "https://test.com",
+                "api_key": "key123",
+            },
+        )
+        assert response.status_code == 403
+
+
+class TestTestConnectionEndpoint:
+    """Tests for POST /api/v1/azure-config/services/{service_name}/test."""
+
+    async def test_test_connection_not_configured(self, client):
+        """Test returns success=False when service is not configured."""
         token = await _create_admin_token()
         response = await client.post(
             "/api/v1/azure-config/services/azure_openai/test",
@@ -107,12 +184,41 @@ class TestTestServiceEndpoint:
         )
         assert response.status_code == 200
         data = response.json()
-        assert "success" in data
-        assert "message" in data
-        assert data["service"] == "azure_openai"
-        assert isinstance(data["success"], bool)
+        assert data["success"] is False
+        assert data["service_name"] == "azure_openai"
+        assert "not configured" in data["message"].lower()
 
-    async def test_non_admin_gets_403(self, client):
+    @patch(
+        "app.api.azure_config.test_service_connection",
+        new_callable=AsyncMock,
+        return_value=(True, "Connection successful"),
+    )
+    async def test_test_connection_after_save(self, mock_test, client):
+        """Test calls connection tester after config is saved."""
+        token = await _create_admin_token()
+        # Save config first
+        await client.put(
+            "/api/v1/azure-config/services/azure_openai",
+            headers={"Authorization": f"Bearer {token}"},
+            json={
+                "endpoint": "https://test.openai.azure.com",
+                "api_key": "sk-test-key",
+                "model_or_deployment": "gpt-4o",
+                "region": "eastus",
+            },
+        )
+        # Test connection
+        response = await client.post(
+            "/api/v1/azure-config/services/azure_openai/test",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["service_name"] == "azure_openai"
+        mock_test.assert_called_once()
+
+    async def test_test_non_admin_gets_403(self, client):
         token = await _create_user_token()
         response = await client.post(
             "/api/v1/azure-config/services/azure_openai/test",
@@ -120,26 +226,35 @@ class TestTestServiceEndpoint:
         )
         assert response.status_code == 403
 
+    async def test_test_no_auth_returns_401(self, client):
+        response = await client.post("/api/v1/azure-config/services/azure_openai/test")
+        assert response.status_code == 401
 
-class TestMaskKeyFunction:
-    """Tests for the _mask_key helper function."""
 
-    async def test_mask_key_shows_last_4(self):
-        from app.api.azure_config import _mask_key
+class TestAdminRoleEnforcement:
+    """Verify all endpoints require admin role."""
 
-        assert _mask_key("abcdef1234") == "****1234"
+    async def test_get_requires_admin(self, client):
+        token = await _create_user_token()
+        response = await client.get(
+            "/api/v1/azure-config/services",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 403
 
-    async def test_mask_key_short_key(self):
-        from app.api.azure_config import _mask_key
+    async def test_put_requires_admin(self, client):
+        token = await _create_user_token()
+        response = await client.put(
+            "/api/v1/azure-config/services/azure_openai",
+            headers={"Authorization": f"Bearer {token}"},
+            json={"endpoint": "https://x.com", "api_key": "k"},
+        )
+        assert response.status_code == 403
 
-        assert _mask_key("ab") == "****"
-
-    async def test_mask_key_empty(self):
-        from app.api.azure_config import _mask_key
-
-        assert _mask_key("") == ""
-
-    async def test_mask_key_exactly_4(self):
-        from app.api.azure_config import _mask_key
-
-        assert _mask_key("abcd") == "****abcd"
+    async def test_test_requires_admin(self, client):
+        token = await _create_user_token()
+        response = await client.post(
+            "/api/v1/azure-config/services/azure_openai/test",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 403
