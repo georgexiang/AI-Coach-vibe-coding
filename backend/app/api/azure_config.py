@@ -13,6 +13,16 @@ router = APIRouter(prefix="/azure-config", tags=["azure-config"])
 
 settings = get_settings()
 
+# Valid service names and their display labels
+SERVICE_DISPLAY_NAMES = {
+    "azure_openai": "Azure OpenAI",
+    "azure_speech_stt": "Azure Speech (STT)",
+    "azure_speech_tts": "Azure Speech (TTS)",
+    "azure_avatar": "Azure AI Avatar",
+    "azure_content": "Azure Content Understanding",
+    "azure_voice_live": "Azure Voice Live API",
+}
+
 
 class ServiceStatus(BaseModel):
     """Status of a single Azure service."""

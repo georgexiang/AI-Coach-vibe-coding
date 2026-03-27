@@ -57,6 +57,9 @@ class Settings(BaseSettings):
     material_max_size_mb: int = 50
     material_retention_days: int = 365
 
+    # Encryption
+    encryption_key: str = ""  # Set via ENCRYPTION_KEY env var; generated at runtime if empty
+
     # Default AI provider per category
     default_llm_provider: str = "mock"
     default_stt_provider: str = "mock"
