@@ -195,7 +195,7 @@ Plans (completed from original Phase 08, executed in 08-* directory):
 - [x] 08-04-PLAN.md -- Container components + wiring: VoiceSession container, route registration, admin config Voice Live card, transcript flush, tests
 
 Plans (new -- remaining work, replanned with cross-AI review feedback):
-- [ ] 07-05-PLAN.md -- New adapters (Content Understanding with bounded polling, Realtime, Voice Live with JSON mode encoding) and region capabilities module
+- [x] 07-05-PLAN.md -- New adapters (Content Understanding with bounded polling, Realtime, Voice Live with JSON mode encoding) and region capabilities module
 - [ ] 07-06-PLAN.md -- Backend wiring + tests: connection tester real API tests, azure_config 7-service support, region-capabilities endpoint, SSRF validation, SUPPORTED_REGIONS, comprehensive test suite
 - [ ] 07-07-PLAN.md -- Frontend: accessible region badges (icon+text), Voice Live Agent/Model toggle with JSON encoding and validation, i18n updates, region-capability error handling
 
@@ -215,7 +215,7 @@ Phases execute in numeric order: 01 -> 01.1 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07 
 | 04. Dashboard & Reporting | 6/6 | Complete | - |
 | 05. Training Material Management | 3/3 | Complete | - |
 | 06. Conference Presentation Module | 6/6 | Complete | 2026-03-25 |
-| 07. Azure AI Service Integration & Voice/Avatar | 8/11 | In Progress | |
+| 07. Azure AI Service Integration & Voice/Avatar | 5/7 | In Progress|  |
 | 09. Integration Testing | 0/2 | Not Started | |
 
 ### Phase 09: Integration Testing with Real Azure Services
