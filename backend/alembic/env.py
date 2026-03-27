@@ -18,6 +18,7 @@ from app.models import (  # noqa: F401
     Scenario,
     ScoreDetail,
     ScoringRubric,
+    ServiceConfig,
     SessionMessage,
     SessionScore,
     TrainingMaterial,
