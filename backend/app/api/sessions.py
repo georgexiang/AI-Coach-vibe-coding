@@ -38,7 +38,15 @@ async def create_session(
     user: User = Depends(get_current_user),
 ):
     """Create a new coaching session for a scenario."""
-    session = await session_service.create_session(db, request.scenario_id, user.id)
+    # Enforce feature flag server-side: reject voice/avatar modes when voice_live is disabled
+    if request.mode in ("voice", "avatar") and not settings.feature_voice_live_enabled:
+        raise AppException(
+            status_code=409,
+            code="VOICE_MODE_DISABLED",
+            message="Voice and avatar modes are not available. "
+            "Voice Live is not enabled by the administrator.",
+        )
+    session = await session_service.create_session(db, request.scenario_id, user.id, request.mode)
     return session
 
 
@@ -129,9 +137,7 @@ async def send_message(
 
         # Fetch conversation history for multi-turn dialogue
         history_messages = await session_service.get_session_messages(db, session_id)
-        conversation_history = [
-            {"role": m.role, "content": m.content} for m in history_messages
-        ]
+        conversation_history = [{"role": m.role, "content": m.content} for m in history_messages]
 
         # Build coach request
         hcp_dict = None

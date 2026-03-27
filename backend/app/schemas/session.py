@@ -1,6 +1,7 @@
 """Coaching Session request/response schemas."""
 
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
@@ -9,7 +10,7 @@ class SessionCreate(BaseModel):
     """Create a new coaching session."""
 
     scenario_id: str
-    mode: str = "text"  # text / voice / avatar
+    mode: Literal["text", "voice", "avatar"] = "text"
 
 
 class SendMessageRequest(BaseModel):
