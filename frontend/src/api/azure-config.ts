@@ -3,6 +3,7 @@ import type {
   ServiceConfigResponse,
   ServiceConfigUpdate,
   ConnectionTestResult,
+  RegionCapabilities,
 } from "@/types/azure-config";
 
 export async function getServiceConfigs(): Promise<ServiceConfigResponse[]> {
@@ -28,6 +29,15 @@ export async function testServiceConnection(
 ): Promise<ConnectionTestResult> {
   const { data } = await apiClient.post<ConnectionTestResult>(
     `/azure-config/services/${serviceName}/test`,
+  );
+  return data;
+}
+
+export async function getRegionCapabilities(
+  region: string,
+): Promise<RegionCapabilities> {
+  const { data } = await apiClient.get<RegionCapabilities>(
+    `/azure-config/region-capabilities/${encodeURIComponent(region)}`,
   );
   return data;
 }

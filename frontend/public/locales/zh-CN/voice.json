@@ -43,7 +43,7 @@
     "micDenied": "麦克风访问被拒绝。请在浏览器设置中允许麦克风访问。",
     "avatarFailed": "数字人连接失败。切换到纯语音模式。",
     "tokenExpired": "会话令牌已过期。正在重新连接...",
-    "regionUnsupported": "Voice Live API 在配置的区域不可用。支持的区域：美国东部 2、瑞典中部。",
+    "regionUnsupported": "Voice Live API 在配置的区域不可用。请查阅 Azure 文档了解支持的区域。",
     "audioWorkletFailed": "音频系统初始化失败。请刷新页面。",
     "webrtcFailed": "视频连接失败。切换到纯语音模式。"
   },

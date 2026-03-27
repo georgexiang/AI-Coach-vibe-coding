@@ -74,6 +74,22 @@
     "apiKey": "API Key",
     "model": "Model/Deployment",
     "region": "Region",
+    "regionAvailable": "Available in {{region}}",
+    "regionUnavailable": "Not available in {{region}}",
+    "regionUnknown": "Region availability unknown",
+    "avatarRegionHint": "Azure AI Avatar is available in: East US 2, North Europe, South Central US, Southeast Asia, Sweden Central, West Europe, West US 2",
+    "voiceLiveRegionHint": "Voice Live API is available in most Azure regions. Agent mode requires specific AI Foundry regions.",
+    "contentHint": "Requires a Microsoft Foundry Resource (not a standard Cognitive Services resource).",
+    "realtimeHint": "Requires gpt-4o-realtime-preview or gpt-realtime model deployment.",
+    "saveConfig": "Save Configuration",
+    "contentTestSuccess": "Content Understanding service connected. Analyzers accessible.",
+    "contentTestFailed": "Content Understanding connection failed. Verify this is a Foundry Resource endpoint.",
+    "realtimeTestSuccess": "Realtime API deployment verified.",
+    "realtimeTestFailed": "Realtime deployment not found. Verify the deployment name supports realtime audio.",
+    "voiceLiveTestSuccess": "Voice Live API endpoint reachable.",
+    "voiceLiveTestFailed": "Voice Live API connection failed. Verify the endpoint and API key.",
+    "avatarTestSuccess": "Avatar service reachable. ICE relay token retrieved.",
+    "avatarTestFailed": "Avatar connection failed. Verify the region supports Avatar synthesis.",
     "services": {
       "openai": "Azure OpenAI",
       "speechStt": "Azure Speech (STT)",
@@ -147,7 +163,18 @@
   "voiceLive": {
     "name": "Azure Voice Live API",
     "description": "Real-time voice coaching with GPT-4o Realtime",
-    "regionWarning": "Voice Live API is only available in East US 2 and Sweden Central regions.",
-    "regionLabel": "Region"
+    "regionWarning": "Voice Live API is available in most Azure regions. Some models and Agent mode may have regional restrictions. Check the Azure documentation for your region.",
+    "regionLabel": "Region",
+    "modeLabel": "Voice Live API Mode",
+    "modelMode": "Model Mode",
+    "modelModeDesc": "Direct Azure OpenAI model connection",
+    "agentMode": "Agent Mode",
+    "agentModeDesc": "Azure AI Agent Service with pre-configured HCP persona agent",
+    "agentId": "Agent ID",
+    "projectName": "Project Name",
+    "agentIdPlaceholder": "Enter Azure AI Agent ID",
+    "projectPlaceholder": "Enter AI Foundry project name",
+    "agentIdRequired": "Agent ID is required for Agent mode",
+    "projectNameRequired": "Project Name is required for Agent mode"
   }
 }

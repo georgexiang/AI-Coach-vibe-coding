@@ -18,7 +18,8 @@ import {
   useUpdateServiceConfig,
   useTestServiceConnection,
 } from "@/hooks/use-azure-config";
-import type { ServiceConfigUpdate } from "@/types/azure-config";
+import { useRegionCapabilities } from "@/hooks/use-region-capabilities";
+import type { ServiceConfigUpdate, RegionStatus } from "@/types/azure-config";
 
 interface AzureServiceDef {
   key: string;
@@ -95,6 +96,18 @@ export default function AzureConfigPage() {
   const updateMutation = useUpdateServiceConfig();
   const testMutation = useTestServiceConnection();
 
+  const primaryRegion = savedConfigs?.find((c) => c.region)?.region;
+  const { data: regionCaps, isError: regionCapsError } = useRegionCapabilities(primaryRegion);
+
+  const getRegionStatus = (backendKey: string): RegionStatus | undefined => {
+    if (!primaryRegion) return undefined;
+    if (regionCapsError) return "unknown";
+    if (!regionCaps) return undefined;
+    const svc = regionCaps.services[backendKey];
+    if (!svc) return "unknown";
+    return svc.available ? "available" : "unavailable";
+  };
+
   const getSavedConfig = (frontendKey: string) => {
     const backendKey = SERVICE_KEY_MAP[frontendKey];
     return savedConfigs?.find((c) => c.service_name === backendKey);
@@ -156,29 +169,19 @@ export default function AzureConfigPage() {
       </div>
       <div className="space-y-4 max-w-4xl">
         {AZURE_SERVICES.map((svc) => (
-          <div key={svc.key}>
-            <ServiceConfigCard
-              service={{
-                key: SERVICE_KEY_MAP[svc.key] ?? svc.key,
-                name: svc.name,
-                description: svc.description,
-                icon: svc.icon,
-              }}
-              savedConfig={getSavedConfig(svc.key)}
-              onSave={handleSave}
-              onTestConnection={handleTestConnection}
-            />
-            {svc.key === "voiceLive" && (() => {
-              const savedConfig = getSavedConfig("voiceLive");
-              const region = savedConfig?.region ?? "";
-              const isUnsupported = region !== "" && region !== "eastus2" && region !== "swedencentral";
-              return isUnsupported ? (
-                <div className="mt-2 rounded-md bg-orange-50 border border-orange-200 p-3 text-sm text-orange-800">
-                  {t("voiceLive.regionWarning")}
-                </div>
-              ) : null;
-            })()}
-          </div>
+          <ServiceConfigCard
+            key={svc.key}
+            service={{
+              key: SERVICE_KEY_MAP[svc.key] ?? svc.key,
+              name: svc.name,
+              description: svc.description,
+              icon: svc.icon,
+            }}
+            savedConfig={getSavedConfig(svc.key)}
+            onSave={handleSave}
+            onTestConnection={handleTestConnection}
+            regionStatus={getRegionStatus(SERVICE_KEY_MAP[svc.key] ?? svc.key)}
+          />
         ))}
       </div>
     </div>
