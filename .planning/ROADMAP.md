@@ -201,7 +201,7 @@ Phases execute in numeric order: 01 -> 01.1 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07 
 | 05. Training Material Management | 3/3 | Complete | - |
 | 06. Conference Presentation Module | 6/6 | Complete | 2026-03-25 |
 | 07. Azure Service Integration | 5/4 | Complete    | 2026-03-27 |
-| 08. Voice & Avatar Demo Integration | 1/4 | In Progress|  |
+| 08. Voice & Avatar Demo Integration | 3/5 | In Progress|  |
 
 ### Phase 07: Azure Service Integration
 
@@ -236,12 +236,13 @@ Plans:
   4. The system gracefully falls back to text-only or TTS-only mode when Avatar/Voice Live services are unavailable
   5. Admin can configure Voice Live and Avatar settings from the Azure Config page
   6. All new code has unit tests with >=95% coverage maintained
-**Plans**: 4 plans
+**Plans**: 5 plans
 
 Plans:
 - [x] 08-01-PLAN.md -- Backend foundation: Alembic migration (session mode), voice_live schemas/service, token broker API, connection tester, tests
 - [x] 08-02-PLAN.md -- Frontend data layer: TypeScript types, i18n voice namespace, API client, TanStack Query hooks, audio-processor.js, tests
 - [x] 08-03-PLAN.md -- Voice hooks + leaf components: useVoiceLive, useAvatarStream, useAudioHandler, 7 voice UI components, component tests
-- [ ] 08-04-PLAN.md -- Container components + wiring: VoiceSession container, route registration, admin config Voice Live card, transcript flush, tests
+- [ ] 08-04-PLAN.md -- Integration wiring: session mode through full stack, voice_live_enabled feature flag, Voice tab in scenario selection, i18n keys
+- [ ] 08-05-PLAN.md -- Comprehensive tests: backend session mode + feature flags, frontend voice tab toggle + session API mode parameter
 
 **UI hint**: yes
