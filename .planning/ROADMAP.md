@@ -18,6 +18,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 04: Dashboard & Reporting** - Personal dashboard, group analytics, export (PDF/Excel), training progress tracking
 - [x] **Phase 05: Training Material Management** - Document upload, versioning, retention policies, AI knowledge base integration
 - [x] **Phase 06: Conference Presentation Module** - One-to-many simulation, live transcription, audience Q&A, presentation scoring (completed 2026-03-25)
+- [ ] **Phase 07: Azure Service Integration** - Admin Azure config persistence, real connection testing, dynamic provider switching (mock → Azure OpenAI/Speech/Avatar)
 
 ## Phase Details
 
@@ -167,7 +168,7 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 01 -> 01.1 -> 02 -> 03 -> 04 -> 05 -> 06
+Phases execute in numeric order: 01 -> 01.1 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -178,3 +179,26 @@ Phases execute in numeric order: 01 -> 01.1 -> 02 -> 03 -> 04 -> 05 -> 06
 | 04. Dashboard & Reporting | 6/6 | Complete | - |
 | 05. Training Material Management | 3/3 | Complete | - |
 | 06. Conference Presentation Module | 6/6 | Complete | 2026-03-25 |
+| 07. Azure Service Integration | 0/4 | In Progress | - |
+
+### Phase 07: Azure Service Integration
+
+**Goal**: Admin can configure Azure OpenAI, Speech, and Avatar through the web UI with real connection testing, configurations persist to the database, and the coaching system dynamically switches from mock to real Azure providers based on admin settings
+**Depends on**: Phase 02
+**Requirements**: PLAT-03, ARCH-05, PLAT-05
+**Success Criteria** (what must be TRUE):
+  1. Admin can configure Azure OpenAI endpoint/key/model/region from the Azure Config page and the settings persist across server restarts (stored in database)
+  2. Admin can configure Azure Speech (STT/TTS) and Azure Avatar settings from the same page
+  3. "Test Connection" button actually validates connectivity to the configured Azure service and shows real success/failure status
+  4. When Azure OpenAI is configured and tested, F2F coaching sessions use the real Azure OpenAI model instead of mock responses
+  5. When Azure Speech is configured, voice mode becomes available for coaching sessions (STT for input, TTS for HCP responses)
+  6. The system gracefully falls back to mock adapters when Azure services are not configured or unavailable
+**Plans**: 4 plans
+
+Plans:
+- [ ] 07-01-PLAN.md -- Backend foundation: ServiceConfig model, Fernet encryption, schemas, Alembic migration, config service
+- [ ] 07-02-PLAN.md -- AzureOpenAIAdapter: streaming LLM adapter with conversation history, unit tests
+- [ ] 07-03-PLAN.md -- Backend API + dynamic switching: PUT/test/GET endpoints, connection tester, lifespan DB loading, session history wiring
+- [ ] 07-04-PLAN.md -- Frontend wiring: TypeScript types, API client, TanStack Query hooks, wire azure-config page to real API
+
+**UI hint**: yes
