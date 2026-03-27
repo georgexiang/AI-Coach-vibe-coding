@@ -18,8 +18,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 04: Dashboard & Reporting** - Personal dashboard, group analytics, export (PDF/Excel), training progress tracking
 - [x] **Phase 05: Training Material Management** - Document upload, versioning, retention policies, AI knowledge base integration
 - [x] **Phase 06: Conference Presentation Module** - One-to-many simulation, live transcription, audience Q&A, presentation scoring (completed 2026-03-25)
-- [x] **Phase 07: Azure Service Integration** - Admin Azure config persistence, real connection testing, dynamic provider switching (mock → Azure OpenAI/Speech/Avatar) (completed 2026-03-27)
-- [ ] **Phase 08: Voice & Avatar Demo Integration** - Integrate Azure Voice Live Agent with Avatar into the AI Coach platform for real-time voice coaching with digital HCP avatar
+- [ ] **Phase 07: Azure AI Service Integration & Voice/Avatar** - All 7 Azure AI modes (OpenAI, Speech STT/TTS, Avatar, Content Understanding, Realtime, Voice Live) with config persistence, connection testing, dynamic switching, and real-time voice/avatar coaching
 - [ ] **Phase 09: Integration Testing with Real Azure Services** - Validate Azure services end-to-end with real credentials, E2E demo flow tests, smoke test checklist
 
 ## Phase Details
@@ -167,30 +166,43 @@ Plans:
 
 **UI hint**: yes
 
-### Phase 07: Azure Service Integration
-**Goal**: Admin Azure config persistence, real connection testing, dynamic provider switching (mock to Azure OpenAI/Speech/Avatar)
+### Phase 07: Azure AI Service Integration & Voice/Avatar
+**Goal**: All 7 Azure AI service modes (OpenAI, Speech STT/TTS, Avatar, Content Understanding, Realtime, Voice Live) with admin config persistence, real connection testing, dynamic provider switching, region-based availability detection, and real-time voice/avatar coaching sessions
 **Depends on**: Phase 01
-**Requirements**: PLAT-03, ARCH-05
+**Requirements**: PLAT-03, ARCH-05, COACH-04, COACH-05, COACH-07, EXT-04, PLAT-05
 **Success Criteria** (what must be TRUE):
-  1. Admin can configure Azure service endpoints and API keys via admin UI
+  1. Admin can configure all 7 Azure AI service endpoints and API keys via admin UI
   2. API keys are stored encrypted (Fernet) in the database
-  3. Connection testing validates Azure service reachability
+  3. Connection testing validates Azure service reachability for all 7 modes
   4. Dynamic provider switching allows runtime change from mock to Azure providers
-  5. All new code has unit tests with >=95% coverage maintained
-**Plans**: 4 plans
+  5. User can start a voice-enabled coaching session that uses Azure Voice Live API for real-time speech interaction
+  6. Azure AI Avatar renders a digital human visual for the HCP during voice coaching sessions
+  7. Voice interaction is integrated with the existing coaching session lifecycle
+  8. The system shows region-based availability for each service (not a fallback chain — user-selectable modes)
+  9. All new code has unit tests with >=95% coverage maintained
+**Plans**: 8+ plans (8 completed from original 07+08, new plans TBD)
 
-Plans:
+Plans (completed from original Phase 07):
 - [x] 07-01-PLAN.md -- Config data foundation: ServiceConfig model, Fernet encryption, config service, schemas, migration
 - [x] 07-02-PLAN.md -- Admin config API routes and frontend config page
 - [x] 07-03-PLAN.md -- Connection testing and Azure service validation
 - [x] 07-04-PLAN.md -- Dynamic provider switching and runtime reconfiguration
+
+Plans (completed from original Phase 08, executed in 08-* directory):
+- [x] 08-01-PLAN.md -- Backend foundation: Alembic migration (session mode), voice_live schemas/service, token broker API, connection tester, tests
+- [x] 08-02-PLAN.md -- Frontend data layer: TypeScript types, i18n voice namespace, API client, TanStack Query hooks, audio-processor.js, tests
+- [x] 08-03-PLAN.md -- Voice hooks + leaf components: useVoiceLive, useAvatarStream, useAudioHandler, 7 voice UI components, component tests
+- [x] 08-04-PLAN.md -- Container components + wiring: VoiceSession container, route registration, admin config Voice Live card, transcript flush, tests
+
+Plans (new — remaining work):
+- [ ] 07-05-PLAN.md -- TBD (Content Understanding, Realtime, Voice Live Agent/Model adapters, region capabilities, frontend wiring)
 
 **UI hint**: yes
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 01 -> 01.1 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07 -> 08 -> 09
+Phases execute in numeric order: 01 -> 01.1 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07 -> 09
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -201,57 +213,13 @@ Phases execute in numeric order: 01 -> 01.1 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07 
 | 04. Dashboard & Reporting | 6/6 | Complete | - |
 | 05. Training Material Management | 3/3 | Complete | - |
 | 06. Conference Presentation Module | 6/6 | Complete | 2026-03-25 |
-| 07. Azure Service Integration | 4/4 | Complete    | 2026-03-27 |
-| 08. Voice & Avatar Demo Integration | 1/4 | In Progress|  |
+| 07. Azure AI Service Integration & Voice/Avatar | 8/TBD | In Progress | |
 | 09. Integration Testing | 0/2 | Not Started | |
-
-### Phase 07: Azure Service Integration
-
-**Goal**: Admin can configure Azure OpenAI, Speech, and Avatar through the web UI with real connection testing, configurations persist to the database, and the coaching system dynamically switches from mock to real Azure providers based on admin settings
-**Depends on**: Phase 02
-**Requirements**: PLAT-03, ARCH-05, PLAT-05
-**Success Criteria** (what must be TRUE):
-  1. Admin can configure Azure OpenAI endpoint/key/model/region from the Azure Config page and the settings persist across server restarts (stored in database)
-  2. Admin can configure Azure Speech (STT/TTS) and Azure Avatar settings from the same page
-  3. "Test Connection" button actually validates connectivity to the configured Azure service and shows real success/failure status
-  4. When Azure OpenAI is configured and tested, F2F coaching sessions use the real Azure OpenAI model instead of mock responses
-  5. When Azure Speech is configured, voice mode becomes available for coaching sessions (STT for input, TTS for HCP responses)
-  6. The system gracefully falls back to mock adapters when Azure services are not configured or unavailable
-**Plans**: 4 plans
-
-Plans:
-- [x] 07-01-PLAN.md -- Backend foundation: ServiceConfig model, Fernet encryption, schemas, Alembic migration, config service
-- [x] 07-02-PLAN.md -- AzureOpenAIAdapter: streaming LLM adapter with conversation history, unit tests
-- [x] 07-03-PLAN.md -- Backend API + dynamic switching: PUT/test/GET endpoints, connection tester, lifespan DB loading, session history wiring
-- [ ] 07-04-PLAN.md -- Frontend wiring: TypeScript types, API client, TanStack Query hooks, wire azure-config page to real API
-
-**UI hint**: yes
-
-### Phase 08: Voice & Avatar Demo Integration
-**Goal**: Integrate the existing Voice-Live-Agent-With-Avatar demo (Azure Voice Live API + Avatar) into the AI Coach platform, enabling real-time voice-based coaching sessions where MRs talk to a digital HCP avatar with natural speech interaction
-**Depends on**: Phase 07
-**Requirements**: COACH-04, COACH-05, COACH-07, EXT-04, PLAT-05
-**Success Criteria** (what must be TRUE):
-  1. User can start a voice-enabled coaching session that uses Azure Voice Live API for real-time speech interaction with the AI HCP
-  2. Azure AI Avatar renders a digital human visual for the HCP during voice coaching sessions
-  3. Voice interaction is integrated with the existing coaching session lifecycle (start -> in_progress -> completed -> scored)
-  4. The system gracefully falls back to text-only or TTS-only mode when Avatar/Voice Live services are unavailable
-  5. Admin can configure Voice Live and Avatar settings from the Azure Config page
-  6. All new code has unit tests with >=95% coverage maintained
-**Plans**: 4 plans
-
-Plans:
-- [x] 08-01-PLAN.md -- Backend foundation: Alembic migration (session mode), voice_live schemas/service, token broker API, connection tester, tests
-- [x] 08-02-PLAN.md -- Frontend data layer: TypeScript types, i18n voice namespace, API client, TanStack Query hooks, audio-processor.js, tests
-- [x] 08-03-PLAN.md -- Voice hooks + leaf components: useVoiceLive, useAvatarStream, useAudioHandler, 7 voice UI components, component tests
-- [ ] 08-04-PLAN.md -- Container components + wiring: VoiceSession container, route registration, admin config Voice Live card, transcript flush, tests
-
-**UI hint**: yes
 
 ### Phase 09: Integration Testing with Real Azure Services
 
 **Goal:** Validate all Azure service integrations end-to-end with real credentials, polish the demo experience for BeiGene customer presentations, and create automated + manual test suites for ongoing validation
-**Depends on:** Phase 08
+**Depends on:** Phase 07
 **Requirements**: COACH-04, COACH-05, COACH-07, PLAT-03, PLAT-05, ARCH-05
 **Success Criteria** (what must be TRUE):
   1. Pytest integration tests validate each Azure service adapter with real credentials (OpenAI streaming, Speech STT/TTS round-trip, Voice Live token, Avatar config)
