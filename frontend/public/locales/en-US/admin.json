@@ -143,5 +143,11 @@
     "rubricSaveFailed": "Could not save rubric. Check required fields and try again.",
     "materialUploadFailed": "Could not upload material. Check the file and try again.",
     "materialUpdateFailed": "Could not update material. Check required fields and try again."
+  },
+  "voiceLive": {
+    "name": "Azure Voice Live API",
+    "description": "Real-time voice coaching with GPT-4o Realtime",
+    "regionWarning": "Voice Live API is only available in East US 2 and Sweden Central regions.",
+    "regionLabel": "Region"
   }
 }

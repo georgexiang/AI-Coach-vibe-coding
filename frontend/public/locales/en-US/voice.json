@@ -1,0 +1,53 @@
+{
+  "title": "Voice Coaching Session",
+  "startSession": "Start Voice Session",
+  "mode": {
+    "text": "Text",
+    "voice": "Voice",
+    "avatar": "Avatar"
+  },
+  "modeSelector": "Session Mode",
+  "connect": "Connect",
+  "disconnect": "Disconnect",
+  "mute": "Mute",
+  "unmute": "Unmute",
+  "keyboardInput": "Type a message",
+  "fullScreen": "Full Screen",
+  "embeddedView": "Embedded View",
+  "status": {
+    "connecting": "Connecting...",
+    "connected": "Connected",
+    "disconnected": "Disconnected",
+    "reconnecting": "Reconnecting..."
+  },
+  "listening": "Listening...",
+  "speaking": "Speaking...",
+  "idle": "Ready",
+  "transcript": {
+    "user": "You",
+    "hcp": "Dr. {{name}}"
+  },
+  "modeBadge": {
+    "text": "Text Mode",
+    "voice": "Voice Mode",
+    "avatar": "Avatar Mode"
+  },
+  "emptyTranscript": "Start speaking to begin the conversation. Your transcript will appear here.",
+  "emptyTranscriptText": "Type a message to begin the conversation.",
+  "avatarPlaceholder": "Avatar will appear when connected.",
+  "notConfigured": "Voice mode is not available. Contact your admin to configure Azure Voice Live API.",
+  "avatarNotConfigured": "Avatar mode is not available. Voice-only mode will be used instead.",
+  "error": {
+    "connectionFailed": "Failed to connect to voice service. Check your network and try again.",
+    "micDenied": "Microphone access was denied. Please allow microphone access in your browser settings.",
+    "avatarFailed": "Avatar connection failed. Switching to voice-only mode.",
+    "tokenExpired": "Session token expired. Reconnecting...",
+    "regionUnsupported": "Voice Live API is not available in the configured region. Supported regions: East US 2, Sweden Central.",
+    "audioWorkletFailed": "Audio system initialization failed. Please refresh the page.",
+    "webrtcFailed": "Video connection failed. Switching to voice-only mode."
+  },
+  "endSession": "End Session",
+  "endSessionTitle": "End Voice Session",
+  "endSessionConfirm": "Are you sure you want to end this voice coaching session? Your conversation will be scored and cannot be resumed.",
+  "continueSession": "Continue Session"
+}
