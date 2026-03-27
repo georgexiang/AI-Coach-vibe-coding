@@ -27,6 +27,9 @@ class CoachingSession(Base, TimestampMixin):
     overall_score: Mapped[float | None] = mapped_column(nullable=True)
     passed: Mapped[bool | None] = mapped_column(nullable=True)
 
+    # Interaction mode (D-08: text / voice / avatar)
+    mode: Mapped[str] = mapped_column(String(20), default="text")
+
     # Conference fields
     session_type: Mapped[str] = mapped_column(String(20), default="f2f")  # f2f / conference
     sub_state: Mapped[str] = mapped_column(

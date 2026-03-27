@@ -36,6 +36,7 @@ class Settings(BaseSettings):
     feature_voice_enabled: bool = False
     feature_realtime_voice_enabled: bool = False
     feature_conference_enabled: bool = False
+    feature_voice_live_enabled: bool = False
 
     # Voice Mode (PLAT-05): "text_only" | "stt_tts" | "realtime" | "voice_live"
     default_voice_mode: str = "text_only"

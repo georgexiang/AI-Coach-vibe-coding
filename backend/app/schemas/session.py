@@ -9,6 +9,7 @@ class SessionCreate(BaseModel):
     """Create a new coaching session."""
 
     scenario_id: str
+    mode: str = "text"  # text / voice / avatar
 
 
 class SendMessageRequest(BaseModel):
@@ -43,6 +44,7 @@ class SessionResponse(BaseModel):
     key_messages_status: str  # JSON string from DB
     overall_score: float | None
     passed: bool | None
+    mode: str = "text"
     created_at: datetime
     updated_at: datetime
 
