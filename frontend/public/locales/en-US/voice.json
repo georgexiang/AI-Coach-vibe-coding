@@ -18,7 +18,8 @@
     "connecting": "Connecting...",
     "connected": "Connected",
     "disconnected": "Disconnected",
-    "reconnecting": "Reconnecting..."
+    "reconnecting": "Reconnecting...",
+    "error": "Connection Error"
   },
   "listening": "Listening...",
   "speaking": "Speaking...",
@@ -49,5 +50,14 @@
   "endSession": "End Session",
   "endSessionTitle": "End Voice Session",
   "endSessionConfirm": "Are you sure you want to end this voice coaching session? Your conversation will be scored and cannot be resumed.",
-  "continueSession": "Continue Session"
+  "continueSession": "Continue Session",
+  "connectingAvatar": "Connecting avatar...",
+  "micButton": {
+    "idle": "Start speaking",
+    "listening": "Listening - tap to mute",
+    "speaking": "AI is speaking",
+    "muted": "Microphone muted - tap to unmute",
+    "connecting": "Connecting...",
+    "disabled": "Microphone unavailable"
+  }
 }

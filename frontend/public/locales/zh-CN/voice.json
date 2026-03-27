@@ -18,7 +18,8 @@
     "connecting": "连接中...",
     "connected": "已连接",
     "disconnected": "已断开",
-    "reconnecting": "重新连接中..."
+    "reconnecting": "重新连接中...",
+    "error": "连接错误"
   },
   "listening": "正在聆听...",
   "speaking": "正在说话...",
@@ -49,5 +50,14 @@
   "endSession": "结束对话",
   "endSessionTitle": "结束语音对话",
   "endSessionConfirm": "确定要结束此次语音训练对话吗？您的对话将被评分，且无法恢复。",
-  "continueSession": "继续对话"
+  "continueSession": "继续对话",
+  "connectingAvatar": "正在连接数字人...",
+  "micButton": {
+    "idle": "开始说话",
+    "listening": "正在聆听 - 点击静音",
+    "speaking": "AI正在说话",
+    "muted": "已静音 - 点击取消静音",
+    "connecting": "连接中...",
+    "disabled": "麦克风不可用"
+  }
 }
