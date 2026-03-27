@@ -49,6 +49,7 @@
     "react-router-dom": "^7.0.0",
     "recharts": "^3.8.0",
     "rehype-raw": "^7.0.0",
+    "rt-client": "file:rt-client-0.5.2.tgz",
     "sonner": "^2.0.7",
     "tailwind-merge": "^2.5.0",
     "vaul": "^1.1.2",

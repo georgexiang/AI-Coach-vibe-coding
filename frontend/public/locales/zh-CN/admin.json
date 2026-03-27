@@ -143,5 +143,11 @@
     "rubricSaveFailed": "无法保存评分标准，请检查必填字段后重试。",
     "materialUploadFailed": "无法上传资料，请检查文件后重试。",
     "materialUpdateFailed": "无法更新资料，请检查必填字段后重试。"
+  },
+  "voiceLive": {
+    "name": "Azure Voice Live API",
+    "description": "使用 GPT-4o Realtime 的实时语音训练",
+    "regionWarning": "Voice Live API 仅在美国东部 2 和瑞典中部区域可用。",
+    "regionLabel": "区域"
   }
 }
