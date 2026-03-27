@@ -13,6 +13,7 @@ from app.schemas.azure_config import (
 )
 from app.services import config_service
 from app.services.connection_tester import test_service_connection
+from app.services.region_capabilities import get_region_capabilities
 from app.utils.exceptions import AppException
 
 router = APIRouter(prefix="/azure-config", tags=["azure-config"])
@@ -27,6 +28,7 @@ SERVICE_DISPLAY_NAMES = {
     "azure_avatar": "Azure AI Avatar",
     "azure_content": "Azure Content Understanding",
     "azure_voice_live": "Azure Voice Live API",
+    "azure_openai_realtime": "Azure OpenAI Realtime",
 }
 
 
@@ -64,7 +66,41 @@ async def register_adapter_from_config(
     elif service_name == "azure_avatar" and api_key:
         from app.services.agents.avatar.azure import AzureAvatarAdapter
 
-        registry.register("avatar", AzureAvatarAdapter(endpoint, api_key))
+        registry.register("avatar", AzureAvatarAdapter(endpoint, api_key, region=region))
+
+    elif service_name == "azure_openai_realtime" and api_key:
+        from app.services.agents.adapters.azure_realtime import AzureRealtimeAdapter
+
+        adapter = AzureRealtimeAdapter(
+            endpoint=endpoint, api_key=api_key, deployment=deployment
+        )
+        registry.register("realtime", adapter)
+
+    elif service_name == "azure_content" and api_key:
+        from app.services.agents.adapters.azure_content import AzureContentUnderstandingAdapter
+
+        adapter = AzureContentUnderstandingAdapter(endpoint=endpoint, api_key=api_key)
+        registry.register("content_understanding", adapter)
+
+    elif service_name == "azure_voice_live" and api_key:
+        from app.services.agents.adapters.azure_voice_live import AzureVoiceLiveAdapter
+
+        adapter = AzureVoiceLiveAdapter(
+            endpoint=endpoint,
+            api_key=api_key,
+            model_or_deployment=deployment,
+            region=region,
+        )
+        registry.register("voice_live", adapter)
+
+
+@router.get("/region-capabilities/{region}")
+async def get_capabilities(
+    region: str,
+    _admin: User = Depends(require_role("admin")),
+) -> dict:
+    """Return which Azure AI services are available in the given region."""
+    return get_region_capabilities(region)
 
 
 @router.get("/services", response_model=list[ServiceConfigResponse])

@@ -1,10 +1,39 @@
 """Connection testing for Azure services: real API calls to validate credentials."""
 
+import re
+
 import httpx
+
+AZURE_HOST_PATTERN = re.compile(
+    r"^https://[\w.-]+\."
+    r"(azure\.com|microsoft\.com|azure\.net|windows\.net"
+    r"|cognitive\.microsoft\.com|cognitiveservices\.azure\.com"
+    r"|services\.ai\.azure\.com|openai\.azure\.com"
+    r"|tts\.speech\.microsoft\.com)(/.*)?$",
+    re.IGNORECASE,
+)
+
+
+def validate_endpoint_url(endpoint: str) -> tuple[bool, str]:
+    """Validate endpoint URL: must be HTTPS and match Azure host patterns."""
+    if not endpoint:
+        return (False, "Endpoint is required")
+    if not endpoint.startswith("https://"):
+        return (False, "Endpoint must use HTTPS")
+    if not AZURE_HOST_PATTERN.match(endpoint):
+        return (
+            False,
+            "Endpoint must be an Azure service URL "
+            "(*.azure.com, *.microsoft.com, *.azure.net)",
+        )
+    return (True, "")
 
 
 async def test_azure_openai(endpoint: str, api_key: str, deployment: str) -> tuple[bool, str]:
     """Test Azure OpenAI connection by making a minimal chat completion call."""
+    valid, msg = validate_endpoint_url(endpoint)
+    if not valid:
+        return (False, msg)
     try:
         from openai import AsyncAzureOpenAI
 
@@ -42,21 +71,93 @@ async def test_azure_speech(key: str, region: str) -> tuple[bool, str]:
         return (False, f"Connection failed: {e!s}")
 
 
-async def test_azure_avatar(endpoint: str, api_key: str) -> tuple[bool, str]:
-    """Validate Azure Avatar configuration format (no live API call -- requires WebRTC)."""
-    if not endpoint or not endpoint.startswith("https://"):
-        return (False, "Invalid endpoint: must start with https://")
+async def test_azure_avatar(api_key: str, region: str) -> tuple[bool, str]:
+    """Test Avatar by fetching ICE relay token from the regional TTS endpoint."""
     if not api_key:
         return (False, "API key is required")
-    return (True, "Configuration valid (avatar connectivity requires WebRTC)")
+    if not region:
+        return (False, "Region is required for Avatar service")
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            url = (
+                f"https://{region}.tts.speech.microsoft.com"
+                f"/cognitiveservices/avatar/relay/token/v1"
+            )
+            response = await client.get(
+                url,
+                headers={"Ocp-Apim-Subscription-Key": api_key},
+            )
+            if response.status_code == 200:
+                return (True, "Avatar service reachable (ICE token retrieved)")
+            return (False, f"Avatar test failed: HTTP {response.status_code}")
+    except Exception as e:
+        return (False, f"Avatar connection failed: {e!s}")
+
+
+async def test_azure_content_understanding(
+    endpoint: str,
+    api_key: str,
+) -> tuple[bool, str]:
+    """Test Content Understanding by listing analyzers."""
+    valid, msg = validate_endpoint_url(endpoint)
+    if not valid:
+        return (False, msg)
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            url = (
+                f"{endpoint.rstrip('/')}/contentunderstanding"
+                f"/analyzers?api-version=2025-11-01"
+            )
+            response = await client.get(
+                url,
+                headers={"Ocp-Apim-Subscription-Key": api_key},
+            )
+            if response.status_code == 200:
+                return (True, "Content Understanding service connected. Analyzers accessible.")
+            return (
+                False,
+                f"Content Understanding test failed: "
+                f"HTTP {response.status_code}: {response.text[:200]}",
+            )
+    except Exception as e:
+        return (False, f"Content Understanding connection failed: {e!s}")
+
+
+async def test_azure_realtime(
+    endpoint: str,
+    api_key: str,
+    deployment: str,
+) -> tuple[bool, str]:
+    """Test Realtime API by verifying deployment exists via REST."""
+    valid, msg = validate_endpoint_url(endpoint)
+    if not valid:
+        return (False, msg)
+    try:
+        base = endpoint.rstrip("/")
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            url = f"{base}/openai/deployments/{deployment}?api-version=2024-06-01"
+            response = await client.get(
+                url,
+                headers={"api-key": api_key},
+            )
+            if response.status_code == 200:
+                return (True, "Realtime API deployment verified.")
+            elif response.status_code in (401, 403):
+                return (False, f"Authentication failed: HTTP {response.status_code}")
+            elif response.status_code == 404:
+                return (False, f"Deployment '{deployment}' not found")
+            return (False, f"HTTP {response.status_code}: {response.text[:200]}")
+    except Exception as e:
+        return (False, f"Realtime connection failed: {e!s}")
 
 
 async def test_azure_voice_live(endpoint: str, api_key: str, region: str) -> tuple[bool, str]:
     """Test Azure Voice Live API configuration by validating region and endpoint format."""
     from app.services.voice_live_service import SUPPORTED_REGIONS
 
-    if not endpoint or not endpoint.startswith("https://"):
-        return (False, "Invalid endpoint: must start with https://")
+    valid, msg = validate_endpoint_url(endpoint)
+    if not valid:
+        return (False, msg)
     if not api_key:
         return (False, "API key is required")
     if region.lower() not in SUPPORTED_REGIONS:
@@ -84,7 +185,6 @@ async def test_azure_voice_live(endpoint: str, api_key: str, region: str) -> tup
         return (True, "Configuration valid (region supported, endpoint format correct)")
 
 
-
 async def test_service_connection(
     service_name: str,
     endpoint: str,
@@ -98,15 +198,12 @@ async def test_service_connection(
     elif service_name in ("azure_speech_stt", "azure_speech_tts"):
         return await test_azure_speech(key=api_key, region=region)
     elif service_name == "azure_avatar":
-        return await test_azure_avatar(endpoint, api_key)
+        return await test_azure_avatar(api_key=api_key, region=region)
     elif service_name == "azure_voice_live":
         return await test_azure_voice_live(endpoint, api_key, region)
     elif service_name == "azure_content":
-        # Content Understanding: basic format validation
-        if not endpoint or not endpoint.startswith("https://"):
-            return (False, "Invalid endpoint: must start with https://")
-        if not api_key:
-            return (False, "API key is required")
-        return (True, "Configuration valid")
+        return await test_azure_content_understanding(endpoint, api_key)
+    elif service_name == "azure_openai_realtime":
+        return await test_azure_realtime(endpoint, api_key, deployment)
     else:
         return (False, f"Unknown service: {service_name}")

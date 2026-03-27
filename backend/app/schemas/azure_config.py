@@ -35,3 +35,17 @@ class ConnectionTestResult(BaseModel):
     service_name: str
     success: bool
     message: str
+
+
+class RegionServiceAvailability(BaseModel):
+    """Availability info for a single service in a region."""
+
+    available: bool
+    note: str = ""
+
+
+class RegionCapabilitiesResponse(BaseModel):
+    """Region capability lookup result."""
+
+    region: str
+    services: dict[str, RegionServiceAvailability]
