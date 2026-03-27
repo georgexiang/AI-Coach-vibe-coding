@@ -74,6 +74,22 @@
     "apiKey": "API 密钥",
     "model": "模型/部署",
     "region": "区域",
+    "regionAvailable": "在 {{region}} 可用",
+    "regionUnavailable": "在 {{region}} 不可用",
+    "regionUnknown": "区域可用性未知",
+    "avatarRegionHint": "Azure AI Avatar 可用区域：美国东部 2、北欧、美国中南部、东南亚、瑞典中部、西欧、美国西部 2",
+    "voiceLiveRegionHint": "Voice Live API 在大多数 Azure 区域可用。Agent 模式需要特定的 AI Foundry 区域。",
+    "contentHint": "需要 Microsoft Foundry 资源（非标准认知服务资源）。",
+    "realtimeHint": "需要部署 gpt-4o-realtime-preview 或 gpt-realtime 模型。",
+    "saveConfig": "保存配置",
+    "contentTestSuccess": "内容理解服务已连接。分析器可访问。",
+    "contentTestFailed": "内容理解连接失败。请确认此为 Foundry 资源端点。",
+    "realtimeTestSuccess": "实时 API 部署已验证。",
+    "realtimeTestFailed": "未找到实时部署。请确认部署名称支持实时音频。",
+    "voiceLiveTestSuccess": "Voice Live API 端点可访问。",
+    "voiceLiveTestFailed": "Voice Live API 连接失败。请验证端点和 API 密钥。",
+    "avatarTestSuccess": "Avatar 服务可访问。ICE 中继令牌已获取。",
+    "avatarTestFailed": "Avatar 连接失败。请确认该区域支持 Avatar 合成。",
     "services": {
       "openai": "Azure OpenAI",
       "speechStt": "Azure 语音识别 (STT)",
@@ -147,7 +163,18 @@
   "voiceLive": {
     "name": "Azure Voice Live API",
     "description": "使用 GPT-4o Realtime 的实时语音训练",
-    "regionWarning": "Voice Live API 仅在美国东部 2 和瑞典中部区域可用。",
-    "regionLabel": "区域"
+    "regionWarning": "Voice Live API 在大多数 Azure 区域可用。部分模型和 Agent 模式可能有区域限制。请查阅您所在区域的 Azure 文档。",
+    "regionLabel": "区域",
+    "modeLabel": "Voice Live API 模式",
+    "modelMode": "模型模式",
+    "modelModeDesc": "直接 Azure OpenAI 模型连接",
+    "agentMode": "Agent 模式",
+    "agentModeDesc": "Azure AI Agent 服务配合预配置的 HCP 角色代理",
+    "agentId": "Agent ID",
+    "projectName": "项目名称",
+    "agentIdPlaceholder": "输入 Azure AI Agent ID",
+    "projectPlaceholder": "输入 AI Foundry 项目名称",
+    "agentIdRequired": "Agent 模式需要 Agent ID",
+    "projectNameRequired": "Agent 模式需要项目名称"
   }
 }

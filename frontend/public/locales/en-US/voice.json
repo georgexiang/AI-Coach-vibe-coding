@@ -43,7 +43,7 @@
     "micDenied": "Microphone access was denied. Please allow microphone access in your browser settings.",
     "avatarFailed": "Avatar connection failed. Switching to voice-only mode.",
     "tokenExpired": "Session token expired. Reconnecting...",
-    "regionUnsupported": "Voice Live API is not available in the configured region. Supported regions: East US 2, Sweden Central.",
+    "regionUnsupported": "Voice Live API is not available in the configured region. Check Azure documentation for supported regions.",
     "audioWorkletFailed": "Audio system initialization failed. Please refresh the page.",
     "webrtcFailed": "Video connection failed. Switching to voice-only mode."
   },
