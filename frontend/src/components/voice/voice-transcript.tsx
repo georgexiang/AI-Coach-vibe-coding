@@ -1,0 +1,101 @@
+import { useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
+import { cn } from "@/lib/utils";
+import { ScrollArea } from "@/components/ui";
+import type { TranscriptSegment } from "@/types/voice-live";
+
+interface VoiceTranscriptProps {
+  transcripts: TranscriptSegment[];
+  hcpName: string;
+  className?: string;
+}
+
+/**
+ * Real-time transcript display.
+ * Renders transcript segments as chat-style messages with auto-scroll.
+ * User messages aligned right (primary), assistant messages aligned left.
+ */
+export function VoiceTranscript({
+  transcripts,
+  hcpName,
+  className,
+}: VoiceTranscriptProps) {
+  const { t } = useTranslation("voice");
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to bottom on new content
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [transcripts]);
+
+  if (transcripts.length === 0) {
+    return (
+      <div
+        className={cn("flex items-center justify-center p-4", className)}
+        aria-live="polite"
+      >
+        <p className="text-center text-sm text-muted-foreground">
+          {t("emptyTranscript")}
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <ScrollArea className={cn("h-full", className)}>
+      <div
+        ref={scrollRef}
+        className="flex flex-col gap-3 p-4"
+        aria-live="polite"
+      >
+        {transcripts.map((segment) => {
+          const isUser = segment.role === "user";
+          const speakerLabel = isUser
+            ? t("transcript.user")
+            : t("transcript.hcp", { name: hcpName });
+
+          return (
+            <div
+              key={segment.id}
+              className={cn(
+                "flex w-full",
+                isUser ? "justify-end" : "justify-start",
+              )}
+            >
+              <div className="max-w-[75%]">
+                <p
+                  className={cn(
+                    "mb-1 text-xs font-medium",
+                    isUser ? "text-right text-primary" : "text-[#22C55E]",
+                  )}
+                >
+                  {speakerLabel}
+                </p>
+                <div
+                  className={cn(
+                    "rounded-2xl px-4 py-2",
+                    isUser
+                      ? "rounded-tr-sm bg-primary text-primary-foreground"
+                      : "rounded-tl-sm bg-muted text-foreground",
+                    !segment.isFinal && "opacity-70",
+                  )}
+                >
+                  <p className="whitespace-pre-wrap text-sm">
+                    {segment.content}
+                    {!segment.isFinal && (
+                      <span className="ml-1 inline-block animate-pulse">
+                        |
+                      </span>
+                    )}
+                  </p>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </ScrollArea>
+  );
+}

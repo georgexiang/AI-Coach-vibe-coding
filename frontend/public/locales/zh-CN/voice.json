@@ -1,0 +1,63 @@
+{
+  "title": "语音辅导训练",
+  "startSession": "开始语音训练",
+  "mode": {
+    "text": "文字",
+    "voice": "语音",
+    "avatar": "数字人"
+  },
+  "modeSelector": "训练模式",
+  "connect": "连接",
+  "disconnect": "断开",
+  "mute": "静音",
+  "unmute": "取消静音",
+  "keyboardInput": "输入消息",
+  "fullScreen": "全屏",
+  "embeddedView": "嵌入视图",
+  "status": {
+    "connecting": "连接中...",
+    "connected": "已连接",
+    "disconnected": "已断开",
+    "reconnecting": "重连中...",
+    "error": "连接错误"
+  },
+  "listening": "正在听取...",
+  "speaking": "正在说话...",
+  "idle": "就绪",
+  "transcript": {
+    "user": "您",
+    "hcp": "{{name}} 医生"
+  },
+  "modeBadge": {
+    "text": "文字模式",
+    "voice": "语音模式",
+    "avatar": "数字人模式"
+  },
+  "emptyTranscript": "开始说话以开始对话。您的对话记录将显示在此处。",
+  "emptyTranscriptText": "输入消息开始对话。",
+  "avatarPlaceholder": "连接后将显示数字人。",
+  "notConfigured": "语音模式不可用。请联系管理员配置Azure语音服务。",
+  "avatarNotConfigured": "数字人模式不可用。将使用纯语音模式替代。",
+  "error": {
+    "connectionFailed": "连接语音服务失败。请检查网络并重试。",
+    "micDenied": "麦克风权限被拒绝。请在浏览器设置中允许麦克风访问。",
+    "avatarFailed": "数字人连接失败。切换到纯语音模式。",
+    "tokenExpired": "会话令牌已过期。正在重新连接...",
+    "regionUnsupported": "当前配置的区域不支持语音API。支持的区域：美国东部2、瑞典中部。",
+    "audioWorkletFailed": "音频系统初始化失败。请刷新页面。",
+    "webrtcFailed": "视频连接失败。切换到纯语音模式。"
+  },
+  "endSession": "结束训练",
+  "endSessionTitle": "结束语音训练",
+  "endSessionConfirm": "确定要结束此语音辅导训练吗？您的对话将被评分且无法恢复。",
+  "continueSession": "继续训练",
+  "connectingAvatar": "正在连接数字人...",
+  "micButton": {
+    "idle": "开始说话",
+    "listening": "正在听取 - 点击静音",
+    "speaking": "AI正在说话",
+    "muted": "已静音 - 点击取消静音",
+    "connecting": "连接中...",
+    "disabled": "麦克风不可用"
+  }
+}
