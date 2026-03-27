@@ -6,6 +6,7 @@ from app.models.message import SessionMessage
 from app.models.scenario import Scenario
 from app.models.score import ScoreDetail, SessionScore
 from app.models.scoring_rubric import ScoringRubric
+from app.models.service_config import ServiceConfig
 from app.models.session import CoachingSession
 from app.models.user import User
 
@@ -21,6 +22,7 @@ __all__ = [
     "SessionScore",
     "ScoreDetail",
     "ScoringRubric",
+    "ServiceConfig",
     "TrainingMaterial",
     "MaterialVersion",
     "MaterialChunk",
