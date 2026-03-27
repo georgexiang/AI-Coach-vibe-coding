@@ -7,28 +7,26 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import type {
+  ServiceConfigResponse,
+  ServiceConfigUpdate,
+  ConnectionTestResult,
+} from "@/types/azure-config";
 
 type ServiceStatus = "inactive" | "active" | "error" | "testing";
 
 interface ServiceInfo {
+  key: string;
   name: string;
   description: string;
   icon: React.ReactNode;
-  status: ServiceStatus;
-}
-
-interface ServiceConfig {
-  endpoint: string;
-  apiKey: string;
-  model: string;
-  region: string;
 }
 
 interface ServiceConfigCardProps {
   service: ServiceInfo;
-  config: ServiceConfig;
-  onSave: (config: ServiceConfig) => void;
-  onTestConnection: () => Promise<boolean>;
+  savedConfig?: ServiceConfigResponse;
+  onSave: (serviceName: string, config: ServiceConfigUpdate) => void;
+  onTestConnection: (serviceName: string) => Promise<ConnectionTestResult>;
 }
 
 const STATUS_DOT: Record<ServiceStatus, string> = {
@@ -40,28 +38,35 @@ const STATUS_DOT: Record<ServiceStatus, string> = {
 
 export function ServiceConfigCard({
   service,
-  config,
+  savedConfig,
   onSave,
   onTestConnection,
 }: ServiceConfigCardProps) {
   const { t } = useTranslation("admin");
   const [expanded, setExpanded] = useState(false);
-  const [localConfig, setLocalConfig] = useState(config);
+  const [localConfig, setLocalConfig] = useState({
+    endpoint: savedConfig?.endpoint ?? "",
+    apiKey: "",
+    model: savedConfig?.model_or_deployment ?? "",
+    region: savedConfig?.region ?? "",
+  });
   const [testing, setTesting] = useState(false);
-  const [status, setStatus] = useState<ServiceStatus>(service.status);
+  const [status, setStatus] = useState<ServiceStatus>(
+    savedConfig?.is_active ? "active" : "inactive",
+  );
   const [showApiKey, setShowApiKey] = useState(false);
 
   const handleTest = async () => {
     setTesting(true);
     setStatus("testing");
     try {
-      const success = await onTestConnection();
-      if (success) {
+      const result = await onTestConnection(service.key);
+      if (result.success) {
         setStatus("active");
-        toast.success(t("azureConfig.connectionSuccess"));
+        toast.success(result.message);
       } else {
         setStatus("error");
-        toast.error(t("azureConfig.connectionFailed"));
+        toast.error(result.message);
       }
     } catch {
       setStatus("error");
@@ -72,7 +77,12 @@ export function ServiceConfigCard({
   };
 
   const handleSave = () => {
-    onSave(localConfig);
+    onSave(service.key, {
+      endpoint: localConfig.endpoint,
+      api_key: localConfig.apiKey,
+      model_or_deployment: localConfig.model,
+      region: localConfig.region,
+    });
   };
 
   return (
@@ -136,6 +146,11 @@ export function ServiceConfigCard({
                   {showApiKey ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                 </button>
               </div>
+              {savedConfig?.masked_key && (
+                <p className="text-xs text-muted-foreground">
+                  Current key: {savedConfig.masked_key}
+                </p>
+              )}
             </div>
             <div className="grid gap-2">
               <Label>{t("azureConfig.model")}</Label>

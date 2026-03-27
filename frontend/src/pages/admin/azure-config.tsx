@@ -9,104 +9,133 @@ import {
   FileSearch,
   Loader2,
 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ServiceConfigCard } from "@/components/admin/service-config-card";
+import {
+  useServiceConfigs,
+  useUpdateServiceConfig,
+  useTestServiceConnection,
+} from "@/hooks/use-azure-config";
+import type { ServiceConfigUpdate } from "@/types/azure-config";
 
-interface AzureService {
+interface AzureServiceDef {
   key: string;
   name: string;
   description: string;
   icon: React.ReactNode;
-  defaultConfig: {
-    endpoint: string;
-    apiKey: string;
-    model: string;
-    region: string;
-  };
 }
 
-const AZURE_SERVICES: AzureService[] = [
+const SERVICE_KEY_MAP: Record<string, string> = {
+  openai: "azure_openai",
+  speechStt: "azure_speech_stt",
+  speechTts: "azure_speech_tts",
+  avatar: "azure_avatar",
+  contentUnderstanding: "azure_content",
+  realtime: "azure_openai_realtime",
+  database: "azure_database",
+};
+
+const AZURE_SERVICES: AzureServiceDef[] = [
   {
     key: "openai",
     name: "Azure OpenAI",
     description: "GPT-4o for AI coaching conversations and scoring",
     icon: <Brain className="size-6 text-primary" />,
-    defaultConfig: { endpoint: "", apiKey: "", model: "gpt-4o", region: "eastus" },
   },
   {
     key: "speechStt",
     name: "Azure Speech (STT)",
     description: "Speech-to-text for voice input recognition",
     icon: <Mic className="size-6 text-primary" />,
-    defaultConfig: { endpoint: "", apiKey: "", model: "", region: "eastus" },
   },
   {
     key: "speechTts",
     name: "Azure Speech (TTS)",
     description: "Text-to-speech for HCP voice responses",
     icon: <Volume2 className="size-6 text-primary" />,
-    defaultConfig: { endpoint: "", apiKey: "", model: "", region: "eastus" },
   },
   {
     key: "avatar",
     name: "Azure AI Avatar",
     description: "Digital human avatar for HCP visualization",
     icon: <User className="size-6 text-primary" />,
-    defaultConfig: { endpoint: "", apiKey: "", model: "", region: "eastus" },
   },
   {
     key: "contentUnderstanding",
     name: "Azure Content Understanding",
     description: "Multimodal evaluation for training materials",
     icon: <FileSearch className="size-6 text-primary" />,
-    defaultConfig: { endpoint: "", apiKey: "", model: "", region: "eastus" },
   },
   {
     key: "realtime",
     name: "Azure OpenAI Realtime",
     description: "Real-time audio streaming for voice conversations",
     icon: <Mic className="size-6 text-primary" />,
-    defaultConfig: { endpoint: "", apiKey: "", model: "", region: "eastus" },
   },
   {
     key: "database",
     name: "Azure Database for PostgreSQL",
     description: "Managed PostgreSQL database for production data",
     icon: <Database className="size-6 text-primary" />,
-    defaultConfig: { endpoint: "", apiKey: "", model: "", region: "eastus" },
   },
 ];
 
 export default function AzureConfigPage() {
   const { t } = useTranslation("admin");
+  const { data: savedConfigs, isLoading } = useServiceConfigs();
+  const updateMutation = useUpdateServiceConfig();
+  const testMutation = useTestServiceConnection();
 
-  const [configs, setConfigs] = useState<Record<string, { endpoint: string; apiKey: string; model: string; region: string }>>(
-    () => {
-      const initial: Record<string, { endpoint: string; apiKey: string; model: string; region: string }> = {};
-      for (const svc of AZURE_SERVICES) {
-        initial[svc.key] = { ...svc.defaultConfig };
-      }
-      return initial;
-    },
-  );
-
-  const handleSave = (key: string, config: { endpoint: string; apiKey: string; model: string; region: string }) => {
-    setConfigs((prev) => ({ ...prev, [key]: config }));
+  const getSavedConfig = (frontendKey: string) => {
+    const backendKey = SERVICE_KEY_MAP[frontendKey];
+    return savedConfigs?.find((c) => c.service_name === backendKey);
   };
 
-  const handleTestConnection = async (): Promise<boolean> => {
-    // MVP stub: simulate connection test
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    return Math.random() > 0.3; // 70% success for demo
+  const handleSave = (serviceName: string, config: ServiceConfigUpdate) => {
+    updateMutation.mutate(
+      { serviceName, config },
+      {
+        onSuccess: () => toast.success(t("azureConfig.saved", { defaultValue: "Configuration saved" })),
+        onError: () => toast.error(t("azureConfig.saveFailed", { defaultValue: "Failed to save configuration" })),
+      },
+    );
+  };
+
+  const handleTestConnection = async (serviceName: string) => {
+    return testMutation.mutateAsync(serviceName);
   };
 
   const [testingAll, setTestingAll] = useState(false);
 
   const handleTestAll = async () => {
     setTestingAll(true);
-    await handleTestConnection();
-    setTestingAll(false);
+    try {
+      const configuredServices = savedConfigs?.filter((c) => c.endpoint) ?? [];
+      for (const svc of configuredServices) {
+        try {
+          const result = await testMutation.mutateAsync(svc.service_name);
+          if (result.success) {
+            toast.success(`${svc.display_name}: ${result.message}`);
+          } else {
+            toast.error(`${svc.display_name}: ${result.message}`);
+          }
+        } catch {
+          toast.error(`${svc.display_name}: Connection failed`);
+        }
+      }
+    } finally {
+      setTestingAll(false);
+    }
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center p-6">
+        <Loader2 className="size-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6">
@@ -122,13 +151,13 @@ export default function AzureConfigPage() {
           <ServiceConfigCard
             key={svc.key}
             service={{
+              key: SERVICE_KEY_MAP[svc.key] ?? svc.key,
               name: svc.name,
               description: svc.description,
               icon: svc.icon,
-              status: "inactive",
             }}
-            config={configs[svc.key] ?? svc.defaultConfig}
-            onSave={(config) => handleSave(svc.key, config)}
+            savedConfig={getSavedConfig(svc.key)}
+            onSave={handleSave}
             onTestConnection={handleTestConnection}
           />
         ))}

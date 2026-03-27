@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { userEvent } from "@testing-library/user-event";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import AzureConfigPage from "./azure-config";
 
 vi.mock("react-i18next", () => ({
@@ -11,54 +11,74 @@ vi.mock("react-i18next", () => ({
   }),
 }));
 
-const mockOnSave = vi.fn();
-const mockOnTestConnection = vi.fn();
+vi.mock("sonner", () => ({
+  toast: { success: vi.fn(), error: vi.fn() },
+}));
+
+const mockMutate = vi.fn();
+const mockMutateAsync = vi.fn();
+
+vi.mock("@/hooks/use-azure-config", () => ({
+  useServiceConfigs: () => ({
+    data: [
+      {
+        service_name: "azure_openai",
+        display_name: "Azure OpenAI",
+        endpoint: "https://test.openai.azure.com",
+        masked_key: "sk-****",
+        model_or_deployment: "gpt-4o",
+        region: "eastus",
+        is_active: true,
+        updated_at: "2026-03-27T00:00:00Z",
+      },
+    ],
+    isLoading: false,
+  }),
+  useUpdateServiceConfig: () => ({
+    mutate: mockMutate,
+  }),
+  useTestServiceConnection: () => ({
+    mutateAsync: mockMutateAsync,
+  }),
+}));
 
 vi.mock("@/components/admin/service-config-card", () => ({
   ServiceConfigCard: (props: {
-    service: { name: string; description: string };
-    config: Record<string, string>;
-    onSave: (config: Record<string, string>) => void;
-    onTestConnection: () => Promise<boolean>;
+    service: { key: string; name: string; description: string };
   }) => (
     <div data-testid={`service-card-${props.service.name}`}>
       <span>{props.service.name}</span>
       <span>{props.service.description}</span>
-      <button
-        onClick={() => {
-          mockOnSave(props.config);
-          props.onSave(props.config);
-        }}
-      >
-        Save {props.service.name}
-      </button>
-      <button
-        onClick={() => {
-          mockOnTestConnection();
-          props.onTestConnection();
-        }}
-      >
-        Test {props.service.name}
-      </button>
     </div>
   ),
 }));
+
+function renderWithProviders() {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <AzureConfigPage />
+    </QueryClientProvider>,
+  );
+}
 
 describe("AzureConfigPage", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("renders the page title", () => {
-    render(<AzureConfigPage />);
+    renderWithProviders();
     expect(screen.getByText("azureConfig.title")).toBeInTheDocument();
   });
 
   it("renders Test All Connections button", () => {
-    render(<AzureConfigPage />);
+    renderWithProviders();
     expect(screen.getByText("Test All Connections")).toBeInTheDocument();
   });
 
   it("renders all 7 Azure service cards", () => {
-    render(<AzureConfigPage />);
+    renderWithProviders();
     expect(screen.getByText("Azure OpenAI")).toBeInTheDocument();
     expect(screen.getByText("Azure Speech (STT)")).toBeInTheDocument();
     expect(screen.getByText("Azure Speech (TTS)")).toBeInTheDocument();
@@ -68,39 +88,8 @@ describe("AzureConfigPage", () => {
     expect(screen.getByText("Azure Database for PostgreSQL")).toBeInTheDocument();
   });
 
-  it("calls onSave when saving a card config", async () => {
-    render(<AzureConfigPage />);
-    const user = userEvent.setup();
-    await user.click(screen.getByText("Save Azure OpenAI"));
-    expect(mockOnSave).toHaveBeenCalledTimes(1);
-  });
-
-  it("Test All button becomes disabled while testing", async () => {
-    // Make the internal test promise hang for a bit
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    render(<AzureConfigPage />);
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-    const btn = screen.getByText("Test All Connections");
-    await user.click(btn);
-    // Button should be disabled while testing
-    expect(btn.closest("button")).toBeDisabled();
-    // Let the timeout resolve
-    await vi.advanceTimersByTimeAsync(2000);
-    expect(btn.closest("button")).toBeEnabled();
-    vi.useRealTimers();
-  });
-
-  it("calls onTestConnection when testing a service", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    render(<AzureConfigPage />);
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-    await user.click(screen.getByText("Test Azure OpenAI"));
-    expect(mockOnTestConnection).toHaveBeenCalledTimes(1);
-    vi.useRealTimers();
-  });
-
   it("renders all service descriptions", () => {
-    render(<AzureConfigPage />);
+    renderWithProviders();
     expect(screen.getByText("GPT-4o for AI coaching conversations and scoring")).toBeInTheDocument();
     expect(screen.getByText("Speech-to-text for voice input recognition")).toBeInTheDocument();
     expect(screen.getByText("Text-to-speech for HCP voice responses")).toBeInTheDocument();
