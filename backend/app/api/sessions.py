@@ -127,6 +127,12 @@ async def send_message(
             material_context=material_ctx if material_ctx else None,
         )
 
+        # Fetch conversation history for multi-turn dialogue
+        history_messages = await session_service.get_session_messages(db, session_id)
+        conversation_history = [
+            {"role": m.role, "content": m.content} for m in history_messages
+        ]
+
         # Build coach request
         hcp_dict = None
         if session.scenario.hcp_profile:
@@ -138,6 +144,7 @@ async def send_message(
             scenario_context=hcp_prompt,
             hcp_profile=hcp_dict,
             scoring_criteria=(session.scenario.get_scoring_weights()),
+            conversation_history=conversation_history,
         )
 
         full_response = ""
