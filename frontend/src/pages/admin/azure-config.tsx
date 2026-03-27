@@ -8,6 +8,7 @@ import {
   User,
   FileSearch,
   Loader2,
+  Phone,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -33,6 +34,7 @@ const SERVICE_KEY_MAP: Record<string, string> = {
   avatar: "azure_avatar",
   contentUnderstanding: "azure_content",
   realtime: "azure_openai_realtime",
+  voiceLive: "azure_voice_live",
   database: "azure_database",
 };
 
@@ -72,6 +74,12 @@ const AZURE_SERVICES: AzureServiceDef[] = [
     name: "Azure OpenAI Realtime",
     description: "Real-time audio streaming for voice conversations",
     icon: <Mic className="size-6 text-primary" />,
+  },
+  {
+    key: "voiceLive",
+    name: "Azure Voice Live API",
+    description: "Real-time voice coaching with GPT-4o Realtime",
+    icon: <Phone className="size-6 text-primary" />,
   },
   {
     key: "database",
@@ -148,18 +156,29 @@ export default function AzureConfigPage() {
       </div>
       <div className="space-y-4 max-w-4xl">
         {AZURE_SERVICES.map((svc) => (
-          <ServiceConfigCard
-            key={svc.key}
-            service={{
-              key: SERVICE_KEY_MAP[svc.key] ?? svc.key,
-              name: svc.name,
-              description: svc.description,
-              icon: svc.icon,
-            }}
-            savedConfig={getSavedConfig(svc.key)}
-            onSave={handleSave}
-            onTestConnection={handleTestConnection}
-          />
+          <div key={svc.key}>
+            <ServiceConfigCard
+              service={{
+                key: SERVICE_KEY_MAP[svc.key] ?? svc.key,
+                name: svc.name,
+                description: svc.description,
+                icon: svc.icon,
+              }}
+              savedConfig={getSavedConfig(svc.key)}
+              onSave={handleSave}
+              onTestConnection={handleTestConnection}
+            />
+            {svc.key === "voiceLive" && (() => {
+              const savedConfig = getSavedConfig("voiceLive");
+              const region = savedConfig?.region ?? "";
+              const isUnsupported = region !== "" && region !== "eastus2" && region !== "swedencentral";
+              return isUnsupported ? (
+                <div className="mt-2 rounded-md bg-orange-50 border border-orange-200 p-3 text-sm text-orange-800">
+                  {t("voiceLive.regionWarning")}
+                </div>
+              ) : null;
+            })()}
+          </div>
         ))}
       </div>
     </div>

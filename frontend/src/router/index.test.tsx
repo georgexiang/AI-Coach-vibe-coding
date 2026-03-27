@@ -52,6 +52,10 @@ vi.mock("@/pages/user/training-session", () => ({
   default: () => <div>Training Session</div>,
 }));
 
+vi.mock("@/pages/user/voice-session", () => ({
+  default: () => <div>Voice Session</div>,
+}));
+
 vi.mock("@/pages/admin/hcp-profiles", () => ({
   default: () => <div>HCP Profiles</div>,
 }));
@@ -127,5 +131,20 @@ describe("Router configuration", () => {
     // Should have user routes and admin routes within children
     const children = protectedRoute?.children ?? [];
     expect(children.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("has voice session route at /user/training/voice", async () => {
+    const { router } = await import("./index");
+
+    // Protected route children include full-screen routes outside UserLayout
+    const protectedRoute = router.routes[1];
+    const children = protectedRoute?.children ?? [];
+
+    // Find the voice session route (direct child of ProtectedRoute, like conference)
+    const voiceRoute = children.find(
+      (child: { path?: string }) => child.path === "/user/training/voice",
+    );
+    expect(voiceRoute).toBeDefined();
+    expect(voiceRoute?.path).toBe("/user/training/voice");
   });
 });

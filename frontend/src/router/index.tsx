@@ -17,6 +17,7 @@ import ScoringRubricsPage from "@/pages/admin/scoring-rubrics";
 import TrainingMaterialsPage from "@/pages/admin/training-materials";
 import AdminReportsPage from "@/pages/admin/reports";
 import ConferenceSession from "@/pages/user/conference-session";
+import VoiceSession from "@/pages/user/voice-session";
 import UserReportsPage from "@/pages/user/reports";
 import UserManagementPage from "@/pages/admin/users";
 import AdminSettingsPage from "@/pages/admin/settings";
@@ -53,6 +54,10 @@ export const router = createBrowserRouter([
       {
         path: "/user/training/conference",
         element: <ConferenceSession />,
+      },
+      {
+        path: "/user/training/voice",
+        element: <VoiceSession />,
       },
       {
         element: <AdminRoute />,
