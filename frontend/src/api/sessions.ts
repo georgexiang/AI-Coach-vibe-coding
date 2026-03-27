@@ -1,9 +1,10 @@
 import apiClient from "./client";
 import type { CoachingSession, SessionMessage } from "@/types/session";
 
-export async function createSession(scenarioId: string) {
+export async function createSession(scenarioId: string, mode: string = "text") {
   const { data } = await apiClient.post<CoachingSession>("/sessions", {
     scenario_id: scenarioId,
+    mode,
   });
   return data;
 }

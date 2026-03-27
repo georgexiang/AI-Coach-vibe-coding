@@ -36,7 +36,8 @@ export function useSessionMessages(sessionId: string | undefined) {
 export function useCreateSession() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (scenarioId: string) => createSession(scenarioId),
+    mutationFn: ({ scenarioId, mode }: { scenarioId: string; mode?: string }) =>
+      createSession(scenarioId, mode),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["sessions"] });
     },

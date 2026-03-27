@@ -128,10 +128,10 @@ describe("useCreateSession", () => {
       wrapper: createWrapper(),
     });
 
-    result.current.mutate("scenario-1");
+    result.current.mutate({ scenarioId: "scenario-1" });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(createSession).toHaveBeenCalledWith("scenario-1");
+    expect(createSession).toHaveBeenCalledWith("scenario-1", undefined);
   });
 });
 

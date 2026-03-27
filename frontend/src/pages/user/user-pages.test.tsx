@@ -25,6 +25,18 @@ vi.mock("@/hooks/use-session", () => ({
   useEndSession: () => ({ mutateAsync: vi.fn() }),
 }));
 
+vi.mock("@/contexts/config-context", () => ({
+  useConfig: () => ({
+    avatar_enabled: false,
+    voice_enabled: false,
+    realtime_voice_enabled: false,
+    conference_enabled: false,
+    voice_live_enabled: false,
+    default_voice_mode: "text_only",
+    region: "global",
+  }),
+}));
+
 vi.mock("@/hooks/use-scoring", () => ({
   useSessionScore: () => ({
     data: undefined,
