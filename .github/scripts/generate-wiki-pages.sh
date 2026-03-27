@@ -17,6 +17,11 @@ E2E_COUNT=$(find "$REPO_ROOT/frontend/e2e" -name "*.spec.ts" 2>/dev/null | wc -l
 SPEC_COUNT=$(find "$REPO_ROOT/docs/specs" -name "*.md" 2>/dev/null | wc -l | tr -d ' ' || echo 0)
 PLAN_COUNT=$(find "$REPO_ROOT/docs/plans" -name "*.md" 2>/dev/null | wc -l | tr -d ' ' || echo 0)
 
+# .planning/ metrics
+GSD_PHASE_COUNT=$(find "$REPO_ROOT/.planning/phases" -maxdepth 1 -type d 2>/dev/null | tail -n +2 | wc -l | tr -d ' ' || echo 0)
+GSD_PLAN_COUNT=$(find "$REPO_ROOT/.planning/phases" -name "*-PLAN.md" 2>/dev/null | wc -l | tr -d ' ' || echo 0)
+GSD_REQ_COUNT=$(grep -c '^\- \[' "$REPO_ROOT/.planning/REQUIREMENTS.md" 2>/dev/null || echo 0)
+
 echo "=== Project Stats ==="
 echo "API Routers:     $API_COUNT"
 echo "ORM Models:      $MODEL_COUNT"
@@ -26,6 +31,9 @@ echo "Components:      $COMPONENT_COUNT"
 echo "E2E Tests:       $E2E_COUNT"
 echo "Specifications:  $SPEC_COUNT"
 echo "Plans:           $PLAN_COUNT"
+echo "GSD Phases:      $GSD_PHASE_COUNT"
+echo "GSD Plans:       $GSD_PLAN_COUNT"
+echo "GSD Requirements: $GSD_REQ_COUNT"
 
 # Update Home.md stats section using Python for portability (no sed quirks)
 if [ -f "$WIKI_DIR/Home.md" ]; then
@@ -47,7 +55,10 @@ if start in content and end in content:
 | Shared Components | {4} |
 | E2E Tests | {5} |
 | Specifications | {6} |
-| Plans | {7} |'''.format(*stats)
+| Plans | {7} |
+| GSD Phases | {8} |
+| GSD Plans | {9} |
+| GSD Requirements | {10} |'''.format(*stats)
     before = content[:content.index(start) + len(start)]
     after = content[content.index(end):]
     with open(path, 'w') as f:
@@ -55,5 +66,5 @@ if start in content and end in content:
     print('Home.md stats updated')
 else:
     print('Stats markers not found in Home.md')
-" "$WIKI_DIR/Home.md" "$API_COUNT" "$MODEL_COUNT" "$BACKEND_TEST_COUNT" "$PAGE_COUNT" "$COMPONENT_COUNT" "$E2E_COUNT" "$SPEC_COUNT" "$PLAN_COUNT"
+" "$WIKI_DIR/Home.md" "$API_COUNT" "$MODEL_COUNT" "$BACKEND_TEST_COUNT" "$PAGE_COUNT" "$COMPONENT_COUNT" "$E2E_COUNT" "$SPEC_COUNT" "$PLAN_COUNT" "$GSD_PHASE_COUNT" "$GSD_PLAN_COUNT" "$GSD_REQ_COUNT"
 fi

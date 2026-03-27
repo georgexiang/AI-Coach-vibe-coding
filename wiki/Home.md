@@ -11,19 +11,27 @@ Welcome to the AI Coach Platform wiki. This is the central knowledge base for ar
 - [Roadmap](Roadmap) — Phase tracking and milestones
 - [Changelog](Changelog) — Version history
 
+## Planning (auto-synced from .planning/)
+
+- [Project Overview](Planning-Overview) | [Roadmap](Planning-Roadmap) | [Requirements](Planning-Requirements) | [Research](Planning-Research)
+- Phases: [01](Planning-Phase-01) | [01.1](Planning-Phase-01-1) | [02](Planning-Phase-02) | [03](Planning-Phase-03) | [04](Planning-Phase-04) | [05](Planning-Phase-05) | [06](Planning-Phase-06)
+
 ## Project Stats
 
 <!-- STATS_START -->
 | Metric | Count |
 |--------|-------|
-| API Routers | 7 |
-| ORM Models | 6 |
-| Backend Tests | 25 |
-| Pages | 19 |
-| Shared Components | 27 |
-| E2E Tests | 13 |
-| Specifications | 0 |
-| Plans | 0 |
+| API Routers | 11 |
+| ORM Models | 9 |
+| Backend Tests | 59 |
+| Pages | 38 |
+| Shared Components | 28 |
+| E2E Tests | 27 |
+| Specifications | 1 |
+| Plans | 1 |
+| GSD Phases | 7 |
+| GSD Plans | 38 |
+| GSD Requirements | 52 |
 <!-- STATS_END -->
 
 ## Solution Overview

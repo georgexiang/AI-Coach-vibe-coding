@@ -4,7 +4,10 @@ import { userEvent } from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import ScenariosPage from "./scenarios";
 
-const mockMutate = vi.fn();
+const mockCreateMutate = vi.fn();
+const mockUpdateMutate = vi.fn();
+const mockDeleteMutate = vi.fn();
+const mockCloneMutate = vi.fn();
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
@@ -19,10 +22,10 @@ const scenarios = [
 
 vi.mock("@/hooks/use-scenarios", () => ({
   useScenarios: () => ({ data: { items: scenarios, total: 1 } }),
-  useCreateScenario: () => ({ mutate: mockMutate }),
-  useUpdateScenario: () => ({ mutate: mockMutate }),
-  useDeleteScenario: () => ({ mutate: mockMutate }),
-  useCloneScenario: () => ({ mutate: mockMutate }),
+  useCreateScenario: () => ({ mutate: mockCreateMutate }),
+  useUpdateScenario: () => ({ mutate: mockUpdateMutate }),
+  useDeleteScenario: () => ({ mutate: mockDeleteMutate }),
+  useCloneScenario: () => ({ mutate: mockCloneMutate }),
 }));
 
 vi.mock("@/components/admin/scenario-table", () => ({
@@ -88,7 +91,6 @@ describe("ScenariosPage", () => {
     renderPage();
     await userEvent.setup().click(screen.getByRole("button", { name: "Edit" }));
     expect(screen.getByTestId("scenario-editor")).toBeInTheDocument();
-    // Editor shows "Edit" span inside the editor component
     const editor = screen.getByTestId("scenario-editor");
     expect(editor.textContent).toContain("Edit");
   });
@@ -97,7 +99,15 @@ describe("ScenariosPage", () => {
     renderPage();
     await userEvent.setup().click(screen.getByText("scenarios.createButton"));
     await userEvent.setup().click(screen.getByText("Save"));
-    expect(mockMutate).toHaveBeenCalled();
+    expect(mockCreateMutate).toHaveBeenCalled();
+  });
+
+  it("calls update mutation on save for existing scenario", async () => {
+    renderPage();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Edit" }));
+    await user.click(screen.getByText("Save"));
+    expect(mockUpdateMutate).toHaveBeenCalled();
   });
 
   it("shows delete confirmation dialog", async () => {
@@ -111,16 +121,84 @@ describe("ScenariosPage", () => {
     renderPage();
     const user = userEvent.setup();
     await user.click(screen.getByText("Delete"));
-    // Click the destructive Delete button in dialog
     const deleteButtons = screen.getAllByText("Delete");
     const confirmBtn = deleteButtons.find((b) => b.closest("[role='dialog']"));
     if (confirmBtn) await user.click(confirmBtn);
-    expect(mockMutate).toHaveBeenCalledWith("s1", expect.anything());
+    expect(mockDeleteMutate).toHaveBeenCalledWith("s1", expect.anything());
+  });
+
+  it("cancels delete dialog", async () => {
+    renderPage();
+    const user = userEvent.setup();
+    await user.click(screen.getByText("Delete"));
+    expect(screen.getByText("Delete Scenario")).toBeInTheDocument();
+    await user.click(screen.getByText("Cancel"));
+    expect(screen.queryByText("Delete Scenario")).not.toBeInTheDocument();
   });
 
   it("calls clone mutation", async () => {
     renderPage();
     await userEvent.setup().click(screen.getByText("Clone"));
-    expect(mockMutate).toHaveBeenCalledWith("s1", expect.anything());
+    expect(mockCloneMutate).toHaveBeenCalledWith("s1", expect.anything());
+  });
+
+  it("triggers create onSuccess callback (closes editor)", async () => {
+    mockCreateMutate.mockImplementation((_data: unknown, opts: { onSuccess?: () => void }) => {
+      opts?.onSuccess?.();
+    });
+    renderPage();
+    const user = userEvent.setup();
+    await user.click(screen.getByText("scenarios.createButton"));
+    expect(screen.getByTestId("scenario-editor")).toBeInTheDocument();
+    await user.click(screen.getByText("Save"));
+    // After onSuccess, editor should close
+    expect(screen.queryByTestId("scenario-editor")).not.toBeInTheDocument();
+  });
+
+  it("triggers create onError callback", async () => {
+    mockCreateMutate.mockImplementation((_data: unknown, opts: { onError?: () => void }) => {
+      opts?.onError?.();
+    });
+    renderPage();
+    const user = userEvent.setup();
+    await user.click(screen.getByText("scenarios.createButton"));
+    await user.click(screen.getByText("Save"));
+    expect(mockCreateMutate).toHaveBeenCalled();
+  });
+
+  it("triggers update onSuccess callback (closes editor)", async () => {
+    mockUpdateMutate.mockImplementation((_data: unknown, opts: { onSuccess?: () => void }) => {
+      opts?.onSuccess?.();
+    });
+    renderPage();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Edit" }));
+    await user.click(screen.getByText("Save"));
+    expect(screen.queryByTestId("scenario-editor")).not.toBeInTheDocument();
+  });
+
+  it("triggers update onError callback", async () => {
+    mockUpdateMutate.mockImplementation((_data: unknown, opts: { onError?: () => void }) => {
+      opts?.onError?.();
+    });
+    renderPage();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Edit" }));
+    await user.click(screen.getByText("Save"));
+    expect(mockUpdateMutate).toHaveBeenCalled();
+  });
+
+  it("triggers delete onSuccess callback", async () => {
+    mockDeleteMutate.mockImplementation((_id: string, opts: { onSuccess?: () => void }) => {
+      opts?.onSuccess?.();
+    });
+    renderPage();
+    const user = userEvent.setup();
+    await user.click(screen.getByText("Delete"));
+    const deleteButtons = screen.getAllByText("Delete");
+    const confirmBtn = deleteButtons.find((b) => b.closest("[role='dialog']"));
+    if (confirmBtn) await user.click(confirmBtn);
+    // Dialog should be closed after success
+    expect(screen.queryByText("Delete Scenario")).not.toBeInTheDocument();
   });
 });

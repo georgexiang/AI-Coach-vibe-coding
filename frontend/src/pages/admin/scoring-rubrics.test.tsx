@@ -156,7 +156,7 @@ describe("ScoringRubricsPage", () => {
     renderPage();
     const user = userEvent.setup();
     await user.click(screen.getByText("Delete"));
-    expect(screen.getByText("Delete Rubric")).toBeInTheDocument();
+    expect(screen.getByText("rubrics.deleteTitle")).toBeInTheDocument();
     expect(screen.getByText("rubrics.deleteConfirm")).toBeInTheDocument();
   });
 
@@ -164,8 +164,8 @@ describe("ScoringRubricsPage", () => {
     renderPage();
     const user = userEvent.setup();
     await user.click(screen.getByText("Delete"));
-    // Click the destructive Delete button in dialog
-    const deleteButtons = screen.getAllByText("Delete");
+    // Click the destructive delete button in dialog (tc("delete") returns "delete")
+    const deleteButtons = screen.getAllByText("delete");
     const confirmBtn = deleteButtons.find((b) =>
       b.closest("[role='dialog']"),
     );
@@ -177,14 +177,14 @@ describe("ScoringRubricsPage", () => {
     renderPage();
     const user = userEvent.setup();
     await user.click(screen.getByText("Delete"));
-    expect(screen.getByText("Delete Rubric")).toBeInTheDocument();
-    await user.click(screen.getByText("Cancel"));
-    // Dialog should be closed — no Delete Rubric title
-    expect(screen.queryByText("Delete Rubric")).not.toBeInTheDocument();
+    expect(screen.getByText("rubrics.deleteTitle")).toBeInTheDocument();
+    await user.click(screen.getByText("cancel"));
+    // Dialog should be closed — no delete title
+    expect(screen.queryByText("rubrics.deleteTitle")).not.toBeInTheDocument();
   });
 
   it("renders scenario type filter", () => {
     renderPage();
-    expect(screen.getByText("All")).toBeInTheDocument();
+    expect(screen.getByText("all")).toBeInTheDocument();
   });
 });

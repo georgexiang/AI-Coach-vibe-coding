@@ -153,7 +153,7 @@ describe("ScenarioSelection (Training) Page", () => {
   it("renders search input", () => {
     renderPage();
     expect(
-      screen.getByPlaceholderText("Search scenarios..."),
+      screen.getByPlaceholderText("scenarioSelection.searchPlaceholder"),
     ).toBeInTheDocument();
   });
 });

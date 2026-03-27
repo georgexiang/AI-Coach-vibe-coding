@@ -21,6 +21,7 @@ import type { Scenario } from "@/types/scenario";
 
 export default function TrainingSession() {
   const { t } = useTranslation("coach");
+  const { t: tc } = useTranslation("common");
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const sessionId = searchParams.get("id") ?? "";
@@ -142,7 +143,7 @@ export default function TrainingSession() {
   // Default scenario for when data is still loading
   const defaultScenario: Scenario = {
     id: "",
-    name: "Loading...",
+    name: tc("loading"),
     description: "",
     product: "",
     therapeutic_area: "",
@@ -215,7 +216,7 @@ export default function TrainingSession() {
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowEndDialog(false)}>
-              Cancel
+              {tc("cancel")}
             </Button>
             <Button variant="destructive" onClick={confirmEndSession}>
               {t("session.endSession")}

@@ -39,6 +39,7 @@ const PAGE_SIZE = 10;
 
 export default function SessionHistory() {
   const { t } = useTranslation("scoring");
+  const { t: tc } = useTranslation("common");
   const navigate = useNavigate();
   const { data: history, isLoading } = useScoreHistory(50);
 
@@ -168,7 +169,7 @@ export default function SessionHistory() {
                 <Line
                   type="monotone"
                   dataKey="overall"
-                  name="Overall"
+                  name={t("history.overall")}
                   stroke="#0F172A"
                   strokeWidth={2}
                   dot={{ r: 4 }}
@@ -285,8 +286,9 @@ export default function SessionHistory() {
                 </td>
                 <td className="hidden px-4 py-3 sm:table-cell">
                   <Badge variant="outline" className="text-xs">
-                    F2F
+                    {tc("modeF2F")}
                   </Badge>
+
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2">

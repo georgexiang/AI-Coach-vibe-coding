@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { ChevronRight } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback, Badge } from "@/components/ui";
 import { cn } from "@/lib/utils";
@@ -31,6 +32,8 @@ export function SessionItem({
   avatar,
   onClick,
 }: SessionItemProps) {
+  const { t } = useTranslation("common");
+  const modeLabel = mode === "F2F" ? t("modeF2F") : t("modeConference");
   return (
     <button
       type="button"
@@ -57,7 +60,7 @@ export function SessionItem({
             : "bg-purple-100 text-purple-700",
         )}
       >
-        {mode}
+        {modeLabel}
       </Badge>
 
       <div className="flex shrink-0 items-center gap-2">

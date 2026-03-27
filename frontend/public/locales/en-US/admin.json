@@ -61,7 +61,9 @@
     "weightSum": "Weight Total",
     "weightSumError": "Weights must sum to 100",
     "f2f": "Face-to-Face",
-    "conference": "Conference"
+    "conference": "Conference",
+    "deleted": "Rubric deleted",
+    "deleteTitle": "Delete Rubric"
   },
   "azureConfig": {
     "title": "Azure Service Configuration",

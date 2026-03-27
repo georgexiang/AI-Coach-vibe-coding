@@ -1,0 +1,72 @@
+name: Sync Planning Artifacts
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".planning/**"
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  sync-wiki:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Generate wiki pages from .planning/
+        run: node .github/scripts/generate-planning-wiki.mjs
+
+      - name: Update wiki stats
+        run: bash .github/scripts/generate-wiki-pages.sh
+
+      - name: Push to GitHub Wiki
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          REPO="${GITHUB_REPOSITORY}"
+          WIKI_URL="https://x-access-token:${GITHUB_TOKEN}@github.com/${REPO}.wiki.git"
+
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+          WIKI_DIR=$(mktemp -d)
+
+          if git clone "$WIKI_URL" "$WIKI_DIR" 2>/dev/null; then
+            echo "Wiki repo cloned successfully"
+          else
+            echo "::warning::Wiki not initialized yet. Please create the first wiki page manually at:"
+            echo "  https://github.com/${REPO}/wiki/_new"
+            exit 0
+          fi
+
+          cp wiki/*.md "$WIKI_DIR/"
+
+          cd "$WIKI_DIR"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No wiki changes to sync"
+          else
+            git commit -m "Auto-sync planning artifacts to wiki [skip ci]"
+            git push
+            echo "Wiki synced successfully"
+          fi
+
+  sync-project:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Sync to GitHub Project
+        env:
+          GH_TOKEN: ${{ secrets.PROJECT_TOKEN }}
+          PROJECT_NUMBER: ${{ vars.PROJECT_NUMBER }}
+        run: bash .github/scripts/sync-planning-project.sh

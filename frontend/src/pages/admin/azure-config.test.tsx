@@ -89,4 +89,24 @@ describe("AzureConfigPage", () => {
     expect(btn.closest("button")).toBeEnabled();
     vi.useRealTimers();
   });
+
+  it("calls onTestConnection when testing a service", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    render(<AzureConfigPage />);
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    await user.click(screen.getByText("Test Azure OpenAI"));
+    expect(mockOnTestConnection).toHaveBeenCalledTimes(1);
+    vi.useRealTimers();
+  });
+
+  it("renders all service descriptions", () => {
+    render(<AzureConfigPage />);
+    expect(screen.getByText("GPT-4o for AI coaching conversations and scoring")).toBeInTheDocument();
+    expect(screen.getByText("Speech-to-text for voice input recognition")).toBeInTheDocument();
+    expect(screen.getByText("Text-to-speech for HCP voice responses")).toBeInTheDocument();
+    expect(screen.getByText("Digital human avatar for HCP visualization")).toBeInTheDocument();
+    expect(screen.getByText("Multimodal evaluation for training materials")).toBeInTheDocument();
+    expect(screen.getByText("Real-time audio streaming for voice conversations")).toBeInTheDocument();
+    expect(screen.getByText("Managed PostgreSQL database for production data")).toBeInTheDocument();
+  });
 });

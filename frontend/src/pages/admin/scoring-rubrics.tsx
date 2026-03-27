@@ -32,6 +32,7 @@ const ALL_TYPE = "__all__";
 
 export default function ScoringRubricsPage() {
   const { t } = useTranslation("admin");
+  const { t: tc } = useTranslation("common");
   const [filterType, setFilterType] = useState(ALL_TYPE);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingRubric, setEditingRubric] = useState<Rubric | null>(null);
@@ -91,7 +92,7 @@ export default function ScoringRubricsPage() {
     if (deleteConfirmId) {
       deleteMutation.mutate(deleteConfirmId, {
         onSuccess: () => {
-          toast.success("Rubric deleted");
+          toast.success(t("rubrics.deleted"));
           setDeleteConfirmId(null);
         },
       });
@@ -108,7 +109,7 @@ export default function ScoringRubricsPage() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={ALL_TYPE}>All</SelectItem>
+              <SelectItem value={ALL_TYPE}>{tc("all")}</SelectItem>
               <SelectItem value="f2f">{t("rubrics.f2f")}</SelectItem>
               <SelectItem value="conference">
                 {t("rubrics.conference")}
@@ -142,7 +143,7 @@ export default function ScoringRubricsPage() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete Rubric</DialogTitle>
+            <DialogTitle>{t("rubrics.deleteTitle")}</DialogTitle>
             <DialogDescription>
               {t("rubrics.deleteConfirm")}
             </DialogDescription>
@@ -152,10 +153,10 @@ export default function ScoringRubricsPage() {
               variant="outline"
               onClick={() => setDeleteConfirmId(null)}
             >
-              Cancel
+              {tc("cancel")}
             </Button>
             <Button variant="destructive" onClick={confirmDelete}>
-              Delete
+              {tc("delete")}
             </Button>
           </DialogFooter>
         </DialogContent>

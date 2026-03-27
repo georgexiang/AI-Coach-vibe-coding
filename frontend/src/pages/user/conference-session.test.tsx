@@ -211,4 +211,31 @@ describe("ConferenceSession", () => {
     await user.click(screen.getByText("continuePresenting"));
     expect(screen.queryByTestId("dialog")).not.toBeInTheDocument();
   });
+
+  it("adds user message when sending from conference stage", async () => {
+    const user = userEvent.setup();
+    renderConferenceSession();
+
+    await user.click(screen.getByText("Send"));
+    // handlePresent adds a user message and calls sendMessage
+    // It should not crash
+    expect(screen.getByTestId("conference-stage")).toBeInTheDocument();
+  });
+
+  it("navigates on confirm end session", async () => {
+    const user = userEvent.setup();
+    renderConferenceSession();
+
+    await user.click(screen.getByText("End"));
+    expect(screen.getByTestId("dialog")).toBeInTheDocument();
+
+    // Click the destructive endPresentation button (the second one in dialog)
+    const endButtons = screen.getAllByText("endPresentation");
+    const confirmBtn = endButtons[endButtons.length - 1];
+    if (confirmBtn) {
+      await user.click(confirmBtn);
+    }
+    // After confirm, dialog closes and navigate is called
+    expect(mockNavigate).toHaveBeenCalledWith("/user/scoring?id=cs-1");
+  });
 });

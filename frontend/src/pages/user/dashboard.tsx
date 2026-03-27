@@ -202,7 +202,7 @@ export default function UserDashboard() {
             <CardContent>
               <RecommendedScenario
                 hcpName={recScenario?.scenario_name ?? "---"}
-                difficulty={recScenario?.difficulty ?? "Intermediate"}
+                difficulty={recScenario?.difficulty ?? tc("difficultyIntermediate")}
                 onStart={() => navigate("/user/training")}
               />
               {recScenario?.reason && (

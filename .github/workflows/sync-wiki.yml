@@ -6,6 +6,7 @@ on:
     paths:
       - "wiki/**"
       - "docs/**"
+      - ".planning/**"
       - "CLAUDE.md"
       - "README.md"
       - "backend/app/api/**"

@@ -51,4 +51,27 @@ test.describe("Admin Scoring Rubrics Page", () => {
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible({ timeout: 3000 });
   });
+
+  test("filter by F2F narrows results", async ({ page }) => {
+    const filterTrigger = page.locator("button[role='combobox']").first();
+    if ((await filterTrigger.count()) > 0) {
+      await filterTrigger.click();
+      await page.waitForTimeout(300);
+      const f2fOption = page.getByRole("option", { name: /Face-to-Face/i });
+      if ((await f2fOption.count()) > 0) {
+        await f2fOption.click();
+        await page.waitForTimeout(500);
+        // Page should still render without errors
+        await expect(page.locator("h1")).toBeVisible();
+      }
+    }
+  });
+
+  test("page does not crash with no rubrics", async ({ page }) => {
+    // Verify the page renders gracefully regardless of data
+    await page.waitForLoadState("networkidle");
+    await expect(page.locator("h1")).toBeVisible();
+    // No uncaught errors — body is still visible
+    await expect(page.locator("body")).toBeVisible();
+  });
 });

@@ -2,26 +2,26 @@
 
 ## Overview
 
-This roadmap delivers the AI Coach Platform in 6 phases: foundation and architecture first, then F2F text coaching (the core value loop), scoring & assessment enhancements, dashboards & reporting, training material management, and conference presentation module. Each phase builds on the previous one and delivers a coherent, demonstrable capability. Architecture-first principle applies throughout -- pluggable adapters, config-driven features, and shared components are established in Phase 1 and extended by every subsequent phase.
+This roadmap delivers the AI Coach Platform in 6 phases: foundation and architecture first, then F2F text coaching (the core value loop), scoring & assessment enhancements, dashboards & reporting, training material management, and conference presentation module. Each phase builds on the previous one and delivers a coherent, demonstrable capability. Architecture-first principle applies throughout -- pluggable adapters, config-driven features, and shared components are established in Phase 01 and extended by every subsequent phase.
 
 ## Phases
 
 **Phase Numbering:**
-- Integer phases (1, 2, 3): Planned milestone work
-- Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
+- Zero-padded phases (01, 02, 03): Planned milestone work
+- Decimal phases (01.1, 02.1): Urgent insertions (marked with INSERTED)
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Foundation, Auth, and Design System** - Pluggable architecture, authentication, shared UI components, i18n, and responsive app shell
-- [ ] **Phase 2: F2F Text Coaching and Scoring** - HCP/scenario configuration, text-based coaching simulation, multi-dimensional scoring, and feedback
-- [ ] **Phase 3: Scoring & Assessment** - Real-time coaching suggestions, post-session reports, customizable scoring rubrics
-- [ ] **Phase 4: Dashboard & Reporting** - Personal dashboard, group analytics, export (PDF/Excel), training progress tracking
-- [ ] **Phase 5: Training Material Management** - Document upload, versioning, retention policies, AI knowledge base integration
-- [x] **Phase 6: Conference Presentation Module** - One-to-many simulation, live transcription, audience Q&A, presentation scoring (completed 2026-03-25)
+- [x] **Phase 01: Foundation, Auth, and Design System** - Pluggable architecture, authentication, shared UI components, i18n, and responsive app shell
+- [x] **Phase 02: F2F Text Coaching and Scoring** - HCP/scenario configuration, text-based coaching simulation, multi-dimensional scoring, and feedback
+- [x] **Phase 03: Scoring & Assessment** - Real-time coaching suggestions, post-session reports, customizable scoring rubrics
+- [x] **Phase 04: Dashboard & Reporting** - Personal dashboard, group analytics, export (PDF/Excel), training progress tracking
+- [x] **Phase 05: Training Material Management** - Document upload, versioning, retention policies, AI knowledge base integration
+- [x] **Phase 06: Conference Presentation Module** - One-to-many simulation, live transcription, audience Q&A, presentation scoring (completed 2026-03-25)
 
 ## Phase Details
 
-### Phase 1: Foundation, Auth, and Design System
+### Phase 01: Foundation, Auth, and Design System
 **Goal**: A running application with login, responsive layout shell, shared component library, i18n framework, and pluggable architecture for all AI services -- the scaffold everything else builds on
 **Depends on**: Nothing (first phase)
 **Requirements**: ARCH-01, ARCH-02, ARCH-03, ARCH-04, ARCH-05, AUTH-01, AUTH-02, AUTH-03, AUTH-04, UI-01, UI-02, UI-07, PLAT-01, PLAT-02, PLAT-04, PLAT-05
@@ -57,9 +57,9 @@ Plans:
 - [x] 01.1-05-PLAN.md -- F2F training session: 3 coach panels + full-screen training page + route registration
 - [x] 01.1-06-PLAN.md -- Build validation + visual verification checkpoint
 
-### Phase 2: F2F Text Coaching and Scoring
+### Phase 02: F2F Text Coaching and Scoring
 **Goal**: An MR can select a scenario, have a text-based F2F conversation with an AI HCP that behaves according to its profile, and receive a multi-dimensional scored feedback report after the session
-**Depends on**: Phase 1
+**Depends on**: Phase 01
 **Requirements**: HCP-01, HCP-02, HCP-03, HCP-04, HCP-05, COACH-01, COACH-02, COACH-03, COACH-08, COACH-09, SCORE-01, SCORE-02, SCORE-03, SCORE-04, SCORE-05, UI-03, UI-05, PLAT-03
 **Success Criteria** (what must be TRUE):
   1. Admin can create HCP profiles (personality, specialty, objections, communication style) and training scenarios (product, key messages, difficulty, scoring weights) from the web UI
@@ -81,9 +81,9 @@ Plans:
 
 **UI hint**: yes
 
-### Phase 3: Scoring & Assessment
+### Phase 03: Scoring & Assessment
 **Goal**: Complete the scoring system with real-time coaching suggestions during sessions, detailed post-session reports with strengths/weaknesses/improvement areas, and admin-customizable scoring criteria/rubrics
-**Depends on**: Phase 2
+**Depends on**: Phase 02
 **Requirements**: SCORE-01, SCORE-02, SCORE-03, SCORE-04, SCORE-05, COACH-08, COACH-09
 **Success Criteria** (what must be TRUE):
   1. During a coaching session, the system provides real-time suggestions and coaching tips in the side panel based on conversation context
@@ -101,9 +101,9 @@ Plans:
 
 **UI hint**: yes
 
-### Phase 4: Dashboard & Reporting
+### Phase 04: Dashboard & Reporting
 **Goal**: MRs can track their improvement over time via a personal dashboard, and admins can view organization-level analytics with export capabilities
-**Depends on**: Phase 3
+**Depends on**: Phase 03
 **Requirements**: UI-04, UI-06, ANLYT-01, ANLYT-02, ANLYT-03, ANLYT-04, ANLYT-05
 **Success Criteria** (what must be TRUE):
   1. User can view a personal dashboard with score overview, recent sessions, and a skill radar chart showing multi-dimensional performance
@@ -123,9 +123,9 @@ Plans:
 
 **UI hint**: yes
 
-### Phase 5: Training Material Management
+### Phase 05: Training Material Management
 **Goal**: Admin can upload, version, and manage training materials (Word/Excel/PDF) organized by product -- materials feed into AI knowledge base for more accurate HCP simulation
-**Depends on**: Phase 2
+**Depends on**: Phase 02
 **Requirements**: CONTENT-01, CONTENT-02, CONTENT-03
 **Success Criteria** (what must be TRUE):
   1. Admin can upload training documents (Word, Excel, PDF) organized by product via the web UI
@@ -142,9 +142,9 @@ Plans:
 
 **UI hint**: yes
 
-### Phase 6: Conference Presentation Module
+### Phase 06: Conference Presentation Module
 **Goal**: MRs can practice conference presentations to multiple virtual HCP audience members with turn management, live transcription, Q&A, and multi-scenario scoring
-**Depends on**: Phase 2
+**Depends on**: Phase 02
 **Requirements**: CONF-01, CONF-02, CONF-03, CONF-04, COACH-04, COACH-05, COACH-06, COACH-07
 **Success Criteria** (what must be TRUE):
   1. User can start a conference presentation session with multiple virtual HCP audience members (one-to-many simulation)
@@ -167,14 +167,14 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 -> 01.1 -> 2 -> 3 -> 4 -> 5 -> 6
+Phases execute in numeric order: 01 -> 01.1 -> 02 -> 03 -> 04 -> 05 -> 06
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation, Auth, and Design System | 5/5 | Complete | - |
+| 01. Foundation, Auth, and Design System | 5/5 | Complete | - |
 | 01.1. UI Figma Alignment | 6/6 | Complete | - |
-| 2. F2F Text Coaching and Scoring | 8/8 | Complete | - |
-| 3. Scoring & Assessment | 4/4 | Complete | - |
-| 4. Dashboard & Reporting | 3/6 | Executing | - |
-| 5. Training Material Management | 3/3 | Complete | - |
-| 6. Conference Presentation Module | 6/6 | Complete   | 2026-03-25 |
+| 02. F2F Text Coaching and Scoring | 8/8 | Complete | - |
+| 03. Scoring & Assessment | 4/4 | Complete | - |
+| 04. Dashboard & Reporting | 6/6 | Complete | - |
+| 05. Training Material Management | 3/3 | Complete | - |
+| 06. Conference Presentation Module | 6/6 | Complete | 2026-03-25 |

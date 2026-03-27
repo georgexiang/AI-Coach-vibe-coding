@@ -4,7 +4,8 @@ import { userEvent } from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import HcpProfilesPage from "./hcp-profiles";
 
-const mockMutate = vi.fn();
+const mockCreateMutate = vi.fn();
+const mockUpdateMutate = vi.fn();
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
@@ -23,8 +24,8 @@ vi.mock("@/hooks/use-hcp-profiles", () => ({
   useHcpProfile: (id: string | undefined) => ({
     data: id ? profiles.find((p) => p.id === id) : undefined,
   }),
-  useCreateHcpProfile: () => ({ mutate: mockMutate }),
-  useUpdateHcpProfile: () => ({ mutate: mockMutate }),
+  useCreateHcpProfile: () => ({ mutate: mockCreateMutate }),
+  useUpdateHcpProfile: () => ({ mutate: mockUpdateMutate }),
 }));
 
 vi.mock("@/components/admin/hcp-list", () => ({
@@ -59,9 +60,8 @@ vi.mock("@/components/admin/hcp-editor", () => ({
 }));
 
 vi.mock("@/components/admin/test-chat-dialog", () => ({
-  TestChatDialog: (props: { open: boolean; profileName: string }) => (
-    props.open ? <div data-testid="test-chat">{props.profileName}</div> : null
-  ),
+  TestChatDialog: (props: { open: boolean; profileName: string }) =>
+    props.open ? <div data-testid="test-chat">{props.profileName}</div> : null,
 }));
 
 function renderPage() {
@@ -98,11 +98,20 @@ describe("HcpProfilesPage", () => {
     expect(screen.getByText("Creating")).toBeInTheDocument();
   });
 
-  it("calls save handler and triggers mutation", async () => {
+  it("calls create mutation when saving new profile", async () => {
     renderPage();
     await userEvent.setup().click(screen.getByText("Create New"));
     await userEvent.setup().click(screen.getByText("Save"));
-    expect(mockMutate).toHaveBeenCalled();
+    expect(mockCreateMutate).toHaveBeenCalled();
+  });
+
+  it("calls update mutation when saving existing profile", async () => {
+    renderPage();
+    const user = userEvent.setup();
+    await user.click(screen.getByText("Select P1"));
+    expect(screen.getByText("Editing")).toBeInTheDocument();
+    await user.click(screen.getByText("Save"));
+    expect(mockUpdateMutate).toHaveBeenCalled();
   });
 
   it("opens test chat dialog", async () => {
@@ -117,7 +126,53 @@ describe("HcpProfilesPage", () => {
     await userEvent.setup().click(screen.getByText("Create New"));
     expect(screen.getByText("Creating")).toBeInTheDocument();
     await userEvent.setup().click(screen.getByText("Discard"));
-    // After discard, should show empty state again
     expect(screen.getByText("hcp.emptyBody")).toBeInTheDocument();
+  });
+
+  it("triggers create onSuccess callback", async () => {
+    mockCreateMutate.mockImplementation((_data: unknown, opts: { onSuccess?: () => void }) => {
+      opts?.onSuccess?.();
+    });
+    renderPage();
+    const user = userEvent.setup();
+    await user.click(screen.getByText("Create New"));
+    await user.click(screen.getByText("Save"));
+    expect(mockCreateMutate).toHaveBeenCalled();
+    // After onSuccess, isCreatingNew should be false
+    // The empty state should show since we cleared creating mode
+    expect(screen.getByText("hcp.emptyBody")).toBeInTheDocument();
+  });
+
+  it("triggers create onError callback", async () => {
+    mockCreateMutate.mockImplementation((_data: unknown, opts: { onError?: () => void }) => {
+      opts?.onError?.();
+    });
+    renderPage();
+    const user = userEvent.setup();
+    await user.click(screen.getByText("Create New"));
+    await user.click(screen.getByText("Save"));
+    expect(mockCreateMutate).toHaveBeenCalled();
+  });
+
+  it("triggers update onSuccess callback", async () => {
+    mockUpdateMutate.mockImplementation((_data: unknown, opts: { onSuccess?: () => void }) => {
+      opts?.onSuccess?.();
+    });
+    renderPage();
+    const user = userEvent.setup();
+    await user.click(screen.getByText("Select P1"));
+    await user.click(screen.getByText("Save"));
+    expect(mockUpdateMutate).toHaveBeenCalled();
+  });
+
+  it("triggers update onError callback", async () => {
+    mockUpdateMutate.mockImplementation((_data: unknown, opts: { onError?: () => void }) => {
+      opts?.onError?.();
+    });
+    renderPage();
+    const user = userEvent.setup();
+    await user.click(screen.getByText("Select P1"));
+    await user.click(screen.getByText("Save"));
+    expect(mockUpdateMutate).toHaveBeenCalled();
   });
 });

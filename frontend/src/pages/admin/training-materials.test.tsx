@@ -232,8 +232,8 @@ describe("TrainingMaterialsPage", () => {
     const editButtons = screen.getAllByTitle("materials.edit");
     await user.click(editButtons[0]!);
 
-    // Click Save button
-    const saveButton = screen.getByRole("button", { name: "Save" });
+    // Click Save button (tc("save") returns "save")
+    const saveButton = screen.getByRole("button", { name: "save" });
     await user.click(saveButton);
 
     expect(mockUpdateMutate).toHaveBeenCalledWith(
@@ -393,8 +393,8 @@ describe("TrainingMaterialsPage", () => {
     });
     renderPage();
 
-    expect(screen.getByText("Previous")).toBeInTheDocument();
-    expect(screen.getByText("Next")).toBeInTheDocument();
+    expect(screen.getByText("previous")).toBeInTheDocument();
+    expect(screen.getByText("next")).toBeInTheDocument();
     // Component starts at page=1 internally
     expect(screen.getByText("1 / 3")).toBeInTheDocument();
   });
@@ -411,8 +411,8 @@ describe("TrainingMaterialsPage", () => {
     });
     renderPage();
 
-    const prevButton = screen.getByText("Previous");
-    const nextButton = screen.getByText("Next");
+    const prevButton = screen.getByText("previous");
+    const nextButton = screen.getByText("next");
 
     await user.click(nextButton);
     // useMaterials should be called with updated page
@@ -448,7 +448,7 @@ describe("TrainingMaterialsPage", () => {
     const hints = screen.getAllByText("materials.uploadHint");
     expect(hints.length).toBeGreaterThan(0);
 
-    const cancelButtons = screen.getAllByText("Cancel");
+    const cancelButtons = screen.getAllByText("cancel");
     await user.click(cancelButtons[0]!);
 
     // uploadHint text should disappear from the dialog (dialog closed)
@@ -462,7 +462,7 @@ describe("TrainingMaterialsPage", () => {
     await user.click(editButtons[0]!);
     expect(screen.getByDisplayValue("Brukinsa Guide")).toBeInTheDocument();
 
-    const editCancelButtons = screen.getAllByText("Cancel");
+    const editCancelButtons = screen.getAllByText("cancel");
     await user.click(editCancelButtons[0]!);
 
     // Edit dialog should be closed — name input no longer present
@@ -528,8 +528,8 @@ describe("TrainingMaterialsPage", () => {
     const editButtons = screen.getAllByTitle("materials.edit");
     await user.click(editButtons[0]!);
 
-    // Click Save
-    const saveButton = screen.getByRole("button", { name: "Save" });
+    // Click Save (tc("save") returns "save")
+    const saveButton = screen.getByRole("button", { name: "save" });
     await user.click(saveButton);
 
     // Dialog should be closed (edit name input gone)
@@ -545,10 +545,10 @@ describe("TrainingMaterialsPage", () => {
     mockUseMaterials.mockReturnValue({ data: mockMaterialsList });
     renderPage();
 
-    // Open edit dialog and save
+    // Open edit dialog and save (tc("save") returns "save")
     const editButtons = screen.getAllByTitle("materials.edit");
     await user.click(editButtons[0]!);
-    const saveButton = screen.getByRole("button", { name: "Save" });
+    const saveButton = screen.getByRole("button", { name: "save" });
     await user.click(saveButton);
 
     // updateMutate was called with onError

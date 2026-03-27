@@ -61,7 +61,9 @@
     "weightSum": "权重合计",
     "weightSumError": "权重之和必须为 100",
     "f2f": "面对面",
-    "conference": "学术会议"
+    "conference": "学术会议",
+    "deleted": "评分标准已删除",
+    "deleteTitle": "删除评分标准"
   },
   "azureConfig": {
     "title": "Azure 服务配置",

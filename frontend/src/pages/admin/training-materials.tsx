@@ -75,6 +75,7 @@ function formatDate(dateStr: string): string {
 
 export default function TrainingMaterialsPage() {
   const { t } = useTranslation("admin");
+  const { t: tc } = useTranslation("common");
 
   // Filter state
   const [searchQuery, setSearchQuery] = useState("");
@@ -497,7 +498,7 @@ export default function TrainingMaterialsPage() {
                 disabled={page <= 1}
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
               >
-                Previous
+                {tc("previous")}
               </Button>
               <span className="text-sm text-muted-foreground">
                 {page} / {totalPages}
@@ -508,7 +509,7 @@ export default function TrainingMaterialsPage() {
                 disabled={page >= totalPages}
                 onClick={() => setPage((p) => p + 1)}
               >
-                Next
+                {tc("next")}
               </Button>
             </div>
           )}
@@ -615,7 +616,7 @@ export default function TrainingMaterialsPage() {
               variant="outline"
               onClick={() => setUploadDialogOpen(false)}
             >
-              Cancel
+              {tc("cancel")}
             </Button>
             <Button
               onClick={handleUpload}
@@ -682,13 +683,13 @@ export default function TrainingMaterialsPage() {
               variant="outline"
               onClick={() => setEditDialogOpen(false)}
             >
-              Cancel
+              {tc("cancel")}
             </Button>
             <Button
               onClick={handleUpdateMaterial}
               disabled={!editName || !editProduct || updateMutation.isPending}
             >
-              Save
+              {tc("save")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -805,7 +806,7 @@ export default function TrainingMaterialsPage() {
               variant="outline"
               onClick={() => setArchiveConfirmId(null)}
             >
-              Cancel
+              {tc("cancel")}
             </Button>
             <Button variant="destructive" onClick={confirmArchive}>
               {t("materials.archive")}
@@ -831,7 +832,7 @@ export default function TrainingMaterialsPage() {
               variant="outline"
               onClick={() => setRestoreConfirmId(null)}
             >
-              Cancel
+              {tc("cancel")}
             </Button>
             <Button onClick={confirmRestore}>{t("materials.restore")}</Button>
           </DialogFooter>

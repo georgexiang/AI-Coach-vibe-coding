@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -14,51 +14,61 @@ vi.mock("react-i18next", () => ({
   }),
 }));
 
-// Mock recharts to avoid rendering actual SVG charts in jsdom
-vi.mock("@/hooks/use-analytics", () => ({
-  useDashboardStats: () => ({
-    data: {
-      total_sessions: 24,
-      avg_score: 76.5,
-      this_week: 3,
-      improvement: 4.2,
+// Use mutable mock data that can be changed per test
+const mockStatsData = {
+  data: {
+    total_sessions: 24,
+    avg_score: 76.5,
+    this_week: 3,
+    improvement: 4.2 as number | null,
+  },
+  isLoading: false,
+};
+
+const mockTrendsData = {
+  data: [
+    {
+      session_id: "s1",
+      completed_at: "2026-03-20",
+      scenario_name: "Sc1",
+      overall_score: 78,
+      dimensions: [
+        { dimension: "Product Knowledge", score: 82, weight: 30 },
+        { dimension: "Clinical Discussion", score: 75, weight: 25 },
+        { dimension: "Objection Handling", score: 68, weight: 20 },
+      ],
     },
-    isLoading: false,
-  }),
-  useDimensionTrends: () => ({
-    data: [
-      {
-        session_date: "2026-03-20",
-        overall_score: 78,
-        dimensions: [
-          { dimension: "Product Knowledge", score: 82 },
-          { dimension: "Clinical Discussion", score: 75 },
-          { dimension: "Objection Handling", score: 68 },
-        ],
-      },
-      {
-        session_date: "2026-03-10",
-        overall_score: 72,
-        dimensions: [
-          { dimension: "Product Knowledge", score: 76 },
-          { dimension: "Clinical Discussion", score: 70 },
-          { dimension: "Objection Handling", score: 62 },
-        ],
-      },
-    ],
-    isLoading: false,
-  }),
-  useRecommendedScenarios: () => ({
-    data: [
-      {
-        scenario_id: "s1",
-        scenario_name: "Product Launch",
-        product: "Zanubrutinib",
-        difficulty: "Medium",
-        reason: "Practice recommended",
-      },
-    ],
-  }),
+    {
+      session_id: "s2",
+      completed_at: "2026-03-10",
+      scenario_name: "Sc2",
+      overall_score: 72,
+      dimensions: [
+        { dimension: "Product Knowledge", score: 76, weight: 30 },
+        { dimension: "Clinical Discussion", score: 70, weight: 25 },
+        { dimension: "Objection Handling", score: 62, weight: 20 },
+      ],
+    },
+  ] as unknown[],
+  isLoading: false,
+};
+
+const mockRecommendations = {
+  data: [
+    {
+      scenario_id: "s1",
+      scenario_name: "Product Launch",
+      product: "Zanubrutinib",
+      difficulty: "Medium",
+      reason: "Practice recommended",
+    },
+  ] as unknown[],
+};
+
+vi.mock("@/hooks/use-analytics", () => ({
+  useDashboardStats: () => mockStatsData,
+  useDimensionTrends: () => mockTrendsData,
+  useRecommendedScenarios: () => mockRecommendations,
   useExportSessionsExcel: () => ({
     mutate: vi.fn(),
     isPending: false,
@@ -100,12 +110,18 @@ vi.mock("@/components/ui", () => ({
   Button: ({
     children,
     onClick,
+    disabled,
   }: {
     children: React.ReactNode;
     onClick?: () => void;
     variant?: string;
     size?: string;
-  }) => <button onClick={onClick}>{children}</button>,
+    disabled?: boolean;
+  }) => (
+    <button onClick={onClick} disabled={disabled}>
+      {children}
+    </button>
+  ),
   Card: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="card">{children}</div>
   ),
@@ -118,35 +134,6 @@ vi.mock("@/components/ui", () => ({
   CardTitle: ({ children }: { children: React.ReactNode }) => (
     <h3>{children}</h3>
   ),
-  Tabs: ({
-    children,
-    value,
-  }: {
-    children: React.ReactNode;
-    onValueChange?: (v: string) => void;
-    value: string;
-  }) => (
-    <div data-testid="tabs" data-value={value}>
-      {children}
-    </div>
-  ),
-  TabsList: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="tabs-list">{children}</div>
-  ),
-  TabsTrigger: ({
-    children,
-    value,
-  }: {
-    children: React.ReactNode;
-    value: string;
-  }) => <button data-value={value}>{children}</button>,
-  TabsContent: ({
-    children,
-    value,
-  }: {
-    children: React.ReactNode;
-    value: string;
-  }) => <div data-testid={`tab-content-${value}`}>{children}</div>,
 }));
 
 function renderReportsPage() {
@@ -161,6 +148,20 @@ function renderReportsPage() {
     </QueryClientProvider>,
   );
 }
+
+// Save original data to restore
+const origStats = { ...mockStatsData, data: { ...mockStatsData.data } };
+const origTrends = { ...mockTrendsData, data: [...mockTrendsData.data] };
+const origRec = { ...mockRecommendations, data: [...mockRecommendations.data] };
+
+beforeEach(() => {
+  // Restore defaults
+  mockStatsData.data = { ...origStats.data };
+  mockStatsData.isLoading = false;
+  mockTrendsData.data = [...origTrends.data];
+  mockTrendsData.isLoading = false;
+  mockRecommendations.data = [...origRec.data];
+});
 
 describe("UserReportsPage", () => {
   it("renders the page title", () => {
@@ -190,7 +191,6 @@ describe("UserReportsPage", () => {
 
   it("renders dimension data", () => {
     renderReportsPage();
-    // PerformanceRadar and TrendLineChart are mocked
     expect(screen.getByTestId("performance-radar")).toBeInTheDocument();
     expect(screen.getByTestId("trend-line-chart")).toBeInTheDocument();
   });
@@ -205,5 +205,74 @@ describe("UserReportsPage", () => {
     renderReportsPage();
     expect(screen.getByText("Improvement")).toBeInTheDocument();
     expect(screen.getByText("+4.2")).toBeInTheDocument();
+  });
+
+  it("renders This Week stat", () => {
+    renderReportsPage();
+    expect(screen.getByText("This Week")).toBeInTheDocument();
+    expect(screen.getByText("3")).toBeInTheDocument();
+  });
+});
+
+describe("UserReportsPage - loading state", () => {
+  it("shows spinner when stats are loading", () => {
+    mockStatsData.isLoading = true;
+    mockTrendsData.isLoading = true;
+    const { container } = renderReportsPage();
+    expect(container.querySelector(".animate-spin")).toBeInTheDocument();
+  });
+});
+
+describe("UserReportsPage - empty state", () => {
+  it("shows empty state when total_sessions is 0", () => {
+    mockStatsData.data = {
+      total_sessions: 0,
+      avg_score: 0,
+      this_week: 0,
+      improvement: null,
+    };
+    renderReportsPage();
+    expect(
+      screen.getByText("Complete your first training session to see reports"),
+    ).toBeInTheDocument();
+  });
+});
+
+describe("UserReportsPage - no trends / no radar data", () => {
+  it("shows noData message when trends < 2 and no current scores", () => {
+    mockStatsData.data = {
+      total_sessions: 5,
+      avg_score: 70,
+      this_week: 1,
+      improvement: null,
+    };
+    mockTrendsData.data = [
+      {
+        session_id: "s1",
+        completed_at: "2026-03-20",
+        scenario_name: "Sc",
+        overall_score: 70,
+        dimensions: [],
+      },
+    ];
+    mockRecommendations.data = [];
+
+    renderReportsPage();
+    const noDataMsgs = screen.getAllByText("Not enough data yet");
+    expect(noDataMsgs.length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByText("N/A")).toBeInTheDocument();
+  });
+});
+
+describe("UserReportsPage - negative improvement", () => {
+  it("renders negative improvement without + prefix", () => {
+    mockStatsData.data = {
+      total_sessions: 10,
+      avg_score: 65,
+      this_week: 2,
+      improvement: -3.5,
+    };
+    renderReportsPage();
+    expect(screen.getByText("-3.5")).toBeInTheDocument();
   });
 });

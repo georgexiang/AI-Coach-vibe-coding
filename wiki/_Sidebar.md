@@ -6,6 +6,23 @@
 - [Roadmap](Roadmap)
 - [Changelog](Changelog)
 
+<!-- PLANNING_START -->
+## Planning
+
+- [Project Overview](Planning-Overview)
+- [Roadmap](Planning-Roadmap)
+- [Requirements](Planning-Requirements)
+- [Research](Planning-Research)
+- **Phases**
+  - [Phase 01: Foundation Auth And Design System](Planning-Phase-01)
+  - [Phase 01.1: Ui Figma Figma Make Ui Sceenshot Figma Make](Planning-Phase-01-1)
+  - [Phase 02: F2f Text Coaching And Scoring](Planning-Phase-02)
+  - [Phase 03: Scoring Assessment](Planning-Phase-03)
+  - [Phase 04: Dashboard Reporting](Planning-Phase-04)
+  - [Phase 05: Training Material Management](Planning-Phase-05)
+  - [Phase 06: Conference Presentation Module](Planning-Phase-06)
+<!-- PLANNING_END -->
+
 ---
 
 **Quick Links**

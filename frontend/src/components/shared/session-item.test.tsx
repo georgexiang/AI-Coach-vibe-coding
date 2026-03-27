@@ -20,7 +20,7 @@ describe("SessionItem", () => {
 
   it("renders mode badge", () => {
     render(<SessionItem {...defaultProps} />);
-    expect(screen.getByText("F2F")).toBeInTheDocument();
+    expect(screen.getByText("modeF2F")).toBeInTheDocument();
   });
 
   it("renders score and time ago", () => {

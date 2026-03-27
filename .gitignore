@@ -49,3 +49,8 @@ build/
 
 # Claude Code
 .claude/worktrees/
+
+# Local artifacts
+figma-make/
+.playwright-mcp/
+backend/storage/materials/materials/

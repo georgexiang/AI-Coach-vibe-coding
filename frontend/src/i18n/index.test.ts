@@ -71,6 +71,7 @@ describe("i18n initialization", () => {
       "admin",
       "scoring",
       "analytics",
+      "conference",
     ]);
   });
 
