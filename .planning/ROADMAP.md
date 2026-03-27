@@ -19,6 +19,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 05: Training Material Management** - Document upload, versioning, retention policies, AI knowledge base integration
 - [x] **Phase 06: Conference Presentation Module** - One-to-many simulation, live transcription, audience Q&A, presentation scoring (completed 2026-03-25)
 - [x] **Phase 07: Azure Service Integration** - Admin Azure config persistence, real connection testing, dynamic provider switching (mock → Azure OpenAI/Speech/Avatar) (completed 2026-03-27)
+- [ ] **Phase 08: Voice & Avatar Demo Integration** - Integrate Azure Voice Live Agent with Avatar into the AI Coach platform for real-time voice coaching with digital HCP avatar
 
 ## Phase Details
 
@@ -188,7 +189,7 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 01 -> 01.1 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07
+Phases execute in numeric order: 01 -> 01.1 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07 -> 08
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -200,6 +201,7 @@ Phases execute in numeric order: 01 -> 01.1 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07
 | 05. Training Material Management | 3/3 | Complete | - |
 | 06. Conference Presentation Module | 6/6 | Complete | 2026-03-25 |
 | 07. Azure Service Integration | 4/4 | Complete    | 2026-03-27 |
+| 08. Voice & Avatar Demo Integration | 0/0 | Not Started | - |
 
 ### Phase 07: Azure Service Integration
 
@@ -220,5 +222,20 @@ Plans:
 - [x] 07-02-PLAN.md -- AzureOpenAIAdapter: streaming LLM adapter with conversation history, unit tests
 - [x] 07-03-PLAN.md -- Backend API + dynamic switching: PUT/test/GET endpoints, connection tester, lifespan DB loading, session history wiring
 - [ ] 07-04-PLAN.md -- Frontend wiring: TypeScript types, API client, TanStack Query hooks, wire azure-config page to real API
+
+**UI hint**: yes
+
+### Phase 08: Voice & Avatar Demo Integration
+**Goal**: Integrate the existing Voice-Live-Agent-With-Avatar demo (Azure Voice Live API + Avatar) into the AI Coach platform, enabling real-time voice-based coaching sessions where MRs talk to a digital HCP avatar with natural speech interaction
+**Depends on**: Phase 07
+**Requirements**: COACH-04, COACH-05, COACH-07, EXT-04, PLAT-05
+**Success Criteria** (what must be TRUE):
+  1. User can start a voice-enabled coaching session that uses Azure Voice Live API for real-time speech interaction with the AI HCP
+  2. Azure AI Avatar renders a digital human visual for the HCP during voice coaching sessions
+  3. Voice interaction is integrated with the existing coaching session lifecycle (start → in_progress → completed → scored)
+  4. The system gracefully falls back to text-only or TTS-only mode when Avatar/Voice Live services are unavailable
+  5. Admin can configure Voice Live and Avatar settings from the Azure Config page
+  6. All new code has unit tests with >=95% coverage maintained
+**Plans**: TBD
 
 **UI hint**: yes
