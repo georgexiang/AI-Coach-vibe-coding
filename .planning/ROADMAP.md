@@ -18,7 +18,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 04: Dashboard & Reporting** - Personal dashboard, group analytics, export (PDF/Excel), training progress tracking
 - [x] **Phase 05: Training Material Management** - Document upload, versioning, retention policies, AI knowledge base integration
 - [x] **Phase 06: Conference Presentation Module** - One-to-many simulation, live transcription, audience Q&A, presentation scoring (completed 2026-03-25)
-- [ ] **Phase 07: Azure Service Integration** - Admin Azure config persistence, real connection testing, dynamic provider switching (mock → Azure OpenAI/Speech/Avatar)
+- [x] **Phase 07: Azure Service Integration** - Admin Azure config persistence, real connection testing, dynamic provider switching (mock → Azure OpenAI/Speech/Avatar) (completed 2026-03-27)
 
 ## Phase Details
 
@@ -179,9 +179,9 @@ Plans:
 
 Plans:
 - [x] 07-01-PLAN.md -- Config data foundation: ServiceConfig model, Fernet encryption, config service, schemas, migration
-- [ ] 07-02-PLAN.md -- Admin config API routes and frontend config page
-- [ ] 07-03-PLAN.md -- Connection testing and Azure service validation
-- [ ] 07-04-PLAN.md -- Dynamic provider switching and runtime reconfiguration
+- [x] 07-02-PLAN.md -- Admin config API routes and frontend config page
+- [x] 07-03-PLAN.md -- Connection testing and Azure service validation
+- [x] 07-04-PLAN.md -- Dynamic provider switching and runtime reconfiguration
 
 **UI hint**: yes
 
@@ -199,7 +199,7 @@ Phases execute in numeric order: 01 -> 01.1 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07
 | 04. Dashboard & Reporting | 6/6 | Complete | - |
 | 05. Training Material Management | 3/3 | Complete | - |
 | 06. Conference Presentation Module | 6/6 | Complete | 2026-03-25 |
-| 07. Azure Service Integration | 3/4 | In Progress | - |
+| 07. Azure Service Integration | 4/4 | Complete   | 2026-03-27 |
 
 ### Phase 07: Azure Service Integration
 
