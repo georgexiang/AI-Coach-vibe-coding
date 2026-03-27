@@ -55,9 +55,11 @@ Exceptions:
 | Role | Size | Weight | Line Height |
 |------|------|--------|-------------|
 | Body | 16px (text-base) | 400 (normal) | 1.5 |
-| Label / Speaker Name | 12px (text-xs) | 500 (medium) | 1.5 |
+| Label / Speaker Name | 12px (text-xs) | 400 (normal) | 1.5 |
 | Heading (h1 page title) | 30px (text-3xl) | 600 (semibold) | 1.5 |
 | Transcript message | 14px (text-sm) | 400 (normal) | 1.5 |
+
+Font weights used: 400 (normal) for body, labels, speaker names, and transcript text; 600 (semibold) for headings only. Two weights total.
 
 Typography follows the project-wide convention established in `frontend/src/styles/index.css`. Phase 08 uses only the existing type scale -- no new sizes introduced.
 
@@ -82,6 +84,16 @@ Typography follows the project-wide convention established in `frontend/src/styl
 | Muted gray | --muted-foreground | Disabled mic button, muted waveform bars, disconnected state |
 
 Accent reserved for: active mode selector segment, user transcript bubble background, primary mic button idle state, "Start Voice Session" CTA on scenario selection, connection status "connected" text (via green semantic color, not primary blue).
+
+---
+
+## Visual Hierarchy & Focal Points
+
+**Primary focal point:** AvatarView (avatar mode) or WaveformViz (voice-only mode) in the center panel. This is the largest, most visually prominent element occupying the vertical center of the session layout.
+
+**Secondary focal point:** Mic button in the VoiceControls bar at the bottom center. The 56px circle with state-dependent color and ping animation draws the eye as the primary interactive element.
+
+**Tertiary:** VoiceTranscript panel below the avatar/waveform, providing running conversation context. ConnectionStatus dot in the header provides ambient awareness without demanding attention.
 
 ---
 
