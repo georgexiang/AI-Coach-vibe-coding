@@ -164,10 +164,30 @@ Plans:
 
 **UI hint**: yes
 
+### Phase 07: Azure Service Integration
+**Goal**: Admin Azure config persistence, real connection testing, dynamic provider switching (mock to Azure OpenAI/Speech/Avatar)
+**Depends on**: Phase 01
+**Requirements**: PLAT-03, ARCH-05
+**Success Criteria** (what must be TRUE):
+  1. Admin can configure Azure service endpoints and API keys via admin UI
+  2. API keys are stored encrypted (Fernet) in the database
+  3. Connection testing validates Azure service reachability
+  4. Dynamic provider switching allows runtime change from mock to Azure providers
+  5. All new code has unit tests with >=95% coverage maintained
+**Plans**: 4 plans
+
+Plans:
+- [x] 07-01-PLAN.md -- Config data foundation: ServiceConfig model, Fernet encryption, config service, schemas, migration
+- [ ] 07-02-PLAN.md -- Admin config API routes and frontend config page
+- [ ] 07-03-PLAN.md -- Connection testing and Azure service validation
+- [ ] 07-04-PLAN.md -- Dynamic provider switching and runtime reconfiguration
+
+**UI hint**: yes
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 01 -> 01.1 -> 02 -> 03 -> 04 -> 05 -> 06
+Phases execute in numeric order: 01 -> 01.1 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -178,3 +198,4 @@ Phases execute in numeric order: 01 -> 01.1 -> 02 -> 03 -> 04 -> 05 -> 06
 | 04. Dashboard & Reporting | 6/6 | Complete | - |
 | 05. Training Material Management | 3/3 | Complete | - |
 | 06. Conference Presentation Module | 6/6 | Complete | 2026-03-25 |
+| 07. Azure Service Integration | 1/4 | In Progress | - |
