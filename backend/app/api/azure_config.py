@@ -26,6 +26,7 @@ SERVICE_DISPLAY_NAMES = {
     "azure_speech_tts": "Azure Speech (TTS)",
     "azure_avatar": "Azure AI Avatar",
     "azure_content": "Azure Content Understanding",
+    "azure_voice_live": "Azure Voice Live API",
 }
 
 

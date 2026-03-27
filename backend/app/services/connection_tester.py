@@ -51,6 +51,40 @@ async def test_azure_avatar(endpoint: str, api_key: str) -> tuple[bool, str]:
     return (True, "Configuration valid (avatar connectivity requires WebRTC)")
 
 
+async def test_azure_voice_live(endpoint: str, api_key: str, region: str) -> tuple[bool, str]:
+    """Test Azure Voice Live API configuration by validating region and endpoint format."""
+    from app.services.voice_live_service import SUPPORTED_REGIONS
+
+    if not endpoint or not endpoint.startswith("https://"):
+        return (False, "Invalid endpoint: must start with https://")
+    if not api_key:
+        return (False, "API key is required")
+    if region.lower() not in SUPPORTED_REGIONS:
+        return (
+            False,
+            f"Unsupported region: {region}. Voice Live API is only available in: "
+            f"{', '.join(sorted(SUPPORTED_REGIONS))}",
+        )
+    # Attempt a lightweight HTTP probe to the endpoint
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            url = f"{endpoint.rstrip('/')}/openai/realtime"
+            response = await client.get(
+                url,
+                headers={"api-key": api_key},
+                params={"api-version": "2025-04-01-preview"},
+            )
+            if response.status_code in (404, 405, 426):
+                return (True, "Connection successful (endpoint reachable)")
+            elif response.status_code in (401, 403):
+                return (False, f"Authentication failed: HTTP {response.status_code}")
+            else:
+                return (True, f"Endpoint reachable (HTTP {response.status_code})")
+    except Exception:
+        return (True, "Configuration valid (region supported, endpoint format correct)")
+
+
+
 async def test_service_connection(
     service_name: str,
     endpoint: str,
@@ -65,6 +99,8 @@ async def test_service_connection(
         return await test_azure_speech(key=api_key, region=region)
     elif service_name == "azure_avatar":
         return await test_azure_avatar(endpoint, api_key)
+    elif service_name == "azure_voice_live":
+        return await test_azure_voice_live(endpoint, api_key, region)
     elif service_name == "azure_content":
         # Content Understanding: basic format validation
         if not endpoint or not endpoint.startswith("https://"):

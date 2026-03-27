@@ -9,6 +9,7 @@ from app.api.rubrics import router as rubrics_router
 from app.api.scenarios import router as scenarios_router
 from app.api.scoring import router as scoring_router
 from app.api.sessions import router as sessions_router
+from app.api.voice_live import router as voice_live_router
 
 __all__ = [
     "analytics_router",
@@ -22,4 +23,5 @@ __all__ = [
     "scenarios_router",
     "scoring_router",
     "sessions_router",
+    "voice_live_router",
 ]
