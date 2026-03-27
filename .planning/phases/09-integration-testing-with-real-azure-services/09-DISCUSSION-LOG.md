@@ -1,11 +1,35 @@
-# Phase 09: Integration Testing with Real Azure Services - Discussion Log
+# Phase 09: Integration Testing with Real Azure Services - Discussion Log (Updated)
 
 > **Audit trail only.** Do not use as input to planning, research, or execution agents.
-> Decisions are captured in CONTEXT.md — this log preserves the alternatives considered.
+> Decisions captured in CONTEXT.md — this log preserves the discussion.
 
-**Date:** 2026-03-27
+**Date:** 2026-03-27 (updated)
 **Phase:** 09-integration-testing-with-real-azure-services
-**Areas discussed:** Test scope & strategy, Environment & credentials, Test execution approach, Acceptance criteria
+**Areas discussed:** Config alignment scope, Azure AD Token strategy, Agent/Model mode, Unified endpoint, 7 interaction modes
+
+## Session 2: Config Alignment Discussion
+
+User provided AI Foundry resource config (kind: AIServices, region: eastus2).
+Key findings: `disableLocalAuth: true`, unified endpoint, voice-agent + voice-live paths.
+
+### Config Alignment Scope
+- Chose: **Backport to Phase 07/08** (not expand Phase 09)
+
+### Azure AD Token Strategy
+- Chose: **Both API key + AD token** — try API key first, fall back to DefaultAzureCredential
+- User note: "两种方式都支持，如果不支持API key的话，就可以使用AD token认证"
+
+### Unified Endpoint
+- Chose: **Single AI Foundry card** — replace 6 separate service configs
+- User note: "用户不用配置那么多东西，配置就简单很多"
+
+### Interaction Modes (iterated from 5→6→7)
+- User initially described 5 modes, then added Voice Realtime (no avatar), then confirmed all 7:
+  1. Text, 2. Voice Pipeline, 3. Digital Human Speech+Model
+  4. Voice Realtime Model, 5. Digital Human Realtime Model
+  6. Voice Realtime Agent, 7. Digital Human Realtime Agent
+
+## Session 1 (original)
 
 **User note:** "这个功能是需要给客户demo的主要内容，很重要，需要好好测试性能，UI美观，效果，便利性等等。"
 (This is the main demo content for customers, very important, needs thorough testing of performance, UI aesthetics, effects, convenience, etc.)
