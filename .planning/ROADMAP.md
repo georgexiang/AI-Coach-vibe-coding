@@ -20,6 +20,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 06: Conference Presentation Module** - One-to-many simulation, live transcription, audience Q&A, presentation scoring (completed 2026-03-25)
 - [x] **Phase 07: Azure Service Integration** - Admin Azure config persistence, real connection testing, dynamic provider switching (mock → Azure OpenAI/Speech/Avatar) (completed 2026-03-27)
 - [ ] **Phase 08: Voice & Avatar Demo Integration** - Integrate Azure Voice Live Agent with Avatar into the AI Coach platform for real-time voice coaching with digital HCP avatar
+- [ ] **Phase 09: Integration Testing with Real Azure Services** - Validate Azure services end-to-end with real credentials, E2E demo flow tests, smoke test checklist
 
 ## Phase Details
 
@@ -189,7 +190,7 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 01 -> 01.1 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07 -> 08
+Phases execute in numeric order: 01 -> 01.1 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07 -> 08 -> 09
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -202,6 +203,7 @@ Phases execute in numeric order: 01 -> 01.1 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07 
 | 06. Conference Presentation Module | 6/6 | Complete | 2026-03-25 |
 | 07. Azure Service Integration | 4/4 | Complete    | 2026-03-27 |
 | 08. Voice & Avatar Demo Integration | 1/4 | In Progress|  |
+| 09. Integration Testing | 0/2 | Not Started | |
 
 ### Phase 07: Azure Service Integration
 
@@ -245,3 +247,21 @@ Plans:
 - [ ] 08-04-PLAN.md -- Container components + wiring: VoiceSession container, route registration, admin config Voice Live card, transcript flush, tests
 
 **UI hint**: yes
+
+### Phase 09: Integration Testing with Real Azure Services
+
+**Goal:** Validate all Azure service integrations end-to-end with real credentials, polish the demo experience for BeiGene customer presentations, and create automated + manual test suites for ongoing validation
+**Depends on:** Phase 08
+**Requirements**: COACH-04, COACH-05, COACH-07, PLAT-03, PLAT-05, ARCH-05
+**Success Criteria** (what must be TRUE):
+  1. Pytest integration tests validate each Azure service adapter with real credentials (OpenAI streaming, Speech STT/TTS round-trip, Voice Live token, Avatar config)
+  2. All integration tests skip gracefully when Azure credentials are not configured
+  3. Playwright E2E test exercises the full demo pipeline: admin config -> text session -> voice session -> scoring report
+  4. Performance assertions verify AI response latency < 3 seconds
+  5. Fallback chain verified: avatar -> voice-only -> text-only degrades gracefully
+  6. Manual smoke test checklist covers all demo categories for pre-demo preparation
+**Plans**: 2 plans
+
+Plans:
+- [ ] 09-01-PLAN.md -- Backend pytest integration tests: conftest with skip markers, 4 Azure service test modules (OpenAI, Speech, Voice Live, Avatar)
+- [ ] 09-02-PLAN.md -- Playwright E2E demo flow test + pre-demo smoke test checklist
