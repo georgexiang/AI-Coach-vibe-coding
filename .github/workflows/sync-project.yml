@@ -4,6 +4,8 @@ on:
   push:
     branches: [main]
     paths:
+      - ".planning/ROADMAP.md"
+      - ".planning/phases/**"
       - "docs/plans/**"
       - "docs/specs/**"
 
@@ -17,8 +19,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Sync plans to GitHub Project
+      - name: Sync planning roadmap to GitHub Project
         env:
           GH_TOKEN: ${{ secrets.PROJECT_TOKEN }}
           PROJECT_NUMBER: ${{ vars.PROJECT_NUMBER }}
-        run: bash .github/scripts/sync-plans-project.sh
+        run: bash .github/scripts/sync-planning-project.sh
