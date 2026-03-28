@@ -158,6 +158,7 @@ describe("Sessions API", () => {
     const result = await createSession("sc-1");
     expect(mockClient.post).toHaveBeenCalledWith("/sessions", {
       scenario_id: "sc-1",
+      mode: "text",
     });
     expect(result.id).toBe("sess-1");
   });

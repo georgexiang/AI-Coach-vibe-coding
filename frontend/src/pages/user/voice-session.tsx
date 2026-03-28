@@ -21,13 +21,12 @@ export default function VoiceSessionPage() {
   const { data: session, isLoading: sessionLoading } = useSession(
     sessionId || undefined,
   );
-  const { data: scenario, isLoading: scenarioLoading } = useScenario(
+  const { data: scenario } = useScenario(
     session?.scenario_id,
   );
 
-  const isLoading = sessionLoading || scenarioLoading;
-
-  if (isLoading || !session) {
+  // Only block on session loading — scenario is optional (graceful degradation)
+  if (sessionLoading || !session) {
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-3">

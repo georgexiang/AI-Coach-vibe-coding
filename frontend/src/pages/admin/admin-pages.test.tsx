@@ -30,6 +30,16 @@ vi.mock("sonner", () => ({
   toast: { success: vi.fn(), error: vi.fn() },
 }));
 
+vi.mock("@/hooks/use-azure-config", () => ({
+  useServiceConfigs: () => ({ data: [], isLoading: false }),
+  useUpdateServiceConfig: () => ({ mutate: vi.fn() }),
+  useTestServiceConnection: () => ({ mutateAsync: vi.fn() }),
+}));
+
+vi.mock("@/hooks/use-region-capabilities", () => ({
+  useRegionCapabilities: () => ({ data: undefined, isError: false }),
+}));
+
 function wrapper({ children }: { children: ReactNode }) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },

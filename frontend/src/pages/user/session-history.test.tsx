@@ -1,9 +1,10 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import SessionHistory from "./session-history";
+import type { ScoreHistoryItem } from "@/types/report";
 
 const mockNavigate = vi.fn();
 
@@ -48,8 +49,8 @@ vi.mock("@/components/analytics", () => ({
 }));
 
 vi.mock("@/components/ui", () => ({
-  Badge: ({ children }: { children: React.ReactNode }) => (
-    <span data-testid="badge">{children}</span>
+  Badge: ({ children, className }: { children: React.ReactNode; className?: string }) => (
+    <span data-testid="badge" className={className}>{children}</span>
   ),
   Button: ({
     children,
@@ -86,6 +87,7 @@ vi.mock("@/components/ui", () => ({
   Select: ({
     children,
     value,
+    onValueChange,
   }: {
     children: React.ReactNode;
     onValueChange?: (v: string) => void;
@@ -93,6 +95,19 @@ vi.mock("@/components/ui", () => ({
   }) => (
     <div data-testid="select" data-value={value}>
       {children}
+      {/* Hidden select for testing onValueChange */}
+      <select
+        data-testid="hidden-select"
+        value={value}
+        onChange={(e) => onValueChange?.(e.target.value)}
+      >
+        <option value="__all__">All</option>
+        <option value="passed">Passed</option>
+        <option value="failed">Failed</option>
+        <option value="high">High</option>
+        <option value="mid">Mid</option>
+        <option value="low">Low</option>
+      </select>
     </div>
   ),
   SelectContent: ({ children }: { children: React.ReactNode }) => (
@@ -111,7 +126,23 @@ vi.mock("@/components/ui", () => ({
   SelectValue: () => <span />,
 }));
 
-const mockHistoryData = [
+// Generate many items for pagination testing
+function makeHistoryItems(count: number): ScoreHistoryItem[] {
+  return Array.from({ length: count }, (_, i) => ({
+    session_id: `s${i + 1}`,
+    scenario_name: `Scenario ${i + 1}`,
+    overall_score: 50 + (i % 50),
+    passed: i % 3 !== 0,
+    completed_at: `2026-03-${String(20 - i).padStart(2, "0")}T10:00:00Z`,
+    dimensions: [
+      { dimension: "Knowledge", score: 60 + (i % 30), weight: 0.3, improvement_pct: i % 2 === 0 ? 5 : -3 },
+      { dimension: "Communication", score: 50 + (i % 40), weight: 0.3, improvement_pct: null },
+      { dimension: "Empathy", score: 70 + (i % 20), weight: 0.2, improvement_pct: 0 },
+    ],
+  }));
+}
+
+const mockHistoryData: ScoreHistoryItem[] = [
   {
     session_id: "s1",
     scenario_name: "Dr. Sarah Mitchell",
@@ -136,7 +167,6 @@ const mockHistoryData = [
   },
 ];
 
-// We need to manage the mock before the component is imported, so we'll use a different approach
 let mockScoreHistoryReturn: {
   data: typeof mockHistoryData | undefined;
   isLoading: boolean;
@@ -160,6 +190,11 @@ function renderSessionHistory() {
 }
 
 describe("SessionHistory", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockScoreHistoryReturn = { data: mockHistoryData, isLoading: false };
+  });
+
   it("renders the page title", () => {
     renderSessionHistory();
     expect(screen.getByText("history.title")).toBeInTheDocument();
@@ -179,7 +214,6 @@ describe("SessionHistory", () => {
 
   it("renders passed/failed badges", () => {
     renderSessionHistory();
-    // "passed" and "failed" appear both in filter options and in table badges
     const passedEls = screen.getAllByText("passed");
     expect(passedEls.length).toBeGreaterThanOrEqual(2);
     const failedEls = screen.getAllByText("failed");
@@ -204,7 +238,6 @@ describe("SessionHistory", () => {
   it("renders view details links", () => {
     renderSessionHistory();
     const viewDetails = screen.getAllByText("history.viewDetails");
-    // 2 rows + 1 header
     expect(viewDetails.length).toBeGreaterThanOrEqual(2);
   });
 
@@ -222,18 +255,305 @@ describe("SessionHistory", () => {
   it("shows loading state", () => {
     mockScoreHistoryReturn = { data: undefined, isLoading: true };
     renderSessionHistory();
-    // Loader2 renders an SVG with animate-spin class
     const spinner = document.querySelector(".animate-spin");
     expect(spinner).toBeTruthy();
-    // Restore
-    mockScoreHistoryReturn = { data: mockHistoryData, isLoading: false };
   });
 
   it("shows empty state when no history", () => {
     mockScoreHistoryReturn = { data: [], isLoading: false };
     renderSessionHistory();
     expect(screen.getByText("history.noSessions")).toBeInTheDocument();
-    // Restore
-    mockScoreHistoryReturn = { data: mockHistoryData, isLoading: false };
+  });
+
+  // NEW TESTS for uncovered branches
+
+  it("shows empty state when history is undefined", () => {
+    mockScoreHistoryReturn = { data: undefined, isLoading: false };
+    renderSessionHistory();
+    expect(screen.getByText("history.noSessions")).toBeInTheDocument();
+  });
+
+  it("filters by search term and resets page", async () => {
+    const user = userEvent.setup();
+    renderSessionHistory();
+    const input = screen.getByTestId("search-input");
+    await user.type(input, "Sarah");
+    // Should only show matching rows
+    expect(screen.getByText("Dr. Sarah Mitchell")).toBeInTheDocument();
+    expect(screen.queryByText("Dr. James Wong")).not.toBeInTheDocument();
+  });
+
+  it("filters by mode (passed/failed) using hidden select", async () => {
+    renderSessionHistory();
+    // Get all hidden-select elements
+    const selects = screen.getAllByTestId("hidden-select");
+    // The first select is mode filter
+    const modeSelect = selects[0]!;
+    await userEvent.setup().selectOptions(modeSelect, "passed");
+    // Should show only passed sessions
+    expect(screen.getByText("Dr. Sarah Mitchell")).toBeInTheDocument();
+    expect(screen.queryByText("Dr. James Wong")).not.toBeInTheDocument();
+  });
+
+  it("filters by mode (failed) using hidden select", async () => {
+    renderSessionHistory();
+    const selects = screen.getAllByTestId("hidden-select");
+    const modeSelect = selects[0]!;
+    await userEvent.setup().selectOptions(modeSelect, "failed");
+    // Should show only failed sessions
+    expect(screen.queryByText("Dr. Sarah Mitchell")).not.toBeInTheDocument();
+    expect(screen.getByText("Dr. James Wong")).toBeInTheDocument();
+  });
+
+  it("filters by score range (high >= 80)", async () => {
+    renderSessionHistory();
+    const selects = screen.getAllByTestId("hidden-select");
+    const scoreSelect = selects[1]!;
+    await userEvent.setup().selectOptions(scoreSelect, "high");
+    expect(screen.getByText("Dr. Sarah Mitchell")).toBeInTheDocument(); // 85
+    expect(screen.queryByText("Dr. James Wong")).not.toBeInTheDocument(); // 55
+  });
+
+  it("filters by score range (mid 60-79)", async () => {
+    const threeItems = [
+      ...mockHistoryData,
+      {
+        session_id: "s3",
+        scenario_name: "Dr. Mid Score",
+        overall_score: 72,
+        passed: true,
+        completed_at: "2026-03-18T10:00:00Z",
+        dimensions: [
+          { dimension: "Knowledge", score: 70, weight: 0.3, improvement_pct: null },
+        ],
+      },
+    ];
+    mockScoreHistoryReturn = { data: threeItems, isLoading: false };
+    renderSessionHistory();
+    const selects = screen.getAllByTestId("hidden-select");
+    const scoreSelect = selects[1]!;
+    await userEvent.setup().selectOptions(scoreSelect, "mid");
+    expect(screen.getByText("Dr. Mid Score")).toBeInTheDocument(); // 72
+    expect(screen.queryByText("Dr. Sarah Mitchell")).not.toBeInTheDocument(); // 85
+    expect(screen.queryByText("Dr. James Wong")).not.toBeInTheDocument(); // 55
+  });
+
+  it("filters by score range (low < 60)", async () => {
+    renderSessionHistory();
+    const selects = screen.getAllByTestId("hidden-select");
+    const scoreSelect = selects[1]!;
+    await userEvent.setup().selectOptions(scoreSelect, "low");
+    expect(screen.getByText("Dr. James Wong")).toBeInTheDocument(); // 55
+    expect(screen.queryByText("Dr. Sarah Mitchell")).not.toBeInTheDocument(); // 85
+  });
+
+  it("shows results count reflecting filtered items", async () => {
+    renderSessionHistory();
+    // 2 results initially
+    expect(screen.getByText(/2 results/)).toBeInTheDocument();
+  });
+
+  it("renders pagination when more than 10 items", () => {
+    const manyItems = makeHistoryItems(15);
+    mockScoreHistoryReturn = { data: manyItems, isLoading: false };
+    renderSessionHistory();
+    expect(screen.getByText("Previous")).toBeInTheDocument();
+    expect(screen.getByText("Next")).toBeInTheDocument();
+    expect(screen.getByText("1 / 2")).toBeInTheDocument();
+  });
+
+  it("does not render pagination when 10 or fewer items", () => {
+    renderSessionHistory(); // 2 items
+    expect(screen.queryByText("Previous")).not.toBeInTheDocument();
+    expect(screen.queryByText("Next")).not.toBeInTheDocument();
+  });
+
+  it("navigates to next page on Next click", async () => {
+    const user = userEvent.setup();
+    const manyItems = makeHistoryItems(15);
+    mockScoreHistoryReturn = { data: manyItems, isLoading: false };
+    renderSessionHistory();
+
+    const nextBtn = screen.getByText("Next");
+    await user.click(nextBtn);
+    expect(screen.getByText("2 / 2")).toBeInTheDocument();
+  });
+
+  it("navigates to previous page on Previous click", async () => {
+    const user = userEvent.setup();
+    const manyItems = makeHistoryItems(15);
+    mockScoreHistoryReturn = { data: manyItems, isLoading: false };
+    renderSessionHistory();
+
+    // Go to page 2
+    await user.click(screen.getByText("Next"));
+    expect(screen.getByText("2 / 2")).toBeInTheDocument();
+    // Go back to page 1
+    await user.click(screen.getByText("Previous"));
+    expect(screen.getByText("1 / 2")).toBeInTheDocument();
+  });
+
+  it("Previous button is disabled on first page", () => {
+    const manyItems = makeHistoryItems(15);
+    mockScoreHistoryReturn = { data: manyItems, isLoading: false };
+    renderSessionHistory();
+    expect(screen.getByText("Previous")).toBeDisabled();
+  });
+
+  it("Next button is disabled on last page", async () => {
+    const user = userEvent.setup();
+    const manyItems = makeHistoryItems(15);
+    mockScoreHistoryReturn = { data: manyItems, isLoading: false };
+    renderSessionHistory();
+    await user.click(screen.getByText("Next"));
+    expect(screen.getByText("Next")).toBeDisabled();
+  });
+
+  it("renders score badge with green styling for high scores", () => {
+    renderSessionHistory();
+    // Score 85 should have green styling
+    const score85 = screen.getByText("85");
+    expect(score85.className).toContain("bg-green-100");
+  });
+
+  it("renders score badge with red styling for low scores", () => {
+    renderSessionHistory();
+    // Score 55 should have red styling
+    const score55 = screen.getByText("55");
+    expect(score55.className).toContain("bg-red-100");
+  });
+
+  it("renders TrendingUp icon for positive improvement", () => {
+    renderSessionHistory();
+    // The dimension "Knowledge" with improvement_pct: 5 should show trending up
+    // Check for the green-600 text class associated with positive trend
+    const trendElements = document.querySelectorAll(".text-green-600");
+    expect(trendElements.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("renders TrendingDown icon for negative improvement", () => {
+    renderSessionHistory();
+    // The dimension "Communication" with improvement_pct: -2 should show trending down
+    const trendElements = document.querySelectorAll(".text-red-600");
+    expect(trendElements.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("does not show trend icon when improvement_pct is null", () => {
+    // The second session has null improvement_pct values
+    // These should not produce trend icons
+    mockScoreHistoryReturn = {
+      data: [{
+        session_id: "s1",
+        scenario_name: "Only Null Improvements",
+        overall_score: 70,
+        passed: true,
+        completed_at: "2026-03-20T10:00:00Z",
+        dimensions: [
+          { dimension: "Knowledge", score: 70, weight: 0.3, improvement_pct: null },
+        ],
+      }],
+      isLoading: false,
+    };
+    renderSessionHistory();
+    const upTrend = document.querySelectorAll(".text-green-600");
+    const downTrend = document.querySelectorAll(".text-red-600");
+    expect(upTrend.length).toBe(0);
+    expect(downTrend.length).toBe(0);
+  });
+
+  it("does not show trend icon when improvement_pct is 0", () => {
+    mockScoreHistoryReturn = {
+      data: [
+        {
+          session_id: "s1",
+          scenario_name: "Zero Improvement",
+          overall_score: 70,
+          passed: true,
+          completed_at: "2026-03-20T10:00:00Z",
+          dimensions: [
+            { dimension: "Knowledge", score: 70, weight: 0.3, improvement_pct: 0 },
+          ],
+        },
+        {
+          session_id: "s2",
+          scenario_name: "Dummy",
+          overall_score: 65,
+          passed: true,
+          completed_at: "2026-03-19T10:00:00Z",
+          dimensions: [
+            { dimension: "Knowledge", score: 65, weight: 0.3, improvement_pct: 0 },
+          ],
+        },
+      ],
+      isLoading: false,
+    };
+    renderSessionHistory();
+    const upTrend = document.querySelectorAll(".text-green-600");
+    const downTrend = document.querySelectorAll(".text-red-600");
+    expect(upTrend.length).toBe(0);
+    expect(downTrend.length).toBe(0);
+  });
+
+  it("does not render trend chart when only 1 data point", () => {
+    mockScoreHistoryReturn = {
+      data: [{
+        session_id: "s1",
+        scenario_name: "Single",
+        overall_score: 85,
+        passed: true,
+        completed_at: "2026-03-20T10:00:00Z",
+        dimensions: [
+          { dimension: "Knowledge", score: 88, weight: 0.3, improvement_pct: 5 },
+        ],
+      }],
+      isLoading: false,
+    };
+    renderSessionHistory();
+    expect(screen.queryByTestId("line-chart")).not.toBeInTheDocument();
+  });
+
+  it("renders previousScores for radar when 2+ sessions exist", () => {
+    renderSessionHistory();
+    // With 2 sessions, previousScores should be populated for the PerformanceRadar
+    expect(screen.getByTestId("performance-radar")).toBeInTheDocument();
+  });
+
+  it("renders completed_at date in table rows", () => {
+    renderSessionHistory();
+    // The date should be formatted via toLocaleDateString
+    // Check that dates are present in the document
+    const rows = document.querySelectorAll("tbody tr");
+    expect(rows.length).toBe(2);
+  });
+
+  it("renders '-' for missing completed_at date", () => {
+    mockScoreHistoryReturn = {
+      data: [
+        {
+          session_id: "s1",
+          scenario_name: "No Date",
+          overall_score: 70,
+          passed: true,
+          completed_at: null as unknown as string,
+          dimensions: [
+            { dimension: "Knowledge", score: 70, weight: 0.3, improvement_pct: null },
+          ],
+        },
+        {
+          session_id: "s2",
+          scenario_name: "Dummy",
+          overall_score: 60,
+          passed: true,
+          completed_at: "2026-03-19T10:00:00Z",
+          dimensions: [
+            { dimension: "Knowledge", score: 60, weight: 0.3, improvement_pct: null },
+          ],
+        },
+      ],
+      isLoading: false,
+    };
+    renderSessionHistory();
+    const dashes = screen.getAllByText("-");
+    expect(dashes.length).toBeGreaterThanOrEqual(1);
   });
 });

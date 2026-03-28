@@ -6,6 +6,7 @@ import ScoringFeedback from "./scoring-feedback";
 
 const mockNavigate = vi.fn();
 const mockMutate = vi.fn();
+const mockPrint = vi.fn();
 
 vi.mock("react-router-dom", async () => {
   const actual = await vi.importActual<typeof import("react-router-dom")>("react-router-dom");
@@ -47,14 +48,16 @@ const mockScore = {
   ],
 };
 
-let sessionData: unknown = { status: "scored" };
+let sessionData: unknown = { status: "scored", scenario_id: "sc-1", created_at: "2026-03-20T10:00:00Z" };
 let scoreData: unknown = mockScore;
 let scoreLoading = false;
+let reportData: unknown = undefined;
+let historyData: unknown = undefined;
 
 vi.mock("@/hooks/use-scoring", () => ({
   useSessionScore: () => ({ data: scoreData, isLoading: scoreLoading }),
   useTriggerScoring: () => ({ mutate: mockMutate, isPending: false }),
-  useScoreHistory: () => ({ data: undefined, isLoading: false }),
+  useScoreHistory: () => ({ data: historyData, isLoading: false }),
 }));
 
 vi.mock("@/hooks/use-session", () => ({
@@ -62,7 +65,7 @@ vi.mock("@/hooks/use-session", () => ({
 }));
 
 vi.mock("@/hooks/use-reports", () => ({
-  useSessionReport: () => ({ data: undefined, isLoading: false }),
+  useSessionReport: () => ({ data: reportData, isLoading: false }),
 }));
 
 // Mock child scoring components to simplify
@@ -72,7 +75,9 @@ vi.mock("@/components/scoring/score-summary", () => ({
   ),
 }));
 vi.mock("@/components/scoring/radar-chart", () => ({
-  RadarChart: () => <div data-testid="radar-chart" />,
+  RadarChart: (props: { previousScores?: unknown }) => (
+    <div data-testid="radar-chart" data-has-previous={props.previousScores ? "true" : "false"} />
+  ),
 }));
 vi.mock("@/components/scoring/dimension-bars", () => ({
   DimensionBars: () => <div data-testid="dimension-bars" />,
@@ -80,6 +85,13 @@ vi.mock("@/components/scoring/dimension-bars", () => ({
 vi.mock("@/components/scoring/feedback-card", () => ({
   FeedbackCard: (props: { detail: { dimension: string } }) => (
     <div data-testid="feedback-card">{props.detail.dimension}</div>
+  ),
+}));
+vi.mock("@/components/scoring/report-section", () => ({
+  ReportSection: (props: { improvements: string[]; keyMessagesDelivered: number; keyMessagesTotal: number }) => (
+    <div data-testid="report-section">
+      {props.improvements.join(",")} {props.keyMessagesDelivered}/{props.keyMessagesTotal}
+    </div>
   ),
 }));
 
@@ -95,9 +107,13 @@ function renderPage() {
 describe("ScoringFeedback", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    sessionData = { status: "scored" };
+    sessionData = { status: "scored", scenario_id: "sc-1", created_at: "2026-03-20T10:00:00Z" };
     scoreData = mockScore;
     scoreLoading = false;
+    reportData = undefined;
+    historyData = undefined;
+    // Mock window.print
+    Object.defineProperty(window, "print", { value: mockPrint, writable: true });
   });
 
   it("renders loading state when score is loading", () => {
@@ -154,5 +170,107 @@ describe("ScoringFeedback", () => {
   it("renders page title", () => {
     renderPage();
     expect(screen.getByText("title")).toBeInTheDocument();
+  });
+
+  // NEW TESTS for uncovered branches
+
+  it("triggers scoring when session is completed but not scored", () => {
+    sessionData = { status: "completed" };
+    scoreData = undefined;
+    scoreLoading = false;
+    renderPage();
+    expect(mockMutate).toHaveBeenCalledWith("session-1");
+  });
+
+  it("does not trigger scoring when session is already scored", () => {
+    sessionData = { status: "scored" };
+    scoreData = mockScore;
+    renderPage();
+    expect(mockMutate).not.toHaveBeenCalled();
+  });
+
+  it("renders session metadata when session data is available", () => {
+    renderPage();
+    expect(screen.getByText(/scenario/i)).toBeInTheDocument();
+    expect(screen.getByText(/sc-1/)).toBeInTheDocument();
+  });
+
+  it("renders circular progress ring with overall score", () => {
+    renderPage();
+    // The SVG text element contains "82"
+    const scoreTexts = screen.getAllByText("82");
+    expect(scoreTexts.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("calls window.print when exportPdf is clicked", async () => {
+    renderPage();
+    await userEvent.setup().click(screen.getByText("exportPdf"));
+    expect(mockPrint).toHaveBeenCalled();
+  });
+
+  it("renders report section when report data is available", () => {
+    reportData = {
+      improvements: ["focus on communication", "handle objections better"],
+      key_messages_delivered: 3,
+      key_messages_total: 5,
+    };
+    renderPage();
+    expect(screen.getByTestId("report-section")).toBeInTheDocument();
+    expect(screen.getByText("report.improvementTitle")).toBeInTheDocument();
+  });
+
+  it("does not render report section when report data is undefined", () => {
+    reportData = undefined;
+    renderPage();
+    expect(screen.queryByTestId("report-section")).not.toBeInTheDocument();
+  });
+
+  it("passes previousScores to RadarChart when history contains a previous session", () => {
+    historyData = [
+      {
+        session_id: "session-1",
+        dimensions: [
+          { dimension: "Communication", score: 85 },
+          { dimension: "Product Knowledge", score: 78 },
+        ],
+      },
+      {
+        session_id: "session-0",
+        dimensions: [
+          { dimension: "Communication", score: 75 },
+          { dimension: "Product Knowledge", score: 70 },
+        ],
+      },
+    ];
+    renderPage();
+    const radar = screen.getByTestId("radar-chart");
+    expect(radar).toHaveAttribute("data-has-previous", "true");
+  });
+
+  it("passes undefined previousScores when current session is the only one in history", () => {
+    historyData = [
+      {
+        session_id: "session-1",
+        dimensions: [
+          { dimension: "Communication", score: 85 },
+        ],
+      },
+    ];
+    renderPage();
+    const radar = screen.getByTestId("radar-chart");
+    expect(radar).toHaveAttribute("data-has-previous", "false");
+  });
+
+  it("passes undefined previousScores when history is empty", () => {
+    historyData = undefined;
+    renderPage();
+    const radar = screen.getByTestId("radar-chart");
+    expect(radar).toHaveAttribute("data-has-previous", "false");
+  });
+
+  it("renders shareWithManager button as disabled", () => {
+    renderPage();
+    const shareBtn = screen.getByText("shareWithManager");
+    expect(shareBtn.closest("button")).toBeDisabled();
   });
 });

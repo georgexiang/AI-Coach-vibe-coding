@@ -82,4 +82,172 @@ describe("VoiceControls", () => {
     const micBtn = screen.getByTestId("mic-button");
     expect(micBtn).toBeDisabled();
   });
+
+  // NEW TESTS for uncovered branches
+
+  it("mic button has correct aria-label for speaking state", () => {
+    render(<VoiceControls {...defaultProps} audioState="speaking" />);
+    const micBtn = screen.getByTestId("mic-button");
+    expect(micBtn).toHaveAttribute("aria-label", "micButton.speaking");
+  });
+
+  it("mic button is disabled when connectionState is reconnecting", () => {
+    render(
+      <VoiceControls {...defaultProps} connectionState="reconnecting" />,
+    );
+    const micBtn = screen.getByTestId("mic-button");
+    expect(micBtn).toBeDisabled();
+  });
+
+  it("mic button has connecting aria-label when reconnecting", () => {
+    render(
+      <VoiceControls {...defaultProps} connectionState="reconnecting" />,
+    );
+    const micBtn = screen.getByTestId("mic-button");
+    expect(micBtn).toHaveAttribute("aria-label", "micButton.connecting");
+  });
+
+  it("mic button is disabled when connectionState is error", () => {
+    render(
+      <VoiceControls {...defaultProps} connectionState="error" />,
+    );
+    const micBtn = screen.getByTestId("mic-button");
+    expect(micBtn).toBeDisabled();
+  });
+
+  it("mic button has disabled aria-label when connectionState is error", () => {
+    render(
+      <VoiceControls {...defaultProps} connectionState="error" />,
+    );
+    const micBtn = screen.getByTestId("mic-button");
+    expect(micBtn).toHaveAttribute("aria-label", "micButton.disabled");
+  });
+
+  it("mute toggle button shows unmute label when muted", () => {
+    render(<VoiceControls {...defaultProps} isMuted={true} />);
+    expect(screen.getByLabelText("unmute")).toBeInTheDocument();
+  });
+
+  it("mute toggle button shows mute label when not muted", () => {
+    render(<VoiceControls {...defaultProps} isMuted={false} />);
+    expect(screen.getByLabelText("mute")).toBeInTheDocument();
+  });
+
+  it("mute toggle button is disabled when not connected", () => {
+    render(
+      <VoiceControls {...defaultProps} connectionState="disconnected" />,
+    );
+    const muteBtn = screen.getByLabelText("mute");
+    expect(muteBtn).toBeDisabled();
+  });
+
+  it("renders view toggle button when onToggleView is provided", () => {
+    const onToggleView = vi.fn();
+    render(
+      <VoiceControls {...defaultProps} onToggleView={onToggleView} />,
+    );
+    expect(screen.getByLabelText("fullScreen")).toBeInTheDocument();
+  });
+
+  it("does not render view toggle button when onToggleView is not provided", () => {
+    render(<VoiceControls {...defaultProps} />);
+    expect(screen.queryByLabelText("fullScreen")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("embeddedView")).not.toBeInTheDocument();
+  });
+
+  it("view toggle shows embedded view label when isFullScreen is true", () => {
+    const onToggleView = vi.fn();
+    render(
+      <VoiceControls
+        {...defaultProps}
+        onToggleView={onToggleView}
+        isFullScreen={true}
+      />,
+    );
+    expect(screen.getByLabelText("embeddedView")).toBeInTheDocument();
+  });
+
+  it("view toggle shows fullScreen label when isFullScreen is false", () => {
+    const onToggleView = vi.fn();
+    render(
+      <VoiceControls
+        {...defaultProps}
+        onToggleView={onToggleView}
+        isFullScreen={false}
+      />,
+    );
+    expect(screen.getByLabelText("fullScreen")).toBeInTheDocument();
+  });
+
+  it("calls onToggleView when view toggle button is clicked", () => {
+    const onToggleView = vi.fn();
+    render(
+      <VoiceControls {...defaultProps} onToggleView={onToggleView} />,
+    );
+    const viewBtn = screen.getByLabelText("fullScreen");
+    fireEvent.click(viewBtn);
+    expect(onToggleView).toHaveBeenCalled();
+  });
+
+  it("applies custom className", () => {
+    const { container } = render(
+      <VoiceControls {...defaultProps} className="custom-class" />,
+    );
+    const wrapper = container.firstChild as HTMLElement;
+    expect(wrapper.className).toContain("custom-class");
+  });
+
+  it("renders pulse animation when listening and connected", () => {
+    const { container } = render(
+      <VoiceControls
+        {...defaultProps}
+        audioState="listening"
+        connectionState="connected"
+      />,
+    );
+    const pulseEl = container.querySelector(".animate-ping");
+    expect(pulseEl).toBeTruthy();
+  });
+
+  it("does not render pulse animation when speaking", () => {
+    const { container } = render(
+      <VoiceControls
+        {...defaultProps}
+        audioState="speaking"
+        connectionState="connected"
+      />,
+    );
+    const pulseEl = container.querySelector(".animate-ping");
+    expect(pulseEl).toBeNull();
+  });
+
+  it("does not render pulse animation when idle", () => {
+    const { container } = render(
+      <VoiceControls
+        {...defaultProps}
+        audioState="idle"
+        connectionState="connected"
+      />,
+    );
+    const pulseEl = container.querySelector(".animate-ping");
+    expect(pulseEl).toBeNull();
+  });
+
+  it("renders spinner icon when connectionState is connecting", () => {
+    const { container } = render(
+      <VoiceControls {...defaultProps} connectionState="connecting" />,
+    );
+    const spinner = container.querySelector(".animate-spin");
+    expect(spinner).toBeTruthy();
+  });
+
+  it("mic button calls onToggleMute when connected and clicked", () => {
+    const onToggleMute = vi.fn();
+    render(
+      <VoiceControls {...defaultProps} onToggleMute={onToggleMute} />,
+    );
+    const micBtn = screen.getByTestId("mic-button");
+    fireEvent.click(micBtn);
+    expect(onToggleMute).toHaveBeenCalled();
+  });
 });

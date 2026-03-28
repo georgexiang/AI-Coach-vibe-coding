@@ -8,6 +8,8 @@ import LoginPage from "./login";
 
 const mockNavigate = vi.fn();
 const mockMutate = vi.fn();
+let mockIsPending = false;
+let mockIsError = false;
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
@@ -27,8 +29,8 @@ vi.mock("react-router-dom", async () => {
 vi.mock("@/hooks/use-auth", () => ({
   useLogin: () => ({
     mutate: mockMutate,
-    isPending: false,
-    isError: false,
+    isPending: mockIsPending,
+    isError: mockIsError,
     error: null,
   }),
 }));
@@ -47,30 +49,28 @@ function wrapper({ children }: { children: ReactNode }) {
 describe("LoginPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockIsPending = false;
+    mockIsError = false;
   });
 
   it("renders the login form with title", () => {
     render(<LoginPage />, { wrapper });
-
     expect(screen.getByText("title")).toBeInTheDocument();
   });
 
   it("renders username and password input fields", () => {
     render(<LoginPage />, { wrapper });
-
     expect(screen.getByLabelText("email")).toBeInTheDocument();
     expect(screen.getByLabelText("password")).toBeInTheDocument();
   });
 
   it("renders the sign in button", () => {
     render(<LoginPage />, { wrapper });
-
     expect(screen.getByRole("button", { name: "signIn" })).toBeInTheDocument();
   });
 
   it("renders the remember me checkbox", () => {
     render(<LoginPage />, { wrapper });
-
     expect(screen.getByText("rememberMe")).toBeInTheDocument();
   });
 
@@ -117,5 +117,90 @@ describe("LoginPage", () => {
     await user.click(toggleBtn);
 
     expect(passwordInput).toHaveAttribute("type", "text");
+  });
+
+  // NEW TESTS for uncovered branches
+
+  it("toggles password back to hidden on second click", async () => {
+    const user = userEvent.setup();
+    render(<LoginPage />, { wrapper });
+
+    const passwordInput = screen.getByLabelText("password");
+    // Show password
+    await user.click(screen.getByLabelText("ariaShowPassword"));
+    expect(passwordInput).toHaveAttribute("type", "text");
+    // Hide password (label changes to ariaHidePassword)
+    await user.click(screen.getByLabelText("ariaHidePassword"));
+    expect(passwordInput).toHaveAttribute("type", "password");
+  });
+
+  it("shows error message when login fails (isError = true)", () => {
+    mockIsError = true;
+    render(<LoginPage />, { wrapper });
+    expect(screen.getByText("loginFailed")).toBeInTheDocument();
+  });
+
+  it("does not show error message when isError is false", () => {
+    mockIsError = false;
+    render(<LoginPage />, { wrapper });
+    expect(screen.queryByText("loginFailed")).not.toBeInTheDocument();
+  });
+
+  it("shows loading state when isPending is true", () => {
+    mockIsPending = true;
+    render(<LoginPage />, { wrapper });
+    expect(screen.getByText("signingIn")).toBeInTheDocument();
+  });
+
+  it("disables submit button when isPending is true", () => {
+    mockIsPending = true;
+    render(<LoginPage />, { wrapper });
+    const submitBtn = screen.getByRole("button", { name: /signingIn/ });
+    expect(submitBtn).toBeDisabled();
+  });
+
+  it("disables input fields when isPending is true", () => {
+    mockIsPending = true;
+    render(<LoginPage />, { wrapper });
+    expect(screen.getByLabelText("email")).toBeDisabled();
+    expect(screen.getByLabelText("password")).toBeDisabled();
+  });
+
+  it("navigates admin to /admin/dashboard on login success", async () => {
+    const user = userEvent.setup();
+    // Make the mutate call invoke onSuccess with an admin user
+    mockMutate.mockImplementation((_data: unknown, options: { onSuccess: (u: { role: string }) => void }) => {
+      options.onSuccess({ role: "admin" });
+    });
+    render(<LoginPage />, { wrapper });
+
+    await user.type(screen.getByLabelText("email"), "admin");
+    await user.type(screen.getByLabelText("password"), "pass");
+    await user.click(screen.getByRole("button", { name: "signIn" }));
+
+    expect(mockNavigate).toHaveBeenCalledWith("/admin/dashboard");
+  });
+
+  it("navigates user to /user/dashboard on login success", async () => {
+    const user = userEvent.setup();
+    mockMutate.mockImplementation((_data: unknown, options: { onSuccess: (u: { role: string }) => void }) => {
+      options.onSuccess({ role: "user" });
+    });
+    render(<LoginPage />, { wrapper });
+
+    await user.type(screen.getByLabelText("email"), "user1");
+    await user.type(screen.getByLabelText("password"), "pass");
+    await user.click(screen.getByRole("button", { name: "signIn" }));
+
+    expect(mockNavigate).toHaveBeenCalledWith("/user/dashboard");
+  });
+
+  it("can check the remember me checkbox", async () => {
+    const user = userEvent.setup();
+    render(<LoginPage />, { wrapper });
+    const checkbox = screen.getByRole("checkbox");
+    expect(checkbox).not.toBeChecked();
+    await user.click(checkbox);
+    expect(checkbox).toBeChecked();
   });
 });

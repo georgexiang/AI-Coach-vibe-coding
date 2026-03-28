@@ -106,9 +106,9 @@ async def list_active_scenarios(
 async def get_scenario(
     scenario_id: str,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("admin")),
+    user: User = Depends(get_current_user),
 ):
-    """Get a single scenario with HCP profile. Admin only."""
+    """Get a single scenario with HCP profile. Accessible by any authenticated user."""
     scenario = await scenario_service.get_scenario(db, scenario_id)
     return scenario
 

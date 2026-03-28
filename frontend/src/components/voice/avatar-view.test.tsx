@@ -20,10 +20,10 @@ vi.mock("./waveform-viz", () => ({
   ),
 }));
 
-const defaultProps = {
-  videoContainerRef: { current: null } as React.RefObject<HTMLDivElement | null>,
+const defaultProps: React.ComponentProps<typeof AvatarView> = {
+  videoContainerRef: { current: null },
   isAvatarConnected: false,
-  audioState: "idle" as const,
+  audioState: "idle",
   analyserData: null,
   isConnecting: false,
   hcpName: "Dr. Smith",
