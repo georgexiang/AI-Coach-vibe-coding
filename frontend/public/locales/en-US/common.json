@@ -5,7 +5,10 @@
   },
   "error": {
     "title": "Something went wrong",
-    "body": "An unexpected error occurred. Please refresh the page or try again later."
+    "body": "An unexpected error occurred. Please refresh the page or try again later.",
+    "notFound": "Page not found",
+    "notFoundBody": "The page you are looking for does not exist or has been moved.",
+    "returnDashboard": "Return to Dashboard"
   },
   "loading": "Loading...",
   "lang": { "zhCN": "Chinese", "enUS": "English" },
