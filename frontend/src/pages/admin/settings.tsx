@@ -24,22 +24,28 @@ export default function AdminSettingsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-semibold">{t("settings.title", { defaultValue: "System Settings" })}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t("settings.description", { defaultValue: "Configure platform-wide settings" })}</p>
+        <h1 className="text-2xl font-medium text-foreground">
+          {t("settings.title", { defaultValue: "System Settings" })}
+        </h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {t("settings.description", { defaultValue: "Configure platform-wide settings" })}
+        </p>
       </div>
 
       <div className="grid gap-6 max-w-2xl">
         {/* Language Settings */}
-        <Card>
+        <Card className="bg-card rounded-lg border border-border shadow-sm">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
+            <CardTitle className="flex items-center gap-2 text-lg font-medium">
               <Globe className="size-5 text-primary" />
               {t("settings.language", { defaultValue: "Language & Region" })}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label>{t("settings.defaultLanguage", { defaultValue: "Default Language" })}</Label>
+              <Label className="text-sm font-medium">
+                {t("settings.defaultLanguage", { defaultValue: "Default Language" })}
+              </Label>
               <Select value={defaultLanguage} onValueChange={setDefaultLanguage}>
                 <SelectTrigger className="w-[240px]">
                   <SelectValue />
@@ -54,43 +60,64 @@ export default function AdminSettingsPage() {
         </Card>
 
         {/* Data Retention */}
-        <Card>
+        <Card className="bg-card rounded-lg border border-border shadow-sm">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
+            <CardTitle className="flex items-center gap-2 text-lg font-medium">
               <Shield className="size-5 text-primary" />
               {t("settings.dataRetention", { defaultValue: "Data Retention" })}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label>{t("settings.voiceRetention", { defaultValue: "Voice Recording Retention (days)" })}</Label>
-              <Input type="number" value={retentionDays} onChange={(e) => setRetentionDays(e.target.value)} className="w-[240px]" />
-              <p className="text-xs text-muted-foreground">{t("settings.voiceRetentionHint", { defaultValue: "Voice recordings older than this will be automatically deleted" })}</p>
+              <Label className="text-sm font-medium">
+                {t("settings.voiceRetention", { defaultValue: "Voice Recording Retention (days)" })}
+              </Label>
+              <Input
+                type="number"
+                value={retentionDays}
+                onChange={(e) => setRetentionDays(e.target.value)}
+                className="w-[240px]"
+              />
+              <p className="text-xs text-muted-foreground">
+                {t("settings.voiceRetentionHint", {
+                  defaultValue: "Voice recordings older than this will be automatically deleted",
+                })}
+              </p>
             </div>
           </CardContent>
         </Card>
 
         {/* Branding */}
-        <Card>
+        <Card className="bg-card rounded-lg border border-border shadow-sm">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
+            <CardTitle className="flex items-center gap-2 text-lg font-medium">
               <Palette className="size-5 text-primary" />
               {t("settings.branding", { defaultValue: "Branding" })}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label>{t("settings.orgName", { defaultValue: "Organization Name" })}</Label>
-              <Input value={orgName} onChange={(e) => setOrgName(e.target.value)} className="w-[320px]" />
+              <Label className="text-sm font-medium">
+                {t("settings.orgName", { defaultValue: "Organization Name" })}
+              </Label>
+              <Input
+                value={orgName}
+                onChange={(e) => setOrgName(e.target.value)}
+                className="w-[320px]"
+              />
             </div>
             <div className="flex items-center gap-3">
               <Switch checked={darkMode} onCheckedChange={setDarkMode} />
-              <Label>{t("settings.darkMode", { defaultValue: "Dark Mode" })}</Label>
+              <Label className="text-sm">
+                {t("settings.darkMode", { defaultValue: "Dark Mode" })}
+              </Label>
             </div>
           </CardContent>
         </Card>
 
-        <Button className="w-fit">{t("settings.save", { defaultValue: "Save Settings" })}</Button>
+        <Button className="w-fit">
+          {t("settings.save", { defaultValue: "Save Settings" })}
+        </Button>
       </div>
     </div>
   );

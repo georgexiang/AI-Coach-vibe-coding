@@ -29,6 +29,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   useServiceConfigs,
   useUpdateServiceConfig,
@@ -106,6 +107,24 @@ const AZURE_SERVICES: AzureServiceDef[] = [
     modelPlaceholder: "gpt-4o-realtime-preview",
   },
 ];
+
+function ConfigSkeleton() {
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <Skeleton className="h-7 w-48" />
+        <Skeleton className="h-9 w-36" />
+      </div>
+      <Skeleton className="h-64 w-full rounded-lg" />
+      <div className="space-y-3">
+        <Skeleton className="h-5 w-32" />
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Skeleton key={i} className="h-16 w-full rounded-lg" />
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export default function AzureConfigPage() {
   const { t } = useTranslation("admin");
@@ -239,33 +258,34 @@ export default function AzureConfigPage() {
   };
 
   if (configsLoading || foundryLoading) {
-    return (
-      <div className="flex items-center justify-center p-6">
-        <Loader2 className="size-8 animate-spin text-muted-foreground" />
-      </div>
-    );
+    return <ConfigSkeleton />;
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-semibold">{t("azureConfig.title")}</h1>
+    <div className="space-y-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-medium text-foreground">{t("azureConfig.title")}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {t("azureConfig.description", { defaultValue: "Configure Azure AI services for coaching, speech, and avatar" })}
+          </p>
+        </div>
         <Button variant="outline" onClick={handleTestAll} disabled={testingAll}>
           {testingAll && <Loader2 className="size-4 animate-spin" />}
           {t("azureConfig.testAll", { defaultValue: "Test All Services" })}
         </Button>
       </div>
 
-      <div className="space-y-6 max-w-4xl">
-        {/* Section 1: AI Foundry Master Config Card */}
-        <Card>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        {/* Section 1: AI Foundry Master Config Card - full width */}
+        <Card className="bg-card rounded-lg border border-primary/30 shadow-sm lg:col-span-2">
           <CardHeader>
             <div className="flex items-center gap-3">
               <div className="flex size-10 items-center justify-center rounded-lg bg-primary/10">
                 <Server className="size-5 text-primary" />
               </div>
               <div>
-                <CardTitle className="text-lg">{t("azureConfig.aiFoundry.title")}</CardTitle>
+                <CardTitle className="text-lg font-medium">{t("azureConfig.aiFoundry.title")}</CardTitle>
                 <CardDescription>{t("azureConfig.aiFoundry.description")}</CardDescription>
               </div>
             </div>
@@ -301,7 +321,7 @@ export default function AzureConfigPage() {
                 />
                 <button
                   type="button"
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors duration-150 hover:text-foreground"
                   onClick={() => setShowApiKey((v) => !v)}
                   tabIndex={-1}
                 >
@@ -340,13 +360,13 @@ export default function AzureConfigPage() {
         </Card>
 
         {/* Section 2: Per-Service Toggle List */}
-        <div className="space-y-3">
+        <div className="space-y-3 lg:col-span-2">
           <div>
-            <h2 className="text-lg font-semibold">{t("azureConfig.services.title")}</h2>
+            <h2 className="text-lg font-medium text-foreground">{t("azureConfig.services.title")}</h2>
             <p className="text-sm text-muted-foreground">{t("azureConfig.services.description")}</p>
           </div>
 
-          <div className="space-y-2">
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
             {AZURE_SERVICES.map((svc) => {
               const saved = getSavedConfig(svc.backendKey);
               const isActive = saved?.is_active ?? false;
@@ -354,11 +374,11 @@ export default function AzureConfigPage() {
               const regionStatus = getRegionStatus(svc.backendKey);
 
               return (
-                <Card key={svc.key} className="overflow-hidden">
+                <Card key={svc.key} className="bg-card overflow-hidden border border-border shadow-sm">
                   <div className="flex items-center justify-between px-4 py-3">
                     <button
                       type="button"
-                      className="flex flex-1 items-center gap-3 text-left"
+                      className="flex flex-1 items-center gap-3 text-left transition-colors duration-150"
                       onClick={() => setExpandedService(isExpanded ? null : svc.key)}
                     >
                       <div className="flex size-9 items-center justify-center rounded-md bg-primary/10">
@@ -366,7 +386,15 @@ export default function AzureConfigPage() {
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium">{svc.name}</span>
+                          <span className="text-sm font-medium text-foreground">{svc.name}</span>
+                          {/* Status dot */}
+                          <span
+                            className={`inline-block w-2.5 h-2.5 rounded-full ${
+                              isActive
+                                ? "bg-strength"
+                                : "bg-muted-foreground"
+                            }`}
+                          />
                           {regionStatus && (
                             <RegionBadge status={regionStatus} region={regionForCaps ?? ""} t={t} />
                           )}
@@ -422,7 +450,7 @@ function RegionBadge({
     return (
       <span
         role="status"
-        className="inline-flex items-center gap-1 rounded-sm border border-green-200 bg-green-50 px-1.5 py-0.5 text-[10px] font-medium text-green-700"
+        className="inline-flex items-center gap-1 rounded-sm border border-strength/20 bg-strength/10 px-1.5 py-0.5 text-[10px] font-medium text-strength"
       >
         <Check className="size-2.5" aria-hidden="true" />
         {t("azureConfig.regionAvailable", { region })}
@@ -433,7 +461,7 @@ function RegionBadge({
     return (
       <span
         role="status"
-        className="inline-flex items-center gap-1 rounded-sm border border-purple-200 bg-purple-50 px-1.5 py-0.5 text-[10px] font-medium text-purple-700"
+        className="inline-flex items-center gap-1 rounded-sm border border-chart-2/20 bg-chart-2/10 px-1.5 py-0.5 text-[10px] font-medium text-chart-2"
       >
         <X className="size-2.5" aria-hidden="true" />
         {t("azureConfig.regionUnavailable", { region })}
@@ -443,7 +471,7 @@ function RegionBadge({
   return (
     <span
       role="status"
-      className="inline-flex items-center gap-1 rounded-sm border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] font-medium text-gray-600"
+      className="inline-flex items-center gap-1 rounded-sm border border-border bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground"
     >
       <Info className="size-2.5" aria-hidden="true" />
       {t("azureConfig.regionUnknown")}
@@ -470,7 +498,7 @@ function ServiceExpandedContent({
   const [modelValue, setModelValue] = useState(saved?.model_or_deployment ?? "");
 
   return (
-    <div className="border-t px-4 py-3 space-y-3 bg-muted/30">
+    <div className="border-t border-border px-4 py-3 space-y-3 bg-muted/30">
       {svc.modelPlaceholder && (
         <div className="grid gap-2 max-w-sm">
           <Label className="text-xs">{t("azureConfig.model")}</Label>

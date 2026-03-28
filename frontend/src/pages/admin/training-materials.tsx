@@ -52,11 +52,11 @@ const ALL_PRODUCTS = "__all__";
 function getFileTypeBadge(name: string): { label: string; className: string } | null {
   const ext = name.split(".").pop()?.toLowerCase() ?? "";
   if (ext === name.toLowerCase()) return null; // no extension
-  if (ext === "pdf") return { label: "PDF", className: "bg-red-100 text-red-700" };
-  if (ext === "docx" || ext === "doc") return { label: "Word", className: "bg-blue-100 text-blue-700" };
-  if (ext === "xlsx" || ext === "xls") return { label: "Excel", className: "bg-green-100 text-green-700" };
-  if (ext === "pptx" || ext === "ppt") return { label: "PPT", className: "bg-orange-100 text-orange-700" };
-  return { label: ext.toUpperCase() || "File", className: "bg-gray-100 text-gray-700" };
+  if (ext === "pdf") return { label: "PDF", className: "bg-destructive/10 text-destructive" };
+  if (ext === "docx" || ext === "doc") return { label: "Word", className: "bg-primary/10 text-primary" };
+  if (ext === "xlsx" || ext === "xls") return { label: "Excel", className: "bg-strength/10 text-strength" };
+  if (ext === "pptx" || ext === "ppt") return { label: "PPT", className: "bg-weakness/10 text-weakness" };
+  return { label: ext.toUpperCase() || "File", className: "bg-muted text-muted-foreground" };
 }
 
 function formatFileSize(bytes: number): string {
@@ -289,9 +289,9 @@ export default function TrainingMaterialsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-semibold">{t("materials.title")}</h1>
+          <h1 className="text-2xl font-medium text-foreground">{t("materials.title")}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {t("materials.description")}
           </p>
@@ -303,7 +303,7 @@ export default function TrainingMaterialsPage() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center">
         <div className="relative flex-1 min-w-[200px] max-w-sm">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -354,37 +354,37 @@ export default function TrainingMaterialsPage() {
 
       {/* Materials Table */}
       {materials.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-12 text-center">
+        <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-border bg-card p-12 text-center">
           <FileText className="size-12 text-muted-foreground/50" />
           <p className="mt-4 text-sm text-muted-foreground">
             {t("materials.noMaterials")}
           </p>
         </div>
       ) : (
-        <div className="rounded-lg border bg-card">
+        <div className="rounded-lg border border-border bg-card shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b bg-muted/50">
-                  <th className="px-4 py-3 text-left font-medium">
+                  <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">
                     {t("materials.name")}
                   </th>
-                  <th className="px-4 py-3 text-left font-medium">
+                  <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">
                     {t("materials.product")}
                   </th>
-                  <th className="hidden px-4 py-3 text-left font-medium md:table-cell">
+                  <th className="hidden px-4 py-3 text-left text-sm font-medium text-muted-foreground md:table-cell">
                     {t("materials.therapeuticArea")}
                   </th>
-                  <th className="px-4 py-3 text-center font-medium">
+                  <th className="px-4 py-3 text-center text-sm font-medium text-muted-foreground">
                     {t("materials.version")}
                   </th>
-                  <th className="px-4 py-3 text-center font-medium">
+                  <th className="px-4 py-3 text-center text-sm font-medium text-muted-foreground">
                     {t("materials.status")}
                   </th>
-                  <th className="hidden px-4 py-3 text-left font-medium lg:table-cell">
+                  <th className="hidden px-4 py-3 text-left text-sm font-medium text-muted-foreground lg:table-cell">
                     {t("materials.uploadDate")}
                   </th>
-                  <th className="px-4 py-3 text-right font-medium">
+                  <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">
                     {t("materials.actions")}
                   </th>
                 </tr>
@@ -393,7 +393,7 @@ export default function TrainingMaterialsPage() {
                 {materials.map((material) => (
                   <tr
                     key={material.id}
-                    className="border-b last:border-b-0 hover:bg-muted/30 transition-colors"
+                    className="border-b last:border-b-0 hover:bg-muted/50 transition-colors duration-150"
                   >
                     <td className="px-4 py-3 font-medium">
                       <span className="flex items-center gap-2">
@@ -425,7 +425,7 @@ export default function TrainingMaterialsPage() {
                         className={cn(
                           material.is_archived
                             ? "bg-muted text-muted-foreground"
-                            : "bg-green-100 text-green-800",
+                            : "bg-strength/10 text-strength border-strength/20",
                         )}
                       >
                         {material.is_archived
@@ -533,10 +533,10 @@ export default function TrainingMaterialsPage() {
             <div
               {...getRootProps()}
               className={cn(
-                "flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-8 transition-colors",
+                "flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-8 transition-all duration-150",
                 isDragActive
                   ? "border-primary bg-primary/5"
-                  : "border-muted-foreground/25 hover:border-primary/50",
+                  : "border-border hover:border-primary/50 hover:bg-primary/5",
               )}
             >
               <input {...getInputProps()} />
@@ -723,7 +723,7 @@ export default function TrainingMaterialsPage() {
                         {version.is_active && (
                           <Badge
                             variant="default"
-                            className="bg-green-100 text-green-800"
+                            className="bg-strength/10 text-strength border-strength/20"
                           >
                             {t("materials.active")}
                           </Badge>

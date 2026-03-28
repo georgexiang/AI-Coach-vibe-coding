@@ -26,6 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui";
+import { StatCard } from "@/components/shared";
 import {
   useExportAdminReport,
   useExportSessionsExcel,
@@ -72,15 +73,15 @@ const skillGapData = [
 // ---------------------------------------------------------------------------
 
 function getBarColor(value: number): string {
-  if (value >= 80) return "#22c55e";
-  if (value >= 60) return "#3b82f6";
-  return "#f97316";
+  if (value >= 80) return "var(--color-strength, #22c55e)";
+  if (value >= 60) return "var(--color-primary, #3b82f6)";
+  return "var(--color-weakness, #f97316)";
 }
 
 function getScoreCellClass(value: number): string {
-  if (value >= 80) return "bg-green-100 text-green-800";
-  if (value >= 60) return "bg-yellow-100 text-yellow-800";
-  return "bg-red-100 text-red-800";
+  if (value >= 80) return "bg-strength/10 text-strength";
+  if (value >= 60) return "bg-chart-3/10 text-chart-3";
+  return "bg-destructive/10 text-destructive";
 }
 
 // ---------------------------------------------------------------------------
@@ -97,15 +98,22 @@ export default function AdminReportsPage() {
   const [regionFilter, setRegionFilter] = useState("all");
   const [productFilter, setProductFilter] = useState("all");
 
+  const tooltipStyle = {
+    backgroundColor: "var(--color-card)",
+    border: "1px solid var(--color-border)",
+    borderRadius: "var(--radius-md, 8px)",
+    color: "var(--color-foreground)",
+  };
+
   return (
     <div className="space-y-6">
       {/* ---- Header ---- */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">
+          <h1 className="text-2xl font-medium text-foreground">
             {t("orgAnalytics", { defaultValue: "Organization Analytics" })}
           </h1>
-          <p className="mt-1 text-muted-foreground">
+          <p className="mt-1 text-sm text-muted-foreground">
             {t("orgAnalyticsDesc", {
               defaultValue: "Comprehensive performance overview across all business units",
             })}
@@ -120,9 +128,9 @@ export default function AdminReportsPage() {
             disabled={exportSessions.isPending}
           >
             {exportSessions.isPending ? (
-              <Loader2 className="mr-2 size-4 animate-spin" />
+              <Loader2 className="size-4 animate-spin" />
             ) : (
-              <Download className="mr-2 size-4" />
+              <Download className="size-4" />
             )}
             {t("exportSessions", { defaultValue: "Export Sessions" })}
           </Button>
@@ -132,9 +140,9 @@ export default function AdminReportsPage() {
             disabled={exportAdmin.isPending}
           >
             {exportAdmin.isPending ? (
-              <Loader2 className="mr-2 size-4 animate-spin" />
+              <Loader2 className="size-4 animate-spin" />
             ) : (
-              <Download className="mr-2 size-4" />
+              <Download className="size-4" />
             )}
             {t("exportFullReport", { defaultValue: "Export Full Report" })}
           </Button>
@@ -142,7 +150,7 @@ export default function AdminReportsPage() {
       </div>
 
       {/* ---- Filters ---- */}
-      <Card>
+      <Card className="bg-card border border-border shadow-sm">
         <CardContent className="flex flex-col gap-4 py-4 sm:flex-row sm:items-center">
           <Filter className="hidden size-5 text-muted-foreground sm:block" />
 
@@ -203,76 +211,41 @@ export default function AdminReportsPage() {
       </Card>
 
       {/* ---- Summary stat cards (live from useOrgAnalytics) ---- */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="bg-primary/5 border-none">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              {t("totalSessions", { defaultValue: "Total Sessions" })}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-primary">
-              {orgData?.total_sessions ?? 0}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-primary/5 border-none">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              {t("avgOrgScore", { defaultValue: "Avg Score" })}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-blue-600">
-              {orgData?.avg_org_score ?? 0}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-primary/5 border-none">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              {t("completionRate", { defaultValue: "Completion Rate" })}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-green-600">
-              {orgData?.completion_rate ?? 0}%
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-primary/5 border-none">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              {t("activeUsers", { defaultValue: "Active Users" })}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-violet-600">
-              {orgData?.active_users ?? 0}
-            </p>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard
+          label={t("totalSessions", { defaultValue: "Total Sessions" })}
+          value={orgData?.total_sessions ?? 0}
+        />
+        <StatCard
+          label={t("avgOrgScore", { defaultValue: "Avg Score" })}
+          value={orgData?.avg_org_score ?? 0}
+        />
+        <StatCard
+          label={t("completionRate", { defaultValue: "Completion Rate" })}
+          value={`${orgData?.completion_rate ?? 0}%`}
+        />
+        <StatCard
+          label={t("activeUsers", { defaultValue: "Active Users" })}
+          value={orgData?.active_users ?? 0}
+        />
       </div>
 
       {/* ---- 2x2 chart grid ---- */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* -- Group Performance (BarChart) -- */}
-        <Card>
-          <CardHeader>
-            <CardTitle>
+        <Card className="bg-card rounded-lg border border-border shadow-sm">
+          <CardHeader className="p-4">
+            <CardTitle className="text-base font-medium">
               {t("groupPerformance", { defaultValue: "Group Performance" })}
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-4 pt-0">
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={groupPerformanceData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis domain={[0, 100]} />
-                <Tooltip />
+                <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                <XAxis dataKey="name" tick={{ fill: "var(--color-muted-foreground)", fontSize: 12 }} />
+                <YAxis domain={[0, 100]} tick={{ fill: "var(--color-muted-foreground)", fontSize: 12 }} />
+                <Tooltip contentStyle={tooltipStyle} />
                 <Legend />
                 <Bar
                   dataKey="score"
@@ -289,25 +262,25 @@ export default function AdminReportsPage() {
         </Card>
 
         {/* -- Score Trends (LineChart) -- */}
-        <Card>
-          <CardHeader>
-            <CardTitle>
+        <Card className="bg-card rounded-lg border border-border shadow-sm">
+          <CardHeader className="p-4">
+            <CardTitle className="text-base font-medium">
               {t("scoreTrends", { defaultValue: "Score Trends" })}
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-4 pt-0">
             <ResponsiveContainer width="100%" height={300}>
               <LineChart data={scoreTrendData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis domain={[50, 100]} />
-                <Tooltip />
+                <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                <XAxis dataKey="month" tick={{ fill: "var(--color-muted-foreground)", fontSize: 12 }} />
+                <YAxis domain={[50, 100]} tick={{ fill: "var(--color-muted-foreground)", fontSize: 12 }} />
+                <Tooltip contentStyle={tooltipStyle} />
                 <Legend />
                 <Line
                   type="monotone"
                   dataKey="overall"
                   name={t("overallScore", { defaultValue: "Overall Score" })}
-                  stroke="#3b82f6"
+                  stroke="var(--color-primary)"
                   strokeWidth={2}
                   dot={{ r: 4 }}
                   activeDot={{ r: 6 }}
@@ -316,7 +289,7 @@ export default function AdminReportsPage() {
                   type="monotone"
                   dataKey="benchmark"
                   name={t("benchmark", { defaultValue: "Benchmark (75)" })}
-                  stroke="#f97316"
+                  stroke="var(--color-weakness)"
                   strokeWidth={2}
                   strokeDasharray="6 3"
                   dot={false}
@@ -327,24 +300,24 @@ export default function AdminReportsPage() {
         </Card>
 
         {/* -- Completion Rates (horizontal BarChart) -- */}
-        <Card>
-          <CardHeader>
-            <CardTitle>
+        <Card className="bg-card rounded-lg border border-border shadow-sm">
+          <CardHeader className="p-4">
+            <CardTitle className="text-base font-medium">
               {t("completionRates", { defaultValue: "Completion Rates" })}
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-4 pt-0">
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={completionData} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis type="number" domain={[0, 100]} />
-                <YAxis dataKey="team" type="category" width={100} />
-                <Tooltip />
+                <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                <XAxis type="number" domain={[0, 100]} tick={{ fill: "var(--color-muted-foreground)", fontSize: 12 }} />
+                <YAxis dataKey="team" type="category" width={100} tick={{ fill: "var(--color-muted-foreground)", fontSize: 12 }} />
+                <Tooltip contentStyle={tooltipStyle} />
                 <Legend />
                 <Bar
                   dataKey="completion"
                   name={t("completionPct", { defaultValue: "Completion %" })}
-                  fill="#8b5cf6"
+                  fill="var(--color-chart-2, #8b5cf6)"
                   radius={[0, 4, 4, 0]}
                 >
                   {completionData.map((entry, index) => (
@@ -357,32 +330,32 @@ export default function AdminReportsPage() {
         </Card>
 
         {/* -- Skill Gap Analysis (HTML table) -- */}
-        <Card>
-          <CardHeader>
-            <CardTitle>
+        <Card className="bg-card rounded-lg border border-border shadow-sm">
+          <CardHeader className="p-4">
+            <CardTitle className="text-base font-medium">
               {t("skillGapAnalysis", { defaultValue: "Skill Gap Analysis" })}
             </CardTitle>
           </CardHeader>
-          <CardContent className="overflow-x-auto">
+          <CardContent className="overflow-x-auto p-4 pt-0">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b text-left">
-                  <th className="pb-2 pr-4 font-medium">
+                  <th className="pb-2 pr-4 text-sm font-medium text-muted-foreground">
                     {t("buColumn", { defaultValue: "BU" })}
                   </th>
-                  <th className="pb-2 pr-4 font-medium">
+                  <th className="pb-2 pr-4 text-sm font-medium text-muted-foreground">
                     {t("productKnowledge", { defaultValue: "Product Knowledge" })}
                   </th>
-                  <th className="pb-2 pr-4 font-medium">
+                  <th className="pb-2 pr-4 text-sm font-medium text-muted-foreground">
                     {t("communication", { defaultValue: "Communication" })}
                   </th>
-                  <th className="pb-2 pr-4 font-medium">
+                  <th className="pb-2 pr-4 text-sm font-medium text-muted-foreground">
                     {t("objectionHandling", { defaultValue: "Objection Handling" })}
                   </th>
-                  <th className="pb-2 pr-4 font-medium">
+                  <th className="pb-2 pr-4 text-sm font-medium text-muted-foreground">
                     {t("closingSkills", { defaultValue: "Closing Skills" })}
                   </th>
-                  <th className="pb-2 font-medium">
+                  <th className="pb-2 text-sm font-medium text-muted-foreground">
                     {t("compliance", { defaultValue: "Compliance" })}
                   </th>
                 </tr>
@@ -390,7 +363,7 @@ export default function AdminReportsPage() {
               <tbody>
                 {skillGapData.map((row) => (
                   <tr key={row.bu} className="border-b last:border-0">
-                    <td className="py-2 pr-4 font-medium">{row.bu}</td>
+                    <td className="py-2 pr-4 font-medium text-foreground">{row.bu}</td>
                     <td className="py-2 pr-4">
                       <span className={`inline-block rounded px-2 py-0.5 text-xs font-semibold ${getScoreCellClass(row.productKnowledge)}`}>
                         {row.productKnowledge}
