@@ -17,5 +17,6 @@ class ServiceConfig(TimestampMixin, Base):
     api_key_encrypted: Mapped[str] = mapped_column(Text, default="")
     model_or_deployment: Mapped[str] = mapped_column(String(100), default="")
     region: Mapped[str] = mapped_column(String(50), default="")
+    is_master: Mapped[bool] = mapped_column(Boolean, default=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=False)
     updated_by: Mapped[str] = mapped_column(String(36), default="")

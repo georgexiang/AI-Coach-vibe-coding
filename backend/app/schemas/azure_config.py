@@ -14,6 +14,14 @@ class ServiceConfigUpdate(BaseModel):
     region: str = ""
 
 
+class AIFoundryConfigUpdate(BaseModel):
+    """Update request for the master AI Foundry configuration."""
+
+    endpoint: str  # e.g. https://ai-foundary-qiah-east-us2.cognitiveservices.azure.com/
+    region: str  # e.g. eastus2
+    api_key: str = ""  # master API key (empty string = preserve existing)
+
+
 class ServiceConfigResponse(BaseModel):
     """Response schema for service configuration (with masked key)."""
 
@@ -23,6 +31,7 @@ class ServiceConfigResponse(BaseModel):
     masked_key: str
     model_or_deployment: str
     region: str
+    is_master: bool = False
     is_active: bool
     updated_at: datetime | None = None
 

@@ -13,6 +13,8 @@ class VoiceLiveTokenResponse(BaseModel):
     avatar_enabled: bool
     avatar_character: str
     voice_name: str
+    agent_id: str | None = None
+    project_name: str | None = None
 
 
 class VoiceLiveConfigStatus(BaseModel):
