@@ -1,107 +1,142 @@
-# Phase 09: Integration Testing with Real Azure Services - Discussion Log (Updated)
+# Phase 09: Integration Testing with Real Azure Services - Discussion Log
 
 > **Audit trail only.** Do not use as input to planning, research, or execution agents.
-> Decisions captured in CONTEXT.md — this log preserves the discussion.
+> Decisions are captured in CONTEXT.md — this log preserves the alternatives considered.
 
-**Date:** 2026-03-27 (updated)
+**Date:** 2026-03-28
 **Phase:** 09-integration-testing-with-real-azure-services
-**Areas discussed:** Config alignment scope, Azure AD Token strategy, Agent/Model mode, Unified endpoint, 7 interaction modes
-
-## Session 2: Config Alignment Discussion
-
-User provided AI Foundry resource config (kind: AIServices, region: eastus2).
-Key findings: `disableLocalAuth: true`, unified endpoint, voice-agent + voice-live paths.
-
-### Config Alignment Scope
-- Chose: **Backport to Phase 07/08** (not expand Phase 09)
-
-### Azure AD Token Strategy
-- Chose: **Both API key + AD token** — try API key first, fall back to DefaultAzureCredential
-- User note: "两种方式都支持，如果不支持API key的话，就可以使用AD token认证"
-
-### Unified Endpoint
-- Chose: **Single AI Foundry card** — replace 6 separate service configs
-- User note: "用户不用配置那么多东西，配置就简单很多"
-
-### Interaction Modes (iterated from 5→6→7)
-- User initially described 5 modes, then added Voice Realtime (no avatar), then confirmed all 7:
-  1. Text, 2. Voice Pipeline, 3. Digital Human Speech+Model
-  4. Voice Realtime Model, 5. Digital Human Realtime Model
-  6. Voice Realtime Agent, 7. Digital Human Realtime Agent
-
-## Session 1 (original)
-
-**User note:** "这个功能是需要给客户demo的主要内容，很重要，需要好好测试性能，UI美观，效果，便利性等等。"
-(This is the main demo content for customers, very important, needs thorough testing of performance, UI aesthetics, effects, convenience, etc.)
+**Areas discussed:** Unified AI Foundry config, 7 modes + agent runtime, Test & demo strategy
+**Note:** This is an UPDATE discussion (session 3). Original context from 2026-03-27 was revised after audit showed config alignment work labeled "backported to Phase 07/08" was never implemented.
 
 ---
 
-## Test Scope & Strategy
+## Pre-Discussion Audit
+
+Before discussing gray areas, a codebase audit was performed to check which Phase 9 context decisions were already implemented in Phase 8.
+
+**Findings:**
+| Decision | Status |
+|----------|--------|
+| Unified AI Foundry endpoint (D-01/D-02) | NOT DONE — still 8 separate ServiceConfig rows |
+| Single AI Foundry admin card (D-03) | NOT DONE — still 8 separate cards |
+| Azure AD token auth (D-04/D-05/D-06) | NOT DONE — no azure-identity dep |
+| 7 interaction modes (D-07) | 3 of 7 — only text/voice/avatar |
+| Fallback chain (D-08) | NOT DONE |
+| Agent mode admin config | DONE — toggle stored in DB |
+| Agent mode runtime | NOT DONE — token broker & frontend ignore config |
+
+**User decision:** Update Phase 9 context to include all unimplemented config alignment work.
+
+---
+
+## Unified AI Foundry Config
 
 | Option | Description | Selected |
 |--------|-------------|----------|
-| Demo polish | Focus on making the full E2E demo flow flawless | |
-| Technical validation | Focus on integration correctness | |
-| Both equally | Split effort between technical validation AND demo-ready polish | ✓ |
+| Single master + toggles | One ServiceConfig row with AI Foundry endpoint/region/auth. Per-service rows become just enable/disable toggles + model/deployment names | ✓ |
+| Separate master table | New AiFoundryConfig table for unified config. Keep ServiceConfig for per-service customization. Two-level config | |
+| Keep current + add unified fields | Add ai_foundry_endpoint/region to Settings. Keep ServiceConfig rows but auto-populate from master | |
 
-**User's choice:** Both equally
+**User's choice:** Single master + toggles
+
+---
+
+## Auth Method
 
 | Option | Description | Selected |
 |--------|-------------|----------|
-| Voice + Avatar coaching | The 'wow' factor demo | |
-| F2F text coaching with real AI | Core value demo | |
-| Full pipeline demo | Show all modes: text → voice → avatar | ✓ |
+| Dual auth | Support both API key and Azure AD. Try API key first, fall back to DefaultAzureCredential | |
+| Azure AD only | Only implement DefaultAzureCredential | |
+| API key first, AD later | Only implement API key auth now. Add Azure AD in a future phase | ✓ |
+
+**User's choice:** API key first, AD later
+
+---
+
+## Admin UI Layout
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| Single card + service toggles | One AI Foundry card with endpoint/region/key. Below: toggle list for each service | ✓ |
+| Single card only | One card, no per-service configuration | |
+| You decide | Let Claude decide | |
+
+**User's choice:** Single card + service toggles
+
+---
+
+## Seven Interaction Modes
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| All 7 modes | Full differentiation across Text, Pipeline, Realtime Model, Realtime Agent, each with/without avatar | ✓ |
+| 5 modes (skip pipeline) | Skip legacy pipeline STT→LLM→TTS modes | |
+| Keep 3 modes, add agent toggle | text/voice/avatar + Agent/Model toggle | |
+
+**User's choice:** All 7 modes
+
+---
+
+## Agent Mode Runtime
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| Token broker passes agent config | Token broker reads agent mode, returns agent_id + project_name in response. Frontend uses voice-agent/realtime path | ✓ |
+| Frontend decides path | Frontend reads mode and connects directly | |
+| You decide | Let Claude determine | |
+
+**User's choice:** Token broker passes agent config
+
+---
+
+## Mode Selector UI
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| Two-level selector | First communication type, then engine | ✓ |
+| Flat list of 7 modes | Single dropdown/radio | |
+| Admin picks, user sees 3 | Engine choice invisible to user | |
+
+**User's choice:** Two-level selector
+
+---
+
+## Test Priority
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| Implementation first, test after | Build config + modes, then write tests | ✓ |
+| Test-driven | Write tests first, implement to pass | |
+| Parallel tracks | Implement and test simultaneously | |
+
+**User's choice:** Implementation first, test after
+
+---
+
+## Demo Flow
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| Full pipeline demo | Login → Admin AI Foundry config → Text → Voice → Avatar → Score | ✓ |
+| Mode comparison demo | All 7 modes side-by-side | |
+| You decide | Let Claude determine | |
 
 **User's choice:** Full pipeline demo
 
 ---
 
-## Environment & Credentials
-
-| Option | Description | Selected |
-|--------|-------------|----------|
-| Backend .env + Admin UI | Same pattern as Phase 7 | ✓ |
-| Dedicated test config | Separate test configuration file/profile | |
-| You decide | Claude picks best approach | |
-
-**User's choice:** Backend .env + Admin UI
-
-| Option | Description | Selected |
-|--------|-------------|----------|
-| Local + manual only | No CI integration, avoids Azure costs | ✓ |
-| CI with skip markers | Tests in CI but skipped by default | |
-| Full CI integration | Tests run on every PR | |
-
-**User's choice:** Local + manual only
-
----
-
-## Test Execution Approach
-
-| Option | Description | Selected |
-|--------|-------------|----------|
-| Pytest + manual smoke | Integration tests per service + manual E2E checklist | ✓ |
-| Manual checklist only | Documented test checklist, no automated tests | |
-| Automated E2E with Playwright | Playwright E2E tests for full demo flow | ✓ |
-
-**User's choice:** Both Pytest + manual smoke AND Playwright E2E (user requested options 1 and 3)
-
----
-
-## Acceptance Criteria
-
-All four criteria selected:
-- ✓ Response latency < 3s
-- ✓ Avatar renders smoothly
-- ✓ Graceful fallback chain
-- ✓ Scoring works on all modes
-
----
-
 ## Claude's Discretion
 
-- Pytest test structure and markers
-- Playwright page object patterns
+- Exact Playwright test structure and page object patterns
 - Performance measurement implementation
-- Test data fixtures
+- Test data fixtures and seed data
+- Skip markers for offline development
 - Smoke test checklist format
+- Alembic migration details for schema changes
+- Plan structure (how to split config alignment vs testing)
+
+## Deferred Ideas
+
+- Azure AD token auth (DefaultAzureCredential) — future phase
+- Fallback chain (7→1 based on service availability) — future phase
+- CI/CD integration of Azure tests — avoid costs
