@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Ready to execute
-stopped_at: Completed 10-03-PLAN.md
-last_updated: "2026-03-28T16:10:15.022Z"
+stopped_at: Completed 10-04-PLAN.md
+last_updated: "2026-03-28T22:47:44.226Z"
 last_activity: 2026-03-28
 progress:
-  total_phases: 11
+  total_phases: 10
   completed_phases: 10
-  total_plans: 59
-  completed_plans: 55
+  total_plans: 53
+  completed_plans: 53
 ---
 
 # Project State
@@ -20,12 +20,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-24)
 
 **Core value:** MRs can practice realistic conversations with AI-powered digital HCPs and receive immediate, multi-dimensional feedback to improve their communication skills -- anytime, without needing a real HCP or trainer.
-**Current focus:** Phase 10 — ui-polish-professional-unification
+**Current focus:** Phase 09 — integration-testing-with-real-azure-services
 
 ## Current Position
 
-Phase: 10 (ui-polish-professional-unification) — EXECUTING
-Plan: 4 of 6
+Phase: 09 (integration-testing-with-real-azure-services) — EXECUTING
+Plan: 3 of 5
 
 ## Performance Metrics
 
@@ -91,8 +91,7 @@ Plan: 4 of 6
 | Phase 08 P04 | 17min | 2 tasks | 9 files |
 | Phase 08 P06 | 12min | 2 tasks | 21 files |
 | Phase 09 P01 | 16min | 2 tasks | 14 files |
-| Phase 10 P01 | 3min | 2 tasks | 8 files |
-| Phase 10 P03 | 20min | 2 tasks | 16 files |
+| Phase 10 P04 | 10min | 2 tasks | 14 files |
 
 ## Accumulated Context
 
@@ -195,11 +194,9 @@ Recent decisions affecting current work:
 - [Phase 09]: Unified AI Foundry config: single master row (is_master=True) with shared endpoint/region/key; per-service rows inherit via get_effective_key/get_effective_endpoint
 - [Phase 09]: Session mode expanded from 3 to 7 Literal values matching D-06 interaction modes; model column widened from String(20) to String(40)
 - [Phase 09]: Agent mode token broker returns agent_id/project_name via parse_voice_live_mode; non-text modes gated by feature_voice_live_enabled
-<<<<<<< HEAD
-- [Phase 10]: Blue is default accent (no CSS class); 4 themes use .theme-{name} class on html element
-- [Phase 10]: SplashScreen renders outside QueryClientProvider; AppContent wrapper for useThemeStore hook
-- [Phase 10]: Theme store follows same useSyncExternalStore + localStorage pattern as auth-store
-- [Phase 10]: Design token-only pattern: shared components must never use raw Tailwind color classes, only CSS custom property-backed token classes
+- [Phase 10]: Replaced all hardcoded slate/blue colors in coach panels with design token classes for dark mode compatibility
+- [Phase 10]: Mobile training sessions: hidden side panels + compact HCP bar + collapsible hints toggle (D-24)
+- [Phase 10]: Session history uses table on desktop, card list on mobile via hidden/sm:block pattern
 
 ### Pending Todos
 
@@ -209,7 +206,6 @@ None yet.
 
 - Phase 01.1 inserted after Phase 1: UI 需要和figma对齐，他们的figma-make 文件和UI sceenshot都放在目录：figma-make (URGENT)
 - Phase 07 added: Azure Service Integration — admin Azure config persistence, real connection testing, dynamic provider switching (mock → Azure OpenAI/Speech/Avatar)
-- Phase 10 added: UI Polish & Professional Unification — comprehensive UI overhaul for professional appearance, unified design language, polished visuals for BeiGene demo
 
 ### Quick Tasks Completed
 
@@ -220,6 +216,6 @@ None yet.
 ## Session Continuity
 
 Last activity: 2026-03-28
-Last session: 2026-03-28T16:10:15.018Z
-Stopped at: Completed 10-03-PLAN.md
+Last session: 2026-03-28T22:47:44.223Z
+Stopped at: Completed 10-04-PLAN.md
 Resume file: None

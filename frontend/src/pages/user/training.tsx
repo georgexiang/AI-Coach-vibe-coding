@@ -148,9 +148,9 @@ export default function ScenarioSelection() {
   const renderGrid = (onStart: (scenarioId: string) => void) => {
     if (isLoading) {
       return (
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="overflow-hidden rounded-xl border">
+            <div key={i} className="overflow-hidden rounded-lg border border-border bg-card">
               <Skeleton className="h-48 w-full" />
               <div className="space-y-3 p-6">
                 <Skeleton className="h-5 w-3/4" />
@@ -173,7 +173,7 @@ export default function ScenarioSelection() {
     }
 
     return (
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {filteredScenarios.map((scenario) => (
           <ScenarioCard
             key={scenario.id}
@@ -186,8 +186,8 @@ export default function ScenarioSelection() {
   };
 
   return (
-    <div className="mx-auto max-w-7xl p-4 lg:p-8">
-      <h1 className="mb-8 text-3xl font-semibold text-gray-900">
+    <div className="mx-auto max-w-7xl space-y-6 p-4 lg:p-8">
+      <h1 className="text-2xl font-medium text-foreground">
         {t("scenarioSelection.title")}
       </h1>
 

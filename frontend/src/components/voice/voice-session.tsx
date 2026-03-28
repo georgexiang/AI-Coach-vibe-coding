@@ -295,8 +295,8 @@ export function VoiceSession({
         onToggleView={() => setIsFullScreen((prev) => !prev)}
       />
 
-      {/* Main content: 3-panel layout */}
-      <div className="flex min-h-0 flex-1">
+      {/* Main content: 3-panel layout — stacks vertically on mobile */}
+      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
         {/* Left panel: Scenario */}
         {!isFullScreen && (
           <ScenarioPanel
@@ -338,13 +338,13 @@ export function VoiceSession({
             <VoiceTranscript
               transcripts={transcripts}
               hcpName={hcpName}
-              className="h-[200px] border-t border-slate-200"
+              className="h-[200px] border-t border-border"
             />
           )}
 
           {/* Keyboard input area */}
           {showKeyboard && (
-            <div className="flex items-center gap-2 border-t border-slate-200 p-3">
+            <div className="flex items-center gap-2 border-t border-border p-3">
               <input
                 type="text"
                 value={inputText}
@@ -355,7 +355,7 @@ export function VoiceSession({
                   }
                 }}
                 placeholder={t("keyboardInput")}
-                className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                className="flex-1 rounded-md border border-border px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
               />
               <Button size="sm" onClick={handleKeyboardSubmit}>
                 {tc("send")}
@@ -372,7 +372,7 @@ export function VoiceSession({
             onToggleKeyboard={() => setShowKeyboard((prev) => !prev)}
             onToggleView={() => setIsFullScreen((prev) => !prev)}
             isFullScreen={isFullScreen}
-            className="border-t border-slate-200"
+            className="border-t border-border"
           />
         </div>
 

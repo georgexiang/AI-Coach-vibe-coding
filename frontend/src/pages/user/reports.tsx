@@ -2,10 +2,8 @@ import { useTranslation } from "react-i18next";
 import {
   Download,
   Printer,
-  Loader2,
   TrendingUp,
   Target,
-  BarChart3,
   Award,
 } from "lucide-react";
 import {
@@ -15,6 +13,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui";
+import { LoadingState, EmptyState } from "@/components/shared";
 import { PerformanceRadar, TrendLineChart } from "@/components/analytics";
 import {
   useDashboardStats,
@@ -51,8 +50,11 @@ export default function UserReportsPage() {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-[400px] items-center justify-center">
-        <Loader2 className="size-8 animate-spin text-primary" />
+      <div className="mx-auto max-w-7xl space-y-6 p-4 lg:p-8">
+        <h1 className="text-2xl font-medium text-foreground">
+          {t("pageTitle", { defaultValue: "Analytics & Reports" })}
+        </h1>
+        <LoadingState variant="card" />
       </div>
     );
   }
@@ -60,29 +62,23 @@ export default function UserReportsPage() {
   // Empty state: no sessions yet
   if (dashStats?.total_sessions === 0) {
     return (
-      <div className="mx-auto max-w-7xl p-4 lg:p-8">
-        <h1 className="mb-6 text-2xl font-bold tracking-tight">
+      <div className="mx-auto max-w-7xl space-y-6 p-4 lg:p-8">
+        <h1 className="text-2xl font-medium text-foreground">
           {t("pageTitle", { defaultValue: "Analytics & Reports" })}
         </h1>
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-16">
-            <BarChart3 className="mb-4 size-12 text-muted-foreground" />
-            <p className="text-lg font-medium text-muted-foreground">
-              {t("noData", {
-                defaultValue: "Complete your first training session to see reports",
-              })}
-            </p>
-          </CardContent>
-        </Card>
+        <EmptyState
+          title={t("noData", { defaultValue: "No data yet" })}
+          body={t("noDataBody", { defaultValue: "Complete your first training session to see reports." })}
+        />
       </div>
     );
   }
 
   return (
-    <div className="mx-auto max-w-7xl p-4 lg:p-8">
+    <div className="mx-auto max-w-7xl space-y-6 p-4 lg:p-8">
       {/* Header */}
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="text-2xl font-medium text-foreground">
           {t("pageTitle", { defaultValue: "Analytics & Reports" })}
         </h1>
         <div className="flex gap-2">
@@ -90,6 +86,7 @@ export default function UserReportsPage() {
             variant="outline"
             size="sm"
             onClick={() => window.print()}
+            className="transition-colors duration-150"
           >
             <Printer className="mr-1.5 size-4" />
             {t("exportPdf", { defaultValue: "Print Report" })}
@@ -99,66 +96,63 @@ export default function UserReportsPage() {
             size="sm"
             onClick={() => exportExcel.mutate()}
             disabled={exportExcel.isPending}
+            className="transition-colors duration-150"
           >
-            {exportExcel.isPending ? (
-              <Loader2 className="mr-1.5 size-4 animate-spin" />
-            ) : (
-              <Download className="mr-1.5 size-4" />
-            )}
+            <Download className="mr-1.5 size-4" />
             {t("exportExcel", { defaultValue: "Export Excel" })}
           </Button>
         </div>
       </div>
 
       {/* Summary stat cards */}
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="border-none bg-primary/5">
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        <Card className="bg-card">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               {t("totalSessions", { defaultValue: "Total Sessions" })}
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold text-primary">
+            <p className="text-2xl font-medium text-primary">
               {dashStats?.total_sessions ?? 0}
             </p>
           </CardContent>
         </Card>
 
-        <Card className="border-none bg-primary/5">
+        <Card className="bg-card">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               {t("avgScore", { defaultValue: "Avg Score" })}
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold text-blue-600">
+            <p className="text-2xl font-medium text-primary">
               {dashStats?.avg_score ?? 0}
             </p>
           </CardContent>
         </Card>
 
-        <Card className="border-none bg-primary/5">
+        <Card className="bg-card">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               {t("sessionsThisWeek", { defaultValue: "This Week" })}
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold text-green-600">
+            <p className="text-2xl font-medium text-green-600 dark:text-green-400">
               {dashStats?.this_week ?? 0}
             </p>
           </CardContent>
         </Card>
 
-        <Card className="border-none bg-primary/5">
+        <Card className="bg-card">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               {t("improvement", { defaultValue: "Improvement" })}
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold text-violet-600">
+            <p className="text-2xl font-medium text-foreground">
               {dashStats?.improvement != null
                 ? `${dashStats.improvement > 0 ? "+" : ""}${dashStats.improvement}`
                 : t("noImprovement", { defaultValue: "N/A" })}
@@ -168,12 +162,12 @@ export default function UserReportsPage() {
       </div>
 
       {/* Charts grid */}
-      <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Performance Trend */}
-        <Card>
+        <Card className="bg-card">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base font-semibold">
-              <TrendingUp className="size-5 text-blue-600" />
+            <CardTitle className="flex items-center gap-2 text-base font-medium">
+              <TrendingUp className="size-5 text-primary" />
               {t("performanceTrend", { defaultValue: "Performance Trend" })}
             </CardTitle>
           </CardHeader>
@@ -189,10 +183,10 @@ export default function UserReportsPage() {
         </Card>
 
         {/* Skill Radar */}
-        <Card>
+        <Card className="bg-card">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base font-semibold">
-              <Target className="size-5 text-emerald-600" />
+            <CardTitle className="flex items-center gap-2 text-base font-medium">
+              <Target className="size-5 text-primary" />
               {t("skillGapHeatmap", { defaultValue: "Skill Radar" })}
             </CardTitle>
           </CardHeader>
@@ -214,21 +208,21 @@ export default function UserReportsPage() {
 
       {/* Recommendations */}
       {recommendations && recommendations.length > 0 && (
-        <Card>
+        <Card className="bg-card">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base font-semibold">
-              <Award className="size-5 text-amber-600" />
+            <CardTitle className="flex items-center gap-2 text-base font-medium">
+              <Award className="size-5 text-primary" />
               {t("recommendations", { defaultValue: "Recommended Scenarios" })}
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid gap-6 sm:grid-cols-3">
               {recommendations.map((rec) => (
                 <div
                   key={rec.scenario_id}
-                  className="rounded-lg border bg-muted/40 p-4"
+                  className="rounded-lg border border-border bg-muted/40 p-4"
                 >
-                  <p className="font-semibold">{rec.scenario_name}</p>
+                  <p className="font-medium text-foreground">{rec.scenario_name}</p>
                   <p className="mt-1 text-xs text-muted-foreground">
                     {rec.product} &middot; {rec.difficulty}
                   </p>

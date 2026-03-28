@@ -41,14 +41,14 @@ export default function LoginPage() {
   };
 
   return (
-    <Card className="w-full max-w-[480px] rounded-2xl shadow-xl">
-      <CardHeader className="items-center space-y-2">
-        <div className="flex size-16 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 text-primary-foreground">
+    <Card className="w-full max-w-[480px] rounded-lg bg-card shadow-lg">
+      <CardHeader className="items-center space-y-2 p-8 pb-4">
+        <div className="flex size-16 items-center justify-center rounded-2xl bg-primary text-primary-foreground transition-colors duration-150">
           <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg>
         </div>
-        <CardTitle className="text-3xl font-bold">{t("title")}</CardTitle>
+        <CardTitle className="text-2xl font-medium text-foreground">{t("title")}</CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="p-8 pt-4">
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-2">
             <Label htmlFor="username">{t("email")}</Label>
@@ -61,6 +61,7 @@ export default function LoginPage() {
               autoComplete="username"
               disabled={loginMutation.isPending}
               placeholder={t("emailPlaceholder", { defaultValue: "Enter your email" })}
+              className="transition-colors duration-150"
             />
           </div>
 
@@ -75,14 +76,14 @@ export default function LoginPage() {
                 required
                 autoComplete="current-password"
                 disabled={loginMutation.isPending}
-                className="pr-10"
+                className="pr-10 transition-colors duration-150"
                 placeholder={t("passwordPlaceholder", { defaultValue: "Enter your password" })}
               />
               <Button
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                className="absolute right-0 top-0 h-full px-3 transition-colors duration-150 hover:bg-transparent"
                 onClick={() => setShowPassword(!showPassword)}
                 tabIndex={-1}
                 aria-label={showPassword ? t("ariaHidePassword") : t("ariaShowPassword")}
@@ -113,7 +114,7 @@ export default function LoginPage() {
 
           <Button
             type="submit"
-            className="w-full"
+            className="w-full transition-colors duration-150"
             disabled={loginMutation.isPending}
           >
             {loginMutation.isPending ? (

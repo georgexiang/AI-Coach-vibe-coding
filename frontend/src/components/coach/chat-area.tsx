@@ -117,15 +117,16 @@ export function ChatArea({
   );
 
   return (
-    <div className="flex flex-1 flex-col bg-white">
+    <div className="flex flex-1 flex-col bg-background">
       {/* Top bar */}
-      <div className="flex h-14 items-center justify-between border-b border-slate-200 px-6">
+      <div className="flex h-14 items-center justify-between border-b border-border px-6">
         <SessionTimer startedAt={startedAt ?? null} />
         <Button
           variant="destructive"
           size="sm"
           onClick={onEndSession}
           disabled={!isActive}
+          className="transition-colors duration-150"
         >
           <AlertCircle className="mr-1 h-4 w-4" />
           {t("session.endSession")}
@@ -133,16 +134,16 @@ export function ChatArea({
       </div>
 
       {/* Avatar display area */}
-      <div className="relative flex h-[240px] items-center justify-center bg-slate-900">
+      <div className="relative flex h-[240px] items-center justify-center bg-foreground/5 dark:bg-foreground/10">
         {avatarEnabled && (
-          <Avatar className="h-32 w-32 border-4 border-white">
+          <Avatar className="h-32 w-32 border-4 border-background">
             <AvatarFallback className="bg-primary text-2xl text-primary-foreground">
               {hcpInitials}
             </AvatarFallback>
           </Avatar>
         )}
-        <div className="absolute right-3 top-3 flex items-center gap-2 rounded bg-slate-800/80 px-3 py-1.5">
-          <span className="text-sm text-white">Avatar</span>
+        <div className="absolute right-3 top-3 flex items-center gap-2 rounded bg-background/80 px-3 py-1.5">
+          <span className="text-sm text-foreground">Avatar</span>
           <Switch checked={avatarEnabled} onCheckedChange={setAvatarEnabled} />
         </div>
       </div>
@@ -178,7 +179,7 @@ export function ChatArea({
       </ScrollArea>
 
       {/* Input area */}
-      <div className="border-t border-slate-200 bg-slate-50 p-4">
+      <div className="border-t border-border bg-muted/50 p-4">
         <div className="mx-auto flex max-w-4xl items-center gap-3">
           <Textarea
             className="min-h-[44px] max-h-32 flex-1 resize-none"
@@ -193,12 +194,12 @@ export function ChatArea({
           {voiceEnabled && (
             <button
               className={cn(
-                "flex h-11 w-11 items-center justify-center rounded-full",
+                "flex h-11 w-11 items-center justify-center rounded-full transition-colors duration-150",
                 recordingState === "recording"
-                  ? "animate-pulse bg-red-500 text-white"
+                  ? "animate-pulse bg-destructive text-destructive-foreground"
                   : recordingState === "processing"
-                    ? "bg-amber-400 text-white"
-                    : "bg-slate-200 text-slate-600 hover:bg-slate-300",
+                    ? "bg-yellow-400 text-white dark:bg-yellow-500"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80",
               )}
               onClick={handleMicClick}
               disabled={
@@ -216,10 +217,10 @@ export function ChatArea({
           {voiceEnabled && (
             <button
               className={cn(
-                "flex h-11 w-11 items-center justify-center rounded-full",
+                "flex h-11 w-11 items-center justify-center rounded-full transition-colors duration-150",
                 ttsAutoPlay
-                  ? "bg-blue-600 text-white"
-                  : "bg-slate-200 text-slate-600 hover:bg-slate-300",
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted text-muted-foreground hover:bg-muted/80",
               )}
               onClick={() => {
                 if (isSpeaking) stopSpeech();
@@ -239,7 +240,7 @@ export function ChatArea({
             </button>
           )}
           <button
-            className="flex h-11 w-11 items-center justify-center rounded-full bg-blue-600 text-white disabled:opacity-50"
+            className="flex h-11 w-11 items-center justify-center rounded-full bg-primary text-primary-foreground transition-colors duration-150 disabled:opacity-50"
             onClick={handleSend}
             disabled={!inputText.trim() || isStreaming || !isActive}
             aria-label="Send message"

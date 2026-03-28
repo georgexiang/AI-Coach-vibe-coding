@@ -1,8 +1,8 @@
 import { useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Loader2 } from "lucide-react";
 import { Button, ScrollArea } from "@/components/ui";
+import { LoadingState } from "@/components/shared";
 import { ScoreSummary } from "@/components/scoring/score-summary";
 import { RadarChart } from "@/components/scoring/radar-chart";
 import { DimensionBars } from "@/components/scoring/dimension-bars";
@@ -47,9 +47,10 @@ export default function ScoringFeedback() {
   // Loading state while scoring
   if (scoreLoading || triggerScoring.isPending || !score) {
     return (
-      <div className="flex h-96 flex-col items-center justify-center gap-4">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="text-sm text-muted-foreground">
+      <div className="mx-auto max-w-7xl space-y-6 p-4 lg:p-8">
+        <h1 className="text-2xl font-medium text-foreground">{t("title")}</h1>
+        <LoadingState variant="card" />
+        <p className="text-center text-sm text-muted-foreground">
           {t("scoringInProgress")}
         </p>
       </div>
@@ -62,7 +63,7 @@ export default function ScoringFeedback() {
   }));
 
   return (
-    <div className="mx-auto max-w-7xl p-4 lg:p-8">
+    <div className="mx-auto max-w-7xl space-y-6 p-4 lg:p-8">
       {/* Print stylesheet */}
       <style>{`
         @media print {
@@ -73,36 +74,36 @@ export default function ScoringFeedback() {
         }
       `}</style>
 
-      <h1 className="mb-6 text-3xl font-semibold text-gray-900">
+      <h1 className="text-2xl font-medium text-foreground">
         {t("title")}
       </h1>
 
       {/* Session metadata */}
       {session && (
-        <div className="mb-4 flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
-          <span>{t("scenario", { defaultValue: "Scenario" })}: <strong className="text-foreground">{session.scenario_id ?? "—"}</strong></span>
+        <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+          <span>{t("scenario", { defaultValue: "Scenario" })}: <strong className="text-foreground">{session.scenario_id ?? "---"}</strong></span>
           <span className="text-border">|</span>
           <span>{t("mode", { defaultValue: "Mode" })}: <strong className="text-foreground">F2F</strong></span>
           <span className="text-border">|</span>
-          <span>{t("date", { defaultValue: "Date" })}: <strong className="text-foreground">{session.created_at ? new Date(session.created_at).toLocaleDateString() : "—"}</strong></span>
+          <span>{t("date", { defaultValue: "Date" })}: <strong className="text-foreground">{session.created_at ? new Date(session.created_at).toLocaleDateString() : "---"}</strong></span>
         </div>
       )}
 
       {/* Top section: Circular progress + Score summary */}
-      <div className="mb-8 flex items-center gap-8">
+      <div className="flex items-center gap-8 rounded-lg border border-border bg-card p-6">
         {/* Circular progress ring */}
         <div className="relative flex-shrink-0">
           <svg width="120" height="120" viewBox="0 0 120 120">
             <circle
               cx="60" cy="60" r="52"
               fill="none"
-              stroke="#E5E7EB"
+              className="stroke-muted"
               strokeWidth="8"
             />
             <circle
               cx="60" cy="60" r="52"
               fill="none"
-              stroke={score.overall_score >= 80 ? "#059669" : score.overall_score >= 60 ? "#D97706" : "#DC2626"}
+              stroke={score.overall_score >= 80 ? "var(--strength)" : score.overall_score >= 60 ? "var(--chart-3)" : "var(--destructive)"}
               strokeWidth="8"
               strokeLinecap="round"
               strokeDasharray={`${(score.overall_score / 100) * 2 * Math.PI * 52} ${2 * Math.PI * 52}`}
@@ -125,11 +126,15 @@ export default function ScoringFeedback() {
       </div>
 
       {/* Two-column layout */}
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Left: Radar chart + Dimension bars */}
         <div className="space-y-6">
-          <RadarChart currentScores={currentScores} previousScores={previousScores} />
-          <DimensionBars details={score.details} />
+          <div className="rounded-lg border border-border bg-card p-4">
+            <RadarChart currentScores={currentScores} previousScores={previousScores} />
+          </div>
+          <div className="rounded-lg border border-border bg-card p-4">
+            <DimensionBars details={score.details} />
+          </div>
         </div>
 
         {/* Right: Feedback cards */}
@@ -144,8 +149,8 @@ export default function ScoringFeedback() {
 
       {/* Report: Improvement priorities and key messages */}
       {report && (
-        <div className="mt-8">
-          <h2 className="mb-4 text-xl font-semibold">{t("report.improvementTitle")}</h2>
+        <div className="rounded-lg border border-border bg-card p-6">
+          <h2 className="mb-4 text-xl font-medium text-foreground">{t("report.improvementTitle")}</h2>
           <ReportSection
             improvements={report.improvements}
             keyMessagesDelivered={report.key_messages_delivered}
@@ -155,20 +160,21 @@ export default function ScoringFeedback() {
       )}
 
       {/* Bottom action bar */}
-      <div className="action-bar mt-8 flex items-center justify-end gap-4 border-t pt-6">
+      <div className="action-bar flex flex-wrap items-center justify-end gap-4 border-t border-border pt-6">
         <Button
           variant="outline"
           onClick={() => navigate("/user/training")}
+          className="transition-colors duration-150"
         >
           {t("tryAgain")}
         </Button>
-        <Button variant="outline" onClick={() => window.print()}>
+        <Button variant="outline" onClick={() => window.print()} className="transition-colors duration-150">
           {t("exportPdf")}
         </Button>
-        <Button variant="outline" disabled>
+        <Button variant="outline" disabled className="transition-colors duration-150">
           {t("shareWithManager")}
         </Button>
-        <Button onClick={() => navigate("/user/dashboard")}>
+        <Button onClick={() => navigate("/user/dashboard")} className="transition-colors duration-150">
           {t("backToDashboard")}
         </Button>
       </div>
