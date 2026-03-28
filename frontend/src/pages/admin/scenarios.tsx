@@ -33,6 +33,7 @@ const ALL_STATUS = "__all__";
 
 export default function ScenariosPage() {
   const { t } = useTranslation("admin");
+  const { t: tc } = useTranslation("common");
   const [filterStatus, setFilterStatus] = useState(ALL_STATUS);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingScenario, setEditingScenario] = useState<Scenario | null>(null);
@@ -94,7 +95,7 @@ export default function ScenariosPage() {
     if (deleteConfirmId) {
       deleteMutation.mutate(deleteConfirmId, {
         onSuccess: () => {
-          toast.success("Scenario deleted");
+          toast.success(t("scenarios.deleted", { defaultValue: "Scenario deleted" }));
           setDeleteConfirmId(null);
         },
       });
@@ -103,23 +104,28 @@ export default function ScenariosPage() {
 
   const handleClone = (id: string) => {
     cloneMutation.mutate(id, {
-      onSuccess: () => toast.success("Scenario cloned"),
+      onSuccess: () => toast.success(t("scenarios.cloned", { defaultValue: "Scenario cloned" })),
     });
   };
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-semibold">{t("scenarios.title")}</h1>
+    <div className="space-y-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-medium text-foreground">{t("scenarios.title")}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {t("scenarios.description", { defaultValue: "Configure training scenarios with products, HCP assignments, and scoring weights" })}
+          </p>
+        </div>
         <div className="flex items-center gap-3">
           <Select value={filterStatus} onValueChange={setFilterStatus}>
             <SelectTrigger className="w-[140px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={ALL_STATUS}>All</SelectItem>
-              <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="draft">Draft</SelectItem>
+              <SelectItem value={ALL_STATUS}>{tc("all", { defaultValue: "All" })}</SelectItem>
+              <SelectItem value="active">{tc("active", { defaultValue: "Active" })}</SelectItem>
+              <SelectItem value="draft">{tc("draft", { defaultValue: "Draft" })}</SelectItem>
             </SelectContent>
           </Select>
           <Button onClick={handleCreate}>
@@ -150,17 +156,19 @@ export default function ScenariosPage() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete Scenario</DialogTitle>
+            <DialogTitle>
+              {t("scenarios.deleteTitle", { defaultValue: "Delete Scenario" })}
+            </DialogTitle>
             <DialogDescription>
               {t("scenarios.deleteConfirm")}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteConfirmId(null)}>
-              Cancel
+              {tc("cancel", { defaultValue: "Cancel" })}
             </Button>
             <Button variant="destructive" onClick={confirmDelete}>
-              Delete
+              {tc("delete", { defaultValue: "Delete" })}
             </Button>
           </DialogFooter>
         </DialogContent>

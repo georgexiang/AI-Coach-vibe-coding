@@ -80,7 +80,7 @@ export default function HcpProfilesPage() {
   const currentProfile = isCreatingNew ? null : (selectedProfile ?? null);
 
   return (
-    <div className="flex h-full">
+    <div className="flex h-full gap-6">
       <HcpList
         profiles={profiles}
         selectedId={selectedProfileId}
@@ -98,7 +98,7 @@ export default function HcpProfilesPage() {
           isNew={isCreatingNew}
         />
       ) : (
-        <div className="flex-1 flex items-center justify-center text-muted-foreground">
+        <div className="flex-1 flex items-center justify-center rounded-lg border border-dashed border-border bg-card text-muted-foreground">
           <p className="text-sm">{t("hcp.emptyBody")}</p>
         </div>
       )}

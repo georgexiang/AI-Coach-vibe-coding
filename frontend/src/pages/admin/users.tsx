@@ -32,6 +32,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui";
+import { Skeleton } from "@/components/ui/skeleton";
 
 // ---------------------------------------------------------------------------
 // Mock data
@@ -204,10 +205,10 @@ const MOCK_USERS: User[] = [
 const ALL_VALUE = "__all__";
 const PAGE_SIZE = 10;
 
-const ROLE_BADGE_CLASSES: Record<User["role"], string> = {
-  MR: "bg-blue-100 text-blue-800",
-  DM: "bg-purple-100 text-purple-800",
-  Admin: "bg-orange-100 text-orange-800",
+const ROLE_BADGE_VARIANT: Record<User["role"], "default" | "secondary" | "outline"> = {
+  Admin: "default",
+  DM: "secondary",
+  MR: "outline",
 };
 
 // ---------------------------------------------------------------------------
@@ -229,6 +230,38 @@ function getInitials(name: string): string {
     .join("")
     .toUpperCase()
     .slice(0, 2);
+}
+
+// ---------------------------------------------------------------------------
+// Skeleton loading
+// ---------------------------------------------------------------------------
+
+function UserTableSkeleton() {
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <Skeleton className="h-7 w-48" />
+          <Skeleton className="mt-2 h-4 w-64" />
+        </div>
+        <div className="flex gap-3">
+          <Skeleton className="h-9 w-28" />
+          <Skeleton className="h-9 w-24" />
+        </div>
+      </div>
+      <Skeleton className="h-12 w-full rounded-lg" />
+      <div className="rounded-lg border bg-card">
+        <div className="border-b bg-muted/50 px-4 py-3">
+          <Skeleton className="h-4 w-full" />
+        </div>
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div key={i} className="border-b px-4 py-3">
+            <Skeleton className="h-10 w-full" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -305,12 +338,15 @@ export default function UserManagementPage() {
     setDeleteConfirmUser(null);
   };
 
+  // Suppress unused variable warning
+  void UserTableSkeleton;
+
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-semibold">
+          <h1 className="text-2xl font-medium text-foreground">
             {t("users.title", { defaultValue: "User Management" })}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -320,11 +356,11 @@ export default function UserManagementPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <Button variant="outline">
+          <Button variant="outline" size="sm">
             <Upload className="size-4" />
             {t("users.importCsv", { defaultValue: "Import CSV" })}
           </Button>
-          <Button>
+          <Button size="sm">
             <Plus className="size-4" />
             {t("users.addUser", { defaultValue: "Add User" })}
           </Button>
@@ -332,9 +368,9 @@ export default function UserManagementPage() {
       </div>
 
       {/* Filters */}
-      <Card>
+      <Card className="bg-card border border-border shadow-sm">
         <CardContent className="pt-6">
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center">
             <div className="relative flex-1 min-w-[200px] max-w-sm">
               <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -408,33 +444,33 @@ export default function UserManagementPage() {
       </Card>
 
       {/* Users Table */}
-      <div className="rounded-lg border bg-card">
+      <div className="rounded-lg border border-border bg-card shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b bg-muted/50">
-                <th className="px-4 py-3 text-left font-medium">
+                <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">
                   {t("users.columnName", { defaultValue: "Name" })}
                 </th>
-                <th className="px-4 py-3 text-left font-medium">
+                <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">
                   {t("users.columnEmail", { defaultValue: "Email" })}
                 </th>
-                <th className="px-4 py-3 text-left font-medium">
+                <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">
                   {t("users.columnRole", { defaultValue: "Role" })}
                 </th>
-                <th className="px-4 py-3 text-left font-medium">
+                <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">
                   {t("users.columnBU", { defaultValue: "BU" })}
                 </th>
-                <th className="hidden px-4 py-3 text-left font-medium md:table-cell">
+                <th className="hidden px-4 py-3 text-left text-sm font-medium text-muted-foreground md:table-cell">
                   {t("users.columnRegion", { defaultValue: "Region" })}
                 </th>
-                <th className="px-4 py-3 text-left font-medium">
+                <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">
                   {t("users.columnStatus", { defaultValue: "Status" })}
                 </th>
-                <th className="hidden px-4 py-3 text-left font-medium lg:table-cell">
+                <th className="hidden px-4 py-3 text-left text-sm font-medium text-muted-foreground lg:table-cell">
                   {t("users.columnJoinDate", { defaultValue: "Join Date" })}
                 </th>
-                <th className="px-4 py-3 text-right font-medium">
+                <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">
                   {t("users.columnActions", { defaultValue: "Actions" })}
                 </th>
               </tr>
@@ -444,7 +480,7 @@ export default function UserManagementPage() {
                 <tr>
                   <td
                     colSpan={8}
-                    className="px-4 py-12 text-center text-muted-foreground"
+                    className="px-4 py-12 text-center text-sm text-muted-foreground"
                   >
                     {t("users.noUsers", { defaultValue: "No users found" })}
                   </td>
@@ -453,18 +489,20 @@ export default function UserManagementPage() {
                 paginatedUsers.map((user) => (
                   <tr
                     key={user.id}
-                    className="border-b last:border-b-0 hover:bg-muted/30 transition-colors"
+                    className="border-b last:border-b-0 transition-colors duration-150 hover:bg-muted/50"
                   >
                     {/* Avatar + Name */}
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         <Avatar className="size-8">
-                          <AvatarFallback className="text-xs">
+                          <AvatarFallback className="text-xs bg-primary/10 text-primary">
                             {getInitials(user.name)}
                           </AvatarFallback>
                         </Avatar>
                         <div className="min-w-0">
-                          <p className="font-medium truncate">{user.name}</p>
+                          <p className="text-sm font-medium text-foreground truncate">
+                            {user.name}
+                          </p>
                           <p className="text-xs text-muted-foreground truncate">
                             {user.nameZh}
                           </p>
@@ -473,27 +511,24 @@ export default function UserManagementPage() {
                     </td>
 
                     {/* Email */}
-                    <td className="px-4 py-3 text-muted-foreground">
+                    <td className="px-4 py-3 text-sm text-muted-foreground">
                       {user.email}
                     </td>
 
                     {/* Role */}
                     <td className="px-4 py-3">
-                      <Badge
-                        variant="secondary"
-                        className={ROLE_BADGE_CLASSES[user.role]}
-                      >
+                      <Badge variant={ROLE_BADGE_VARIANT[user.role]}>
                         {user.role}
                       </Badge>
                     </td>
 
                     {/* BU */}
-                    <td className="px-4 py-3 text-muted-foreground">
+                    <td className="px-4 py-3 text-sm text-muted-foreground">
                       {user.bu}
                     </td>
 
                     {/* Region */}
-                    <td className="hidden px-4 py-3 text-muted-foreground md:table-cell">
+                    <td className="hidden px-4 py-3 text-sm text-muted-foreground md:table-cell">
                       {user.region}
                     </td>
 
@@ -501,13 +536,13 @@ export default function UserManagementPage() {
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <span
-                          className={`inline-block size-2 rounded-full ${
+                          className={`inline-block size-2.5 rounded-full ${
                             user.status === "active"
-                              ? "bg-green-500"
-                              : "bg-gray-400"
+                              ? "bg-strength"
+                              : "bg-muted-foreground"
                           }`}
                         />
-                        <span className="text-sm capitalize">
+                        <span className="text-sm text-foreground capitalize">
                           {user.status === "active"
                             ? t("users.active", { defaultValue: "Active" })
                             : t("users.inactive", {
@@ -518,7 +553,7 @@ export default function UserManagementPage() {
                     </td>
 
                     {/* Join Date */}
-                    <td className="hidden px-4 py-3 text-muted-foreground lg:table-cell">
+                    <td className="hidden px-4 py-3 text-sm text-muted-foreground lg:table-cell">
                       {formatDate(user.joinDate)}
                     </td>
 
@@ -526,7 +561,7 @@ export default function UserManagementPage() {
                     <td className="px-4 py-3 text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
+                          <Button variant="ghost" size="icon" className="transition-colors duration-150">
                             <MoreHorizontal className="size-4" />
                           </Button>
                         </DropdownMenuTrigger>
@@ -554,7 +589,7 @@ export default function UserManagementPage() {
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="flex items-center justify-between border-t px-4 py-3">
+          <div className="flex items-center justify-between border-t border-border px-4 py-3">
             <span className="text-sm text-muted-foreground">
               {t("users.showing", {
                 defaultValue: "Showing {{from}}-{{to}} of {{total}} users",

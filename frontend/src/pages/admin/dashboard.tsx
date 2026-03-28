@@ -4,9 +4,8 @@ import {
   UserCheck,
   BarChart3,
   Target,
-  Loader2,
-  AlertTriangle,
   Trophy,
+  AlertTriangle,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -18,6 +17,7 @@ import {
   Tooltip,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui";
+import { Skeleton } from "@/components/ui/skeleton";
 import { StatCard } from "@/components/shared";
 import {
   BuComparisonBar,
@@ -49,7 +49,7 @@ const NEEDS_ATTENTION = [
   { name: "Zhao Min", score: 45, sessions: 3, bu: "Oncology" },
 ];
 
-// Mock data for training activity heatmap (last 4 weeks × 7 days)
+// Mock data for training activity heatmap (last 4 weeks x 7 days)
 const HEATMAP_DATA = [
   [3, 5, 2, 4, 6, 1, 0],
   [4, 3, 5, 2, 7, 2, 1],
@@ -59,11 +59,31 @@ const HEATMAP_DATA = [
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 function getHeatColor(value: number): string {
-  if (value === 0) return "bg-slate-100";
+  if (value === 0) return "bg-muted";
   if (value <= 2) return "bg-primary/20";
   if (value <= 4) return "bg-primary/40";
   if (value <= 6) return "bg-primary/60";
   return "bg-primary/80";
+}
+
+function DashboardSkeleton() {
+  return (
+    <div className="space-y-6">
+      <div>
+        <Skeleton className="h-7 w-48" />
+        <Skeleton className="mt-2 h-4 w-64" />
+      </div>
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Skeleton key={i} className="h-28 rounded-lg" />
+        ))}
+      </div>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <Skeleton className="h-72 rounded-lg" />
+        <Skeleton className="h-72 rounded-lg" />
+      </div>
+    </div>
+  );
 }
 
 export default function AdminDashboard() {
@@ -71,18 +91,14 @@ export default function AdminDashboard() {
   const { data: orgData, isLoading } = useOrgAnalytics();
 
   if (isLoading) {
-    return (
-      <div className="flex h-96 items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
+    return <DashboardSkeleton />;
   }
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">{t("adminDashboard")}</h1>
-        <p className="mt-1 text-muted-foreground">{t("adminDashboardDesc")}</p>
+        <h1 className="text-2xl font-medium text-foreground">{t("adminDashboard")}</h1>
+        <p className="mt-1 text-sm text-muted-foreground">{t("adminDashboardDesc")}</p>
       </div>
 
       {/* Overview stat cards */}
@@ -110,9 +126,9 @@ export default function AdminDashboard() {
       </div>
 
       {/* Completion rate */}
-      <Card>
+      <Card className="bg-card rounded-lg border border-border shadow-sm">
         <CardHeader>
-          <CardTitle>{t("completionRate")}</CardTitle>
+          <CardTitle className="text-base font-medium">{t("completionRate")}</CardTitle>
         </CardHeader>
         <CardContent>
           <CompletionRate
@@ -125,9 +141,9 @@ export default function AdminDashboard() {
 
       {/* BU comparison + Score Distribution */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Card>
+        <Card className="bg-card rounded-lg border border-border shadow-sm">
           <CardHeader>
-            <CardTitle>{t("buComparison")}</CardTitle>
+            <CardTitle className="text-base font-medium">{t("buComparison")}</CardTitle>
           </CardHeader>
           <CardContent>
             {orgData?.bu_stats && orgData.bu_stats.length > 0 ? (
@@ -138,18 +154,26 @@ export default function AdminDashboard() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-card rounded-lg border border-border shadow-sm">
           <CardHeader>
-            <CardTitle>{t("scoreDistribution", { defaultValue: "Score Distribution" })}</CardTitle>
+            <CardTitle className="text-base font-medium">
+              {t("scoreDistribution", { defaultValue: "Score Distribution" })}
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={SCORE_DISTRIBUTION}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                  <XAxis dataKey="range" tick={{ fill: "#64748B", fontSize: 12 }} />
-                  <YAxis tick={{ fill: "#64748B", fontSize: 12 }} />
-                  <Tooltip />
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                  <XAxis dataKey="range" tick={{ fill: "var(--color-muted-foreground)", fontSize: 12 }} />
+                  <YAxis tick={{ fill: "var(--color-muted-foreground)", fontSize: 12 }} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "var(--color-card)",
+                      border: "1px solid var(--color-border)",
+                      borderRadius: "var(--radius-md, 8px)",
+                    }}
+                  />
                   <Bar dataKey="count" fill="var(--color-primary)" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
@@ -159,9 +183,9 @@ export default function AdminDashboard() {
       </div>
 
       {/* Skill gap heatmap */}
-      <Card>
+      <Card className="bg-card rounded-lg border border-border shadow-sm">
         <CardHeader>
-          <CardTitle>{t("skillGapHeatmap")}</CardTitle>
+          <CardTitle className="text-base font-medium">{t("skillGapHeatmap")}</CardTitle>
           <p className="text-sm text-muted-foreground">{t("skillGapDesc")}</p>
         </CardHeader>
         <CardContent>
@@ -175,29 +199,40 @@ export default function AdminDashboard() {
 
       {/* Performance Alerts */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Card>
+        <Card className="bg-card rounded-lg border border-border shadow-sm">
           <CardHeader>
             <div className="flex items-center gap-2">
-              <Trophy className="size-5 text-amber-500" />
-              <CardTitle>{t("topPerformers", { defaultValue: "Top Performers" })}</CardTitle>
+              <Trophy className="size-5 text-chart-3" />
+              <CardTitle className="text-base font-medium">
+                {t("topPerformers", { defaultValue: "Top Performers" })}
+              </CardTitle>
             </div>
           </CardHeader>
           <CardContent className="space-y-3">
             {TOP_PERFORMERS.map((user, idx) => (
-              <div key={user.name} className="flex items-center justify-between rounded-lg border p-3">
+              <div
+                key={user.name}
+                className="flex items-center justify-between rounded-lg border border-border p-3 transition-colors duration-150 hover:bg-muted/50"
+              >
                 <div className="flex items-center gap-3">
-                  <span className={cn(
-                    "flex size-7 items-center justify-center rounded-full text-xs font-bold text-white",
-                    idx === 0 ? "bg-amber-500" : idx === 1 ? "bg-slate-400" : "bg-amber-700"
-                  )}>
+                  <span
+                    className={cn(
+                      "flex size-7 items-center justify-center rounded-full text-xs font-bold text-primary-foreground",
+                      idx === 0
+                        ? "bg-chart-3"
+                        : idx === 1
+                          ? "bg-muted-foreground"
+                          : "bg-chart-3/70"
+                    )}
+                  >
                     {idx + 1}
                   </span>
                   <div>
-                    <p className="font-medium text-sm">{user.name}</p>
+                    <p className="text-sm font-medium text-foreground">{user.name}</p>
                     <p className="text-xs text-muted-foreground">{user.bu}</p>
                   </div>
                 </div>
-                <span className="rounded bg-green-100 px-2 py-0.5 text-sm font-semibold text-green-700">
+                <span className="rounded bg-strength/10 px-2 py-0.5 text-sm font-semibold text-strength">
                   {user.score}
                 </span>
               </div>
@@ -205,21 +240,28 @@ export default function AdminDashboard() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-card rounded-lg border border-border shadow-sm">
           <CardHeader>
             <div className="flex items-center gap-2">
-              <AlertTriangle className="size-5 text-orange-500" />
-              <CardTitle>{t("needsAttention", { defaultValue: "Needs Attention" })}</CardTitle>
+              <AlertTriangle className="size-5 text-weakness" />
+              <CardTitle className="text-base font-medium">
+                {t("needsAttention", { defaultValue: "Needs Attention" })}
+              </CardTitle>
             </div>
           </CardHeader>
           <CardContent className="space-y-3">
             {NEEDS_ATTENTION.map((user) => (
-              <div key={user.name} className="flex items-center justify-between rounded-lg border border-orange-200 bg-orange-50/50 p-3">
+              <div
+                key={user.name}
+                className="flex items-center justify-between rounded-lg border border-weakness/20 bg-weakness/5 p-3 transition-colors duration-150 hover:bg-weakness/10"
+              >
                 <div>
-                  <p className="font-medium text-sm">{user.name}</p>
-                  <p className="text-xs text-muted-foreground">{user.bu} · {user.sessions} {t("sessions", { defaultValue: "sessions" })}</p>
+                  <p className="text-sm font-medium text-foreground">{user.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {user.bu} · {user.sessions} {t("sessions", { defaultValue: "sessions" })}
+                  </p>
                 </div>
-                <span className="rounded bg-red-100 px-2 py-0.5 text-sm font-semibold text-red-700">
+                <span className="rounded bg-destructive/10 px-2 py-0.5 text-sm font-semibold text-destructive">
                   {user.score}
                 </span>
               </div>
@@ -229,11 +271,15 @@ export default function AdminDashboard() {
       </div>
 
       {/* Training Activity Heatmap */}
-      <Card>
+      <Card className="bg-card rounded-lg border border-border shadow-sm">
         <CardHeader>
-          <CardTitle>{t("trainingActivity", { defaultValue: "Training Activity" })}</CardTitle>
+          <CardTitle className="text-base font-medium">
+            {t("trainingActivity", { defaultValue: "Training Activity" })}
+          </CardTitle>
           <p className="text-sm text-muted-foreground">
-            {t("trainingActivityDesc", { defaultValue: "Sessions completed per day over the last 4 weeks" })}
+            {t("trainingActivityDesc", {
+              defaultValue: "Sessions completed per day over the last 4 weeks",
+            })}
           </p>
         </CardHeader>
         <CardContent>
@@ -257,11 +303,11 @@ export default function AdminDashboard() {
                     <div
                       key={dayIdx}
                       className={cn(
-                        "flex-1 rounded-sm h-8 flex items-center justify-center text-xs",
+                        "flex-1 rounded-sm h-8 flex items-center justify-center text-xs transition-colors duration-150",
                         getHeatColor(value),
                         value > 0 ? "text-foreground/70" : "text-muted-foreground/40"
                       )}
-                      title={`${DAYS[dayIdx]}: ${value} sessions`}
+                      title={`${DAYS[dayIdx] ?? ""}: ${value} sessions`}
                     >
                       {value > 0 ? value : ""}
                     </div>
