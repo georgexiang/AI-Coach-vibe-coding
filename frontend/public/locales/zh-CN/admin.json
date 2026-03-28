@@ -74,6 +74,26 @@
     "apiKey": "API 密钥",
     "model": "模型/部署",
     "region": "区域",
+    "aiFoundry": {
+      "title": "Azure AI Foundry",
+      "description": "统一AI端点 — 所有服务从此单一配置派生",
+      "endpoint": "AI Foundry 端点",
+      "endpointPlaceholder": "https://your-resource.cognitiveservices.azure.com/",
+      "region": "Azure 区域",
+      "regionPlaceholder": "例如 eastus2",
+      "apiKey": "API 密钥",
+      "apiKeyPlaceholder": "输入 API 密钥",
+      "apiKeyHint": "留空以保留现有密钥"
+    },
+    "services": {
+      "title": "服务配置",
+      "description": "启用/禁用各项服务并设置服务特定的部署名称",
+      "openai": "Azure OpenAI",
+      "speechStt": "Azure 语音识别 (STT)",
+      "speechTts": "Azure 语音合成 (TTS)",
+      "avatar": "Azure AI 数字人",
+      "contentUnderstanding": "Azure 内容理解"
+    },
     "regionAvailable": "在 {{region}} 可用",
     "regionUnavailable": "在 {{region}} 不可用",
     "regionUnknown": "区域可用性未知",
@@ -89,14 +109,7 @@
     "voiceLiveTestSuccess": "Voice Live API 端点可访问。",
     "voiceLiveTestFailed": "Voice Live API 连接失败。请验证端点和 API 密钥。",
     "avatarTestSuccess": "Avatar 服务可访问。ICE 中继令牌已获取。",
-    "avatarTestFailed": "Avatar 连接失败。请确认该区域支持 Avatar 合成。",
-    "services": {
-      "openai": "Azure OpenAI",
-      "speechStt": "Azure 语音识别 (STT)",
-      "speechTts": "Azure 语音合成 (TTS)",
-      "avatar": "Azure AI 数字人",
-      "contentUnderstanding": "Azure 内容理解"
-    }
+    "avatarTestFailed": "Avatar 连接失败。请确认该区域支持 Avatar 合成。"
   },
   "materials": {
     "title": "培训资料管理",

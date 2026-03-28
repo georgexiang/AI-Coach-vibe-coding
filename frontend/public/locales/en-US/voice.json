@@ -4,7 +4,13 @@
   "mode": {
     "text": "Text",
     "voice": "Voice",
-    "avatar": "Avatar"
+    "avatar": "Avatar",
+    "voicePipeline": "Voice (Pipeline)",
+    "digitalHumanPipeline": "Digital Human (Pipeline)",
+    "voiceRealtimeModel": "Voice (Realtime)",
+    "digitalHumanRealtimeModel": "Digital Human (Realtime)",
+    "voiceRealtimeAgent": "Voice (Agent)",
+    "digitalHumanRealtimeAgent": "Digital Human (Agent)"
   },
   "modeSelector": "Session Mode",
   "connect": "Connect",
@@ -31,7 +37,13 @@
   "modeBadge": {
     "text": "Text Mode",
     "voice": "Voice Mode",
-    "avatar": "Avatar Mode"
+    "avatar": "Avatar Mode",
+    "voice_pipeline": "Voice Pipeline",
+    "digital_human_pipeline": "Digital Human Pipeline",
+    "voice_realtime_model": "Voice Realtime",
+    "digital_human_realtime_model": "Digital Human Realtime",
+    "voice_realtime_agent": "Voice Agent",
+    "digital_human_realtime_agent": "Digital Human Agent"
   },
   "emptyTranscript": "Start speaking to begin the conversation. Your transcript will appear here.",
   "emptyTranscriptText": "Type a message to begin the conversation.",

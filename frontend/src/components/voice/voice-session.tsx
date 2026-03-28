@@ -154,14 +154,19 @@ export function VoiceSession({
         // Connect voice
         await voiceLive.connect(tokenData);
 
-        // If avatar mode, try connecting avatar
-        if (currentMode === "avatar" && tokenData.avatar_enabled) {
+        // If digital human mode, try connecting avatar
+        if (
+          (currentMode === "digital_human_pipeline" ||
+            currentMode === "digital_human_realtime_model" ||
+            currentMode === "digital_human_realtime_agent") &&
+          tokenData.avatar_enabled
+        ) {
           try {
             await avatarStream.connect([], voiceLive.clientRef.current);
           } catch {
             // Avatar failed, fallback to voice-only (D-10)
             toast.error(t("error.avatarFailed"));
-            setCurrentMode("voice");
+            setCurrentMode("voice_pipeline");
           }
         }
 

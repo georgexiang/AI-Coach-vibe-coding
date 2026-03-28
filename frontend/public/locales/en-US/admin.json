@@ -74,6 +74,26 @@
     "apiKey": "API Key",
     "model": "Model/Deployment",
     "region": "Region",
+    "aiFoundry": {
+      "title": "Azure AI Foundry",
+      "description": "Unified AI endpoint — all services derive from this single configuration",
+      "endpoint": "AI Foundry Endpoint",
+      "endpointPlaceholder": "https://your-resource.cognitiveservices.azure.com/",
+      "region": "Azure Region",
+      "regionPlaceholder": "e.g. eastus2",
+      "apiKey": "API Key",
+      "apiKeyPlaceholder": "Enter API key",
+      "apiKeyHint": "Leave empty to keep existing key"
+    },
+    "services": {
+      "title": "Service Configuration",
+      "description": "Enable/disable individual services and set service-specific deployment names",
+      "openai": "Azure OpenAI",
+      "speechStt": "Azure Speech (STT)",
+      "speechTts": "Azure Speech (TTS)",
+      "avatar": "Azure AI Avatar",
+      "contentUnderstanding": "Azure Content Understanding"
+    },
     "regionAvailable": "Available in {{region}}",
     "regionUnavailable": "Not available in {{region}}",
     "regionUnknown": "Region availability unknown",
@@ -89,14 +109,7 @@
     "voiceLiveTestSuccess": "Voice Live API endpoint reachable.",
     "voiceLiveTestFailed": "Voice Live API connection failed. Verify the endpoint and API key.",
     "avatarTestSuccess": "Avatar service reachable. ICE relay token retrieved.",
-    "avatarTestFailed": "Avatar connection failed. Verify the region supports Avatar synthesis.",
-    "services": {
-      "openai": "Azure OpenAI",
-      "speechStt": "Azure Speech (STT)",
-      "speechTts": "Azure Speech (TTS)",
-      "avatar": "Azure AI Avatar",
-      "contentUnderstanding": "Azure Content Understanding"
-    }
+    "avatarTestFailed": "Avatar connection failed. Verify the region supports Avatar synthesis."
   },
   "materials": {
     "title": "Training Materials",

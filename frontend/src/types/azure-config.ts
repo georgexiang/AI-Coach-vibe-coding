@@ -6,6 +6,7 @@ export interface ServiceConfigResponse {
   model_or_deployment: string;
   region: string;
   is_active: boolean;
+  is_master?: boolean;
   updated_at: string | null;
 }
 
@@ -14,6 +15,20 @@ export interface ServiceConfigUpdate {
   api_key: string;
   model_or_deployment: string;
   region: string;
+}
+
+export interface AIFoundryConfig {
+  endpoint: string;
+  region: string;
+  masked_key: string;
+  is_active: boolean;
+  updated_at: string | null;
+}
+
+export interface AIFoundryConfigUpdate {
+  endpoint: string;
+  region: string;
+  api_key: string;
 }
 
 export interface ConnectionTestResult {

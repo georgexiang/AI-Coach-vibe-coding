@@ -4,7 +4,13 @@
   "mode": {
     "text": "文字",
     "voice": "语音",
-    "avatar": "数字人"
+    "avatar": "数字人",
+    "voicePipeline": "语音（流水线）",
+    "digitalHumanPipeline": "数字人（流水线）",
+    "voiceRealtimeModel": "语音（实时）",
+    "digitalHumanRealtimeModel": "数字人（实时）",
+    "voiceRealtimeAgent": "语音（智能体）",
+    "digitalHumanRealtimeAgent": "数字人（智能体）"
   },
   "modeSelector": "对话模式",
   "connect": "连接",
@@ -31,7 +37,13 @@
   "modeBadge": {
     "text": "文字模式",
     "voice": "语音模式",
-    "avatar": "数字人模式"
+    "avatar": "数字人模式",
+    "voice_pipeline": "语音流水线",
+    "digital_human_pipeline": "数字人流水线",
+    "voice_realtime_model": "语音实时",
+    "digital_human_realtime_model": "数字人实时",
+    "voice_realtime_agent": "语音智能体",
+    "digital_human_realtime_agent": "数字人智能体"
   },
   "emptyTranscript": "开始说话来开始对话。您的对话记录将显示在这里。",
   "emptyTranscriptText": "输入消息来开始对话。",

@@ -4,6 +4,8 @@ import type {
   ServiceConfigUpdate,
   ConnectionTestResult,
   RegionCapabilities,
+  AIFoundryConfig,
+  AIFoundryConfigUpdate,
 } from "@/types/azure-config";
 
 export async function getServiceConfigs(): Promise<ServiceConfigResponse[]> {
@@ -38,6 +40,23 @@ export async function getRegionCapabilities(
 ): Promise<RegionCapabilities> {
   const { data } = await apiClient.get<RegionCapabilities>(
     `/azure-config/region-capabilities/${encodeURIComponent(region)}`,
+  );
+  return data;
+}
+
+export async function getAIFoundryConfig(): Promise<AIFoundryConfig> {
+  const { data } = await apiClient.get<AIFoundryConfig>(
+    "/azure-config/ai-foundry",
+  );
+  return data;
+}
+
+export async function updateAIFoundryConfig(
+  config: AIFoundryConfigUpdate,
+): Promise<AIFoundryConfig> {
+  const { data } = await apiClient.put<AIFoundryConfig>(
+    "/azure-config/ai-foundry",
+    config,
   );
   return data;
 }

@@ -25,7 +25,7 @@ vi.mock("./connection-status", () => ({
 describe("VoiceSessionHeader", () => {
   const defaultProps = {
     scenarioTitle: "Drug Efficacy Discussion",
-    mode: "voice" as const,
+    mode: "voice_pipeline" as const,
     connectionState: "connected" as const,
     onEndSession: vi.fn(),
     startedAt: "2026-03-27T08:00:00Z",
@@ -37,8 +37,8 @@ describe("VoiceSessionHeader", () => {
   });
 
   it("renders mode badge with translated mode text", () => {
-    render(<VoiceSessionHeader {...defaultProps} mode="avatar" />);
-    expect(screen.getByText("modeBadge.avatar")).toBeInTheDocument();
+    render(<VoiceSessionHeader {...defaultProps} mode="digital_human_pipeline" />);
+    expect(screen.getByText("modeBadge.digital_human_pipeline")).toBeInTheDocument();
   });
 
   it("renders ConnectionStatus component with correct state", () => {
