@@ -155,12 +155,8 @@ export function VoiceSession({
         await voiceLive.connect(tokenData);
 
         // If digital human mode, try connecting avatar
-        if (
-          (currentMode === "digital_human_pipeline" ||
-            currentMode === "digital_human_realtime_model" ||
-            currentMode === "digital_human_realtime_agent") &&
-          tokenData.avatar_enabled
-        ) {
+        const isDigitalHumanMode = currentMode.startsWith("digital_human");
+        if (isDigitalHumanMode && tokenData.avatar_enabled) {
           try {
             await avatarStream.connect([], voiceLive.clientRef.current);
           } catch {

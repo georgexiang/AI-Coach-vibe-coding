@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Phase complete — ready for verification
-stopped_at: Completed 09-02-PLAN.md
-last_updated: "2026-03-28T13:38:29.685Z"
+stopped_at: Completed 09-03-PLAN.md
+last_updated: "2026-03-28T14:01:04.126Z"
 last_activity: 2026-03-28
 progress:
   total_phases: 9
@@ -90,7 +90,7 @@ Plan: 4 of 4
 | Phase 08 P03 | 10min | 3 tasks | 15 files |
 | Phase 08 P04 | 17min | 2 tasks | 9 files |
 | Phase 08 P06 | 12min | 2 tasks | 21 files |
-| Phase 09 P02 | 10min | 2 tasks | 15 files |
+| Phase 09 P03 | 10min | 2 tasks | 12 files |
 
 ## Accumulated Context
 
@@ -190,8 +190,8 @@ Recent decisions affecting current work:
 - [Phase 08]: Voice session page follows conference-session full-screen pattern (no UserLayout)
 - [Phase 08]: Applied Plan 04 prerequisite code changes as Rule 3 deviation in test worktree
 - [Phase 08]: Mutable mockFlags pattern for per-test feature toggle control in vitest
-- [Phase 09]: Replaced old 3-value SessionMode (text/voice/avatar) with 7-value type per D-06; updated all downstream components
-- [Phase 09]: Redesigned admin Azure Config from 8 ServiceConfigCards to single AI Foundry master card with per-service toggles per D-04/D-05
+- [Phase 09]: Two-level mode selector uses MODE_MAP record pattern for bidirectional (commType, engine) <-> SessionMode mapping
+- [Phase 09]: Agent mode WebSocket uses voice-agent/realtime path; model mode uses openai/realtime per D-11
 
 ### Pending Todos
 
@@ -211,6 +211,6 @@ None yet.
 ## Session Continuity
 
 Last activity: 2026-03-28
-Last session: 2026-03-28T13:38:29.681Z
-Stopped at: Completed 09-02-PLAN.md
+Last session: 2026-03-28T14:01:04.123Z
+Stopped at: Completed 09-03-PLAN.md
 Resume file: None

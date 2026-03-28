@@ -95,8 +95,27 @@ export function useVoiceLive(options: VoiceLiveOptions) {
         // Dynamic import rt-client to handle case where SDK not yet installed
         const { RTClient } = await import("rt-client");
 
+        // Determine WebSocket URL based on agent vs model mode (D-11)
+        const endpointUrl = new URL(tokenData.endpoint);
+        let wsUrl: string;
+
+        if (tokenData.agent_id) {
+          // Agent mode: voice-agent/realtime
+          wsUrl = `wss://${endpointUrl.host}/voice-agent/realtime?api-version=2025-04-01-preview`;
+          console.info("[VoiceLive] Connecting in agent mode", {
+            agent_id: tokenData.agent_id,
+            project_name: tokenData.project_name,
+          });
+        } else {
+          // Model mode: openai/realtime with deployment
+          wsUrl = `wss://${endpointUrl.host}/openai/realtime?api-version=2025-04-01-preview&deployment=${encodeURIComponent(tokenData.model)}`;
+          console.info("[VoiceLive] Connecting in model mode", {
+            model: tokenData.model,
+          });
+        }
+
         const client = new RTClient(
-          new URL(tokenData.endpoint),
+          new URL(wsUrl),
           { key: tokenData.token },
           { model: tokenData.model },
         );
@@ -115,6 +134,14 @@ export function useVoiceLive(options: VoiceLiveOptions) {
             type: "azure_deep_noise_suppression",
           },
         };
+
+        // Add agent config if agent mode (D-11)
+        if (tokenData.agent_id) {
+          sessionConfig["agent_id"] = tokenData.agent_id;
+          if (tokenData.project_name) {
+            sessionConfig["project_name"] = tokenData.project_name;
+          }
+        }
 
         // Add avatar config if avatar is enabled (D-07)
         if (tokenData.avatar_enabled) {

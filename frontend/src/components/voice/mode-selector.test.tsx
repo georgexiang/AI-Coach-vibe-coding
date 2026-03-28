@@ -21,13 +21,15 @@ describe("ModeSelector", () => {
     onChange: vi.fn(),
     voiceLiveAvailable: true,
     avatarAvailable: true,
+    pipelineAvailable: true,
+    agentAvailable: true,
   };
 
-  it("renders three mode buttons (text, voice_pipeline, digital_human_pipeline)", () => {
+  it("renders three communication type buttons (text, voice, digital_human)", () => {
     render(<ModeSelector {...defaultProps} />);
     expect(screen.getByTestId("mode-text")).toBeInTheDocument();
-    expect(screen.getByTestId("mode-voice_pipeline")).toBeInTheDocument();
-    expect(screen.getByTestId("mode-digital_human_pipeline")).toBeInTheDocument();
+    expect(screen.getByTestId("mode-voice")).toBeInTheDocument();
+    expect(screen.getByTestId("mode-digital_human")).toBeInTheDocument();
   });
 
   it("text mode button is always enabled", () => {
@@ -36,44 +38,50 @@ describe("ModeSelector", () => {
         {...defaultProps}
         voiceLiveAvailable={false}
         avatarAvailable={false}
+        pipelineAvailable={false}
+        agentAvailable={false}
       />,
     );
     const textBtn = screen.getByTestId("mode-text");
     expect(textBtn).not.toBeDisabled();
   });
 
-  it("voice_pipeline button is disabled when voiceLiveAvailable is false", () => {
+  it("voice button is disabled when voiceLive and pipeline are both unavailable", () => {
     render(
-      <ModeSelector {...defaultProps} voiceLiveAvailable={false} />,
+      <ModeSelector
+        {...defaultProps}
+        voiceLiveAvailable={false}
+        pipelineAvailable={false}
+      />,
     );
-    const voiceBtn = screen.getByTestId("mode-voice_pipeline");
+    const voiceBtn = screen.getByTestId("mode-voice");
     expect(voiceBtn).toBeDisabled();
   });
 
-  it("digital_human_pipeline button is disabled when avatarAvailable is false", () => {
+  it("digital human button is disabled when avatarAvailable is false", () => {
     render(
       <ModeSelector {...defaultProps} avatarAvailable={false} />,
     );
-    const avatarBtn = screen.getByTestId("mode-digital_human_pipeline");
-    expect(avatarBtn).toBeDisabled();
+    const dhBtn = screen.getByTestId("mode-digital_human");
+    expect(dhBtn).toBeDisabled();
   });
 
-  it("calls onChange with voice_pipeline when voice button is clicked and available", () => {
+  it("calls onChange with voice_pipeline when voice + pipeline is selected", () => {
     const onChange = vi.fn();
     render(<ModeSelector {...defaultProps} onChange={onChange} />);
-    fireEvent.click(screen.getByTestId("mode-voice_pipeline"));
+    fireEvent.click(screen.getByTestId("mode-voice"));
     expect(onChange).toHaveBeenCalledWith("voice_pipeline");
   });
 
-  it("active mode button has primary styling class", () => {
+  it("active communication type button has primary styling class", () => {
     render(<ModeSelector {...defaultProps} value="text" />);
     const textBtn = screen.getByTestId("mode-text");
     expect(textBtn.className).toContain("bg-primary");
   });
 
-  it("inactive mode buttons have muted foreground text class", () => {
+  it("inactive communication type buttons have muted foreground text class", () => {
     render(<ModeSelector {...defaultProps} value="text" />);
-    const voiceBtn = screen.getByTestId("mode-voice_pipeline");
+    const voiceBtn = screen.getByTestId("mode-voice");
     expect(voiceBtn.className).toContain("text-muted-foreground");
   });
 
@@ -89,9 +97,56 @@ describe("ModeSelector", () => {
         {...defaultProps}
         onChange={onChange}
         voiceLiveAvailable={false}
+        pipelineAvailable={false}
       />,
     );
-    fireEvent.click(screen.getByTestId("mode-voice_pipeline"));
+    fireEvent.click(screen.getByTestId("mode-voice"));
     expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("shows engine row when voice is selected", () => {
+    render(<ModeSelector {...defaultProps} value="voice_pipeline" />);
+    expect(screen.getByTestId("engine-pipeline")).toBeInTheDocument();
+    expect(screen.getByTestId("engine-realtime_model")).toBeInTheDocument();
+    expect(screen.getByTestId("engine-realtime_agent")).toBeInTheDocument();
+  });
+
+  it("hides engine row when text is selected", () => {
+    render(<ModeSelector {...defaultProps} value="text" />);
+    expect(screen.queryByTestId("engine-pipeline")).not.toBeInTheDocument();
+  });
+
+  it("calls onChange with voice_realtime_agent when switching to agent engine", () => {
+    const onChange = vi.fn();
+    render(
+      <ModeSelector {...defaultProps} value="voice_pipeline" onChange={onChange} />,
+    );
+    fireEvent.click(screen.getByTestId("engine-realtime_agent"));
+    expect(onChange).toHaveBeenCalledWith("voice_realtime_agent");
+  });
+
+  it("calls onChange with digital_human_realtime_model when switching engine in DH mode", () => {
+    const onChange = vi.fn();
+    render(
+      <ModeSelector {...defaultProps} value="digital_human_pipeline" onChange={onChange} />,
+    );
+    fireEvent.click(screen.getByTestId("engine-realtime_model"));
+    expect(onChange).toHaveBeenCalledWith("digital_human_realtime_model");
+  });
+
+  it("disables agent engine button when agentAvailable is false", () => {
+    render(
+      <ModeSelector {...defaultProps} value="voice_pipeline" agentAvailable={false} />,
+    );
+    const agentBtn = screen.getByTestId("engine-realtime_agent");
+    expect(agentBtn).toBeDisabled();
+  });
+
+  it("disables pipeline engine button when pipelineAvailable is false", () => {
+    render(
+      <ModeSelector {...defaultProps} value="voice_realtime_model" pipelineAvailable={false} />,
+    );
+    const pipelineBtn = screen.getByTestId("engine-pipeline");
+    expect(pipelineBtn).toBeDisabled();
   });
 });

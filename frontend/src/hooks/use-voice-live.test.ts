@@ -468,6 +468,75 @@ describe("useVoiceLive", () => {
     expect(onError).not.toHaveBeenCalled();
   });
 
+  it("connect() uses openai/realtime WebSocket path for model mode (no agent_id)", async () => {
+    const { RTClient } = await import("rt-client");
+    const { result } = renderHook(() => useVoiceLive(defaultOptions));
+
+    await act(async () => {
+      await result.current.connect(defaultToken);
+    });
+
+    // Verify URL used for RTClient construction includes openai/realtime
+    const constructorCall = (RTClient as unknown as ReturnType<typeof vi.fn>).mock.calls[0];
+    const url = constructorCall?.[0] as URL;
+    expect(url.pathname).toBe("/openai/realtime");
+    expect(url.searchParams.get("deployment")).toBe("gpt-4o-realtime");
+  });
+
+  it("connect() uses voice-agent/realtime WebSocket path for agent mode", async () => {
+    const { RTClient } = await import("rt-client");
+    const { result } = renderHook(() => useVoiceLive(defaultOptions));
+
+    const agentToken = {
+      ...defaultToken,
+      agent_id: "agent-123",
+      project_name: "my-project",
+    };
+
+    await act(async () => {
+      await result.current.connect(agentToken);
+    });
+
+    // Verify URL used for RTClient construction includes voice-agent/realtime
+    const lastCall = (RTClient as unknown as ReturnType<typeof vi.fn>).mock.calls.at(-1);
+    const url = lastCall?.[0] as URL;
+    expect(url.pathname).toBe("/voice-agent/realtime");
+    expect(url.searchParams.get("api-version")).toBe("2025-04-01-preview");
+  });
+
+  it("connect() includes agent_id and project_name in session config for agent mode", async () => {
+    const { result } = renderHook(() => useVoiceLive(defaultOptions));
+
+    const agentToken = {
+      ...defaultToken,
+      agent_id: "agent-456",
+      project_name: "demo-project",
+    };
+
+    await act(async () => {
+      await result.current.connect(agentToken);
+    });
+
+    expect(mockConfigure).toHaveBeenCalledWith(
+      expect.objectContaining({
+        agent_id: "agent-456",
+        project_name: "demo-project",
+      }),
+    );
+  });
+
+  it("connect() does not include agent_id in session config for model mode", async () => {
+    const { result } = renderHook(() => useVoiceLive(defaultOptions));
+
+    await act(async () => {
+      await result.current.connect(defaultToken);
+    });
+
+    const configArg = mockConfigure.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(configArg["agent_id"]).toBeUndefined();
+    expect(configArg["project_name"]).toBeUndefined();
+  });
+
   it("processResponse emits partial (non-final) transcript segments", async () => {
     const onTranscript = vi.fn();
 

@@ -789,7 +789,7 @@ describe("VoiceSession", () => {
       expect(mockConnect).not.toHaveBeenCalled();
     });
 
-    it("initializes voice when mode is voice", async () => {
+    it("initializes voice when mode is voice_pipeline", async () => {
       renderSession({ mode: "voice_pipeline" });
 
       await waitFor(() => {
@@ -800,7 +800,7 @@ describe("VoiceSession", () => {
       });
     });
 
-    it("initializes voice and tries avatar when mode is avatar with avatar_enabled", async () => {
+    it("initializes voice and tries avatar when mode is digital_human_pipeline with avatar_enabled", async () => {
       mockTokenMutateAsync.mockResolvedValueOnce({
         endpoint: "https://test.endpoint",
         token: "test-token",
@@ -822,7 +822,7 @@ describe("VoiceSession", () => {
       });
     });
 
-    it("falls back to voice mode when avatar connection fails", async () => {
+    it("falls back to voice_pipeline mode when avatar connection fails", async () => {
       mockTokenMutateAsync.mockResolvedValueOnce({
         endpoint: "https://test.endpoint",
         token: "test-token",
@@ -851,7 +851,7 @@ describe("VoiceSession", () => {
       });
     });
 
-    it("does not attempt avatar when avatar_enabled is false in avatar mode", async () => {
+    it("does not attempt avatar when avatar_enabled is false in digital_human_pipeline mode", async () => {
       mockTokenMutateAsync.mockResolvedValueOnce({
         endpoint: "https://test.endpoint",
         token: "test-token",
