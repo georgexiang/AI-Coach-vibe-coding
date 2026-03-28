@@ -17,6 +17,7 @@ export interface CoachingSession {
   key_messages_status: KeyMessageStatus[];
   overall_score: number | null;
   passed: boolean | null;
+  mode: string;
   created_at: string;
   updated_at: string;
 }

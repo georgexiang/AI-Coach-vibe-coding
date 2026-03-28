@@ -18,6 +18,7 @@ const mockFeatureData = {
     voice_enabled: true,
     realtime_voice_enabled: true,
     conference_enabled: true,
+    voice_live_enabled: true,
     default_voice_mode: "voice",
     region: "china",
   },

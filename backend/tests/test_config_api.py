@@ -43,6 +43,7 @@ class TestGetFeatures:
         assert "voice_enabled" in features
         assert "realtime_voice_enabled" in features
         assert "conference_enabled" in features
+        assert "voice_live_enabled" in features
         assert "default_voice_mode" in features
         assert "region" in features
 

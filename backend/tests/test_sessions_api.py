@@ -1,5 +1,7 @@
 """Tests for Sessions API endpoints: session lifecycle via HTTP."""
 
+from unittest.mock import patch
+
 from app.models.user import User
 from app.services.auth import create_access_token, get_password_hash
 from tests.conftest import TestSessionLocal
@@ -97,6 +99,123 @@ class TestCreateSessionEndpoint:
             headers={"Authorization": f"Bearer {user_token}"},
         )
         assert response.status_code == 404
+
+
+class TestCreateSessionModeEndpoint:
+    """Tests for POST /api/v1/sessions with mode parameter (Plan 08-06)."""
+
+    async def test_create_session_with_voice_mode(self, client):
+        """POST /sessions with mode=voice stores mode on session response."""
+        admin_id, admin_token = await _create_admin_and_token()
+        scenario_id = await _create_active_scenario(client, admin_id, admin_token)
+        _, user_token = await _create_user_and_token("voice_mode_user")
+
+        with patch("app.api.sessions.settings") as mock_settings:
+            mock_settings.feature_voice_live_enabled = True
+            mock_settings.default_llm_provider = "mock"
+            response = await client.post(
+                "/api/v1/sessions",
+                json={"scenario_id": scenario_id, "mode": "voice"},
+                headers={"Authorization": f"Bearer {user_token}"},
+            )
+        assert response.status_code == 201
+        data = response.json()
+        assert data["mode"] == "voice"
+
+    async def test_create_session_with_avatar_mode(self, client):
+        """POST /sessions with mode=avatar stores mode on session response."""
+        admin_id, admin_token = await _create_admin_and_token()
+        scenario_id = await _create_active_scenario(client, admin_id, admin_token)
+        _, user_token = await _create_user_and_token("avatar_mode_user")
+
+        with patch("app.api.sessions.settings") as mock_settings:
+            mock_settings.feature_voice_live_enabled = True
+            mock_settings.default_llm_provider = "mock"
+            response = await client.post(
+                "/api/v1/sessions",
+                json={"scenario_id": scenario_id, "mode": "avatar"},
+                headers={"Authorization": f"Bearer {user_token}"},
+            )
+        assert response.status_code == 201
+        data = response.json()
+        assert data["mode"] == "avatar"
+
+    async def test_create_session_default_mode_is_text(self, client):
+        """POST /sessions without mode field defaults to text."""
+        admin_id, admin_token = await _create_admin_and_token()
+        scenario_id = await _create_active_scenario(client, admin_id, admin_token)
+        _, user_token = await _create_user_and_token("default_mode_user")
+
+        response = await client.post(
+            "/api/v1/sessions",
+            json={"scenario_id": scenario_id},
+            headers={"Authorization": f"Bearer {user_token}"},
+        )
+        assert response.status_code == 201
+        data = response.json()
+        assert data["mode"] == "text"
+
+    async def test_create_session_invalid_mode_returns_422(self, client):
+        """POST /sessions with invalid mode returns 422 (Literal type enforcement)."""
+        admin_id, admin_token = await _create_admin_and_token()
+        scenario_id = await _create_active_scenario(client, admin_id, admin_token)
+        _, user_token = await _create_user_and_token("invalid_mode_user")
+
+        response = await client.post(
+            "/api/v1/sessions",
+            json={"scenario_id": scenario_id, "mode": "invalid_mode"},
+            headers={"Authorization": f"Bearer {user_token}"},
+        )
+        assert response.status_code == 422
+
+    async def test_create_session_voice_mode_rejected_when_disabled(self, client):
+        """POST /sessions with mode=voice returns 409 when voice_live_enabled is false."""
+        admin_id, admin_token = await _create_admin_and_token()
+        scenario_id = await _create_active_scenario(client, admin_id, admin_token)
+        _, user_token = await _create_user_and_token("voice_disabled_user")
+
+        with patch("app.api.sessions.settings") as mock_settings:
+            mock_settings.feature_voice_live_enabled = False
+            response = await client.post(
+                "/api/v1/sessions",
+                json={"scenario_id": scenario_id, "mode": "voice"},
+                headers={"Authorization": f"Bearer {user_token}"},
+            )
+        assert response.status_code == 409
+        data = response.json()
+        assert data["code"] == "VOICE_MODE_DISABLED"
+
+    async def test_create_session_avatar_mode_rejected_when_disabled(self, client):
+        """POST /sessions with mode=avatar returns 409 when voice_live_enabled is false."""
+        admin_id, admin_token = await _create_admin_and_token()
+        scenario_id = await _create_active_scenario(client, admin_id, admin_token)
+        _, user_token = await _create_user_and_token("avatar_disabled_user")
+
+        with patch("app.api.sessions.settings") as mock_settings:
+            mock_settings.feature_voice_live_enabled = False
+            response = await client.post(
+                "/api/v1/sessions",
+                json={"scenario_id": scenario_id, "mode": "avatar"},
+                headers={"Authorization": f"Bearer {user_token}"},
+            )
+        assert response.status_code == 409
+        data = response.json()
+        assert data["code"] == "VOICE_MODE_DISABLED"
+
+    async def test_create_session_text_mode_allowed_when_voice_disabled(self, client):
+        """POST /sessions with mode=text succeeds even when voice_live_enabled is false."""
+        admin_id, admin_token = await _create_admin_and_token()
+        scenario_id = await _create_active_scenario(client, admin_id, admin_token)
+        _, user_token = await _create_user_and_token("text_always_user")
+
+        response = await client.post(
+            "/api/v1/sessions",
+            json={"scenario_id": scenario_id, "mode": "text"},
+            headers={"Authorization": f"Bearer {user_token}"},
+        )
+        assert response.status_code == 201
+        data = response.json()
+        assert data["mode"] == "text"
 
 
 class TestListSessionsEndpoint:
