@@ -2,6 +2,7 @@
 FROM node:20-slim AS builder
 WORKDIR /app
 COPY package*.json ./
+COPY rt-client-0.5.2.tgz ./
 RUN npm ci
 COPY . .
 ARG VITE_API_BASE_URL=http://localhost:8000
