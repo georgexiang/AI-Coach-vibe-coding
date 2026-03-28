@@ -32,7 +32,11 @@
     "wordCount": "字数",
     "messagesCount": "消息数",
     "startingSession": "正在启动会话...",
-    "scoringInProgress": "正在评分..."
+    "scoringInProgress": "正在评分...",
+    "startRecording": "开始录音",
+    "stopRecording": "停止录音",
+    "ttsOn": "启用语音回复",
+    "ttsOff": "关闭语音回复"
   },
   "errors": {
     "sendFailed": "消息发送失败，请检查网络连接后重试。",

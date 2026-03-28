@@ -19,7 +19,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 05: Training Material Management** - Document upload, versioning, retention policies, AI knowledge base integration
 - [x] **Phase 06: Conference Presentation Module** - One-to-many simulation, live transcription, audience Q&A, presentation scoring (completed 2026-03-25)
 - [x] **Phase 07: Azure Service Integration** - Admin Azure config persistence, real connection testing, dynamic provider switching (mock → Azure OpenAI/Speech/Avatar) (completed 2026-03-27)
-- [ ] **Phase 08: Voice & Avatar Demo Integration** - Integrate Azure Voice Live Agent with Avatar into the AI Coach platform for real-time voice coaching with digital HCP avatar
+- [x] **Phase 08: Voice & Avatar Demo Integration** - Integrate Azure Voice Live Agent with Avatar into the AI Coach platform for real-time voice coaching with digital HCP avatar (completed 2026-03-28)
 
 ## Phase Details
 
@@ -200,8 +200,8 @@ Phases execute in numeric order: 01 -> 01.1 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07 
 | 04. Dashboard & Reporting | 6/6 | Complete | - |
 | 05. Training Material Management | 3/3 | Complete | - |
 | 06. Conference Presentation Module | 6/6 | Complete | 2026-03-25 |
-| 07. Azure Service Integration | 5/4 | Complete    | 2026-03-27 |
-| 08. Voice & Avatar Demo Integration | 4/6 | In Progress|  |
+| 07. Azure Service Integration | 4/4 | Complete    | 2026-03-27 |
+| 08. Voice & Avatar Demo Integration | 5/4 | Complete   | 2026-03-28 |
 
 ### Phase 07: Azure Service Integration
 
@@ -221,7 +221,7 @@ Plans:
 - [x] 07-01-PLAN.md -- Backend foundation: ServiceConfig model, Fernet encryption, schemas, Alembic migration, config service
 - [x] 07-02-PLAN.md -- AzureOpenAIAdapter: streaming LLM adapter with conversation history, unit tests
 - [x] 07-03-PLAN.md -- Backend API + dynamic switching: PUT/test/GET endpoints, connection tester, lifespan DB loading, session history wiring
-- [x] 07-04-PLAN.md -- Frontend wiring: TypeScript types, API client, TanStack Query hooks, wire azure-config page to real API
+- [ ] 07-04-PLAN.md -- Frontend wiring: TypeScript types, API client, TanStack Query hooks, wire azure-config page to real API
 
 **UI hint**: yes
 
@@ -236,14 +236,12 @@ Plans:
   4. The system gracefully falls back to text-only or TTS-only mode when Avatar/Voice Live services are unavailable
   5. Admin can configure Voice Live and Avatar settings from the Azure Config page
   6. All new code has unit tests with >=95% coverage maintained
-**Plans**: 6 plans
+**Plans**: 4 plans
 
 Plans:
 - [x] 08-01-PLAN.md -- Backend foundation: Alembic migration (session mode), voice_live schemas/service, token broker API, connection tester, tests
 - [x] 08-02-PLAN.md -- Frontend data layer: TypeScript types, i18n voice namespace, API client, TanStack Query hooks, audio-processor.js, tests
 - [x] 08-03-PLAN.md -- Voice hooks + leaf components: useVoiceLive, useAvatarStream, useAudioHandler, 7 voice UI components, component tests
-- [x] 08-04-PLAN.md -- Integration wiring: session mode through full stack, voice_live_enabled feature flag, Voice tab in scenario selection, i18n keys
-- [ ] 08-05-PLAN.md -- STT/TTS frontend integration: speech input + text reply mode, text + speech reply mode, completing all 7 MR-HCP communication modes
-- [ ] 08-06-PLAN.md -- Comprehensive tests: all 7 communication modes backend + frontend, session mode + feature flags, voice tab toggle
+- [x] 08-04-PLAN.md -- Container components + wiring: VoiceSession container, route registration, admin config Voice Live card, transcript flush, tests
 
 **UI hint**: yes

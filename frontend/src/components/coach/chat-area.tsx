@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import { AlertCircle, Send, Mic } from "lucide-react";
+import { AlertCircle, Send, Mic, Volume2, VolumeX } from "lucide-react";
 import {
   ScrollArea,
   Button,
@@ -12,6 +12,9 @@ import {
 import { ChatMessage } from "./chat-message";
 import { TypingIndicator } from "./typing-indicator";
 import { SessionTimer } from "./session-timer";
+import { useSpeechInput, useTextToSpeech } from "@/hooks/use-speech";
+import { useConfig } from "@/contexts/config-context";
+import { cn } from "@/lib/utils";
 import type { SessionMessage, SessionStatus } from "@/types/session";
 
 interface ChatAreaProps {
@@ -24,6 +27,7 @@ interface ChatAreaProps {
   sessionStatus: SessionStatus;
   startedAt?: string | null;
   hcpInitials?: string;
+  ttsEnabled?: boolean;
 }
 
 export function ChatArea({
@@ -42,8 +46,53 @@ export function ChatArea({
   const [inputText, setInputText] = useState("");
   const [avatarEnabled, setAvatarEnabled] = useState(true);
 
+  const config = useConfig();
+  const voiceEnabled = config.voice_enabled;
+
   const isActive =
     sessionStatus === "in_progress" || sessionStatus === "created";
+
+  // Speech input (STT): record mic -> transcribe -> send as message
+  const handleTranscribed = useCallback(
+    (text: string) => {
+      onSendMessage(text);
+    },
+    [onSendMessage],
+  );
+  const { startRecording, stopRecording, recordingState } = useSpeechInput(
+    handleTranscribed,
+  );
+
+  const handleMicClick = useCallback(() => {
+    if (recordingState === "recording") {
+      stopRecording();
+    } else if (recordingState === "idle") {
+      void startRecording();
+    }
+    // Do nothing if "processing"
+  }, [recordingState, startRecording, stopRecording]);
+
+  // TTS playback for AI responses
+  const { speak, stop: stopSpeech, isSpeaking } = useTextToSpeech();
+  const [ttsAutoPlay, setTtsAutoPlay] = useState(false);
+
+  // Auto-play TTS when SSE streaming completes and ttsAutoPlay is on
+  const prevStreamingRef = useRef(false);
+  useEffect(() => {
+    if (
+      prevStreamingRef.current &&
+      !isStreaming &&
+      ttsAutoPlay &&
+      voiceEnabled
+    ) {
+      // Find the last assistant message
+      const lastMsg = [...messages].reverse().find((m) => m.role === "assistant");
+      if (lastMsg) {
+        void speak(lastMsg.content);
+      }
+    }
+    prevStreamingRef.current = isStreaming;
+  }, [isStreaming, messages, ttsAutoPlay, voiceEnabled, speak]);
 
   // Auto-scroll to bottom on new messages or streaming
   useEffect(() => {
@@ -64,7 +113,7 @@ export function ChatArea({
         handleSend();
       }
     },
-    [handleSend]
+    [handleSend],
   );
 
   return (
@@ -137,15 +186,58 @@ export function ChatArea({
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
             onKeyDown={handleKeyDown}
-            disabled={!isActive || isStreaming}
+            disabled={
+              !isActive || isStreaming || recordingState === "recording"
+            }
           />
-          <button
-            className="flex h-11 w-11 items-center justify-center rounded-full bg-slate-300 text-slate-500"
-            disabled
-            aria-label="Start recording"
-          >
-            <Mic className="h-5 w-5" />
-          </button>
+          {voiceEnabled && (
+            <button
+              className={cn(
+                "flex h-11 w-11 items-center justify-center rounded-full",
+                recordingState === "recording"
+                  ? "animate-pulse bg-red-500 text-white"
+                  : recordingState === "processing"
+                    ? "bg-amber-400 text-white"
+                    : "bg-slate-200 text-slate-600 hover:bg-slate-300",
+              )}
+              onClick={handleMicClick}
+              disabled={
+                !isActive || isStreaming || recordingState === "processing"
+              }
+              aria-label={
+                recordingState === "recording"
+                  ? t("session.stopRecording")
+                  : t("session.startRecording")
+              }
+            >
+              <Mic className="h-5 w-5" />
+            </button>
+          )}
+          {voiceEnabled && (
+            <button
+              className={cn(
+                "flex h-11 w-11 items-center justify-center rounded-full",
+                ttsAutoPlay
+                  ? "bg-blue-600 text-white"
+                  : "bg-slate-200 text-slate-600 hover:bg-slate-300",
+              )}
+              onClick={() => {
+                if (isSpeaking) stopSpeech();
+                setTtsAutoPlay((prev) => !prev);
+              }}
+              aria-label={
+                ttsAutoPlay
+                  ? t("session.ttsOff")
+                  : t("session.ttsOn")
+              }
+            >
+              {ttsAutoPlay ? (
+                <Volume2 className="h-5 w-5" />
+              ) : (
+                <VolumeX className="h-5 w-5" />
+              )}
+            </button>
+          )}
           <button
             className="flex h-11 w-11 items-center justify-center rounded-full bg-blue-600 text-white disabled:opacity-50"
             onClick={handleSend}
