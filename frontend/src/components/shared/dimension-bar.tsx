@@ -21,7 +21,7 @@ export function DimensionBar({
     <div className="space-y-1.5">
       <div className="flex items-center justify-between">
         <span className="text-sm font-medium text-foreground">{label}</span>
-        <span className="text-sm font-medium text-foreground">
+        <span className="text-sm text-muted-foreground">
           {percentage}%
         </span>
       </div>

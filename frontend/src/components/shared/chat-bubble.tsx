@@ -31,7 +31,10 @@ export function ChatBubble({
       <div className="max-w-[75%]">
         {speakerName && (
           <p
-            className="mb-1 text-xs font-medium"
+            className={cn(
+              "mb-1 text-xs font-medium",
+              !speakerColor && "text-primary",
+            )}
             style={speakerColor ? { color: speakerColor } : undefined}
           >
             {speakerName}

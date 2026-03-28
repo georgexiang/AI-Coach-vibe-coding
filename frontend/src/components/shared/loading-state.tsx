@@ -12,7 +12,7 @@ export function LoadingState({ variant = "spinner" }: LoadingStateProps) {
     return (
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} className="overflow-hidden rounded-xl border">
+          <div key={i} className="overflow-hidden rounded-lg border border-border bg-card">
             <Skeleton className="h-40 w-full" />
             <div className="space-y-3 p-4">
               <Skeleton className="h-5 w-3/4" />

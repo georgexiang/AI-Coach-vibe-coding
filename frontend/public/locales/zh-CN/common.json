@@ -5,7 +5,10 @@
   },
   "error": {
     "title": "出现错误",
-    "body": "发生意外错误。请刷新页面或稍后重试。"
+    "body": "发生意外错误。请刷新页面或稍后重试。",
+    "notFound": "页面未找到",
+    "notFoundBody": "您访问的页面不存在或已被移动。",
+    "returnDashboard": "返回仪表盘"
   },
   "loading": "加载中...",
   "lang": { "zhCN": "中文", "enUS": "English" },
