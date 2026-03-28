@@ -1,4 +1,7 @@
-"""Azure service configuration API: CRUD backed by DB with dynamic adapter registration."""
+"""Azure service configuration API: CRUD backed by DB with dynamic adapter registration.
+
+Includes unified AI Foundry master config endpoints and per-service toggle management.
+"""
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -7,6 +10,7 @@ from app.config import get_settings
 from app.dependencies import get_db, require_role
 from app.models.user import User
 from app.schemas.azure_config import (
+    AIFoundryConfigUpdate,
     ConnectionTestResult,
     ServiceConfigResponse,
     ServiceConfigUpdate,
@@ -14,6 +18,7 @@ from app.schemas.azure_config import (
 from app.services import config_service
 from app.services.connection_tester import test_service_connection
 from app.services.region_capabilities import get_region_capabilities
+from app.utils.encryption import decrypt_value
 from app.utils.exceptions import AppException
 
 router = APIRouter(prefix="/azure-config", tags=["azure-config"])
@@ -38,56 +43,169 @@ async def register_adapter_from_config(
     api_key: str,
     deployment: str,
     region: str,
+    master_endpoint: str = "",
+    master_key: str = "",
+    master_region: str = "",
 ) -> None:
-    """Dynamically register an adapter in the ServiceRegistry based on saved config."""
+    """Dynamically register an adapter in the ServiceRegistry based on saved config.
+
+    When per-service endpoint/key are empty, falls back to master AI Foundry values.
+    """
     from app.services.agents.registry import registry
 
-    if service_name == "azure_openai" and api_key:
+    effective_key = api_key or master_key
+    effective_region = region or master_region
+
+    if service_name == "azure_openai" and effective_key:
         from app.services.agents.adapters.azure_openai import AzureOpenAIAdapter
 
-        adapter = AzureOpenAIAdapter(endpoint=endpoint, api_key=api_key, deployment=deployment)
+        effective_endpoint = endpoint or (
+            f"{master_endpoint.rstrip('/')}/" if master_endpoint else ""
+        )
+        adapter = AzureOpenAIAdapter(
+            endpoint=effective_endpoint, api_key=effective_key, deployment=deployment
+        )
         registry.register("llm", adapter)
         settings.default_llm_provider = "azure_openai"
 
-    elif service_name == "azure_speech_stt" and api_key:
+    elif service_name == "azure_speech_stt" and effective_key:
         from app.services.agents.stt.azure import AzureSTTAdapter
 
-        registry.register("stt", AzureSTTAdapter(api_key, region))
+        registry.register("stt", AzureSTTAdapter(effective_key, effective_region))
         settings.default_stt_provider = "azure"
 
-    elif service_name == "azure_speech_tts" and api_key:
+    elif service_name == "azure_speech_tts" and effective_key:
         from app.services.agents.tts.azure import AzureTTSAdapter
 
-        registry.register("tts", AzureTTSAdapter(api_key, region))
+        registry.register("tts", AzureTTSAdapter(effective_key, effective_region))
         settings.default_tts_provider = "azure"
 
-    elif service_name == "azure_avatar" and api_key:
+    elif service_name == "azure_avatar" and effective_key:
         from app.services.agents.avatar.azure import AzureAvatarAdapter
 
-        registry.register("avatar", AzureAvatarAdapter(endpoint, api_key, region=region))
+        effective_endpoint = endpoint or master_endpoint
+        registry.register(
+            "avatar",
+            AzureAvatarAdapter(effective_endpoint, effective_key, region=effective_region),
+        )
 
-    elif service_name == "azure_openai_realtime" and api_key:
+    elif service_name == "azure_openai_realtime" and effective_key:
         from app.services.agents.adapters.azure_realtime import AzureRealtimeAdapter
 
-        adapter = AzureRealtimeAdapter(endpoint=endpoint, api_key=api_key, deployment=deployment)
+        effective_endpoint = endpoint or master_endpoint
+        adapter = AzureRealtimeAdapter(
+            endpoint=effective_endpoint, api_key=effective_key, deployment=deployment
+        )
         registry.register("realtime", adapter)
 
-    elif service_name == "azure_content" and api_key:
+    elif service_name == "azure_content" and effective_key:
         from app.services.agents.adapters.azure_content import AzureContentUnderstandingAdapter
 
-        adapter = AzureContentUnderstandingAdapter(endpoint=endpoint, api_key=api_key)
+        effective_endpoint = endpoint or master_endpoint
+        adapter = AzureContentUnderstandingAdapter(
+            endpoint=effective_endpoint, api_key=effective_key
+        )
         registry.register("content_understanding", adapter)
 
-    elif service_name == "azure_voice_live" and api_key:
+    elif service_name == "azure_voice_live" and effective_key:
         from app.services.agents.adapters.azure_voice_live import AzureVoiceLiveAdapter
 
+        effective_endpoint = endpoint or master_endpoint
         adapter = AzureVoiceLiveAdapter(
-            endpoint=endpoint,
-            api_key=api_key,
+            endpoint=effective_endpoint,
+            api_key=effective_key,
             model_or_deployment=deployment,
-            region=region,
+            region=effective_region,
         )
         registry.register("voice_live", adapter)
+
+
+# --- AI Foundry master config endpoints ---
+
+
+@router.get("/ai-foundry", response_model=ServiceConfigResponse)
+async def get_ai_foundry_config(
+    db: AsyncSession = Depends(get_db),
+    _admin: User = Depends(require_role("admin")),
+) -> ServiceConfigResponse:
+    """Return the master AI Foundry configuration."""
+    master = await config_service.get_master_config(db)
+    if not master:
+        return ServiceConfigResponse(
+            service_name="ai_foundry",
+            display_name="Azure AI Foundry",
+            endpoint="",
+            masked_key="",
+            model_or_deployment="",
+            region="",
+            is_master=True,
+            is_active=False,
+            updated_at=None,
+        )
+    decrypted_key = decrypt_value(master.api_key_encrypted)
+    masked_key = ("****" + decrypted_key[-4:]) if decrypted_key else ""
+    return ServiceConfigResponse(
+        service_name=master.service_name,
+        display_name=master.display_name,
+        endpoint=master.endpoint,
+        masked_key=masked_key,
+        model_or_deployment=master.model_or_deployment,
+        region=master.region,
+        is_master=True,
+        is_active=master.is_active,
+        updated_at=master.updated_at,
+    )
+
+
+@router.put("/ai-foundry", response_model=ServiceConfigResponse, status_code=200)
+async def update_ai_foundry_config(
+    update: AIFoundryConfigUpdate,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_role("admin")),
+) -> ServiceConfigResponse:
+    """Create or update the master AI Foundry configuration.
+
+    After saving, re-registers all active per-service adapters with the new
+    master endpoint/key for unified config propagation.
+    """
+    master = await config_service.upsert_master_config(db, update, admin.id)
+
+    # Re-register all active per-service adapters with updated master config
+    master_key = decrypt_value(master.api_key_encrypted)
+    all_configs = await config_service.get_all_configs(db)
+    for cfg in all_configs:
+        if cfg.service_name in SERVICE_DISPLAY_NAMES and cfg.is_active:
+            per_key = ""
+            per_config = await config_service.get_config(db, cfg.service_name)
+            if per_config:
+                per_key = decrypt_value(per_config.api_key_encrypted)
+            await register_adapter_from_config(
+                cfg.service_name,
+                cfg.endpoint,
+                per_key,
+                cfg.model_or_deployment,
+                cfg.region,
+                master_endpoint=master.endpoint,
+                master_key=master_key,
+                master_region=master.region,
+            )
+
+    decrypted_key = decrypt_value(master.api_key_encrypted)
+    masked_key = ("****" + decrypted_key[-4:]) if decrypted_key else ""
+    return ServiceConfigResponse(
+        service_name=master.service_name,
+        display_name=master.display_name,
+        endpoint=master.endpoint,
+        masked_key=masked_key,
+        model_or_deployment=master.model_or_deployment,
+        region=master.region,
+        is_master=True,
+        is_active=master.is_active,
+        updated_at=master.updated_at,
+    )
+
+
+# --- Per-service config endpoints ---
 
 
 @router.get("/region-capabilities/{region}")
@@ -127,11 +245,24 @@ async def update_service(
         db, service_name, SERVICE_DISPLAY_NAMES[service_name], update, admin.id
     )
 
-    # Determine the API key for adapter registration
-    api_key = update.api_key or await config_service.get_decrypted_key(db, service_name)
+    # Determine the effective API key (per-service or master fallback)
+    api_key = update.api_key or await config_service.get_effective_key(db, service_name)
+
+    # Get master config for fallback endpoint/region
+    master = await config_service.get_master_config(db)
+    master_endpoint = master.endpoint if master else ""
+    master_key = decrypt_value(master.api_key_encrypted) if master else ""
+    master_region = master.region if master else ""
 
     await register_adapter_from_config(
-        service_name, config.endpoint, api_key, config.model_or_deployment, config.region
+        service_name,
+        config.endpoint,
+        api_key,
+        config.model_or_deployment,
+        config.region,
+        master_endpoint=master_endpoint,
+        master_key=master_key,
+        master_region=master_region,
     )
 
     # Return the saved config with masked key
@@ -159,7 +290,10 @@ async def test_service(
     db: AsyncSession = Depends(get_db),
     _admin: User = Depends(require_role("admin")),
 ) -> ConnectionTestResult:
-    """Test connection to a specific Azure service using saved credentials."""
+    """Test connection to a specific Azure service using saved credentials.
+
+    Falls back to master AI Foundry config when per-service credentials are empty.
+    """
     config = await config_service.get_config(db, service_name)
 
     if config is None:
@@ -171,8 +305,21 @@ async def test_service(
 
     api_key = await config_service.get_decrypted_key(db, service_name)
 
+    # Get master config for fallback
+    master = await config_service.get_master_config(db)
+    master_endpoint = master.endpoint if master else ""
+    master_key = decrypt_value(master.api_key_encrypted) if master else ""
+    master_region = master.region if master else ""
+
     success, message = await test_service_connection(
-        service_name, config.endpoint, api_key, config.model_or_deployment, config.region
+        service_name,
+        config.endpoint,
+        api_key,
+        config.model_or_deployment,
+        config.region,
+        master_endpoint=master_endpoint,
+        master_key=master_key,
+        master_region=master_region,
     )
 
     return ConnectionTestResult(

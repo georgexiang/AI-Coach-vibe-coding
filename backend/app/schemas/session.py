@@ -10,7 +10,15 @@ class SessionCreate(BaseModel):
     """Create a new coaching session."""
 
     scenario_id: str
-    mode: Literal["text", "voice", "avatar"] = "text"
+    mode: Literal[
+        "text",
+        "voice_pipeline",
+        "digital_human_pipeline",
+        "voice_realtime_model",
+        "digital_human_realtime_model",
+        "voice_realtime_agent",
+        "digital_human_realtime_agent",
+    ] = "text"
 
 
 class SendMessageRequest(BaseModel):

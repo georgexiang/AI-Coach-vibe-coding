@@ -186,19 +186,36 @@ async def test_service_connection(
     api_key: str,
     deployment: str,
     region: str,
+    master_endpoint: str = "",
+    master_key: str = "",
+    master_region: str = "",
 ) -> tuple[bool, str]:
-    """Route connection test to the correct service-specific tester."""
+    """Route connection test to the correct service-specific tester.
+
+    When a per-service config has empty endpoint/key, falls back to master
+    AI Foundry values and derives service-specific URLs.
+    """
+    # Apply master fallbacks
+    effective_key = api_key or master_key
+    effective_region = region or master_region
+
     if service_name == "azure_openai":
-        return await test_azure_openai(endpoint, api_key, deployment)
+        effective_endpoint = endpoint or (
+            f"{master_endpoint.rstrip('/')}/" if master_endpoint else ""
+        )
+        return await test_azure_openai(effective_endpoint, effective_key, deployment)
     elif service_name in ("azure_speech_stt", "azure_speech_tts"):
-        return await test_azure_speech(key=api_key, region=region)
+        return await test_azure_speech(key=effective_key, region=effective_region)
     elif service_name == "azure_avatar":
-        return await test_azure_avatar(api_key=api_key, region=region)
+        return await test_azure_avatar(api_key=effective_key, region=effective_region)
     elif service_name == "azure_voice_live":
-        return await test_azure_voice_live(endpoint, api_key, region)
+        effective_endpoint = endpoint or master_endpoint
+        return await test_azure_voice_live(effective_endpoint, effective_key, effective_region)
     elif service_name == "azure_content":
-        return await test_azure_content_understanding(endpoint, api_key)
+        effective_endpoint = endpoint or master_endpoint
+        return await test_azure_content_understanding(effective_endpoint, effective_key)
     elif service_name == "azure_openai_realtime":
-        return await test_azure_realtime(endpoint, api_key, deployment)
+        effective_endpoint = endpoint or master_endpoint
+        return await test_azure_realtime(effective_endpoint, effective_key, deployment)
     else:
         return (False, f"Unknown service: {service_name}")

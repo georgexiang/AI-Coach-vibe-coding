@@ -105,7 +105,7 @@ class TestCreateSessionModeEndpoint:
     """Tests for POST /api/v1/sessions with mode parameter (Plan 08-06)."""
 
     async def test_create_session_with_voice_mode(self, client):
-        """POST /sessions with mode=voice stores mode on session response."""
+        """POST /sessions with mode=voice_pipeline stores mode on session response."""
         admin_id, admin_token = await _create_admin_and_token()
         scenario_id = await _create_active_scenario(client, admin_id, admin_token)
         _, user_token = await _create_user_and_token("voice_mode_user")
@@ -115,15 +115,15 @@ class TestCreateSessionModeEndpoint:
             mock_settings.default_llm_provider = "mock"
             response = await client.post(
                 "/api/v1/sessions",
-                json={"scenario_id": scenario_id, "mode": "voice"},
+                json={"scenario_id": scenario_id, "mode": "voice_pipeline"},
                 headers={"Authorization": f"Bearer {user_token}"},
             )
         assert response.status_code == 201
         data = response.json()
-        assert data["mode"] == "voice"
+        assert data["mode"] == "voice_pipeline"
 
     async def test_create_session_with_avatar_mode(self, client):
-        """POST /sessions with mode=avatar stores mode on session response."""
+        """POST /sessions with mode=digital_human_pipeline stores mode on session response."""
         admin_id, admin_token = await _create_admin_and_token()
         scenario_id = await _create_active_scenario(client, admin_id, admin_token)
         _, user_token = await _create_user_and_token("avatar_mode_user")
@@ -133,12 +133,12 @@ class TestCreateSessionModeEndpoint:
             mock_settings.default_llm_provider = "mock"
             response = await client.post(
                 "/api/v1/sessions",
-                json={"scenario_id": scenario_id, "mode": "avatar"},
+                json={"scenario_id": scenario_id, "mode": "digital_human_pipeline"},
                 headers={"Authorization": f"Bearer {user_token}"},
             )
         assert response.status_code == 201
         data = response.json()
-        assert data["mode"] == "avatar"
+        assert data["mode"] == "digital_human_pipeline"
 
     async def test_create_session_default_mode_is_text(self, client):
         """POST /sessions without mode field defaults to text."""
@@ -169,7 +169,7 @@ class TestCreateSessionModeEndpoint:
         assert response.status_code == 422
 
     async def test_create_session_voice_mode_rejected_when_disabled(self, client):
-        """POST /sessions with mode=voice returns 409 when voice_live_enabled is false."""
+        """POST /sessions with mode=voice_pipeline returns 409 when voice_live_enabled is false."""
         admin_id, admin_token = await _create_admin_and_token()
         scenario_id = await _create_active_scenario(client, admin_id, admin_token)
         _, user_token = await _create_user_and_token("voice_disabled_user")
@@ -178,7 +178,7 @@ class TestCreateSessionModeEndpoint:
             mock_settings.feature_voice_live_enabled = False
             response = await client.post(
                 "/api/v1/sessions",
-                json={"scenario_id": scenario_id, "mode": "voice"},
+                json={"scenario_id": scenario_id, "mode": "voice_pipeline"},
                 headers={"Authorization": f"Bearer {user_token}"},
             )
         assert response.status_code == 409
@@ -186,7 +186,7 @@ class TestCreateSessionModeEndpoint:
         assert data["code"] == "VOICE_MODE_DISABLED"
 
     async def test_create_session_avatar_mode_rejected_when_disabled(self, client):
-        """POST /sessions with mode=avatar returns 409 when voice_live_enabled is false."""
+        """POST /sessions with mode=digital_human_pipeline returns 409 when disabled."""
         admin_id, admin_token = await _create_admin_and_token()
         scenario_id = await _create_active_scenario(client, admin_id, admin_token)
         _, user_token = await _create_user_and_token("avatar_disabled_user")
@@ -195,7 +195,7 @@ class TestCreateSessionModeEndpoint:
             mock_settings.feature_voice_live_enabled = False
             response = await client.post(
                 "/api/v1/sessions",
-                json={"scenario_id": scenario_id, "mode": "avatar"},
+                json={"scenario_id": scenario_id, "mode": "digital_human_pipeline"},
                 headers={"Authorization": f"Bearer {user_token}"},
             )
         assert response.status_code == 409

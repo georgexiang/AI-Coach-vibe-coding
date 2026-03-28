@@ -203,7 +203,7 @@ Phases execute in numeric order: 01 -> 01.1 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07 
 | 06. Conference Presentation Module | 6/6 | Complete | 2026-03-25 |
 | 07. Azure Service Integration | 4/4 | Complete    | 2026-03-27 |
 | 08. Voice & Avatar Demo Integration | 5/4 | Complete   | 2026-03-28 |
-| 09. Integration Testing with Real Azure Services | 0/5 | Planning | - |
+| 09. Integration Testing with Real Azure Services | 1/5 | In Progress|  |
 
 ### Phase 07: Azure Service Integration
 
@@ -262,7 +262,7 @@ Plans:
 **Plans**: 5 plans
 
 Plans:
-- [ ] 09-01-PLAN.md -- Backend unified AI Foundry config, 7-mode session schema, agent mode token broker
+- [x] 09-01-PLAN.md -- Backend unified AI Foundry config, 7-mode session schema, agent mode token broker
 - [ ] 09-02-PLAN.md -- Frontend types, AI Foundry admin page redesign, two-level mode selector types
 - [ ] 09-03-PLAN.md -- Two-level mode selector component, agent mode WebSocket wiring in use-voice-live
 - [ ] 09-04-PLAN.md -- Backend pytest integration tests (Azure OpenAI, Speech, Voice Live, Avatar)
