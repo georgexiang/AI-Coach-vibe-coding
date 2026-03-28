@@ -26,18 +26,47 @@ beforeEach(() => vi.clearAllMocks());
 
 describe("Sessions API client", () => {
   describe("createSession", () => {
-    it("calls POST /sessions with scenario_id", async () => {
+    it("calls POST /sessions with scenario_id and defaults mode to text", async () => {
       mockClient.post.mockResolvedValue({
-        data: { id: "sess-new", status: "created", scenario_id: "sc-1" },
+        data: { id: "sess-new", status: "created", scenario_id: "sc-1", mode: "text" },
       });
 
       const result = await createSession("sc-1");
 
       expect(mockClient.post).toHaveBeenCalledWith("/sessions", {
         scenario_id: "sc-1",
+        mode: "text",
       });
       expect(result.id).toBe("sess-new");
       expect(result.status).toBe("created");
+    });
+
+    it("sends mode=voice in request body when provided", async () => {
+      mockClient.post.mockResolvedValue({
+        data: { id: "sess-voice", status: "created", scenario_id: "sc-1", mode: "voice" },
+      });
+
+      const result = await createSession("sc-1", "voice");
+
+      expect(mockClient.post).toHaveBeenCalledWith("/sessions", {
+        scenario_id: "sc-1",
+        mode: "voice",
+      });
+      expect(result.mode).toBe("voice");
+    });
+
+    it("sends mode=avatar in request body when provided", async () => {
+      mockClient.post.mockResolvedValue({
+        data: { id: "sess-avatar", status: "created", scenario_id: "sc-1", mode: "avatar" },
+      });
+
+      const result = await createSession("sc-1", "avatar");
+
+      expect(mockClient.post).toHaveBeenCalledWith("/sessions", {
+        scenario_id: "sc-1",
+        mode: "avatar",
+      });
+      expect(result.mode).toBe("avatar");
     });
 
     it("propagates creation errors", async () => {

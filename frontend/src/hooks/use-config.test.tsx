@@ -32,6 +32,7 @@ const mockConfig: AppConfig = {
     voice_enabled: true,
     realtime_voice_enabled: false,
     conference_enabled: false,
+    voice_live_enabled: false,
     default_voice_mode: "text_only",
     region: "china",
   },

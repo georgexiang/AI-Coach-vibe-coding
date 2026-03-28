@@ -8,6 +8,16 @@ const mockMutateAsync = vi.fn();
 let scenarioData: unknown[] | undefined;
 let isLoading = false;
 
+const mockFlags = {
+  avatar_enabled: false,
+  voice_enabled: false,
+  realtime_voice_enabled: false,
+  conference_enabled: false,
+  voice_live_enabled: false,
+  default_voice_mode: "text_only",
+  region: "global",
+};
+
 vi.mock("react-router-dom", async () => {
   const actual =
     await vi.importActual<typeof import("react-router-dom")>(
@@ -38,6 +48,10 @@ vi.mock("@/hooks/use-session", () => ({
     mutateAsync: mockMutateAsync,
     isPending: false,
   }),
+}));
+
+vi.mock("@/contexts/config-context", () => ({
+  useConfig: () => mockFlags,
 }));
 
 vi.mock("@/components/shared", () => ({
@@ -87,6 +101,9 @@ beforeEach(async () => {
   vi.clearAllMocks();
   scenarioData = [];
   isLoading = false;
+  // Reset flags to defaults
+  mockFlags.voice_live_enabled = false;
+  mockFlags.avatar_enabled = false;
   const mod = await import("./training");
   ScenarioSelection = mod.default;
 });
@@ -154,6 +171,45 @@ describe("ScenarioSelection (Training) Page", () => {
     renderPage();
     expect(
       screen.getByPlaceholderText("scenarioSelection.searchPlaceholder"),
+    ).toBeInTheDocument();
+  });
+});
+
+describe("ScenarioSelection Voice Tab", () => {
+  it("does not render Voice tab when voice_live_enabled is false", () => {
+    mockFlags.voice_live_enabled = false;
+    renderPage();
+    expect(
+      screen.queryByText("scenarioSelection.tabVoice"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("renders Voice tab when voice_live_enabled is true", () => {
+    mockFlags.voice_live_enabled = true;
+    renderPage();
+    expect(
+      screen.getByText("scenarioSelection.tabVoice"),
+    ).toBeInTheDocument();
+  });
+
+  it("renders F2F and Conference tabs regardless of voice flag", () => {
+    mockFlags.voice_live_enabled = false;
+    renderPage();
+    expect(screen.getByText("scenarioSelection.tabF2F")).toBeInTheDocument();
+    expect(
+      screen.getByText("scenarioSelection.tabConference"),
+    ).toBeInTheDocument();
+  });
+
+  it("renders all three tabs when voice_live_enabled is true", () => {
+    mockFlags.voice_live_enabled = true;
+    renderPage();
+    expect(screen.getByText("scenarioSelection.tabF2F")).toBeInTheDocument();
+    expect(
+      screen.getByText("scenarioSelection.tabConference"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("scenarioSelection.tabVoice"),
     ).toBeInTheDocument();
   });
 });

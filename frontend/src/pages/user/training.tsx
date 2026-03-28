@@ -19,6 +19,7 @@ import { EmptyState } from "@/components/shared";
 import { ScenarioCard } from "@/components/coach";
 import { useActiveScenarios } from "@/hooks/use-scenarios";
 import { useCreateSession } from "@/hooks/use-session";
+import { useConfig } from "@/contexts/config-context";
 
 const ALL_VALUE = "__all__";
 
@@ -33,6 +34,7 @@ export default function ScenarioSelection() {
 
   const { data, isLoading } = useActiveScenarios();
   const createSession = useCreateSession();
+  const config = useConfig();
 
   const scenarios = data ?? [];
 
@@ -62,8 +64,27 @@ export default function ScenarioSelection() {
 
   const handleStartTraining = async (scenarioId: string) => {
     try {
-      const session = await createSession.mutateAsync(scenarioId);
+      const session = await createSession.mutateAsync({ scenarioId });
       navigate(`/user/training/session?id=${session.id}`);
+    } catch {
+      // Error handled by TanStack Query
+    }
+  };
+
+  const handleStartConference = async (scenarioId: string) => {
+    try {
+      const session = await createSession.mutateAsync({ scenarioId });
+      navigate(`/user/training/conference?id=${session.id}`);
+    } catch {
+      // Error handled by TanStack Query
+    }
+  };
+
+  const handleStartVoiceSession = async (scenarioId: string) => {
+    try {
+      const mode = config.avatar_enabled ? "avatar" : "voice";
+      const session = await createSession.mutateAsync({ scenarioId, mode });
+      navigate(`/user/training/voice?id=${session.id}&mode=${mode}`);
     } catch {
       // Error handled by TanStack Query
     }
@@ -116,7 +137,7 @@ export default function ScenarioSelection() {
     </div>
   );
 
-  const renderGrid = () => {
+  const renderGrid = (onStart: (scenarioId: string) => void) => {
     if (isLoading) {
       return (
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -149,7 +170,7 @@ export default function ScenarioSelection() {
           <ScenarioCard
             key={scenario.id}
             scenario={scenario}
-            onStart={handleStartTraining}
+            onStart={onStart}
           />
         ))}
       </div>
@@ -170,17 +191,29 @@ export default function ScenarioSelection() {
           <TabsTrigger value="conference">
             {t("scenarioSelection.tabConference")}
           </TabsTrigger>
+          {config.voice_live_enabled && (
+            <TabsTrigger value="voice">
+              {t("scenarioSelection.tabVoice")}
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="f2f" className="mt-6">
           {filterRow}
-          {renderGrid()}
+          {renderGrid(handleStartTraining)}
         </TabsContent>
 
         <TabsContent value="conference" className="mt-6">
           {filterRow}
-          {renderGrid()}
+          {renderGrid(handleStartConference)}
         </TabsContent>
+
+        {config.voice_live_enabled && (
+          <TabsContent value="voice" className="mt-6">
+            {filterRow}
+            {renderGrid(handleStartVoiceSession)}
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );

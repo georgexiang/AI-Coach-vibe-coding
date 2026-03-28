@@ -3,6 +3,7 @@ export interface FeatureFlags {
   voice_enabled: boolean;
   realtime_voice_enabled: boolean;
   conference_enabled: boolean;
+  voice_live_enabled: boolean;
   default_voice_mode: string;
   region: string;
 }
