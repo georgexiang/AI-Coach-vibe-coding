@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: Phase complete — ready for verification
-stopped_at: Completed 09-05-PLAN.md
-last_updated: "2026-03-28T14:10:17.161Z"
+status: Ready to execute
+stopped_at: Completed 09-01-PLAN.md
+last_updated: "2026-03-28T13:44:58.120Z"
 last_activity: 2026-03-28
 progress:
-  total_phases: 9
+  total_phases: 10
   completed_phases: 9
-  total_plans: 48
-  completed_plans: 48
+  total_plans: 53
+  completed_plans: 49
 ---
 
 # Project State
@@ -20,12 +20,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-24)
 
 **Core value:** MRs can practice realistic conversations with AI-powered digital HCPs and receive immediate, multi-dimensional feedback to improve their communication skills -- anytime, without needing a real HCP or trainer.
-**Current focus:** Phase 08 — voice-avatar-demo-integration
+**Current focus:** Phase 09 — integration-testing-with-real-azure-services
 
 ## Current Position
 
-Phase: 08 (voice-avatar-demo-integration) — EXECUTING
-Plan: 4 of 4
+Phase: 09 (integration-testing-with-real-azure-services) — EXECUTING
+Plan: 2 of 5
 
 ## Performance Metrics
 
@@ -90,7 +90,7 @@ Plan: 4 of 4
 | Phase 08 P03 | 10min | 3 tasks | 15 files |
 | Phase 08 P04 | 17min | 2 tasks | 9 files |
 | Phase 08 P06 | 12min | 2 tasks | 21 files |
-| Phase 09 P05 | 3min | 2 tasks | 2 files |
+| Phase 09 P01 | 16min | 2 tasks | 14 files |
 
 ## Accumulated Context
 
@@ -190,7 +190,9 @@ Recent decisions affecting current work:
 - [Phase 08]: Voice session page follows conference-session full-screen pattern (no UserLayout)
 - [Phase 08]: Applied Plan 04 prerequisite code changes as Rule 3 deviation in test worktree
 - [Phase 08]: Mutable mockFlags pattern for per-test feature toggle control in vitest
-- [Phase 09]: Demo E2E test uses API-based session creation for reliable setup; smoke test checklist covers 84 items across 8 sections for comprehensive pre-demo validation
+- [Phase 09]: Unified AI Foundry config: single master row (is_master=True) with shared endpoint/region/key; per-service rows inherit via get_effective_key/get_effective_endpoint
+- [Phase 09]: Session mode expanded from 3 to 7 Literal values matching D-06 interaction modes; model column widened from String(20) to String(40)
+- [Phase 09]: Agent mode token broker returns agent_id/project_name via parse_voice_live_mode; non-text modes gated by feature_voice_live_enabled
 
 ### Pending Todos
 
@@ -210,6 +212,6 @@ None yet.
 ## Session Continuity
 
 Last activity: 2026-03-28
-Last session: 2026-03-28T14:10:17.158Z
-Stopped at: Completed 09-05-PLAN.md
+Last session: 2026-03-28T13:44:58.117Z
+Stopped at: Completed 09-01-PLAN.md
 Resume file: None
