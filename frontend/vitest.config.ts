@@ -8,12 +8,19 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      "rt-client": path.resolve(__dirname, "./src/test/__mocks__/rt-client.ts"),
     },
   },
   test: {
     globals: true,
     environment: "jsdom",
     setupFiles: ["./src/test/setup.ts"],
+    server: {
+      deps: {
+        // Allow mocking rt-client which may not be installed locally
+        inline: ["rt-client"],
+      },
+    },
     include: ["src/**/*.{test,spec}.{ts,tsx}"],
     coverage: {
       provider: "v8",

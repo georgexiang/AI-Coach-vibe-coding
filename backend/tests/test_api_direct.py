@@ -272,8 +272,15 @@ class TestSessionsDirect:
         from app.services.agents.registry import registry
         from app.services.session_service import create_session, save_message
 
-        # Register the mock LLM adapter (normally done in app lifespan)
-        registry.register("llm", MockCoachingAdapter())
+        # Register the mock LLM adapter under default provider name
+        adapter = MockCoachingAdapter()
+        registry.register("llm", adapter)
+        # Also register under the env default_llm_provider name
+        import app.api.sessions as _sm
+
+        _default = _sm.settings.default_llm_provider
+        if _default != adapter.name:
+            registry._categories.setdefault("llm", {})[_default] = adapter
 
         user, scenario = await self._seed_scenario(db_session)
         session = await create_session(db_session, scenario.id, user.id)
@@ -325,7 +332,13 @@ class TestSessionsDirect:
         from app.services.agents.registry import registry
         from app.services.session_service import create_session, save_message
 
-        registry.register("llm", MockCoachingAdapter())
+        adapter = MockCoachingAdapter()
+        registry.register("llm", adapter)
+        import app.api.sessions as _sm
+
+        _default = _sm.settings.default_llm_provider
+        if _default != adapter.name:
+            registry._categories.setdefault("llm", {})[_default] = adapter
 
         user, scenario = await self._seed_scenario(db_session)
         session = await create_session(db_session, scenario.id, user.id)

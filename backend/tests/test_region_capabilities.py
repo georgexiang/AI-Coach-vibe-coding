@@ -74,6 +74,28 @@ class TestGetRegionCapabilities:
             assert name in services, f"Missing service: {name}"
 
 
+    def test_voice_live_not_available_note(self):
+        """Unsupported region gets 'Not available' note for voice live."""
+        result = get_region_capabilities("antarcticanorth")
+        assert "Not available" in result["services"]["azure_voice_live"]["note"]
+
+    def test_avatar_not_available_shows_regions(self):
+        """Unsupported avatar region shows available regions hint."""
+        result = get_region_capabilities("westus")
+        note = result["services"]["azure_avatar"]["note"]
+        assert "Available in" in note
+
+    def test_preserves_original_region_string(self):
+        """Result includes original region string, not lowered."""
+        result = get_region_capabilities("SwedenCentral")
+        assert result["region"] == "SwedenCentral"
+
+    def test_whitespace_trimmed(self):
+        """Leading/trailing whitespace is trimmed."""
+        result = get_region_capabilities("  eastus2  ")
+        assert result["services"]["azure_avatar"]["available"] is True
+
+
 class TestRegionConstants:
     """Tests for region constant sets."""
 
@@ -89,3 +111,12 @@ class TestRegionConstants:
         """LAST_VERIFIED is a non-empty string."""
         assert isinstance(LAST_VERIFIED, str)
         assert len(LAST_VERIFIED) > 0
+
+    def test_swedencentral_in_all_region_sets(self):
+        """swedencentral supports all region-restricted services."""
+        assert "swedencentral" in AVATAR_REGIONS
+        assert "swedencentral" in VOICE_LIVE_REGIONS
+
+    def test_all_service_names_count(self):
+        """ALL_SERVICE_NAMES has 7 entries."""
+        assert len(ALL_SERVICE_NAMES) == 7

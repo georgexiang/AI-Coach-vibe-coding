@@ -1,5 +1,7 @@
 """Configuration API endpoint tests."""
 
+from unittest.mock import MagicMock, patch
+
 from app.models.user import User
 from app.services.auth import get_password_hash
 from tests.conftest import TestSessionLocal
@@ -30,10 +32,22 @@ class TestGetFeatures:
 
     async def test_get_features_with_auth_returns_200(self, client):
         token = await _create_and_login(client)
-        response = await client.get(
-            "/api/v1/config/features",
-            headers={"Authorization": f"Bearer {token}"},
-        )
+
+        with patch("app.api.config.get_settings") as mock_get_settings:
+            mock_settings = MagicMock()
+            mock_settings.feature_avatar_enabled = False
+            mock_settings.feature_voice_enabled = False
+            mock_settings.feature_realtime_voice_enabled = False
+            mock_settings.feature_conference_enabled = False
+            mock_settings.feature_voice_live_enabled = False
+            mock_settings.default_voice_mode = "text_only"
+            mock_settings.region = "global"
+            mock_get_settings.return_value = mock_settings
+
+            response = await client.get(
+                "/api/v1/config/features",
+                headers={"Authorization": f"Bearer {token}"},
+            )
         assert response.status_code == 200
         data = response.json()
 
@@ -47,7 +61,7 @@ class TestGetFeatures:
         assert "default_voice_mode" in features
         assert "region" in features
 
-        # Verify defaults
+        # Verify mocked defaults
         assert features["avatar_enabled"] is False
         assert features["voice_enabled"] is False
         assert features["default_voice_mode"] == "text_only"

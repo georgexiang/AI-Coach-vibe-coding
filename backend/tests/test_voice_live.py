@@ -92,14 +92,17 @@ class TestRegionValidation:
     async def test_validate_region_supported_swedencentral(self):
         assert validate_region("swedencentral") is True
 
-    async def test_validate_region_unsupported_westus(self):
-        assert validate_region("westus") is False
+    async def test_validate_region_unsupported(self):
+        assert validate_region("japanwest") is False
 
     async def test_validate_region_case_insensitive(self):
         assert validate_region("EastUS2") is True
 
     async def test_supported_regions_contains_expected(self):
-        assert SUPPORTED_REGIONS == {"eastus2", "swedencentral"}
+        assert "eastus2" in SUPPORTED_REGIONS
+        assert "swedencentral" in SUPPORTED_REGIONS
+        assert "westus" in SUPPORTED_REGIONS
+        assert len(SUPPORTED_REGIONS) == 20
 
 
 # === Connection Tester Tests ===
@@ -112,11 +115,11 @@ class TestConnectionTester:
         success, message = await _test_azure_voice_live(
             endpoint="https://test.openai.azure.com",
             api_key="test-key",
-            region="westus",
+            region="japanwest",
         )
         assert success is False
         assert "Unsupported region" in message
-        assert "westus" in message
+        assert "japanwest" in message
 
     async def test_connection_tester_voice_live_bad_endpoint(self):
         success, message = await _test_azure_voice_live(
@@ -125,7 +128,7 @@ class TestConnectionTester:
             region="eastus2",
         )
         assert success is False
-        assert "Invalid endpoint" in message
+        assert "Endpoint must use HTTPS" in message
 
     async def test_connection_tester_voice_live_no_key(self):
         success, message = await _test_azure_voice_live(
