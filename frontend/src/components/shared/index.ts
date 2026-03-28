@@ -12,3 +12,4 @@ export { ChatBubble } from "./chat-bubble";
 export { ChatInput } from "./chat-input";
 export { DimensionBar } from "./dimension-bar";
 export { StatusBadge } from "./status-badge";
+export { SplashScreen } from "./splash-screen";

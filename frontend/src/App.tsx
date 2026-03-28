@@ -4,6 +4,8 @@ import { RouterProvider } from "react-router-dom";
 import { router } from "@/router";
 import { Toaster } from "@/components/ui/sonner";
 import { ConfigProvider } from "@/contexts/config-context";
+import { SplashScreen } from "@/components/shared/splash-screen";
+import { useThemeStore } from "@/stores/theme-store";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -11,7 +13,9 @@ const queryClient = new QueryClient({
   },
 });
 
-export default function App() {
+function AppContent() {
+  const { mode } = useThemeStore();
+
   return (
     <QueryClientProvider client={queryClient}>
       <ConfigProvider>
@@ -25,7 +29,26 @@ export default function App() {
           <RouterProvider router={router} />
         </Suspense>
       </ConfigProvider>
-      <Toaster position="top-right" />
+      <Toaster
+        position="top-right"
+        theme={mode === "dark" ? "dark" : "light"}
+        toastOptions={{
+          style: {
+            "--normal-bg": "var(--popover)",
+            "--normal-text": "var(--popover-foreground)",
+            "--normal-border": "var(--border)",
+          } as React.CSSProperties,
+        }}
+      />
     </QueryClientProvider>
+  );
+}
+
+export default function App() {
+  return (
+    <>
+      <SplashScreen />
+      <AppContent />
+    </>
   );
 }
