@@ -307,7 +307,7 @@ export default function ConferenceSession() {
       />
 
       {/* Main content: TopicGuide + ConferenceStage + TranscriptionPanel */}
-      <div className="flex min-h-0 flex-1">
+      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
         <TopicGuide
           topics={keyTopics}
           scenarioName={session?.presentationTopic ?? ""}

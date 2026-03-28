@@ -42,6 +42,9 @@ export default function TrainingSession() {
   const [rightCollapsed, setRightCollapsed] = useState(false);
   const [showEndDialog, setShowEndDialog] = useState(false);
 
+  // Mobile: collapse side panels by default
+  const [mobileHintsVisible, setMobileHintsVisible] = useState(false);
+
   // Sync API messages into local state
   useEffect(() => {
     if (apiMessages && apiMessages.length > 0) {
@@ -174,36 +177,86 @@ export default function TrainingSession() {
       .slice(0, 2) ?? "HC";
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-white">
-      {/* Left panel */}
-      <ScenarioPanel
-        scenario={currentScenario}
-        keyMessagesStatus={keyMessagesStatus}
-        isCollapsed={leftCollapsed}
-        onToggle={() => setLeftCollapsed((prev) => !prev)}
-      />
+    <div className="flex h-screen w-screen flex-col overflow-hidden bg-background lg:flex-row">
+      {/* Left panel — hidden on mobile by default, shown on desktop */}
+      <div className="hidden lg:block">
+        <ScenarioPanel
+          scenario={currentScenario}
+          keyMessagesStatus={keyMessagesStatus}
+          isCollapsed={leftCollapsed}
+          onToggle={() => setLeftCollapsed((prev) => !prev)}
+        />
+      </div>
+
+      {/* Mobile: compact HCP info bar */}
+      <div className="flex items-center gap-3 border-b border-border bg-card px-4 py-2 lg:hidden">
+        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">
+          {hcpInitials}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium text-foreground">
+            {currentScenario.hcp_profile?.name ?? currentScenario.name}
+          </p>
+          <p className="truncate text-xs text-muted-foreground">
+            {currentScenario.hcp_profile?.specialty ?? currentScenario.product}
+          </p>
+        </div>
+      </div>
 
       {/* Center panel */}
-      <ChatArea
-        sessionId={sessionId}
-        messages={messages}
-        onSendMessage={handleSendMessage}
-        isStreaming={isStreaming}
-        streamingText={streamedText}
-        onEndSession={handleEndSession}
-        sessionStatus={session?.status ?? "created"}
-        startedAt={session?.started_at}
-        hcpInitials={hcpInitials}
-      />
+      <div className="min-h-0 flex-1">
+        <ChatArea
+          sessionId={sessionId}
+          messages={messages}
+          onSendMessage={handleSendMessage}
+          isStreaming={isStreaming}
+          streamingText={streamedText}
+          onEndSession={handleEndSession}
+          sessionStatus={session?.status ?? "created"}
+          startedAt={session?.started_at}
+          hcpInitials={hcpInitials}
+        />
+      </div>
 
-      {/* Right panel */}
-      <HintsPanel
-        hints={hints}
-        keyMessagesStatus={keyMessagesStatus}
-        sessionStats={sessionStats}
-        isCollapsed={rightCollapsed}
-        onToggle={() => setRightCollapsed((prev) => !prev)}
-      />
+      {/* Right panel — hidden on mobile by default, shown on desktop */}
+      <div className="hidden lg:block">
+        <HintsPanel
+          hints={hints}
+          keyMessagesStatus={keyMessagesStatus}
+          sessionStats={sessionStats}
+          isCollapsed={rightCollapsed}
+          onToggle={() => setRightCollapsed((prev) => !prev)}
+        />
+      </div>
+
+      {/* Mobile: collapsible hints panel at bottom */}
+      <div className="border-t border-border bg-card lg:hidden">
+        <button
+          className="flex w-full items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+          onClick={() => setMobileHintsVisible((prev) => !prev)}
+        >
+          {mobileHintsVisible
+            ? t("session.hideHints", { defaultValue: "Hide Hints" })
+            : t("session.showHints", { defaultValue: "Show Hints" })}
+        </button>
+        {mobileHintsVisible && (
+          <div className="max-h-64 overflow-y-auto border-t border-border px-4 pb-4">
+            {hints.length > 0 ? (
+              <ul className="space-y-2 pt-2">
+                {hints.map((hint, idx) => (
+                  <li key={idx} className="text-sm text-muted-foreground">
+                    {hint.content}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="py-4 text-center text-sm text-muted-foreground">
+                {t("session.noHints", { defaultValue: "Hints will appear as you converse..." })}
+              </p>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* End session confirmation dialog */}
       <Dialog open={showEndDialog} onOpenChange={setShowEndDialog}>

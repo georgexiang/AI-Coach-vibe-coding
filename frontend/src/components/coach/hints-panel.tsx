@@ -44,7 +44,7 @@ export function HintsPanel({
 
   if (isCollapsed) {
     return (
-      <div className="flex w-12 flex-col items-center border-l border-slate-200 bg-slate-50 pt-4">
+      <div className="flex w-12 flex-col items-center border-l border-border bg-muted/50 pt-4">
         <Button
           variant="ghost"
           size="icon"
@@ -60,9 +60,9 @@ export function HintsPanel({
   }
 
   return (
-    <div className="flex w-[260px] flex-col border-l border-slate-200 bg-slate-50">
-      <div className="flex h-14 items-center justify-between border-b border-slate-200 px-4">
-        <h2 className="text-sm font-semibold">{t("session.coachingPanel")}</h2>
+    <div className="flex w-[260px] flex-col border-l border-border bg-muted/50">
+      <div className="flex h-14 items-center justify-between border-b border-border px-4">
+        <h2 className="text-sm font-medium text-foreground">{t("session.coachingPanel")}</h2>
         <Button
           variant="ghost"
           size="icon"
@@ -76,7 +76,7 @@ export function HintsPanel({
 
       <ScrollArea className="flex-1 overflow-y-auto p-4">
         {/* AI Coach Hints */}
-        <Card className="mb-4 border-yellow-200 bg-yellow-50">
+        <Card className="mb-4 border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-900/20">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">{t("session.aiCoachHints")}</CardTitle>
           </CardHeader>
@@ -86,14 +86,14 @@ export function HintsPanel({
                 {hints.map((hint, idx) => (
                   <li
                     key={idx}
-                    className="text-sm leading-relaxed text-slate-700"
+                    className="text-sm leading-relaxed text-foreground/80"
                   >
                     {hint.content}
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-muted-foreground">
                 Hints will appear as you converse...
               </p>
             )}
@@ -101,7 +101,7 @@ export function HintsPanel({
         </Card>
 
         {/* Message Tracker */}
-        <Card className="mb-4">
+        <Card className="mb-4 bg-card">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">{t("session.messageTracker")}</CardTitle>
           </CardHeader>
@@ -111,24 +111,24 @@ export function HintsPanel({
         </Card>
 
         {/* Session Stats */}
-        <Card className="mb-4">
+        <Card className="mb-4 bg-card">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">{t("session.sessionStats")}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             <div className="flex justify-between text-sm">
-              <span className="text-slate-600">{t("session.duration")}</span>
-              <span className="font-medium">
+              <span className="text-muted-foreground">{t("session.duration")}</span>
+              <span className="font-medium text-foreground">
                 {formatDuration(sessionStats.duration)}
               </span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-slate-600">{t("session.wordCount")}</span>
-              <span className="font-medium">{sessionStats.wordCount}</span>
+              <span className="text-muted-foreground">{t("session.wordCount")}</span>
+              <span className="font-medium text-foreground">{sessionStats.wordCount}</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-slate-600">Messages</span>
-              <span className="font-medium">{sessionStats.messageCount}</span>
+              <span className="text-muted-foreground">Messages</span>
+              <span className="font-medium text-foreground">{sessionStats.messageCount}</span>
             </div>
           </CardContent>
         </Card>

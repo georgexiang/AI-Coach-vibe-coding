@@ -39,7 +39,7 @@ export function ScenarioPanel({
 
   if (isCollapsed) {
     return (
-      <div className="flex w-12 flex-col items-center border-r border-slate-200 bg-slate-50 pt-4">
+      <div className="flex w-12 flex-col items-center border-r border-border bg-muted/50 pt-4">
         <Button
           variant="ghost"
           size="icon"
@@ -63,9 +63,9 @@ export function ScenarioPanel({
   ];
 
   return (
-    <div className="flex w-[280px] flex-col border-r border-slate-200 bg-slate-50">
-      <div className="flex h-14 items-center justify-between border-b border-slate-200 px-4">
-        <h2 className="text-sm font-semibold">{t("session.trainingPanel")}</h2>
+    <div className="flex w-[280px] flex-col border-r border-border bg-muted/50">
+      <div className="flex h-14 items-center justify-between border-b border-border px-4">
+        <h2 className="text-sm font-medium text-foreground">{t("session.trainingPanel")}</h2>
         <Button
           variant="ghost"
           size="icon"
@@ -79,21 +79,21 @@ export function ScenarioPanel({
 
       <ScrollArea className="flex-1 overflow-y-auto p-4">
         {/* Scenario Briefing */}
-        <Card className="mb-4">
+        <Card className="mb-4 bg-card">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">{t("session.scenarioBriefing")}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
             <div className="flex justify-between">
-              <span className="text-slate-600">Product</span>
-              <span className="font-medium">{scenario.product}</span>
+              <span className="text-muted-foreground">Product</span>
+              <span className="font-medium text-foreground">{scenario.product}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-slate-600">Area</span>
-              <span className="font-medium">{scenario.therapeutic_area}</span>
+              <span className="text-muted-foreground">Area</span>
+              <span className="font-medium text-foreground">{scenario.therapeutic_area}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-slate-600">Difficulty</span>
+              <span className="text-muted-foreground">Difficulty</span>
               <Badge variant="secondary" className="text-xs">
                 {scenario.difficulty}
               </Badge>
@@ -103,23 +103,23 @@ export function ScenarioPanel({
 
         {/* HCP Profile */}
         {scenario.hcp_profile && (
-          <Card className="mb-4">
+          <Card className="mb-4 bg-card">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm">{t("session.hcpProfile")}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex items-center gap-3">
                 <Avatar className="h-[60px] w-[60px]">
-                  <AvatarFallback className="bg-blue-100 text-blue-700">
+                  <AvatarFallback className="bg-primary/10 text-primary">
                     {hcpInitials}
                   </AvatarFallback>
                 </Avatar>
                 <div>
-                  <p className="font-semibold">{scenario.hcp_profile.name}</p>
-                  <p className="text-sm text-slate-600">
+                  <p className="font-medium text-foreground">{scenario.hcp_profile.name}</p>
+                  <p className="text-sm text-muted-foreground">
                     {scenario.hcp_profile.specialty}
                   </p>
-                  <p className="text-sm text-slate-600">
+                  <p className="text-sm text-muted-foreground">
                     {scenario.hcp_profile.personality_type}
                   </p>
                 </div>
@@ -129,7 +129,7 @@ export function ScenarioPanel({
         )}
 
         {/* Key Messages */}
-        <Card className="mb-4">
+        <Card className="mb-4 bg-card">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">{t("session.keyMessages")}</CardTitle>
           </CardHeader>
@@ -139,15 +139,15 @@ export function ScenarioPanel({
         </Card>
 
         {/* Scoring Criteria */}
-        <Card className="mb-4">
+        <Card className="mb-4 bg-card">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">{t("session.scoringCriteria")}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-1.5">
             {weightEntries.map((entry) => (
               <div key={entry.label} className="flex justify-between text-sm">
-                <span className="text-slate-600">{entry.label}</span>
-                <span className="font-semibold">{entry.value}%</span>
+                <span className="text-muted-foreground">{entry.label}</span>
+                <span className="font-medium text-foreground">{entry.value}%</span>
               </div>
             ))}
           </CardContent>
