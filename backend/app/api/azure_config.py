@@ -45,9 +45,7 @@ async def register_adapter_from_config(
     if service_name == "azure_openai" and api_key:
         from app.services.agents.adapters.azure_openai import AzureOpenAIAdapter
 
-        adapter = AzureOpenAIAdapter(
-            endpoint=endpoint, api_key=api_key, deployment=deployment
-        )
+        adapter = AzureOpenAIAdapter(endpoint=endpoint, api_key=api_key, deployment=deployment)
         registry.register("llm", adapter)
         settings.default_llm_provider = "azure_openai"
 
@@ -71,9 +69,7 @@ async def register_adapter_from_config(
     elif service_name == "azure_openai_realtime" and api_key:
         from app.services.agents.adapters.azure_realtime import AzureRealtimeAdapter
 
-        adapter = AzureRealtimeAdapter(
-            endpoint=endpoint, api_key=api_key, deployment=deployment
-        )
+        adapter = AzureRealtimeAdapter(endpoint=endpoint, api_key=api_key, deployment=deployment)
         registry.register("realtime", adapter)
 
     elif service_name == "azure_content" and api_key:

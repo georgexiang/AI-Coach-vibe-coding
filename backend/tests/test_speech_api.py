@@ -9,7 +9,7 @@ Covers all branches of backend/app/api/speech.py including:
 """
 
 from io import BytesIO
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 from app.models.user import User
 from app.services.auth import create_access_token, get_password_hash

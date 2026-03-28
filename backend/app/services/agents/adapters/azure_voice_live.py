@@ -76,11 +76,13 @@ def encode_voice_live_mode(
         Encoded string suitable for storage in model_or_deployment field.
     """
     if mode == "agent":
-        return json.dumps({
-            "mode": "agent",
-            "agent_id": agent_id,
-            "project_name": project_name,
-        })
+        return json.dumps(
+            {
+                "mode": "agent",
+                "agent_id": agent_id,
+                "project_name": project_name,
+            }
+        )
     return model or "gpt-4o-realtime-preview"
 
 

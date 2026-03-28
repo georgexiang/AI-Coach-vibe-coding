@@ -73,7 +73,6 @@ class TestGetRegionCapabilities:
         for name in ALL_SERVICE_NAMES:
             assert name in services, f"Missing service: {name}"
 
-
     def test_voice_live_not_available_note(self):
         """Unsupported region gets 'Not available' note for voice live."""
         result = get_region_capabilities("antarcticanorth")

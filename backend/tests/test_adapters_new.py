@@ -243,11 +243,13 @@ class TestParseVoiceLiveMode:
 
     def test_parse_voice_live_mode_json_agent(self):
         """JSON agent config returns mode=agent."""
-        config = json.dumps({
-            "mode": "agent",
-            "agent_id": "abc",
-            "project_name": "proj",
-        })
+        config = json.dumps(
+            {
+                "mode": "agent",
+                "agent_id": "abc",
+                "project_name": "proj",
+            }
+        )
         result = parse_voice_live_mode(config)
         assert result["mode"] == "agent"
         assert result["agent_id"] == "abc"
@@ -278,9 +280,7 @@ class TestEncodeVoiceLiveMode:
 
     def test_encode_voice_live_mode_agent(self):
         """Agent mode encodes to JSON string with mode key."""
-        encoded = encode_voice_live_mode(
-            mode="agent", agent_id="abc", project_name="proj"
-        )
+        encoded = encode_voice_live_mode(mode="agent", agent_id="abc", project_name="proj")
         parsed = json.loads(encoded)
         assert parsed["mode"] == "agent"
         assert parsed["agent_id"] == "abc"

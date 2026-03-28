@@ -81,9 +81,7 @@ class AzureContentUnderstandingAdapter(BaseCoachingAdapter):
                     if poll_data.get("status") == "Succeeded":
                         break
                     if poll_data.get("status") in ("Failed", "Cancelled"):
-                        error_msg = (
-                            poll_data.get("error", {}).get("message", "Unknown error")
-                        )
+                        error_msg = poll_data.get("error", {}).get("message", "Unknown error")
                         yield CoachEvent(
                             type=CoachEventType.ERROR,
                             content=f"Analysis {poll_data['status']}: {error_msg}",

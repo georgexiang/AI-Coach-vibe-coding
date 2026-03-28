@@ -23,8 +23,7 @@ def validate_endpoint_url(endpoint: str) -> tuple[bool, str]:
     if not AZURE_HOST_PATTERN.match(endpoint):
         return (
             False,
-            "Endpoint must be an Azure service URL "
-            "(*.azure.com, *.microsoft.com, *.azure.net)",
+            "Endpoint must be an Azure service URL (*.azure.com, *.microsoft.com, *.azure.net)",
         )
     return (True, "")
 
@@ -80,8 +79,7 @@ async def test_azure_avatar(api_key: str, region: str) -> tuple[bool, str]:
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             url = (
-                f"https://{region}.tts.speech.microsoft.com"
-                f"/cognitiveservices/avatar/relay/token/v1"
+                f"https://{region}.tts.speech.microsoft.com/cognitiveservices/avatar/relay/token/v1"
             )
             response = await client.get(
                 url,
@@ -104,10 +102,7 @@ async def test_azure_content_understanding(
         return (False, msg)
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
-            url = (
-                f"{endpoint.rstrip('/')}/contentunderstanding"
-                f"/analyzers?api-version=2025-11-01"
-            )
+            url = f"{endpoint.rstrip('/')}/contentunderstanding/analyzers?api-version=2025-11-01"
             response = await client.get(
                 url,
                 headers={"Ocp-Apim-Subscription-Key": api_key},

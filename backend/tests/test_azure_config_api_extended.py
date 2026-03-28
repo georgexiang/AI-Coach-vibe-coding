@@ -1,6 +1,5 @@
 """API integration tests for region-capabilities and azure_openai_realtime acceptance."""
 
-
 from app.models.user import User
 from app.services.auth import create_access_token, get_password_hash
 from tests.conftest import TestSessionLocal

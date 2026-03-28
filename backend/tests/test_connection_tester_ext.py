@@ -7,9 +7,17 @@ from unittest.mock import AsyncMock, patch
 
 from app.services.connection_tester import (
     test_azure_avatar as _test_azure_avatar,
+)
+from app.services.connection_tester import (
     test_azure_content_understanding as _test_azure_content_understanding,
+)
+from app.services.connection_tester import (
     test_azure_realtime as _test_azure_realtime,
+)
+from app.services.connection_tester import (
     test_service_connection as _test_service_connection,
+)
+from app.services.connection_tester import (
     validate_endpoint_url,
 )
 

@@ -89,9 +89,9 @@ class TestAzureOpenAITextChat:
         )
         if not success:
             # Expected: deployment may not exist or key may lack OpenAI scope
-            assert any(s in message for s in ("DeploymentNotFound", "404", "401", "Unauthorized")), (
-                f"Unexpected error: {message}"
-            )
+            assert any(
+                s in message for s in ("DeploymentNotFound", "404", "401", "Unauthorized")
+            ), f"Unexpected error: {message}"
 
 
 class TestAzureSpeechSTT:
