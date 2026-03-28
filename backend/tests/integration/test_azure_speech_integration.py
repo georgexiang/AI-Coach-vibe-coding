@@ -12,7 +12,7 @@ import os
 
 import pytest
 
-from app.services.connection_tester import test_azure_speech
+from app.services.connection_tester import test_azure_speech as check_azure_speech
 
 from .conftest import skip_no_speech, skip_no_speech_sdk
 
@@ -43,7 +43,7 @@ def _make_stt_adapter():
 @pytest.mark.timeout(30)
 async def test_connection_tester_succeeds():
     """Validate connection tester returns success with real credentials."""
-    success, message = await test_azure_speech(
+    success, message = await check_azure_speech(
         key=os.environ["AZURE_SPEECH_KEY"],
         region=os.environ["AZURE_SPEECH_REGION"],
     )

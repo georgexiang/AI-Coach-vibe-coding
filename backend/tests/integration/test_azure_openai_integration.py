@@ -16,7 +16,7 @@ import pytest
 
 from app.services.agents.adapters.azure_openai import AzureOpenAIAdapter
 from app.services.agents.base import CoachEventType, CoachRequest
-from app.services.connection_tester import test_azure_openai
+from app.services.connection_tester import test_azure_openai as check_azure_openai
 
 from .conftest import skip_no_openai
 
@@ -36,7 +36,7 @@ def _make_adapter() -> AzureOpenAIAdapter:
 @pytest.mark.timeout(30)
 async def test_connection_tester_succeeds():
     """Validate connection tester returns success with real credentials."""
-    success, message = await test_azure_openai(
+    success, message = await check_azure_openai(
         endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
         api_key=os.environ["AZURE_OPENAI_API_KEY"],
         deployment=os.environ["AZURE_OPENAI_DEPLOYMENT"],
