@@ -31,7 +31,11 @@
     "wordCount": "Word Count",
     "messagesCount": "Messages",
     "startingSession": "Starting session...",
-    "scoringInProgress": "Scoring your session..."
+    "scoringInProgress": "Scoring your session...",
+    "startRecording": "Start recording",
+    "stopRecording": "Stop recording",
+    "ttsOn": "Enable voice replies",
+    "ttsOff": "Disable voice replies"
   },
   "errors": {
     "sendFailed": "Message could not be sent. Check your connection and try again.",

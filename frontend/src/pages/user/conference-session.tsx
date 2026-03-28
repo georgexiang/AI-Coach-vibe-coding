@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { useSpeechInput } from "@/hooks/use-speech";
+import { useConfig } from "@/contexts/config-context";
 import {
   Dialog,
   DialogContent,
@@ -70,6 +72,7 @@ export default function ConferenceSession() {
   const [leftCollapsed, setLeftCollapsed] = useState(false);
   const [rightCollapsed, setRightCollapsed] = useState(false);
   const [voiceEnabled, setVoiceEnabled] = useState(false);
+  const config = useConfig();
   const [showEndDialog, setShowEndDialog] = useState(false);
   const [keyTopics, setKeyTopics] = useState<
     Array<{ message: string; delivered: boolean }>
@@ -232,6 +235,27 @@ export default function ConferenceSession() {
     [sendMessage],
   );
 
+  // Speech input for conference mic
+  const handleSpeechTranscribed = useCallback(
+    (text: string) => {
+      handlePresent(text);
+    },
+    [handlePresent],
+  );
+  const {
+    startRecording,
+    stopRecording,
+    recordingState,
+  } = useSpeechInput(handleSpeechTranscribed);
+
+  const handleConferenceMicClick = useCallback(() => {
+    if (recordingState === "recording") {
+      stopRecording();
+    } else if (recordingState === "idle") {
+      void startRecording();
+    }
+  }, [recordingState, startRecording, stopRecording]);
+
   const handleRespondToQuestion = useCallback(
     (hcpId: string) => {
       const question = questionQueue.find(
@@ -278,7 +302,7 @@ export default function ConferenceSession() {
         onEndSession={handleEndSession}
         onVoiceToggle={handleVoiceToggle}
         voiceEnabled={voiceEnabled}
-        featureVoiceEnabled={false}
+        featureVoiceEnabled={config.voice_enabled}
         sessionTime={sessionTime}
       />
 
@@ -301,7 +325,8 @@ export default function ConferenceSession() {
           featureAvatarEnabled={false}
           messages={messages}
           inputMode={voiceEnabled ? "audio" : "text"}
-          recordingState="idle"
+          onMicClick={handleConferenceMicClick}
+          recordingState={recordingState}
           disabled={session?.status === "completed"}
         />
 
