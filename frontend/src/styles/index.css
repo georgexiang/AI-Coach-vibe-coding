@@ -104,6 +104,41 @@
   --sidebar-ring: oklch(0.439 0 0);
 }
 
+/* Accent theme: Teal */
+.theme-teal { --primary: #0D9488; --primary-foreground: #FFFFFF; --sidebar-primary: #0D9488; --sidebar-primary-foreground: #FFFFFF; --chart-1: #0D9488; --ring: #0D9488; }
+.dark.theme-teal, .dark .theme-teal { --primary: #2DD4BF; --primary-foreground: #042F2E; --sidebar-primary: #2DD4BF; --sidebar-primary-foreground: #042F2E; --chart-1: #2DD4BF; --ring: #2DD4BF; }
+
+/* Accent theme: Purple */
+.theme-purple { --primary: #7C3AED; --primary-foreground: #FFFFFF; --sidebar-primary: #7C3AED; --sidebar-primary-foreground: #FFFFFF; --chart-1: #7C3AED; --ring: #7C3AED; }
+.dark.theme-purple, .dark .theme-purple { --primary: #A78BFA; --primary-foreground: #1E1B4B; --sidebar-primary: #A78BFA; --sidebar-primary-foreground: #1E1B4B; --chart-1: #A78BFA; --ring: #A78BFA; }
+
+/* Accent theme: Rose */
+.theme-rose { --primary: #BE185D; --primary-foreground: #FFFFFF; --sidebar-primary: #BE185D; --sidebar-primary-foreground: #FFFFFF; --chart-1: #BE185D; --ring: #BE185D; }
+.dark.theme-rose, .dark .theme-rose { --primary: #F472B6; --primary-foreground: #500724; --sidebar-primary: #F472B6; --sidebar-primary-foreground: #500724; --chart-1: #F472B6; --ring: #F472B6; }
+
+/* Accent theme: Amber */
+.theme-amber { --primary: #B45309; --primary-foreground: #FFFFFF; --sidebar-primary: #B45309; --sidebar-primary-foreground: #FFFFFF; --chart-1: #B45309; --ring: #B45309; }
+.dark.theme-amber, .dark .theme-amber { --primary: #FBBF24; --primary-foreground: #451A03; --sidebar-primary: #FBBF24; --sidebar-primary-foreground: #451A03; --chart-1: #FBBF24; --ring: #FBBF24; }
+
+/* Page transition animation (D-14) */
+@keyframes page-fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.page-transition {
+  animation: page-fade-in 150ms ease;
+}
+
+/* Splash screen animations (D-20) */
+@keyframes splash-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes splash-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

@@ -9,6 +9,14 @@
     <title>AI Coach Platform</title>
   </head>
   <body>
+    <script>
+      (function() {
+        var mode = localStorage.getItem('ai-coach-theme') || 'light';
+        var accent = localStorage.getItem('ai-coach-accent') || 'blue';
+        if (mode === 'dark') document.documentElement.classList.add('dark');
+        if (accent !== 'blue') document.documentElement.classList.add('theme-' + accent);
+      })();
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

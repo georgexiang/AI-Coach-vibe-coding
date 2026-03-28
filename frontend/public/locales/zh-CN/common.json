@@ -30,5 +30,22 @@
   "difficultyMedium": "中等",
   "difficultyHard": "困难",
   "difficultyIntermediate": "中等",
-  "allProducts": "所有产品"
+  "allProducts": "所有产品",
+  "theme": "主题",
+  "lightMode": "浅色",
+  "darkMode": "深色",
+  "accentBlue": "百济蓝",
+  "accentTeal": "青色",
+  "accentPurple": "紫色",
+  "accentRose": "玫瑰色",
+  "accentAmber": "琥珀色",
+  "appName": "AI Coach",
+  "poweredBy": "百济神州",
+  "emptyState.sessions.title": "暂无训练记录",
+  "emptyState.sessions.body": "开始您的第一次训练以跟踪进度。",
+  "emptyState.generic.title": "暂无数据",
+  "emptyState.generic.body": "请稍后查看或调整筛选条件。",
+  "error.network": "连接错误。请检查网络后重试。",
+  "error.server": "出现问题，请稍后重试。",
+  "error.notFound": "页面未找到。返回仪表盘。"
 }
