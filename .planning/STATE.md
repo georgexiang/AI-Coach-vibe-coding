@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Ready to execute
-stopped_at: Phase 10 context gathered
-last_updated: "2026-03-28T15:04:23.806Z"
+stopped_at: Completed 10-01-PLAN.md
+last_updated: "2026-03-28T15:46:40.610Z"
 last_activity: 2026-03-28
 progress:
   total_phases: 11
   completed_phases: 10
-  total_plans: 53
-  completed_plans: 53
+  total_plans: 59
+  completed_plans: 54
 ---
 
 # Project State
@@ -20,12 +20,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-24)
 
 **Core value:** MRs can practice realistic conversations with AI-powered digital HCPs and receive immediate, multi-dimensional feedback to improve their communication skills -- anytime, without needing a real HCP or trainer.
-**Current focus:** Phase 09 — integration-testing-with-real-azure-services
+**Current focus:** Phase 10 — ui-polish-professional-unification
 
 ## Current Position
 
-Phase: 09 (integration-testing-with-real-azure-services) — EXECUTING
-Plan: 2 of 5
+Phase: 10 (ui-polish-professional-unification) — EXECUTING
+Plan: 2 of 6
 
 ## Performance Metrics
 
@@ -91,6 +91,7 @@ Plan: 2 of 5
 | Phase 08 P04 | 17min | 2 tasks | 9 files |
 | Phase 08 P06 | 12min | 2 tasks | 21 files |
 | Phase 09 P01 | 16min | 2 tasks | 14 files |
+| Phase 10 P01 | 3min | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -193,6 +194,9 @@ Recent decisions affecting current work:
 - [Phase 09]: Unified AI Foundry config: single master row (is_master=True) with shared endpoint/region/key; per-service rows inherit via get_effective_key/get_effective_endpoint
 - [Phase 09]: Session mode expanded from 3 to 7 Literal values matching D-06 interaction modes; model column widened from String(20) to String(40)
 - [Phase 09]: Agent mode token broker returns agent_id/project_name via parse_voice_live_mode; non-text modes gated by feature_voice_live_enabled
+- [Phase 10]: Blue is default accent (no CSS class); 4 themes use .theme-{name} class on html element
+- [Phase 10]: SplashScreen renders outside QueryClientProvider; AppContent wrapper for useThemeStore hook
+- [Phase 10]: Theme store follows same useSyncExternalStore + localStorage pattern as auth-store
 
 ### Pending Todos
 
@@ -213,6 +217,6 @@ None yet.
 ## Session Continuity
 
 Last activity: 2026-03-28
-Last session: 2026-03-28T15:04:23.799Z
-Stopped at: Phase 10 context gathered
-Resume file: .planning/phases/10-ui-polish-professional-unification/10-CONTEXT.md
+Last session: 2026-03-28T15:46:40.607Z
+Stopped at: Completed 10-01-PLAN.md
+Resume file: None
