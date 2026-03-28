@@ -21,6 +21,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 07: Azure Service Integration** - Admin Azure config persistence, real connection testing, dynamic provider switching (mock → Azure OpenAI/Speech/Avatar) (completed 2026-03-27)
 - [x] **Phase 08: Voice & Avatar Demo Integration** - Integrate Azure Voice Live Agent with Avatar into the AI Coach platform for real-time voice coaching with digital HCP avatar (completed 2026-03-28)
 - [ ] **Phase 09: Integration Testing with Real Azure Services** - Unified AI Foundry config, 7 interaction modes, agent mode runtime, integration tests, E2E demo validation
+- [ ] **Phase 10: UI Polish & Professional Unification** - Comprehensive UI overhaul for professional appearance, unified design language, polished visuals for BeiGene customer demo
 
 ## Phase Details
 
@@ -190,7 +191,7 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 01 -> 01.1 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07 -> 08 -> 09
+Phases execute in numeric order: 01 -> 01.1 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07 -> 08 -> 09 -> 10
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -204,6 +205,7 @@ Phases execute in numeric order: 01 -> 01.1 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07 
 | 07. Azure Service Integration | 4/4 | Complete    | 2026-03-27 |
 | 08. Voice & Avatar Demo Integration | 5/4 | Complete   | 2026-03-28 |
 | 09. Integration Testing with Real Azure Services | 1/5 | In Progress|  |
+| 10. UI Polish & Professional Unification | 0/6 | Not Started |  |
 
 ### Phase 07: Azure Service Integration
 
@@ -269,3 +271,18 @@ Plans:
 - [ ] 09-05-PLAN.md -- Playwright E2E demo-flow test, pre-demo smoke test checklist
 
 **UI hint**: yes
+
+### Phase 10: UI Polish & Professional Unification
+
+**Goal:** Comprehensive UI overhaul for professional appearance and consistency across all pages — unified design language, accent color theme picker, page transitions, navigation polish, Figma-audited spacing/typography, and demo-ready seed data for BeiGene customer presentations
+**Requirements**: UI-01, UI-02, UI-03, UI-04, UI-05, UI-06, UI-07
+**Depends on:** Phase 09
+**Plans:** 6 plans
+
+Plans:
+- [ ] 10-01-PLAN.md -- Theme system foundation: 5 accent color CSS themes, theme store, flash prevention, splash screen, page transition keyframes
+- [ ] 10-02-PLAN.md -- Navigation polish: ThemePicker, Breadcrumb, PageTransition components, grouped admin sidebar, active nav states, layout dark mode
+- [ ] 10-03-PLAN.md -- Shared component audit: design token consistency, icon sizing, Badge success variant, Sonner theming, 404 page
+- [ ] 10-04-PLAN.md -- User page audit: login, dashboard, training, session history, scoring, reports, training sessions vs Figma specs
+- [ ] 10-05-PLAN.md -- Admin page audit: dashboard, users, HCP profiles, scenarios, rubrics, materials, reports, azure config, settings vs Figma specs
+- [ ] 10-06-PLAN.md -- Demo seed data polish: BeiGene products, bilingual HCPs, final build verification
