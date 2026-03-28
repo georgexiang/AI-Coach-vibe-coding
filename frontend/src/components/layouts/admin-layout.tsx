@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { Outlet, NavLink, useLocation } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import type { LucideIcon } from "lucide-react";
 import {
   LayoutDashboard,
   Users,
@@ -25,6 +26,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  Separator,
   Sheet,
   SheetContent,
   SheetHeader,
@@ -35,21 +37,44 @@ import {
   TooltipTrigger,
 } from "@/components/ui";
 import { LanguageSwitcher } from "@/components/shared/language-switcher";
+import { ThemePicker } from "@/components/shared/theme-picker";
+import { Breadcrumb } from "@/components/shared/breadcrumb";
+import { PageTransition } from "@/components/shared/page-transition";
 import { useAuthStore } from "@/stores/auth-store";
 import { useLogout } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
 
-const sidebarItems = [
-  { path: "/admin/dashboard", labelKey: "dashboard", icon: LayoutDashboard },
-  { path: "/admin/users", labelKey: "users", icon: Users },
-  { path: "/admin/hcp-profiles", labelKey: "hcpProfiles", icon: UserCircle },
-  { path: "/admin/scenarios", labelKey: "scenarios", icon: BookOpen },
-  { path: "/admin/scoring-rubrics", labelKey: "scoringRubrics", icon: ClipboardCheck },
-  { path: "/admin/materials", labelKey: "materials", icon: FileText },
-  { path: "/admin/reports", labelKey: "reports", icon: BarChart },
-  { path: "/admin/azure-config", labelKey: "azureServices", icon: Cloud },
-  { path: "/admin/settings", labelKey: "settings", icon: Settings },
-] as const;
+interface SidebarGroup {
+  labelKey: string;
+  items: Array<{ path: string; labelKey: string; icon: LucideIcon }>;
+}
+
+const sidebarGroups: SidebarGroup[] = [
+  {
+    labelKey: "configuration",
+    items: [
+      { path: "/admin/azure-config", labelKey: "azureServices", icon: Cloud },
+      { path: "/admin/settings", labelKey: "settings", icon: Settings },
+    ],
+  },
+  {
+    labelKey: "content",
+    items: [
+      { path: "/admin/hcp-profiles", labelKey: "hcpProfiles", icon: UserCircle },
+      { path: "/admin/scenarios", labelKey: "scenarios", icon: BookOpen },
+      { path: "/admin/scoring-rubrics", labelKey: "scoringRubrics", icon: ClipboardCheck },
+      { path: "/admin/materials", labelKey: "materials", icon: FileText },
+    ],
+  },
+  {
+    labelKey: "analytics",
+    items: [
+      { path: "/admin/dashboard", labelKey: "dashboard", icon: LayoutDashboard },
+      { path: "/admin/reports", labelKey: "reports", icon: BarChart },
+      { path: "/admin/users", labelKey: "users", icon: Users },
+    ],
+  },
+];
 
 function SidebarNavItem({
   item,
@@ -57,7 +82,7 @@ function SidebarNavItem({
   isActive,
   onClick,
 }: {
-  item: (typeof sidebarItems)[number];
+  item: { path: string; labelKey: string; icon: LucideIcon };
   collapsed: boolean;
   isActive: boolean;
   onClick?: () => void;
@@ -70,10 +95,10 @@ function SidebarNavItem({
       to={item.path}
       onClick={onClick}
       className={cn(
-        "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
+        "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors duration-150",
         isActive
-          ? "bg-sidebar-primary text-sidebar-primary-foreground"
-          : "text-sidebar-foreground/70 hover:bg-sidebar-primary/10 hover:text-sidebar-foreground"
+          ? "bg-sidebar-primary/15 text-sidebar-primary-foreground border-l-[3px] border-sidebar-primary font-medium"
+          : "text-sidebar-foreground/70 hover:bg-sidebar-primary/10 hover:text-sidebar-foreground border-l-[3px] border-transparent"
       )}
     >
       <Icon className="size-5 shrink-0" />
@@ -94,6 +119,7 @@ function SidebarNavItem({
 }
 
 export function AdminLayout() {
+  const { t: tNav } = useTranslation("nav");
   const { t: tCommon } = useTranslation("common");
   const { user } = useAuthStore();
   const logout = useLogout();
@@ -119,7 +145,6 @@ export function AdminLayout() {
             "hidden flex-col border-r bg-sidebar text-sidebar-foreground transition-all duration-300 md:flex",
             collapsed ? "w-16" : "w-60"
           )}
-          style={{ backgroundColor: "#1E293B" }}
         >
           {/* Sidebar header */}
           <div className="flex h-14 items-center gap-2 border-b border-sidebar-border px-3">
@@ -133,15 +158,33 @@ export function AdminLayout() {
             )}
           </div>
 
-          {/* Sidebar nav */}
-          <nav className="flex-1 space-y-1 p-2">
-            {sidebarItems.map((item) => (
-              <SidebarNavItem
-                key={item.path}
-                item={item}
-                collapsed={collapsed}
-                isActive={location.pathname === item.path}
-              />
+          {/* Sidebar nav — grouped */}
+          <nav className="flex-1 overflow-y-auto p-2">
+            {sidebarGroups.map((group, groupIdx) => (
+              <div key={group.labelKey}>
+                {collapsed ? (
+                  groupIdx > 0 && <Separator className="my-2 bg-sidebar-foreground/10" />
+                ) : (
+                  <div
+                    className={cn(
+                      "mb-1 px-3 text-[11px] font-medium uppercase tracking-wider text-sidebar-foreground/40",
+                      groupIdx > 0 ? "mt-4" : "mt-2"
+                    )}
+                  >
+                    {tNav(group.labelKey)}
+                  </div>
+                )}
+                <div className="space-y-0.5">
+                  {group.items.map((item) => (
+                    <SidebarNavItem
+                      key={item.path}
+                      item={item}
+                      collapsed={collapsed}
+                      isActive={location.pathname === item.path}
+                    />
+                  ))}
+                </div>
+              </div>
             ))}
           </nav>
 
@@ -166,21 +209,34 @@ export function AdminLayout() {
         <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
           <SheetContent
             side="left"
-            className="w-60 p-0"
-            style={{ backgroundColor: "#1E293B", color: "white" }}
+            className="w-60 p-0 bg-sidebar text-sidebar-foreground"
           >
             <SheetHeader className="border-b border-sidebar-border px-3 py-4">
-              <SheetTitle className="text-white">AI Coach Admin</SheetTitle>
+              <SheetTitle className="text-sidebar-foreground">AI Coach Admin</SheetTitle>
             </SheetHeader>
-            <nav className="space-y-1 p-2">
-              {sidebarItems.map((item) => (
-                <SidebarNavItem
-                  key={item.path}
-                  item={item}
-                  collapsed={false}
-                  isActive={location.pathname === item.path}
-                  onClick={() => setMobileMenuOpen(false)}
-                />
+            <nav className="p-2">
+              {sidebarGroups.map((group, groupIdx) => (
+                <div key={group.labelKey}>
+                  <div
+                    className={cn(
+                      "mb-1 px-3 text-[11px] font-medium uppercase tracking-wider text-sidebar-foreground/40",
+                      groupIdx > 0 ? "mt-4" : "mt-2"
+                    )}
+                  >
+                    {tNav(group.labelKey)}
+                  </div>
+                  <div className="space-y-0.5">
+                    {group.items.map((item) => (
+                      <SidebarNavItem
+                        key={item.path}
+                        item={item}
+                        collapsed={false}
+                        isActive={location.pathname === item.path}
+                        onClick={() => setMobileMenuOpen(false)}
+                      />
+                    ))}
+                  </div>
+                </div>
               ))}
             </nav>
           </SheetContent>
@@ -189,7 +245,7 @@ export function AdminLayout() {
         {/* Main content area */}
         <div className="flex flex-1 flex-col">
           {/* Top bar */}
-          <header className="sticky top-0 z-40 flex h-14 items-center border-b bg-white px-4">
+          <header className="sticky top-0 z-40 flex h-14 items-center border-b bg-background px-4">
             {/* Mobile hamburger */}
             <Button
               variant="ghost"
@@ -201,19 +257,11 @@ export function AdminLayout() {
             </Button>
 
             {/* Breadcrumb */}
-            <div className="text-sm text-muted-foreground">
-              {location.pathname.split("/").filter(Boolean).map((segment, i, arr) => (
-                <span key={segment}>
-                  {i > 0 && <span className="mx-1.5">/</span>}
-                  <span className={i === arr.length - 1 ? "font-medium text-foreground" : ""}>
-                    {segment.charAt(0).toUpperCase() + segment.slice(1).replace(/-/g, " ")}
-                  </span>
-                </span>
-              ))}
-            </div>
+            <Breadcrumb />
 
             {/* Right side */}
             <div className="ml-auto flex items-center gap-2">
+              <ThemePicker />
               <LanguageSwitcher />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -245,7 +293,7 @@ export function AdminLayout() {
 
           {/* Page content */}
           <main className="flex-1 bg-muted p-4 lg:p-6">
-            <Outlet />
+            <PageTransition />
           </main>
         </div>
       </div>

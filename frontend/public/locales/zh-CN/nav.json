@@ -9,5 +9,8 @@
   "materials": "资料管理",
   "scoringRubrics": "评分标准",
   "azureServices": "Azure 服务",
-  "settings": "系统设置"
+  "settings": "系统设置",
+  "configuration": "配置",
+  "content": "内容",
+  "analytics": "分析"
 }

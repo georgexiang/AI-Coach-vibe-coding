@@ -9,5 +9,8 @@
   "materials": "Materials",
   "scoringRubrics": "Scoring Rubrics",
   "azureServices": "Azure Services",
-  "settings": "Settings"
+  "settings": "Settings",
+  "configuration": "Configuration",
+  "content": "Content",
+  "analytics": "Analytics"
 }

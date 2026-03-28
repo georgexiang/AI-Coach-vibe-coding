@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Outlet, NavLink, useLocation } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
   LayoutDashboard,
@@ -26,6 +26,8 @@ import {
   SheetTitle,
 } from "@/components/ui";
 import { LanguageSwitcher } from "@/components/shared/language-switcher";
+import { ThemePicker } from "@/components/shared/theme-picker";
+import { PageTransition } from "@/components/shared/page-transition";
 import { useAuthStore } from "@/stores/auth-store";
 import { useLogout } from "@/hooks/use-auth";
 import { useConfig } from "@/contexts/config-context";
@@ -59,7 +61,7 @@ export function UserLayout() {
   return (
     <div className="flex min-h-screen flex-col">
       {/* Top navigation bar */}
-      <header className="sticky top-0 z-40 flex h-16 items-center border-b bg-white shadow-sm">
+      <header className="sticky top-0 z-40 flex h-16 items-center border-b bg-background shadow-sm">
         <div className="flex w-full items-center px-4 lg:px-6">
           {/* Mobile hamburger */}
           <Button
@@ -73,7 +75,7 @@ export function UserLayout() {
 
           {/* Logo */}
           <div className="flex items-center gap-2">
-            <div className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 text-white">
+            <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg>
             </div>
             <span className="hidden font-semibold sm:inline">AI Coach</span>
@@ -88,7 +90,7 @@ export function UserLayout() {
                   key={item.path}
                   to={item.path}
                   className={cn(
-                    "flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors",
+                    "relative flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors duration-150",
                     isActive
                       ? "text-primary font-medium"
                       : "text-muted-foreground hover:text-foreground"
@@ -96,7 +98,6 @@ export function UserLayout() {
                 >
                   <item.icon className="size-4" />
                   {t(item.labelKey)}
-                  {/* Config-driven UI: show mic icon when voice is enabled */}
                   {item.labelKey === "training" && voiceEnabled && (
                     <Mic className="size-3 text-success-600" />
                   )}
@@ -110,6 +111,7 @@ export function UserLayout() {
 
           {/* Right side */}
           <div className="ml-auto flex items-center gap-2">
+            <ThemePicker />
             <LanguageSwitcher />
             <Button variant="ghost" size="icon" aria-label="Notifications">
               <Bell className="size-5" />
@@ -160,7 +162,7 @@ export function UserLayout() {
                   to={item.path}
                   onClick={() => setMobileMenuOpen(false)}
                   className={cn(
-                    "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
+                    "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors duration-150",
                     isActive
                       ? "bg-primary/10 text-primary font-medium"
                       : "text-muted-foreground hover:text-foreground hover:bg-accent"
@@ -177,11 +179,11 @@ export function UserLayout() {
 
       {/* Page content */}
       <main className="flex-1 bg-muted p-4 lg:p-6">
-        <Outlet />
+        <PageTransition />
       </main>
 
       {/* Footer */}
-      <footer className="border-t bg-white py-3 text-center text-xs text-muted-foreground">
+      <footer className="border-t bg-background py-3 text-center text-xs text-muted-foreground">
         2026 AI Coach Platform
       </footer>
     </div>
