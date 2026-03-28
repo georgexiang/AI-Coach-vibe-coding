@@ -23,11 +23,11 @@ describe("ModeSelector", () => {
     avatarAvailable: true,
   };
 
-  it("renders three mode buttons (text, voice, avatar)", () => {
+  it("renders three mode buttons (text, voice_pipeline, digital_human_pipeline)", () => {
     render(<ModeSelector {...defaultProps} />);
     expect(screen.getByTestId("mode-text")).toBeInTheDocument();
-    expect(screen.getByTestId("mode-voice")).toBeInTheDocument();
-    expect(screen.getByTestId("mode-avatar")).toBeInTheDocument();
+    expect(screen.getByTestId("mode-voice_pipeline")).toBeInTheDocument();
+    expect(screen.getByTestId("mode-digital_human_pipeline")).toBeInTheDocument();
   });
 
   it("text mode button is always enabled", () => {
@@ -42,27 +42,27 @@ describe("ModeSelector", () => {
     expect(textBtn).not.toBeDisabled();
   });
 
-  it("voice button is disabled when voiceLiveAvailable is false", () => {
+  it("voice_pipeline button is disabled when voiceLiveAvailable is false", () => {
     render(
       <ModeSelector {...defaultProps} voiceLiveAvailable={false} />,
     );
-    const voiceBtn = screen.getByTestId("mode-voice");
+    const voiceBtn = screen.getByTestId("mode-voice_pipeline");
     expect(voiceBtn).toBeDisabled();
   });
 
-  it("avatar button is disabled when avatarAvailable is false", () => {
+  it("digital_human_pipeline button is disabled when avatarAvailable is false", () => {
     render(
       <ModeSelector {...defaultProps} avatarAvailable={false} />,
     );
-    const avatarBtn = screen.getByTestId("mode-avatar");
+    const avatarBtn = screen.getByTestId("mode-digital_human_pipeline");
     expect(avatarBtn).toBeDisabled();
   });
 
-  it("calls onChange with voice when voice button is clicked and available", () => {
+  it("calls onChange with voice_pipeline when voice button is clicked and available", () => {
     const onChange = vi.fn();
     render(<ModeSelector {...defaultProps} onChange={onChange} />);
-    fireEvent.click(screen.getByTestId("mode-voice"));
-    expect(onChange).toHaveBeenCalledWith("voice");
+    fireEvent.click(screen.getByTestId("mode-voice_pipeline"));
+    expect(onChange).toHaveBeenCalledWith("voice_pipeline");
   });
 
   it("active mode button has primary styling class", () => {
@@ -73,7 +73,7 @@ describe("ModeSelector", () => {
 
   it("inactive mode buttons have muted foreground text class", () => {
     render(<ModeSelector {...defaultProps} value="text" />);
-    const voiceBtn = screen.getByTestId("mode-voice");
+    const voiceBtn = screen.getByTestId("mode-voice_pipeline");
     expect(voiceBtn.className).toContain("text-muted-foreground");
   });
 
@@ -91,7 +91,7 @@ describe("ModeSelector", () => {
         voiceLiveAvailable={false}
       />,
     );
-    fireEvent.click(screen.getByTestId("mode-voice"));
+    fireEvent.click(screen.getByTestId("mode-voice_pipeline"));
     expect(onChange).not.toHaveBeenCalled();
   });
 });

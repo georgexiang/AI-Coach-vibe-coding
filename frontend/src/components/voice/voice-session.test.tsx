@@ -741,7 +741,7 @@ describe("VoiceSession", () => {
 
   describe("connection state change callback", () => {
     it("falls back to text mode on error state when not in text mode", async () => {
-      renderSession({ mode: "voice" });
+      renderSession({ mode: "voice_pipeline" });
 
       await act(async () => {
         capturedOnConnectionStateChange?.("error");
@@ -790,7 +790,7 @@ describe("VoiceSession", () => {
     });
 
     it("initializes voice when mode is voice", async () => {
-      renderSession({ mode: "voice" });
+      renderSession({ mode: "voice_pipeline" });
 
       await waitFor(() => {
         expect(mockTokenMutateAsync).toHaveBeenCalled();
@@ -811,7 +811,7 @@ describe("VoiceSession", () => {
         voice_name: "en-US-JennyNeural",
       });
 
-      renderSession({ mode: "avatar" });
+      renderSession({ mode: "digital_human_pipeline" });
 
       await waitFor(() => {
         expect(mockTokenMutateAsync).toHaveBeenCalled();
@@ -834,7 +834,7 @@ describe("VoiceSession", () => {
       });
       mockAvatarConnect.mockRejectedValueOnce(new Error("Avatar failed"));
 
-      renderSession({ mode: "avatar" });
+      renderSession({ mode: "digital_human_pipeline" });
 
       await waitFor(() => {
         expect(mockToastError).toHaveBeenCalledWith("voice.error.avatarFailed");
@@ -844,7 +844,7 @@ describe("VoiceSession", () => {
     it("falls back to text mode when voice connection fails", async () => {
       mockTokenMutateAsync.mockRejectedValueOnce(new Error("Token fetch failed"));
 
-      renderSession({ mode: "voice" });
+      renderSession({ mode: "voice_pipeline" });
 
       await waitFor(() => {
         expect(mockToastError).toHaveBeenCalledWith("voice.error.connectionFailed");
@@ -862,7 +862,7 @@ describe("VoiceSession", () => {
         voice_name: "en-US-JennyNeural",
       });
 
-      renderSession({ mode: "avatar" });
+      renderSession({ mode: "digital_human_pipeline" });
 
       await waitFor(() => {
         expect(mockConnect).toHaveBeenCalled();
@@ -881,7 +881,7 @@ describe("VoiceSession", () => {
           }),
       );
 
-      renderSession({ mode: "voice" });
+      renderSession({ mode: "voice_pipeline" });
 
       // Should be connecting
       await waitFor(() => {
@@ -1051,7 +1051,7 @@ describe("VoiceSession", () => {
 
   describe("startRecording callback", () => {
     it("starts recording with callback that sends audio to client", async () => {
-      renderSession({ mode: "voice" });
+      renderSession({ mode: "voice_pipeline" });
 
       await waitFor(() => {
         expect(mockStartRecording).toHaveBeenCalled();

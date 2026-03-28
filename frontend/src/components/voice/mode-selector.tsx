@@ -29,16 +29,16 @@ const MODE_OPTIONS: ModeOption[] = [
     unavailableKey: "",
   },
   {
-    mode: "voice",
+    mode: "voice_pipeline",
     icon: Mic,
-    labelKey: "mode.voice",
+    labelKey: "mode.voicePipeline",
     alwaysAvailable: false,
     unavailableKey: "notConfigured",
   },
   {
-    mode: "avatar",
+    mode: "digital_human_pipeline",
     icon: User,
-    labelKey: "mode.avatar",
+    labelKey: "mode.digitalHumanPipeline",
     alwaysAvailable: false,
     unavailableKey: "avatarNotConfigured",
   },
@@ -59,8 +59,8 @@ export function ModeSelector({
 
   const isAvailable = (option: ModeOption): boolean => {
     if (option.alwaysAvailable) return true;
-    if (option.mode === "voice") return voiceLiveAvailable;
-    if (option.mode === "avatar") return avatarAvailable;
+    if (option.mode === "voice_pipeline") return voiceLiveAvailable;
+    if (option.mode === "digital_human_pipeline") return avatarAvailable;
     return false;
   };
 

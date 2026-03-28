@@ -82,7 +82,7 @@ export default function ScenarioSelection() {
 
   const handleStartVoiceSession = async (scenarioId: string) => {
     try {
-      const mode = config.avatar_enabled ? "avatar" : "voice";
+      const mode = config.avatar_enabled ? "digital_human_pipeline" : "voice_pipeline";
       const session = await createSession.mutateAsync({ scenarioId, mode });
       navigate(`/user/training/voice?id=${session.id}&mode=${mode}`);
     } catch {

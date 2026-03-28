@@ -15,7 +15,7 @@ export default function VoiceSessionPage() {
   const { t } = useTranslation("voice");
   const [searchParams] = useSearchParams();
   const sessionId = searchParams.get("id") ?? "";
-  const mode = (searchParams.get("mode") ?? "voice") as SessionMode;
+  const mode = (searchParams.get("mode") ?? "voice_pipeline") as SessionMode;
 
   // Fetch session and scenario data
   const { data: session, isLoading: sessionLoading } = useSession(
