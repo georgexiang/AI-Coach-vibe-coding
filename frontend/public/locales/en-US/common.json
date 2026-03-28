@@ -30,5 +30,22 @@
   "difficultyMedium": "Medium",
   "difficultyHard": "Hard",
   "difficultyIntermediate": "Intermediate",
-  "allProducts": "All Products"
+  "allProducts": "All Products",
+  "theme": "Theme",
+  "lightMode": "Light",
+  "darkMode": "Dark",
+  "accentBlue": "BeiGene Blue",
+  "accentTeal": "Teal",
+  "accentPurple": "Purple",
+  "accentRose": "Rose",
+  "accentAmber": "Amber",
+  "appName": "AI Coach",
+  "poweredBy": "BeiGene",
+  "emptyState.sessions.title": "No Sessions Yet",
+  "emptyState.sessions.body": "Start your first training session to track progress.",
+  "emptyState.generic.title": "No Data Available",
+  "emptyState.generic.body": "Check back later or adjust your filters.",
+  "error.network": "Connection Error. Check your network and try again.",
+  "error.server": "Something went wrong. Please try again later.",
+  "error.notFound": "Page not found. Return to dashboard."
 }
