@@ -16,6 +16,7 @@ from app.api import (
     scenarios_router,
     scoring_router,
     sessions_router,
+    speech_router,
     voice_live_router,
 )
 from app.config import get_settings
@@ -137,6 +138,7 @@ app.include_router(materials_router, prefix=settings.api_prefix)
 app.include_router(conference_router, prefix=settings.api_prefix)
 app.include_router(analytics_router, prefix=settings.api_prefix)
 app.include_router(voice_live_router, prefix=settings.api_prefix)
+app.include_router(speech_router, prefix=settings.api_prefix)
 
 
 # Health check
