@@ -4,9 +4,26 @@
   "mode": {
     "text": "文字",
     "voice": "语音",
-    "avatar": "数字人"
+    "digitalHuman": "数字人",
+    "voice_pipeline": "语音(管道)",
+    "digital_human_pipeline": "数字人(管道)",
+    "voice_realtime_model": "语音(实时)",
+    "digital_human_realtime_model": "数字人(实时)",
+    "voice_realtime_agent": "语音(智能体)",
+    "digital_human_realtime_agent": "数字人(智能体)"
+  },
+  "engine": {
+    "pipeline": "管道",
+    "realtime_model": "实时",
+    "realtime_agent": "智能体"
+  },
+  "commType": {
+    "text": "文字",
+    "voice": "语音",
+    "digital_human": "数字人"
   },
   "modeSelector": "对话模式",
+  "engineSelector": "引擎",
   "connect": "连接",
   "disconnect": "断开连接",
   "mute": "静音",
@@ -30,14 +47,20 @@
   },
   "modeBadge": {
     "text": "文字模式",
-    "voice": "语音模式",
-    "avatar": "数字人模式"
+    "voice_pipeline": "语音管道",
+    "digital_human_pipeline": "数字人管道",
+    "voice_realtime_model": "语音实时",
+    "digital_human_realtime_model": "数字人实时",
+    "voice_realtime_agent": "语音智能体",
+    "digital_human_realtime_agent": "数字人智能体"
   },
   "emptyTranscript": "开始说话来开始对话。您的对话记录将显示在这里。",
   "emptyTranscriptText": "输入消息来开始对话。",
   "avatarPlaceholder": "数字人将在连接后显示。",
   "notConfigured": "语音模式不可用。请联系管理员配置 Azure Voice Live API。",
   "avatarNotConfigured": "数字人模式不可用。将使用纯语音模式。",
+  "pipelineNotConfigured": "管道模式不可用。STT/TTS 服务未配置。",
+  "agentNotConfigured": "智能体模式不可用。Voice Live Agent 未配置。",
   "error": {
     "connectionFailed": "连接语音服务失败。请检查网络并重试。",
     "micDenied": "麦克风访问被拒绝。请在浏览器设置中允许麦克风访问。",

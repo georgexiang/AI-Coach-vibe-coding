@@ -1,4 +1,11 @@
-export type SessionMode = "text" | "voice" | "avatar";
+export type SessionMode =
+  | "text"
+  | "voice_pipeline"
+  | "digital_human_pipeline"
+  | "voice_realtime_model"
+  | "digital_human_realtime_model"
+  | "voice_realtime_agent"
+  | "digital_human_realtime_agent";
 
 export interface VoiceLiveToken {
   endpoint: string;
@@ -8,6 +15,8 @@ export interface VoiceLiveToken {
   avatar_enabled: boolean;
   avatar_character: string;
   voice_name: string;
+  agent_id?: string;
+  project_name?: string;
 }
 
 export interface VoiceLiveConfigStatus {

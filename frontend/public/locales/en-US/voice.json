@@ -4,9 +4,26 @@
   "mode": {
     "text": "Text",
     "voice": "Voice",
-    "avatar": "Avatar"
+    "digitalHuman": "Digital Human",
+    "voice_pipeline": "Voice (Pipeline)",
+    "digital_human_pipeline": "Digital Human (Pipeline)",
+    "voice_realtime_model": "Voice (Realtime)",
+    "digital_human_realtime_model": "Digital Human (Realtime)",
+    "voice_realtime_agent": "Voice (Agent)",
+    "digital_human_realtime_agent": "Digital Human (Agent)"
+  },
+  "engine": {
+    "pipeline": "Pipeline",
+    "realtime_model": "Realtime",
+    "realtime_agent": "Agent"
+  },
+  "commType": {
+    "text": "Text",
+    "voice": "Voice",
+    "digital_human": "Digital Human"
   },
   "modeSelector": "Session Mode",
+  "engineSelector": "Engine",
   "connect": "Connect",
   "disconnect": "Disconnect",
   "mute": "Mute",
@@ -30,14 +47,20 @@
   },
   "modeBadge": {
     "text": "Text Mode",
-    "voice": "Voice Mode",
-    "avatar": "Avatar Mode"
+    "voice_pipeline": "Voice Pipeline",
+    "digital_human_pipeline": "Digital Human Pipeline",
+    "voice_realtime_model": "Voice Realtime",
+    "digital_human_realtime_model": "Digital Human Realtime",
+    "voice_realtime_agent": "Voice Agent",
+    "digital_human_realtime_agent": "Digital Human Agent"
   },
   "emptyTranscript": "Start speaking to begin the conversation. Your transcript will appear here.",
   "emptyTranscriptText": "Type a message to begin the conversation.",
   "avatarPlaceholder": "Avatar will appear when connected.",
   "notConfigured": "Voice mode is not available. Contact your admin to configure Azure Voice Live API.",
   "avatarNotConfigured": "Avatar mode is not available. Voice-only mode will be used instead.",
+  "pipelineNotConfigured": "Pipeline mode is not available. STT/TTS services are not configured.",
+  "agentNotConfigured": "Agent mode is not available. Voice Live Agent is not configured.",
   "error": {
     "connectionFailed": "Failed to connect to voice service. Check your network and try again.",
     "micDenied": "Microphone access was denied. Please allow microphone access in your browser settings.",
