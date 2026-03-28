@@ -23,8 +23,8 @@ export function StatCard({
   progress,
 }: StatCardProps) {
   return (
-    <Card>
-      <CardContent className="p-6">
+    <Card className="bg-card rounded-lg border border-border shadow-sm">
+      <CardContent className="p-4">
         <div className="flex items-start justify-between">
           {Icon && (
             <div className={cn("flex size-10 items-center justify-center rounded-lg", colorClass ?? "bg-primary/10")}>
@@ -35,7 +35,7 @@ export function StatCard({
         </div>
 
         <div className="mt-3">
-          <p className="text-3xl font-bold text-foreground">{value}</p>
+          <p className="text-2xl font-medium text-foreground">{value}</p>
           <p className="text-sm text-muted-foreground">{label}</p>
         </div>
 

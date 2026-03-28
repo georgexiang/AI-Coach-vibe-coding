@@ -37,7 +37,7 @@ export function SessionItem({
   return (
     <button
       type="button"
-      className="flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors hover:bg-muted/50"
+      className="flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors duration-150 hover:bg-muted/50"
       onClick={onClick}
     >
       <Avatar className="size-10">
@@ -56,8 +56,8 @@ export function SessionItem({
         className={cn(
           "shrink-0",
           mode === "F2F"
-            ? "bg-blue-100 text-blue-700"
-            : "bg-purple-100 text-purple-700",
+            ? "bg-primary/10 text-primary"
+            : "bg-improvement/10 text-improvement",
         )}
       >
         {modeLabel}
@@ -69,13 +69,13 @@ export function SessionItem({
             className={cn(
               "rounded-md px-2 py-0.5",
               score >= 80
-                ? "bg-green-50 text-green-700"
+                ? "bg-strength/10 text-strength"
                 : score >= 60
-                  ? "bg-yellow-50 text-yellow-700"
-                  : "bg-red-50 text-red-700",
+                  ? "bg-chart-3/10 text-chart-3"
+                  : "bg-destructive/10 text-destructive",
             )}
           >
-            <p className="text-sm font-semibold">
+            <p className="text-sm font-medium">
               {score}
             </p>
           </div>

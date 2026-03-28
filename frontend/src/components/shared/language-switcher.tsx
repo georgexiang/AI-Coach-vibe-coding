@@ -20,7 +20,7 @@ export function LanguageSwitcher() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="sm" aria-label="Switch language" className="gap-1.5">
+        <Button variant="ghost" size="sm" aria-label="Switch language" className="gap-1.5 transition-colors duration-150">
           <span className="text-base leading-none">{currentLang.flag}</span>
           <span className="text-sm">{(currentLang.code.split("-")[0] ?? "").toUpperCase()}</span>
         </Button>

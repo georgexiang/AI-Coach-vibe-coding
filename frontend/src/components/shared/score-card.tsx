@@ -9,6 +9,12 @@ interface ScoreCardProps {
   chart?: React.ReactNode;
 }
 
+function getScoreColor(score: number): string {
+  if (score >= 80) return "text-strength";
+  if (score >= 60) return "text-primary";
+  return "text-weakness";
+}
+
 function MiniBarChart() {
   const bars = [60, 80, 45, 90, 70];
 
@@ -39,19 +45,19 @@ function MiniBarChart() {
 export function ScoreCard({ score, label, trend, chart }: ScoreCardProps) {
   return (
     <Card className="overflow-hidden">
-      <CardContent className="flex items-center gap-4 p-6">
+      <CardContent className="flex items-center gap-4 p-4">
         <div className="h-full w-1 rounded-full bg-gradient-to-b from-primary to-primary/40" />
 
         <div className="min-w-0 flex-1">
-          <p className="text-4xl font-semibold text-foreground">{score}</p>
+          <p className={cn("text-2xl font-medium", getScoreColor(score))}>{score}</p>
           <p className="text-sm text-muted-foreground">{label}</p>
 
           {trend && (
             <div className="mt-1 flex items-center gap-1">
               {trend.direction === "up" ? (
-                <TrendingUp className="size-3.5 text-strength" />
+                <TrendingUp className="size-4 text-strength" />
               ) : (
-                <TrendingDown className="size-3.5 text-destructive" />
+                <TrendingDown className="size-4 text-destructive" />
               )}
               <span
                 className={cn(
