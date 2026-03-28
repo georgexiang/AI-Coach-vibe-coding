@@ -13,3 +13,6 @@ export { ChatInput } from "./chat-input";
 export { DimensionBar } from "./dimension-bar";
 export { StatusBadge } from "./status-badge";
 export { SplashScreen } from "./splash-screen";
+export { ThemePicker } from "./theme-picker";
+export { Breadcrumb } from "./breadcrumb";
+export { PageTransition } from "./page-transition";
