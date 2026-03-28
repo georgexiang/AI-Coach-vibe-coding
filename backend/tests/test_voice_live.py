@@ -41,16 +41,24 @@ class TestSessionCreateMode:
     """Tests for SessionCreate schema mode field."""
 
     async def test_session_create_with_mode(self):
-        sc = SessionCreate(scenario_id="x", mode="voice")
-        assert sc.mode == "voice"
+        sc = SessionCreate(scenario_id="x", mode="voice_pipeline")
+        assert sc.mode == "voice_pipeline"
 
     async def test_session_create_default_mode(self):
         sc = SessionCreate(scenario_id="x")
         assert sc.mode == "text"
 
-    async def test_session_create_avatar_mode(self):
-        sc = SessionCreate(scenario_id="x", mode="avatar")
-        assert sc.mode == "avatar"
+    async def test_session_create_digital_human_mode(self):
+        sc = SessionCreate(scenario_id="x", mode="digital_human_pipeline")
+        assert sc.mode == "digital_human_pipeline"
+
+    async def test_session_create_realtime_agent_mode(self):
+        sc = SessionCreate(scenario_id="x", mode="voice_realtime_agent")
+        assert sc.mode == "voice_realtime_agent"
+
+    async def test_session_create_digital_human_realtime_model(self):
+        sc = SessionCreate(scenario_id="x", mode="digital_human_realtime_model")
+        assert sc.mode == "digital_human_realtime_model"
 
 
 class TestVoiceLiveSchemas:
@@ -219,6 +227,9 @@ class TestVoiceLiveAPI:
     async def test_token_endpoint_no_config(self, mock_config_svc, client):
         """POST /api/v1/voice-live/token returns 503 when no config exists."""
         mock_config_svc.get_config = AsyncMock(return_value=None)
+        mock_config_svc.get_effective_key = AsyncMock(return_value="")
+        mock_config_svc.get_effective_endpoint = AsyncMock(return_value="")
+        mock_config_svc.get_master_config = AsyncMock(return_value=None)
 
         _, token = await _create_user_and_token("vl_noconfig")
         response = await client.post(
@@ -233,7 +244,7 @@ class TestVoiceLiveAPI:
     async def test_status_endpoint_no_config(self, mock_config_svc, client):
         """GET /api/v1/voice-live/status returns voice_live_available=False when no config."""
         mock_config_svc.get_config = AsyncMock(return_value=None)
-        mock_config_svc.get_decrypted_key = AsyncMock(return_value="")
+        mock_config_svc.get_effective_key = AsyncMock(return_value="")
 
         _, token = await _create_user_and_token("vl_status")
         response = await client.get(
@@ -253,13 +264,20 @@ class TestVoiceLiveAPI:
         mock_vl_config.endpoint = "https://test.openai.azure.com"
         mock_vl_config.region = "eastus2"
         mock_vl_config.model_or_deployment = "gpt-4o-realtime-preview"
+        mock_vl_config.api_key_encrypted = ""
 
         mock_config_svc.get_config = AsyncMock(
             side_effect=lambda db, name: mock_vl_config if name == "azure_voice_live" else None
         )
-        mock_config_svc.get_decrypted_key = AsyncMock(
+        mock_config_svc.get_effective_key = AsyncMock(
             side_effect=lambda db, name: "test-api-key" if name == "azure_voice_live" else ""
         )
+        mock_config_svc.get_effective_endpoint = AsyncMock(
+            side_effect=lambda db, name: (
+                "https://test.openai.azure.com" if name == "azure_voice_live" else ""
+            )
+        )
+        mock_config_svc.get_master_config = AsyncMock(return_value=None)
 
         _, token = await _create_user_and_token("vl_withconfig")
         response = await client.post(
@@ -273,6 +291,8 @@ class TestVoiceLiveAPI:
         assert data["region"] == "eastus2"
         assert data["avatar_enabled"] is False
         assert data["voice_name"] == "zh-CN-XiaoxiaoMultilingualNeural"
+        assert data["agent_id"] is None
+        assert data["project_name"] is None
 
 
 # === Feature Flags Voice Live Tests ===

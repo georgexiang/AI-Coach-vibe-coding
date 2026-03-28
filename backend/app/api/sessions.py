@@ -38,8 +38,8 @@ async def create_session(
     user: User = Depends(get_current_user),
 ):
     """Create a new coaching session for a scenario."""
-    # Enforce feature flag server-side: reject voice/avatar modes when voice_live is disabled
-    if request.mode in ("voice", "avatar") and not settings.feature_voice_live_enabled:
+    # Enforce feature flag server-side: reject non-text modes when voice_live is disabled
+    if request.mode != "text" and not settings.feature_voice_live_enabled:
         raise AppException(
             status_code=409,
             code="VOICE_MODE_DISABLED",

@@ -66,6 +66,7 @@ async def lifespan(app: FastAPI):
         )
 
     # Load active configs from DB and register real adapters (overrides mocks)
+    # First load master AI Foundry config, then pass it to per-service registrations
     from app.api.azure_config import register_adapter_from_config
     from app.database import AsyncSessionLocal
     from app.models.service_config import ServiceConfig
@@ -75,20 +76,39 @@ async def lifespan(app: FastAPI):
         async with AsyncSessionLocal() as session:
             from sqlalchemy import select
 
+            # Load master AI Foundry config first
+            master_endpoint = ""
+            master_key = ""
+            master_region = ""
+            master_result = await session.execute(
+                select(ServiceConfig).where(ServiceConfig.is_master == True)  # noqa: E712
+            )
+            master_cfg = master_result.scalar_one_or_none()
+            if master_cfg:
+                master_endpoint = master_cfg.endpoint
+                master_key = decrypt_value(master_cfg.api_key_encrypted)
+                master_region = master_cfg.region
+
+            # Register per-service adapters with master fallback
             result = await session.execute(
-                select(ServiceConfig).where(ServiceConfig.is_active == True)  # noqa: E712
+                select(ServiceConfig).where(
+                    ServiceConfig.is_active == True,  # noqa: E712
+                    ServiceConfig.is_master == False,  # noqa: E712
+                )
             )
             configs = result.scalars().all()
             for cfg in configs:
                 api_key = decrypt_value(cfg.api_key_encrypted)
-                if api_key:
-                    await register_adapter_from_config(
-                        cfg.service_name,
-                        cfg.endpoint,
-                        api_key,
-                        cfg.model_or_deployment,
-                        cfg.region,
-                    )
+                await register_adapter_from_config(
+                    cfg.service_name,
+                    cfg.endpoint,
+                    api_key,
+                    cfg.model_or_deployment,
+                    cfg.region,
+                    master_endpoint=master_endpoint,
+                    master_key=master_key,
+                    master_region=master_region,
+                )
     except Exception:
         pass  # DB may not have the table yet on first run
 
