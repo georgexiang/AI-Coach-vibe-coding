@@ -20,6 +20,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 06: Conference Presentation Module** - One-to-many simulation, live transcription, audience Q&A, presentation scoring (completed 2026-03-25)
 - [x] **Phase 07: Azure Service Integration** - Admin Azure config persistence, real connection testing, dynamic provider switching (mock → Azure OpenAI/Speech/Avatar) (completed 2026-03-27)
 - [x] **Phase 08: Voice & Avatar Demo Integration** - Integrate Azure Voice Live Agent with Avatar into the AI Coach platform for real-time voice coaching with digital HCP avatar (completed 2026-03-28)
+- [ ] **Phase 09: Integration Testing with Real Azure Services** - Unified AI Foundry config, 7 interaction modes, agent mode runtime, integration tests, E2E demo validation
 
 ## Phase Details
 
@@ -189,7 +190,7 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 01 -> 01.1 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07 -> 08
+Phases execute in numeric order: 01 -> 01.1 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07 -> 08 -> 09
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -202,6 +203,7 @@ Phases execute in numeric order: 01 -> 01.1 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07 
 | 06. Conference Presentation Module | 6/6 | Complete | 2026-03-25 |
 | 07. Azure Service Integration | 4/4 | Complete    | 2026-03-27 |
 | 08. Voice & Avatar Demo Integration | 5/4 | Complete   | 2026-03-28 |
+| 09. Integration Testing with Real Azure Services | 1/5 | In Progress|  |
 
 ### Phase 07: Azure Service Integration
 
@@ -243,5 +245,27 @@ Plans:
 - [x] 08-02-PLAN.md -- Frontend data layer: TypeScript types, i18n voice namespace, API client, TanStack Query hooks, audio-processor.js, tests
 - [x] 08-03-PLAN.md -- Voice hooks + leaf components: useVoiceLive, useAvatarStream, useAudioHandler, 7 voice UI components, component tests
 - [x] 08-04-PLAN.md -- Container components + wiring: VoiceSession container, route registration, admin config Voice Live card, transcript flush, tests
+
+**UI hint**: yes
+
+### Phase 09: Integration Testing with Real Azure Services
+**Goal**: Implement unified AI Foundry config (replacing 8 separate ServiceConfig rows), expand to 7 interaction modes, wire agent mode runtime end-to-end, redesign admin UI with single AI Foundry card, then validate all Azure service integrations with real credentials and polish demo experience for BeiGene customer presentations
+**Depends on**: Phase 08
+**Requirements**: COACH-04, COACH-05, COACH-06, COACH-07, PLAT-03, PLAT-05
+**Success Criteria** (what must be TRUE):
+  1. Admin configures a single AI Foundry endpoint/region/API key — all 7 services derive from this unified config
+  2. Platform supports all 7 interaction modes (Text, Voice Pipeline, Digital Human Speech+Model, Voice Realtime Model, Digital Human Realtime Model, Voice Realtime Agent, Digital Human Realtime Agent)
+  3. Agent mode works end-to-end: token broker returns agent_id/project_name, frontend connects via voice-agent/realtime WebSocket
+  4. Two-level mode selector UI: communication type first (Text/Voice/Digital Human), then engine (Pipeline/Realtime Model/Realtime Agent)
+  5. Integration tests validate each Azure service with real credentials (pytest --run-integration)
+  6. E2E demo flow works: Login → Admin AI Foundry config → Text session → Voice session → Avatar session → Score report
+**Plans**: 5 plans
+
+Plans:
+- [x] 09-01-PLAN.md -- Backend unified AI Foundry config, 7-mode session schema, agent mode token broker
+- [ ] 09-02-PLAN.md -- Frontend types, AI Foundry admin page redesign, two-level mode selector types
+- [ ] 09-03-PLAN.md -- Two-level mode selector component, agent mode WebSocket wiring in use-voice-live
+- [ ] 09-04-PLAN.md -- Backend pytest integration tests (Azure OpenAI, Speech, Voice Live, Avatar)
+- [ ] 09-05-PLAN.md -- Playwright E2E demo-flow test, pre-demo smoke test checklist
 
 **UI hint**: yes
