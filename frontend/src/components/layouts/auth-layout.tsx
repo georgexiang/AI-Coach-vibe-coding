@@ -3,9 +3,9 @@ import { LanguageSwitcher } from "@/components/shared/language-switcher";
 
 export function AuthLayout() {
   return (
-    <div className="relative flex min-h-screen items-center justify-center bg-gradient-to-br from-blue-50 via-white to-blue-50 p-4">
+    <div className="relative flex min-h-screen items-center justify-center bg-gradient-to-br from-primary/5 via-background to-primary/3 p-4">
       <Outlet />
-      <div className="fixed top-6 right-6">
+      <div className="fixed right-6 top-6">
         <LanguageSwitcher />
       </div>
       <p className="fixed bottom-6 left-1/2 -translate-x-1/2 text-xs text-muted-foreground">

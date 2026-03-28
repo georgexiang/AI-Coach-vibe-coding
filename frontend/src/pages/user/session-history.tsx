@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Loader2, TrendingUp, TrendingDown, Search } from "lucide-react";
+import { TrendingUp, TrendingDown, Search } from "lucide-react";
 import {
   ResponsiveContainer,
   LineChart,
@@ -22,17 +22,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui";
+import { LoadingState, EmptyState } from "@/components/shared";
 import { cn } from "@/lib/utils";
 import { useScoreHistory } from "@/hooks/use-scoring";
 import { PerformanceRadar } from "@/components/analytics";
-
-const DIMENSION_COLORS = [
-  "#1E40AF",
-  "#059669",
-  "#D97706",
-  "#DC2626",
-  "#7C3AED",
-];
 
 const ALL_VALUE = "__all__";
 const PAGE_SIZE = 10;
@@ -108,21 +101,21 @@ export default function SessionHistory() {
 
   if (isLoading) {
     return (
-      <div className="flex h-96 flex-col items-center justify-center gap-4">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="mx-auto max-w-5xl space-y-6 p-4 lg:p-8">
+        <h1 className="text-2xl font-medium text-foreground">{t("history.title")}</h1>
+        <LoadingState variant="table" />
       </div>
     );
   }
 
   if (!history || history.length === 0) {
     return (
-      <div className="mx-auto max-w-5xl p-4 lg:p-8">
-        <h1 className="mb-6 text-3xl font-semibold">{t("history.title")}</h1>
-        <div className="rounded-md border px-4 py-12 text-center">
-          <p className="text-sm text-muted-foreground">
-            {t("history.noSessions")}
-          </p>
-        </div>
+      <div className="mx-auto max-w-5xl space-y-6 p-4 lg:p-8">
+        <h1 className="text-2xl font-medium text-foreground">{t("history.title")}</h1>
+        <EmptyState
+          title={t("history.noSessions")}
+          body={t("history.noSessionsBody", { defaultValue: "Start your first training session to track progress." })}
+        />
       </div>
     );
   }
@@ -137,13 +130,13 @@ export default function SessionHistory() {
     : undefined;
 
   return (
-    <div className="mx-auto max-w-5xl p-4 lg:p-8">
-      <h1 className="mb-6 text-3xl font-semibold">{t("history.title")}</h1>
+    <div className="mx-auto max-w-5xl space-y-6 p-4 lg:p-8">
+      <h1 className="text-2xl font-medium text-foreground">{t("history.title")}</h1>
 
       {/* Skill overview radar */}
       {latestRadarScores.length > 0 && (
-        <div className="mb-8 rounded-lg border p-4">
-          <h2 className="mb-4 text-lg font-medium">
+        <div className="rounded-lg border border-border bg-card p-4">
+          <h2 className="mb-4 text-lg font-medium text-foreground">
             {t("history.skillOverview", { defaultValue: "Skill Overview" })}
           </h2>
           <PerformanceRadar
@@ -156,35 +149,44 @@ export default function SessionHistory() {
 
       {/* Trend chart */}
       {chartData.length > 1 && (
-        <div className="mb-8 rounded-lg border p-4">
-          <h2 className="mb-4 text-lg font-medium">{t("history.trend")}</h2>
+        <div className="rounded-lg border border-border bg-card p-4">
+          <h2 className="mb-4 text-lg font-medium text-foreground">{t("history.trend")}</h2>
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                <XAxis dataKey="date" tick={{ fill: "#64748B", fontSize: 12 }} />
-                <YAxis domain={[0, 100]} tick={{ fill: "#64748B", fontSize: 12 }} />
+                <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                <XAxis dataKey="date" tick={{ fontSize: 12 }} className="fill-muted-foreground" />
+                <YAxis domain={[0, 100]} tick={{ fontSize: 12 }} className="fill-muted-foreground" />
                 <Tooltip />
                 <Legend />
                 <Line
                   type="monotone"
                   dataKey="overall"
                   name={t("history.overall")}
-                  stroke="#0F172A"
+                  stroke="var(--primary)"
                   strokeWidth={2}
                   dot={{ r: 4 }}
                 />
-                {dimensionNames.map((dim, idx) => (
-                  <Line
-                    key={dim}
-                    type="monotone"
-                    dataKey={dim}
-                    name={dim}
-                    stroke={DIMENSION_COLORS[idx % DIMENSION_COLORS.length]}
-                    strokeDasharray="5 5"
-                    dot={{ r: 3 }}
-                  />
-                ))}
+                {dimensionNames.map((dim, idx) => {
+                  const colors = [
+                    "var(--chart-1)",
+                    "var(--chart-2)",
+                    "var(--chart-3)",
+                    "var(--chart-4)",
+                    "var(--chart-5)",
+                  ];
+                  return (
+                    <Line
+                      key={dim}
+                      type="monotone"
+                      dataKey={dim}
+                      name={dim}
+                      stroke={colors[idx % colors.length]}
+                      strokeDasharray="5 5"
+                      dot={{ r: 3 }}
+                    />
+                  );
+                })}
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -192,8 +194,8 @@ export default function SessionHistory() {
       )}
 
       {/* Filter bar */}
-      <div className="mb-4 flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 min-w-[200px] max-w-sm">
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative min-w-[200px] max-w-sm flex-1">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             className="pl-9"
@@ -241,30 +243,30 @@ export default function SessionHistory() {
         </span>
       </div>
 
-      {/* History table */}
-      <div className="rounded-md border">
+      {/* History table — desktop */}
+      <div className="hidden rounded-lg border border-border bg-card sm:block">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b bg-slate-50/50">
-              <th className="px-4 py-3 text-left font-medium">
+            <tr className="border-b border-border bg-muted/50">
+              <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">
                 {t("history.date")}
               </th>
-              <th className="px-4 py-3 text-left font-medium">
+              <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">
                 {t("history.scenario")}
               </th>
-              <th className="hidden px-4 py-3 text-left font-medium sm:table-cell">
+              <th className="hidden px-4 py-3 text-left text-sm font-medium text-muted-foreground md:table-cell">
                 {t("history.mode", { defaultValue: "Mode" })}
               </th>
-              <th className="px-4 py-3 text-left font-medium">
+              <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">
                 {t("history.score")}
               </th>
-              <th className="px-4 py-3 text-left font-medium">
+              <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">
                 {t("history.duration", { defaultValue: "Duration" })}
               </th>
-              <th className="hidden px-4 py-3 text-left font-medium md:table-cell">
+              <th className="hidden px-4 py-3 text-left text-sm font-medium text-muted-foreground lg:table-cell">
                 {t("rubrics.dimensions", { ns: "admin", defaultValue: "Dimensions" })}
               </th>
-              <th className="px-4 py-3 text-right font-medium">
+              <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">
                 {t("history.viewDetails")}
               </th>
             </tr>
@@ -273,33 +275,32 @@ export default function SessionHistory() {
             {pagedHistory.map((item) => (
               <tr
                 key={item.session_id}
-                className="cursor-pointer border-b transition-colors hover:bg-slate-50/50"
+                className="cursor-pointer border-b border-border transition-colors hover:bg-muted/50"
                 onClick={() => navigate(`/user/scoring/${item.session_id}`)}
               >
-                <td className="px-4 py-3 text-muted-foreground">
+                <td className="px-4 py-3 text-sm text-muted-foreground">
                   {item.completed_at
                     ? new Date(item.completed_at).toLocaleDateString()
                     : "-"}
                 </td>
-                <td className="px-4 py-3 font-medium">
+                <td className="px-4 py-3 text-sm font-medium text-foreground">
                   {item.scenario_name}
                 </td>
-                <td className="hidden px-4 py-3 sm:table-cell">
+                <td className="hidden px-4 py-3 md:table-cell">
                   <Badge variant="outline" className="text-xs">
                     {tc("modeF2F")}
                   </Badge>
-
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2">
                     <span
                       className={cn(
-                        "inline-flex h-7 w-10 items-center justify-center rounded font-semibold text-xs",
+                        "inline-flex h-7 w-10 items-center justify-center rounded text-xs font-semibold",
                         item.overall_score >= 80
-                          ? "bg-green-100 text-green-700"
+                          ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
                           : item.overall_score >= 60
-                            ? "bg-orange-100 text-orange-700"
-                            : "bg-red-100 text-red-700",
+                            ? "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400"
+                            : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
                       )}
                     >
                       {item.overall_score}
@@ -308,23 +309,23 @@ export default function SessionHistory() {
                       className={cn(
                         "text-xs",
                         item.passed
-                          ? "bg-green-100 text-green-700"
-                          : "bg-red-100 text-red-700",
+                          ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                          : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
                       )}
                     >
                       {item.passed ? t("passed") : t("failed")}
                     </Badge>
                   </div>
                 </td>
-                <td className="px-4 py-3 text-muted-foreground">--</td>
-                <td className="hidden px-4 py-3 md:table-cell">
+                <td className="px-4 py-3 text-sm text-muted-foreground">--</td>
+                <td className="hidden px-4 py-3 lg:table-cell">
                   <div className="flex items-center gap-2">
                     {item.dimensions.slice(0, 3).map((dim) => (
                       <div
                         key={dim.dimension}
                         className="flex items-center gap-1"
                       >
-                        <div className="h-1.5 w-8 overflow-hidden rounded-full bg-accent">
+                        <div className="h-1.5 w-8 overflow-hidden rounded-full bg-muted">
                           <div
                             className={cn(
                               "h-full rounded-full",
@@ -342,8 +343,8 @@ export default function SessionHistory() {
                             className={cn(
                               "text-xs",
                               dim.improvement_pct > 0
-                                ? "text-green-600"
-                                : "text-red-600",
+                                ? "text-green-600 dark:text-green-400"
+                                : "text-red-600 dark:text-red-400",
                             )}
                           >
                             {dim.improvement_pct > 0 ? (
@@ -358,7 +359,7 @@ export default function SessionHistory() {
                   </div>
                 </td>
                 <td className="px-4 py-3 text-right">
-                  <span className="text-sm text-primary hover:underline">
+                  <span className="text-sm text-primary transition-colors duration-150 hover:underline">
                     {t("history.viewDetails")}
                   </span>
                 </td>
@@ -369,7 +370,81 @@ export default function SessionHistory() {
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="flex items-center justify-center gap-2 border-t px-4 py-3">
+          <div className="flex items-center justify-center gap-2 border-t border-border px-4 py-3">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+            >
+              {t("history.previous", { defaultValue: "Previous" })}
+            </Button>
+            <span className="text-sm text-muted-foreground">
+              {page} / {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page >= totalPages}
+              onClick={() => setPage((p) => p + 1)}
+            >
+              {t("history.next", { defaultValue: "Next" })}
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {/* History cards — mobile */}
+      <div className="space-y-3 sm:hidden">
+        {pagedHistory.map((item) => (
+          <div
+            key={item.session_id}
+            className="cursor-pointer rounded-lg border border-border bg-card p-4 transition-colors hover:bg-muted/50"
+            onClick={() => navigate(`/user/scoring/${item.session_id}`)}
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-foreground">
+                {item.scenario_name}
+              </span>
+              <span
+                className={cn(
+                  "inline-flex h-7 w-10 items-center justify-center rounded text-xs font-semibold",
+                  item.overall_score >= 80
+                    ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                    : item.overall_score >= 60
+                      ? "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400"
+                      : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+                )}
+              >
+                {item.overall_score}
+              </span>
+            </div>
+            <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+              <span>
+                {item.completed_at
+                  ? new Date(item.completed_at).toLocaleDateString()
+                  : "-"}
+              </span>
+              <Badge variant="outline" className="text-xs">
+                {tc("modeF2F")}
+              </Badge>
+              <Badge
+                className={cn(
+                  "text-xs",
+                  item.passed
+                    ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                    : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+                )}
+              >
+                {item.passed ? t("passed") : t("failed")}
+              </Badge>
+            </div>
+          </div>
+        ))}
+
+        {/* Mobile pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-center gap-2 pt-2">
             <Button
               variant="outline"
               size="sm"

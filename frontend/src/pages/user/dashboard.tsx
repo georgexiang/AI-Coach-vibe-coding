@@ -7,7 +7,6 @@ import {
   TrendingUp,
   Users,
   Mic,
-  Loader2,
   Download,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, Button } from "@/components/ui";
@@ -18,6 +17,8 @@ import {
   RecommendedScenario,
   MiniRadarChart,
   MiniTrendChart,
+  LoadingState,
+  EmptyState,
 } from "@/components/shared";
 import { PerformanceRadar } from "@/components/analytics";
 import { useAuthStore } from "@/stores/auth-store";
@@ -56,26 +57,26 @@ export default function UserDashboard() {
       label: "sessionsCompleted",
       value: dashStats?.total_sessions ?? 0,
       icon: CheckCircle,
-      colorClass: "bg-green-100 text-green-600",
+      colorClass: "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400",
       trend: undefined,
     },
     {
       label: "averageScore",
       value: dashStats?.avg_score ?? 0,
       icon: Target,
-      colorClass: "bg-blue-100 text-blue-600",
+      colorClass: "bg-primary/10 text-primary",
       trend: undefined,
     },
     {
       label: "thisWeek",
       value: dashStats?.this_week ?? 0,
       icon: Calendar,
-      colorClass: "bg-purple-100 text-purple-600",
+      colorClass: "bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400",
       progress: undefined,
     },
     {
       label: "improvement",
-      colorClass: "bg-orange-100 text-orange-600",
+      colorClass: "bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400",
       value: dashStats?.improvement != null
         ? `${dashStats.improvement > 0 ? "+" : ""}${dashStats.improvement}`
         : ta("noImprovement", { defaultValue: "--" }),
@@ -100,10 +101,10 @@ export default function UserDashboard() {
     <div className="space-y-6">
       {/* Welcome header */}
       <div>
-        <h1 className="text-3xl font-semibold text-foreground">
+        <h1 className="text-2xl font-medium text-foreground">
           {t("welcome", { name: userName })}
         </h1>
-        <p className="mt-1 text-muted-foreground">{t("overview")}</p>
+        <p className="mt-1 text-sm text-muted-foreground">{t("overview")}</p>
       </div>
 
       {/* Row 1: 4-column stat cards */}
@@ -122,18 +123,19 @@ export default function UserDashboard() {
         ))}
       </div>
 
-      {/* Row 2: Recent sessions + actions */}
+      {/* Row 2: Recent sessions + actions (60/40 split) */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
         {/* Left: Recent Training Sessions */}
-        <Card className="lg:col-span-3">
+        <Card className="bg-card lg:col-span-3">
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>{t("recentSessions")}</CardTitle>
+            <CardTitle className="text-base font-medium">{t("recentSessions")}</CardTitle>
             <div className="flex items-center gap-2">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => exportExcel.mutate()}
                 disabled={exportExcel.isPending}
+                className="transition-colors duration-150"
               >
                 <Download className="mr-1 size-4" />
                 {exportExcel.isPending ? ta("exportingExcel") : ta("exportExcel")}
@@ -145,9 +147,7 @@ export default function UserDashboard() {
           </CardHeader>
           <CardContent className="space-y-1">
             {sessionsLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-6 w-6 animate-spin text-primary" />
-              </div>
+              <LoadingState variant="card" />
             ) : recentSessions && recentSessions.length > 0 ? (
               recentSessions.map((session) => (
                 <SessionItem
@@ -161,18 +161,19 @@ export default function UserDashboard() {
                 />
               ))
             ) : (
-              <p className="py-12 text-center text-sm text-muted-foreground">
-                {t("noSessions", { defaultValue: "No sessions yet. Start training!" })}
-              </p>
+              <EmptyState
+                title={t("noSessions", { defaultValue: "No sessions yet" })}
+                body={t("noSessionsBody", { defaultValue: "Start training to see your sessions here." })}
+              />
             )}
           </CardContent>
         </Card>
 
         {/* Right: Action cards + recommended scenario + skill overview */}
         <div className="flex flex-col gap-6 lg:col-span-2">
-          <Card>
+          <Card className="bg-card">
             <CardHeader>
-              <CardTitle>{t("startTraining", { defaultValue: "Start Training" })}</CardTitle>
+              <CardTitle className="text-base font-medium">{t("startTraining", { defaultValue: "Start Training" })}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <ActionCard
@@ -193,9 +194,9 @@ export default function UserDashboard() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="bg-card">
             <CardHeader>
-              <CardTitle className="text-base">
+              <CardTitle className="text-sm font-medium">
                 {t("recommendedScenario")}
               </CardTitle>
             </CardHeader>
@@ -215,9 +216,9 @@ export default function UserDashboard() {
 
           {/* Skill Overview Radar */}
           {radarScores && radarScores.length > 0 && (
-            <Card>
+            <Card className="bg-card">
               <CardHeader>
-                <CardTitle className="text-base">
+                <CardTitle className="text-sm font-medium">
                   {t("skillOverview")}
                 </CardTitle>
               </CardHeader>
