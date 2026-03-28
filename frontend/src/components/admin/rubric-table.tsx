@@ -1,6 +1,5 @@
 import { useTranslation } from "react-i18next";
 import { Pencil, Trash2 } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { Rubric } from "@/types/rubric";
@@ -16,7 +15,7 @@ export function RubricTable({ rubrics, onEdit, onDelete }: RubricTableProps) {
 
   if (rubrics.length === 0) {
     return (
-      <div className="rounded-md border px-4 py-12 text-center">
+      <div className="rounded-lg border border-dashed border-border bg-card px-4 py-12 text-center">
         <h3 className="text-lg font-medium text-foreground">
           {t("rubrics.emptyTitle")}
         </h3>
@@ -28,32 +27,34 @@ export function RubricTable({ rubrics, onEdit, onDelete }: RubricTableProps) {
   }
 
   return (
-    <div className="rounded-md border">
+    <div className="rounded-lg border border-border bg-card shadow-sm">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b bg-slate-50/50">
-            <th className="px-4 py-3 text-left font-medium">
+          <tr className="border-b bg-muted/50">
+            <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">
               {t("rubrics.name")}
             </th>
-            <th className="px-4 py-3 text-left font-medium">
+            <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">
               {t("rubrics.scenarioType")}
             </th>
-            <th className="px-4 py-3 text-left font-medium">
+            <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">
               {t("rubrics.dimensions")}
             </th>
-            <th className="px-4 py-3 text-left font-medium">
+            <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">
               {t("rubrics.isDefault")}
             </th>
-            <th className="px-4 py-3 text-right font-medium">Actions</th>
+            <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">
+              {t("rubrics.actions", { defaultValue: "Actions" })}
+            </th>
           </tr>
         </thead>
         <tbody>
           {rubrics.map((rubric) => (
             <tr
               key={rubric.id}
-              className="border-b transition-colors hover:bg-slate-50/50"
+              className="border-b last:border-b-0 transition-colors duration-150 hover:bg-muted/50"
             >
-              <td className="px-4 py-3 font-medium">{rubric.name}</td>
+              <td className="px-4 py-3 font-medium text-foreground">{rubric.name}</td>
               <td className="px-4 py-3 text-muted-foreground">
                 {rubric.scenario_type
                   ? t(`rubrics.${rubric.scenario_type}`)
@@ -64,12 +65,8 @@ export function RubricTable({ rubrics, onEdit, onDelete }: RubricTableProps) {
               </td>
               <td className="px-4 py-3">
                 {rubric.is_default && (
-                  <Badge
-                    className={cn(
-                      "bg-green-100 text-green-700",
-                    )}
-                  >
-                    Default
+                  <Badge className="bg-strength/10 text-strength border-strength/20">
+                    {t("rubrics.default", { defaultValue: "Default" })}
                   </Badge>
                 )}
               </td>
@@ -78,7 +75,7 @@ export function RubricTable({ rubrics, onEdit, onDelete }: RubricTableProps) {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="size-8"
+                    className="size-8 transition-colors duration-150"
                     onClick={() => onEdit(rubric)}
                   >
                     <Pencil className="size-4" />
@@ -86,7 +83,7 @@ export function RubricTable({ rubrics, onEdit, onDelete }: RubricTableProps) {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="size-8 text-destructive"
+                    className="size-8 text-destructive transition-colors duration-150"
                     onClick={() => onDelete(rubric.id)}
                   >
                     <Trash2 className="size-4" />
