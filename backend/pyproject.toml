@@ -59,6 +59,10 @@ include = ["app*"]
 asyncio_mode = "auto"
 testpaths = ["tests"]
 timeout = 60
+addopts = "-m 'not integration'"
+markers = [
+    "integration: mark test as requiring real Azure credentials (deselect with '-m \"not integration\"')",
+]
 
 [tool.ruff]
 target-version = "py311"
