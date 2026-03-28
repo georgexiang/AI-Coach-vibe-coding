@@ -17,6 +17,7 @@ class FeatureFlags(BaseModel):
     voice_enabled: bool
     realtime_voice_enabled: bool
     conference_enabled: bool
+    voice_live_enabled: bool
     default_voice_mode: str
     region: str
 
@@ -39,6 +40,7 @@ async def get_features(user=Depends(get_current_user)):
             voice_enabled=settings.feature_voice_enabled,
             realtime_voice_enabled=settings.feature_realtime_voice_enabled,
             conference_enabled=settings.feature_conference_enabled,
+            voice_live_enabled=settings.feature_voice_live_enabled,
             default_voice_mode=settings.default_voice_mode,
             region=settings.region,
         ),

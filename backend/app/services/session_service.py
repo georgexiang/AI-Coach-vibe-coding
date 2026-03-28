@@ -14,7 +14,9 @@ from app.services.prompt_builder import build_key_message_detection_prompt
 from app.utils.exceptions import AppException, NotFoundException
 
 
-async def create_session(db: AsyncSession, scenario_id: str, user_id: str) -> CoachingSession:
+async def create_session(
+    db: AsyncSession, scenario_id: str, user_id: str, mode: str = "text"
+) -> CoachingSession:
     """Create a new coaching session for a scenario.
 
     Verifies the scenario exists and is active, initializes key_messages_status
@@ -41,6 +43,7 @@ async def create_session(db: AsyncSession, scenario_id: str, user_id: str) -> Co
         user_id=user_id,
         scenario_id=scenario_id,
         status="created",
+        mode=mode,
         key_messages_status=json.dumps(key_messages_status),
     )
     db.add(session)
