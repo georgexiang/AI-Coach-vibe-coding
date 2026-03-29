@@ -45,7 +45,7 @@ SEED_USERS = [
         "role": "user",
         "full_name": "Zhang Wei",
         "preferred_language": "zh-CN",
-        "business_unit": "Oncology BU",
+        "business_unit": "Oncology BU (肿瘤事业部)",
     },
     {
         "username": "user2",
@@ -54,7 +54,7 @@ SEED_USERS = [
         "role": "user",
         "full_name": "Li Ming",
         "preferred_language": "zh-CN",
-        "business_unit": "Hematology BU",
+        "business_unit": "Hematology BU (血液事业部)",
     },
     {
         "username": "user3",
@@ -63,7 +63,7 @@ SEED_USERS = [
         "role": "user",
         "full_name": "Wang Fang",
         "preferred_language": "en-US",
-        "business_unit": "Solid Tumor BU",
+        "business_unit": "Solid Tumor BU (实体瘤事业部)",
     },
 ]
 
