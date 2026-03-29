@@ -1,7 +1,7 @@
 # Project Roadmap
 
 > Auto-generated from [`.planning/ROADMAP.md`](../blob/main/.planning/ROADMAP.md)  
-> Last synced: 2026-03-27
+> Last synced: 2026-03-29
 
 # Roadmap: AI Coach Platform (BeiGene)
 
@@ -23,6 +23,10 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 04: Dashboard & Reporting** - Personal dashboard, group analytics, export (PDF/Excel), training progress tracking
 - [x] **Phase 05: Training Material Management** - Document upload, versioning, retention policies, AI knowledge base integration
 - [x] **Phase 06: Conference Presentation Module** - One-to-many simulation, live transcription, audience Q&A, presentation scoring (completed 2026-03-25)
+- [x] **Phase 07: Azure Service Integration** - Admin Azure config persistence, real connection testing, dynamic provider switching (mock → Azure OpenAI/Speech/Avatar) (completed 2026-03-27)
+- [x] **Phase 08: Voice & Avatar Demo Integration** - Integrate Azure Voice Live Agent with Avatar into the AI Coach platform for real-time voice coaching with digital HCP avatar (completed 2026-03-28)
+- [ ] **Phase 09: Integration Testing with Real Azure Services** - Unified AI Foundry config, 7 interaction modes, agent mode runtime, integration tests, E2E demo validation
+- [x] **Phase 10: UI Polish & Professional Unification** - Comprehensive UI overhaul for professional appearance, unified design language, polished visuals for BeiGene customer demo (completed 2026-03-29)
 
 ## Phase Details
 
@@ -82,7 +86,7 @@ Plans:
 - [x] 02-05-PLAN.md -- Frontend API client modules + TanStack Query hooks + SSE streaming hook
 - [x] 02-06-PLAN.md -- Admin pages: HCP profile management, scenario management, Azure config
 - [x] 02-07-PLAN.md -- User pages: scenario selection, F2F coaching session with live chat, scoring feedback with radar chart
-- [ ] 02-08-PLAN.md -- Integration wiring: router, admin sidebar, Azure config API, full flow verification
+- [x] 02-08-PLAN.md -- Integration wiring: router, admin sidebar, Azure config API, full flow verification
 
 **UI hint**: yes
 
@@ -169,10 +173,30 @@ Plans:
 
 **UI hint**: yes
 
+### Phase 07: [Azure Service Integration](Planning-Phase-07)
+**Goal**: Admin Azure config persistence, real connection testing, dynamic provider switching (mock to Azure OpenAI/Speech/Avatar)
+**Depends on**: Phase 01
+**Requirements**: PLAT-03, ARCH-05
+**Success Criteria** (what must be TRUE):
+  1. Admin can configure Azure service endpoints and API keys via admin UI
+  2. API keys are stored encrypted (Fernet) in the database
+  3. Connection testing validates Azure service reachability
+  4. Dynamic provider switching allows runtime change from mock to Azure providers
+  5. All new code has unit tests with >=95% coverage maintained
+**Plans**: 4 plans
+
+Plans:
+- [x] 07-01-PLAN.md -- Config data foundation: ServiceConfig model, Fernet encryption, config service, schemas, migration
+- [x] 07-02-PLAN.md -- Admin config API routes and frontend config page
+- [x] 07-03-PLAN.md -- Connection testing and Azure service validation
+- [x] 07-04-PLAN.md -- Dynamic provider switching and runtime reconfiguration
+
+**UI hint**: yes
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 01 -> 01.1 -> 02 -> 03 -> 04 -> 05 -> 06
+Phases execute in numeric order: 01 -> 01.1 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07 -> 08 -> 09 -> 10
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -183,4 +207,88 @@ Phases execute in numeric order: 01 -> 01.1 -> 02 -> 03 -> 04 -> 05 -> 06
 | 04. Dashboard & Reporting | 6/6 | Complete | - |
 | 05. Training Material Management | 3/3 | Complete | - |
 | 06. Conference Presentation Module | 6/6 | Complete | 2026-03-25 |
+| 07. Azure Service Integration | 4/4 | Complete    | 2026-03-27 |
+| 08. Voice & Avatar Demo Integration | 5/4 | Complete   | 2026-03-28 |
+| 09. Integration Testing with Real Azure Services | 1/5 | In Progress|  |
+| 10. UI Polish & Professional Unification | 6/6 | Complete    | 2026-03-29 |
+
+### Phase 07: [Azure Service Integration](Planning-Phase-07)
+
+**Goal**: Admin can configure Azure OpenAI, Speech, and Avatar through the web UI with real connection testing, configurations persist to the database, and the coaching system dynamically switches from mock to real Azure providers based on admin settings
+**Depends on**: Phase 02
+**Requirements**: PLAT-03, ARCH-05, PLAT-05
+**Success Criteria** (what must be TRUE):
+  1. Admin can configure Azure OpenAI endpoint/key/model/region from the Azure Config page and the settings persist across server restarts (stored in database)
+  2. Admin can configure Azure Speech (STT/TTS) and Azure Avatar settings from the same page
+  3. "Test Connection" button actually validates connectivity to the configured Azure service and shows real success/failure status
+  4. When Azure OpenAI is configured and tested, F2F coaching sessions use the real Azure OpenAI model instead of mock responses
+  5. When Azure Speech is configured, voice mode becomes available for coaching sessions (STT for input, TTS for HCP responses)
+  6. The system gracefully falls back to mock adapters when Azure services are not configured or unavailable
+**Plans**: 4 plans
+
+Plans:
+- [x] 07-01-PLAN.md -- Backend foundation: ServiceConfig model, Fernet encryption, schemas, Alembic migration, config service
+- [x] 07-02-PLAN.md -- AzureOpenAIAdapter: streaming LLM adapter with conversation history, unit tests
+- [x] 07-03-PLAN.md -- Backend API + dynamic switching: PUT/test/GET endpoints, connection tester, lifespan DB loading, session history wiring
+- [ ] 07-04-PLAN.md -- Frontend wiring: TypeScript types, API client, TanStack Query hooks, wire azure-config page to real API
+
+**UI hint**: yes
+
+### Phase 08: [Voice & Avatar Demo Integration](Planning-Phase-08)
+**Goal**: Integrate the existing Voice-Live-Agent-With-Avatar demo (Azure Voice Live API + Avatar) into the AI Coach platform, enabling real-time voice-based coaching sessions where MRs talk to a digital HCP avatar with natural speech interaction
+**Depends on**: Phase 07
+**Requirements**: COACH-04, COACH-05, COACH-07, EXT-04, PLAT-05
+**Success Criteria** (what must be TRUE):
+  1. User can start a voice-enabled coaching session that uses Azure Voice Live API for real-time speech interaction with the AI HCP
+  2. Azure AI Avatar renders a digital human visual for the HCP during voice coaching sessions
+  3. Voice interaction is integrated with the existing coaching session lifecycle (start -> in_progress -> completed -> scored)
+  4. The system gracefully falls back to text-only or TTS-only mode when Avatar/Voice Live services are unavailable
+  5. Admin can configure Voice Live and Avatar settings from the Azure Config page
+  6. All new code has unit tests with >=95% coverage maintained
+**Plans**: 4 plans
+
+Plans:
+- [x] 08-01-PLAN.md -- Backend foundation: Alembic migration (session mode), voice_live schemas/service, token broker API, connection tester, tests
+- [x] 08-02-PLAN.md -- Frontend data layer: TypeScript types, i18n voice namespace, API client, TanStack Query hooks, audio-processor.js, tests
+- [x] 08-03-PLAN.md -- Voice hooks + leaf components: useVoiceLive, useAvatarStream, useAudioHandler, 7 voice UI components, component tests
+- [x] 08-04-PLAN.md -- Container components + wiring: VoiceSession container, route registration, admin config Voice Live card, transcript flush, tests
+
+**UI hint**: yes
+
+### Phase 09: [Integration Testing with Real Azure Services](Planning-Phase-09)
+**Goal**: Implement unified AI Foundry config (replacing 8 separate ServiceConfig rows), expand to 7 interaction modes, wire agent mode runtime end-to-end, redesign admin UI with single AI Foundry card, then validate all Azure service integrations with real credentials and polish demo experience for BeiGene customer presentations
+**Depends on**: Phase 08
+**Requirements**: COACH-04, COACH-05, COACH-06, COACH-07, PLAT-03, PLAT-05
+**Success Criteria** (what must be TRUE):
+  1. Admin configures a single AI Foundry endpoint/region/API key — all 7 services derive from this unified config
+  2. Platform supports all 7 interaction modes (Text, Voice Pipeline, Digital Human Speech+Model, Voice Realtime Model, Digital Human Realtime Model, Voice Realtime Agent, Digital Human Realtime Agent)
+  3. Agent mode works end-to-end: token broker returns agent_id/project_name, frontend connects via voice-agent/realtime WebSocket
+  4. Two-level mode selector UI: communication type first (Text/Voice/Digital Human), then engine (Pipeline/Realtime Model/Realtime Agent)
+  5. Integration tests validate each Azure service with real credentials (pytest --run-integration)
+  6. E2E demo flow works: Login → Admin AI Foundry config → Text session → Voice session → Avatar session → Score report
+**Plans**: 5 plans
+
+Plans:
+- [x] 09-01-PLAN.md -- Backend unified AI Foundry config, 7-mode session schema, agent mode token broker
+- [ ] 09-02-PLAN.md -- Frontend types, AI Foundry admin page redesign, two-level mode selector types
+- [ ] 09-03-PLAN.md -- Two-level mode selector component, agent mode WebSocket wiring in use-voice-live
+- [ ] 09-04-PLAN.md -- Backend pytest integration tests (Azure OpenAI, Speech, Voice Live, Avatar)
+- [ ] 09-05-PLAN.md -- Playwright E2E demo-flow test, pre-demo smoke test checklist
+
+**UI hint**: yes
+
+### Phase 10: [UI Polish & Professional Unification](Planning-Phase-10)
+
+**Goal:** Comprehensive UI overhaul for professional appearance and consistency across all pages — unified design language, accent color theme picker, page transitions, navigation polish, Figma-audited spacing/typography, and demo-ready seed data for BeiGene customer presentations
+**Requirements**: UI-01, UI-02, UI-03, UI-04, UI-05, UI-06, UI-07
+**Depends on:** Phase 09
+**Plans:** 6/6 plans complete
+
+Plans:
+- [x] 10-01-PLAN.md -- Theme system foundation: 5 accent color CSS themes, theme store, flash prevention, splash screen, page transition keyframes
+- [x] 10-02-PLAN.md -- Navigation polish: ThemePicker, Breadcrumb, PageTransition components, grouped admin sidebar, active nav states, layout dark mode
+- [x] 10-03-PLAN.md -- Shared component audit: design token consistency, icon sizing, Badge success variant, Sonner theming, 404 page
+- [x] 10-04-PLAN.md -- User page audit: login, dashboard, training, session history, scoring, reports, training sessions vs Figma specs
+- [x] 10-05-PLAN.md -- Admin page audit: dashboard, users, HCP profiles, scenarios, rubrics, materials, reports, azure config, settings vs Figma specs
+- [x] 10-06-PLAN.md -- Demo seed data polish: BeiGene products, bilingual HCPs, final build verification
 

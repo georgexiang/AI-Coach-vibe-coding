@@ -1,7 +1,7 @@
 # Phase 02: F2f Text Coaching And Scoring
 
 > Auto-generated from [`.planning/phases/02-f2f-text-coaching-and-scoring`](../blob/main/.planning/phases/02-f2f-text-coaching-and-scoring)  
-> Last synced: 2026-03-27
+> Last synced: 2026-03-29
 
 ## Context & Decisions
 

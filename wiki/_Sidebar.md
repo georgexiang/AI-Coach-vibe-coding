@@ -21,6 +21,10 @@
   - [Phase 04: Dashboard Reporting](Planning-Phase-04)
   - [Phase 05: Training Material Management](Planning-Phase-05)
   - [Phase 06: Conference Presentation Module](Planning-Phase-06)
+  - [Phase 07: Azure Service Integration](Planning-Phase-07)
+  - [Phase 08: Voice Avatar Demo Integration](Planning-Phase-08)
+  - [Phase 09: Integration Testing With Real Azure Services](Planning-Phase-09)
+  - [Phase 10: Ui Polish Professional Unification](Planning-Phase-10)
 <!-- PLANNING_END -->
 
 ---

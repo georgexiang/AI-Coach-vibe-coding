@@ -1,7 +1,7 @@
 # Phase 05: Training Material Management
 
 > Auto-generated from [`.planning/phases/05-training-material-management`](../blob/main/.planning/phases/05-training-material-management)  
-> Last synced: 2026-03-27
+> Last synced: 2026-03-29
 
 ## Context & Decisions
 

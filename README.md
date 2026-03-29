@@ -4,6 +4,17 @@
 
 AI Coach 是一个为医药代表 (MR) 设计的 AI 教练平台，通过模拟真实的 HCP（Healthcare Professional）互动场景，帮助 MR 提升沟通技巧和产品知识。
 
+## Live Demo (Azure Container Apps)
+
+| Service | URL |
+|---------|-----|
+| Frontend | https://ai-coach-frontend.mangoforest-104bd67e.eastasia.azurecontainerapps.io |
+| Backend API | https://ai-coach-backend.mangoforest-104bd67e.eastasia.azurecontainerapps.io |
+| API Docs (Swagger) | https://ai-coach-backend.mangoforest-104bd67e.eastasia.azurecontainerapps.io/docs |
+| Health Check | https://ai-coach-backend.mangoforest-104bd67e.eastasia.azurecontainerapps.io/api/health |
+
+> Deployed automatically on every push to `main` via GitHub Actions CI/CD pipeline.
+
 ## Features
 
 - **F2F HCP Engagement** — 与 AI 虚拟医生进行一对一角色扮演练习

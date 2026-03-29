@@ -5,7 +5,7 @@
 
 ## Current Status
 
-All 7 phases of v1.0 milestone are **complete** (38/38 plans executed).
+All 11 phases of v1.0 milestone are **complete** (59/59 plans executed).
 
 | Phase | Name | Plans | Status |
 |-------|------|-------|--------|
@@ -16,6 +16,17 @@ All 7 phases of v1.0 milestone are **complete** (38/38 plans executed).
 | 04 | Dashboard & Reporting | 6/6 | Complete |
 | 05 | Training Material Management | 3/3 | Complete |
 | 06 | Conference Presentation Module | 6/6 | Complete |
+| 07 | Azure Service Integration | 5/5 | Complete |
+| 08 | Voice & Avatar Demo Integration | 5/5 | Complete |
+| 09 | Integration Testing | 10/10 | Complete |
+| 10 | UI Polish & Professional Unification | 6/6 | Complete |
+
+## Live Demo
+
+| Service | URL |
+|---------|-----|
+| Frontend | https://ai-coach-frontend.mangoforest-104bd67e.eastasia.azurecontainerapps.io |
+| Backend API | https://ai-coach-backend.mangoforest-104bd67e.eastasia.azurecontainerapps.io |
 
 For detailed per-phase information, see the [Planning Roadmap](Planning-Roadmap).
 
@@ -25,4 +36,4 @@ For detailed per-phase information, see the [Planning Roadmap](Planning-Roadmap)
 - Voice cloning for more realistic HCPs
 - Video-based interaction (digital human)
 - Advanced analytics with AI-driven coaching recommendations
-- Multi-language support
+- Multi-language support (European expansion)
