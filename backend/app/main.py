@@ -84,10 +84,12 @@ async def lifespan(app: FastAPI):
                 select(ServiceConfig).where(ServiceConfig.is_master == True)  # noqa: E712
             )
             master_cfg = master_result.scalar_one_or_none()
+            master_model = ""
             if master_cfg:
                 master_endpoint = master_cfg.endpoint
                 master_key = decrypt_value(master_cfg.api_key_encrypted)
                 master_region = master_cfg.region
+                master_model = master_cfg.model_or_deployment
 
             # Register per-service adapters with master fallback
             result = await session.execute(
@@ -108,6 +110,7 @@ async def lifespan(app: FastAPI):
                     master_endpoint=master_endpoint,
                     master_key=master_key,
                     master_region=master_region,
+                    master_model=master_model,
                 )
     except Exception:
         pass  # DB may not have the table yet on first run

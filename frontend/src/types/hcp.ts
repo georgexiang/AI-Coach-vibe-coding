@@ -19,6 +19,7 @@ export interface HcpProfile {
   created_at: string;
   updated_at: string;
   agent_id: string;
+  agent_version: string;
   agent_sync_status: "synced" | "pending" | "failed" | "none";
   agent_sync_error: string;
 }

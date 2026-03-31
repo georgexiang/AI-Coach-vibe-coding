@@ -20,6 +20,12 @@ _JSON_LIST_FIELDS = ("expertise_areas", "objections", "probe_topics")
 
 async def create_hcp_profile(db: AsyncSession, data: HcpProfileCreate, user_id: str) -> HcpProfile:
     """Create a new HCP profile."""
+    # Pre-fetch config BEFORE any writes to avoid SQLite locking
+    try:
+        endpoint, model = await agent_sync_service.prefetch_sync_config(db)
+    except Exception:
+        endpoint, model = None, None
+
     profile_data = data.model_dump()
     profile_data["created_by"] = user_id
 
@@ -37,8 +43,11 @@ async def create_hcp_profile(db: AsyncSession, data: HcpProfileCreate, user_id: 
     profile.agent_sync_status = "pending"
     await db.flush()
     try:
-        result = await agent_sync_service.sync_agent_for_profile(db, profile)
+        result = await agent_sync_service.sync_agent_for_profile(
+            db, profile, prefetched_endpoint=endpoint, prefetched_model=model
+        )
         profile.agent_id = result.get("id", "")
+        profile.agent_version = str(result.get("version", ""))
         profile.agent_sync_status = "synced"
         profile.agent_sync_error = ""
     except Exception as e:
@@ -98,6 +107,12 @@ async def update_hcp_profile(
     db: AsyncSession, profile_id: str, data: HcpProfileUpdate
 ) -> HcpProfile:
     """Update an existing HCP profile with partial data."""
+    # Pre-fetch config BEFORE any writes to avoid SQLite locking
+    try:
+        endpoint, model = await agent_sync_service.prefetch_sync_config(db)
+    except Exception:
+        endpoint, model = None, None
+
     profile = await get_hcp_profile(db, profile_id)
     update_data = data.model_dump(exclude_unset=True)
 
@@ -116,9 +131,12 @@ async def update_hcp_profile(
     profile.agent_sync_status = "pending"
     await db.flush()
     try:
-        result = await agent_sync_service.sync_agent_for_profile(db, profile)
+        result = await agent_sync_service.sync_agent_for_profile(
+            db, profile, prefetched_endpoint=endpoint, prefetched_model=model
+        )
         if not profile.agent_id and result.get("id"):
             profile.agent_id = result["id"]
+        profile.agent_version = str(result.get("version", ""))
         profile.agent_sync_status = "synced"
         profile.agent_sync_error = ""
     except Exception as e:
@@ -146,14 +164,23 @@ async def delete_hcp_profile(db: AsyncSession, profile_id: str) -> None:
 
 async def retry_agent_sync(db: AsyncSession, profile_id: str) -> HcpProfile:
     """Retry agent sync for a profile with failed sync status (D-11)."""
+    # Pre-fetch config BEFORE any writes to avoid SQLite locking
+    try:
+        endpoint, model = await agent_sync_service.prefetch_sync_config(db)
+    except Exception:
+        endpoint, model = None, None
+
     profile = await get_hcp_profile(db, profile_id)
     profile.agent_sync_status = "pending"
     profile.agent_sync_error = ""
     await db.flush()
     try:
-        result = await agent_sync_service.sync_agent_for_profile(db, profile)
+        result = await agent_sync_service.sync_agent_for_profile(
+            db, profile, prefetched_endpoint=endpoint, prefetched_model=model
+        )
         if result.get("id"):
             profile.agent_id = result["id"]
+        profile.agent_version = str(result.get("version", ""))
         profile.agent_sync_status = "synced"
         profile.agent_sync_error = ""
     except Exception as e:
@@ -162,3 +189,48 @@ async def retry_agent_sync(db: AsyncSession, profile_id: str) -> HcpProfile:
     await db.flush()
     await db.refresh(profile)
     return profile
+
+
+async def batch_sync_agents(db: AsyncSession) -> dict:
+    """Batch sync agents for all profiles with missing or failed agent_id.
+
+    Returns summary dict with counts of synced/failed/skipped profiles.
+    """
+    # Pre-fetch config once for all syncs
+    try:
+        endpoint, model = await agent_sync_service.prefetch_sync_config(db)
+    except Exception as e:
+        return {"synced": 0, "failed": 0, "skipped": 0, "error": str(e)[:500]}
+
+    # Find profiles needing sync
+    result = await db.execute(
+        select(HcpProfile).where(
+            (HcpProfile.agent_id == "") | (HcpProfile.agent_id.is_(None))
+            | (HcpProfile.agent_sync_status == "failed")
+        )
+    )
+    profiles = list(result.scalars().all())
+
+    synced = 0
+    failed = 0
+    for profile in profiles:
+        profile.agent_sync_status = "pending"
+        profile.agent_sync_error = ""
+        await db.flush()
+        try:
+            sync_result = await agent_sync_service.sync_agent_for_profile(
+                db, profile, prefetched_endpoint=endpoint, prefetched_model=model
+            )
+            if sync_result.get("id"):
+                profile.agent_id = sync_result["id"]
+            profile.agent_version = str(sync_result.get("version", ""))
+            profile.agent_sync_status = "synced"
+            profile.agent_sync_error = ""
+            synced += 1
+        except Exception as e:
+            profile.agent_sync_status = "failed"
+            profile.agent_sync_error = str(e)[:500]
+            failed += 1
+        await db.flush()
+
+    return {"synced": synced, "failed": failed, "total": len(profiles)}

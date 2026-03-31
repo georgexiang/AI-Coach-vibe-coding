@@ -15,11 +15,13 @@ export interface ServiceConfigUpdate {
   api_key: string;
   model_or_deployment: string;
   region: string;
+  is_active?: boolean;
 }
 
 export interface AIFoundryConfig {
   endpoint: string;
   region: string;
+  model_or_deployment: string;
   masked_key: string;
   is_active: boolean;
   updated_at: string | null;
@@ -29,12 +31,19 @@ export interface AIFoundryConfigUpdate {
   endpoint: string;
   region: string;
   api_key: string;
+  model_or_deployment: string;
 }
 
 export interface ConnectionTestResult {
   service_name: string;
   success: boolean;
   message: string;
+}
+
+export interface AIFoundryTestResult {
+  success: boolean;
+  message: string;
+  region: string;
 }
 
 export interface RegionServiceAvailability {

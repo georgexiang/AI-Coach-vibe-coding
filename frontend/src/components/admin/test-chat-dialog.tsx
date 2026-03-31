@@ -1,6 +1,6 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { Send } from "lucide-react";
+import { Send, Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -11,69 +11,91 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { testChatWithAgent } from "@/api/hcp-profiles";
 
 interface TestChatMessage {
   role: "user" | "hcp";
   content: string;
 }
 
-const MOCK_RESPONSES: Record<string, string[]> = {
-  friendly: [
-    "Thank you for sharing that information! I'd love to hear more about the clinical data.",
-    "That's interesting. Could you tell me about the side effect profile?",
-    "I appreciate you taking the time to explain this. My patients might benefit from this.",
-  ],
-  skeptical: [
-    "I'm not convinced yet. What does the evidence really show?",
-    "I've heard similar claims before. How is this different from existing treatments?",
-    "Can you provide more robust data to support that claim?",
-  ],
-  busy: [
-    "I only have a few minutes. Get to the point please.",
-    "That's fine, but what's the bottom line for my patients?",
-    "I need to see my next patient soon. Anything else critical?",
-  ],
-  analytical: [
-    "What was the study design? Was it double-blinded and randomized?",
-    "I'd like to see the confidence intervals and the NNT data.",
-    "How does this compare head-to-head with the current standard of care?",
-  ],
-  cautious: [
-    "I generally prefer to wait for more post-market data before prescribing new treatments.",
-    "What about long-term safety? Have there been any post-marketing signals?",
-    "I'd need to see more real-world evidence before changing my practice.",
-  ],
-};
-
 interface TestChatDialogProps {
   profileId: string;
   profileName: string;
   personalityType?: string;
+  agentId?: string;
+  agentVersion?: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
 export function TestChatDialog({
+  profileId,
   profileName,
   personalityType = "friendly",
+  agentId,
   open,
   onOpenChange,
 }: TestChatDialogProps) {
   const { t } = useTranslation("admin");
   const [messages, setMessages] = useState<TestChatMessage[]>([]);
   const [input, setInput] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [responseId, setResponseId] = useState<string | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
-  const sendMessage = useCallback(() => {
-    if (!input.trim()) return;
+  // Auto-scroll to bottom when new messages arrive
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages]);
 
-    const userMessage: TestChatMessage = { role: "user", content: input.trim() };
-    const responses = MOCK_RESPONSES[personalityType] ?? MOCK_RESPONSES["friendly"]!;
-    const randomResponse = responses[Math.floor(Math.random() * responses.length)]!;
-    const hcpMessage: TestChatMessage = { role: "hcp", content: randomResponse };
+  // Reset state when dialog closes
+  useEffect(() => {
+    if (!open) {
+      setMessages([]);
+      setInput("");
+      setError(null);
+      setResponseId(null);
+    }
+  }, [open]);
 
-    setMessages((prev) => [...prev, userMessage, hcpMessage]);
+  const sendMessage = useCallback(async () => {
+    if (!input.trim() || isLoading) return;
+
+    const userMessage: TestChatMessage = {
+      role: "user",
+      content: input.trim(),
+    };
+    setMessages((prev) => [...prev, userMessage]);
     setInput("");
-  }, [input, personalityType]);
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const result = await testChatWithAgent(profileId, {
+        message: userMessage.content,
+        previous_response_id: responseId ?? undefined,
+      });
+
+      setResponseId(result.response_id);
+      setMessages((prev) => [
+        ...prev,
+        { role: "hcp", content: result.response_text },
+      ]);
+    } catch (err) {
+      const msg =
+        err instanceof Error ? err.message : "Failed to get agent response";
+      setError(msg);
+      setMessages((prev) => [
+        ...prev,
+        { role: "hcp", content: `[Error] ${msg}` },
+      ]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [input, isLoading, profileId, responseId]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -81,6 +103,8 @@ export function TestChatDialog({
       sendMessage();
     }
   };
+
+  const hasAgent = !!agentId;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -90,15 +114,19 @@ export function TestChatDialog({
             {t("hcp.testChat")} - {profileName}
           </DialogTitle>
           <DialogDescription>
-            Test conversation with {personalityType} personality
+            {hasAgent
+              ? `Real-time conversation with AI Foundry Agent (${personalityType})`
+              : "No agent synced — sync the agent first to enable chat"}
           </DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="h-[300px] rounded-md border p-4">
+        <ScrollArea className="h-[350px] rounded-md border p-4" ref={scrollRef}>
           <div className="space-y-3">
             {messages.length === 0 && (
               <p className="text-center text-sm text-muted-foreground py-8">
-                Send a message to test the HCP personality
+                {hasAgent
+                  ? "Send a message to chat with the AI Foundry Agent"
+                  : "Agent sync required before chatting"}
               </p>
             )}
             {messages.map((msg, i) => (
@@ -110,31 +138,54 @@ export function TestChatDialog({
                   className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${
                     msg.role === "user"
                       ? "bg-slate-200 text-slate-900"
-                      : "bg-blue-500 text-white"
+                      : msg.content.startsWith("[Error]")
+                        ? "bg-red-100 text-red-800"
+                        : "bg-blue-500 text-white"
                   }`}
                 >
                   {msg.content}
                 </div>
               </div>
             ))}
+            {isLoading && (
+              <div className="flex justify-start">
+                <div className="flex items-center gap-2 rounded-lg bg-blue-100 px-3 py-2 text-sm text-blue-700">
+                  <Loader2 className="size-3.5 animate-spin" />
+                  Agent is thinking...
+                </div>
+              </div>
+            )}
           </div>
         </ScrollArea>
+
+        {error && (
+          <p className="text-xs text-red-600 px-1">{error}</p>
+        )}
 
         <div className="flex items-center gap-2">
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Type a message..."
+            placeholder={
+              hasAgent
+                ? "Type a message..."
+                : "Agent not synced"
+            }
             className="flex-1"
+            disabled={!hasAgent || isLoading}
           />
           <Button
             size="icon"
             onClick={sendMessage}
-            disabled={!input.trim()}
+            disabled={!input.trim() || !hasAgent || isLoading}
             aria-label="Send message"
           >
-            <Send className="size-4" />
+            {isLoading ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <Send className="size-4" />
+            )}
           </Button>
         </div>
       </DialogContent>

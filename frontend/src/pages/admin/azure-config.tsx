@@ -36,6 +36,7 @@ import {
   useTestServiceConnection,
   useAIFoundryConfig,
   useUpdateAIFoundry,
+  useTestAIFoundry,
 } from "@/hooks/use-azure-config";
 import { useRegionCapabilities } from "@/hooks/use-region-capabilities";
 import type { RegionStatus } from "@/types/azure-config";
@@ -47,6 +48,9 @@ interface AzureServiceDef {
   description: string;
   icon: React.ReactNode;
   modelPlaceholder: string;
+  /** Show per-service endpoint override (for services on different Azure resource). */
+  allowEndpointOverride?: boolean;
+  endpointPlaceholder?: string;
 }
 
 const AZURE_SERVICES: AzureServiceDef[] = [
@@ -65,6 +69,8 @@ const AZURE_SERVICES: AzureServiceDef[] = [
     description: "Speech-to-text for voice input recognition",
     icon: <Mic className="size-5 text-primary" />,
     modelPlaceholder: "",
+    allowEndpointOverride: true,
+    endpointPlaceholder: "https://{name}.cognitiveservices.azure.com",
   },
   {
     key: "speechTts",
@@ -73,6 +79,8 @@ const AZURE_SERVICES: AzureServiceDef[] = [
     description: "Text-to-speech for HCP voice responses",
     icon: <Volume2 className="size-5 text-primary" />,
     modelPlaceholder: "",
+    allowEndpointOverride: true,
+    endpointPlaceholder: "https://{name}.cognitiveservices.azure.com",
   },
   {
     key: "avatar",
@@ -81,6 +89,8 @@ const AZURE_SERVICES: AzureServiceDef[] = [
     description: "Digital human avatar for HCP visualization",
     icon: <User className="size-5 text-primary" />,
     modelPlaceholder: "Lisa-casual-sitting",
+    allowEndpointOverride: true,
+    endpointPlaceholder: "https://{name}.cognitiveservices.azure.com",
   },
   {
     key: "contentUnderstanding",
@@ -89,6 +99,8 @@ const AZURE_SERVICES: AzureServiceDef[] = [
     description: "Multimodal evaluation for training materials",
     icon: <FileSearch className="size-5 text-primary" />,
     modelPlaceholder: "",
+    allowEndpointOverride: true,
+    endpointPlaceholder: "https://{name}.services.ai.azure.com",
   },
   {
     key: "realtime",
@@ -133,11 +145,13 @@ export default function AzureConfigPage() {
   const updateServiceMutation = useUpdateServiceConfig();
   const testMutation = useTestServiceConnection();
   const updateFoundryMutation = useUpdateAIFoundry();
+  const testFoundryMutation = useTestAIFoundry();
 
   // AI Foundry form state
   const [aiFoundryEndpoint, setAiFoundryEndpoint] = useState("");
   const [aiFoundryRegion, setAiFoundryRegion] = useState("");
   const [aiFoundryApiKey, setAiFoundryApiKey] = useState("");
+  const [aiFoundryModel, setAiFoundryModel] = useState("");
   const [showApiKey, setShowApiKey] = useState(false);
 
   // Initialize AI Foundry form from loaded data
@@ -145,6 +159,7 @@ export default function AzureConfigPage() {
     if (aiFoundryData) {
       setAiFoundryEndpoint(aiFoundryData.endpoint || "");
       setAiFoundryRegion(aiFoundryData.region || "");
+      setAiFoundryModel(aiFoundryData.model_or_deployment || "");
     }
   }, [aiFoundryData]);
 
@@ -177,11 +192,43 @@ export default function AzureConfigPage() {
         endpoint: aiFoundryEndpoint,
         region: aiFoundryRegion,
         api_key: aiFoundryApiKey,
+        model_or_deployment: aiFoundryModel,
       },
       {
         onSuccess: () => {
           toast.success(t("azureConfig.saved", { defaultValue: "AI Foundry configuration saved" }));
           setAiFoundryApiKey("");
+        },
+        onError: () => toast.error(t("azureConfig.saveFailed", { defaultValue: "Failed to save configuration" })),
+      },
+    );
+  };
+
+  const handleTestFoundry = () => {
+    // Save first, then test
+    updateFoundryMutation.mutate(
+      {
+        endpoint: aiFoundryEndpoint,
+        region: aiFoundryRegion,
+        api_key: aiFoundryApiKey,
+        model_or_deployment: aiFoundryModel,
+      },
+      {
+        onSuccess: () => {
+          setAiFoundryApiKey("");
+          testFoundryMutation.mutate(undefined, {
+            onSuccess: (result) => {
+              if (result.success) {
+                toast.success(`AI Foundry: ${result.message}`);
+                if (result.region) {
+                  setAiFoundryRegion(result.region);
+                }
+              } else {
+                toast.error(`AI Foundry: ${result.message}`);
+              }
+            },
+            onError: () => toast.error("AI Foundry: Connection test failed"),
+          });
         },
         onError: () => toast.error(t("azureConfig.saveFailed", { defaultValue: "Failed to save configuration" })),
       },
@@ -218,22 +265,23 @@ export default function AzureConfigPage() {
         api_key: "",
         model_or_deployment: existing?.model_or_deployment ?? "",
         region: existing?.region ?? "",
+        is_active: enabled,
       },
     });
-    // Optimistic: the mutation invalidation will refresh the query
-    // For the toggle specifically, we just need the save to go through
-    void enabled; // eslint: used for intent
   };
 
-  const handleSaveServiceModel = (backendKey: string, modelValue: string) => {
+  const handleSaveServiceConfig = (
+    backendKey: string,
+    opts: { model?: string; endpoint?: string; apiKey?: string },
+  ) => {
     const existing = getSavedConfig(backendKey);
     updateServiceMutation.mutate(
       {
         serviceName: backendKey,
         config: {
-          endpoint: existing?.endpoint ?? "",
-          api_key: "",
-          model_or_deployment: modelValue,
+          endpoint: opts.endpoint ?? existing?.endpoint ?? "",
+          api_key: opts.apiKey ?? "",
+          model_or_deployment: opts.model ?? existing?.model_or_deployment ?? "",
           region: existing?.region ?? "",
         },
       },
@@ -301,11 +349,11 @@ export default function AzureConfigPage() {
                 />
               </div>
               <div className="grid gap-2">
-                <Label>{t("azureConfig.aiFoundry.region")}</Label>
+                <Label>{t("azureConfig.aiFoundry.model", { defaultValue: "Default Model" })}</Label>
                 <Input
-                  value={aiFoundryRegion}
-                  onChange={(e) => setAiFoundryRegion(e.target.value)}
-                  placeholder={t("azureConfig.aiFoundry.regionPlaceholder")}
+                  value={aiFoundryModel}
+                  onChange={(e) => setAiFoundryModel(e.target.value)}
+                  placeholder={t("azureConfig.aiFoundry.modelPlaceholder", { defaultValue: "e.g. gpt-5.4-mini" })}
                 />
               </div>
             </div>
@@ -337,6 +385,16 @@ export default function AzureConfigPage() {
                 {t("azureConfig.aiFoundry.apiKeyHint")}
               </p>
             </div>
+            {aiFoundryRegion && (
+              <div className="grid gap-2 max-w-sm">
+                <Label>{t("azureConfig.aiFoundry.region", { defaultValue: "Region (auto-detected)" })}</Label>
+                <Input
+                  value={aiFoundryRegion}
+                  disabled
+                  className="bg-muted text-muted-foreground"
+                />
+              </div>
+            )}
             <div className="flex items-center gap-3 pt-2">
               <Button
                 onClick={handleSaveFoundry}
@@ -349,11 +407,13 @@ export default function AzureConfigPage() {
               </Button>
               <Button
                 variant="outline"
-                onClick={handleTestAll}
-                disabled={testingAll}
+                onClick={handleTestFoundry}
+                disabled={testFoundryMutation.isPending || updateFoundryMutation.isPending}
               >
-                {testingAll && <Loader2 className="size-4 animate-spin" />}
-                {t("azureConfig.testAll", { defaultValue: "Test All Services" })}
+                {(testFoundryMutation.isPending || updateFoundryMutation.isPending) && (
+                  <Loader2 className="size-4 animate-spin" />
+                )}
+                {t("azureConfig.testConnection", { defaultValue: "Test Connection" })}
               </Button>
             </div>
           </CardContent>
@@ -366,7 +426,7 @@ export default function AzureConfigPage() {
             <p className="text-sm text-muted-foreground">{t("azureConfig.services.description")}</p>
           </div>
 
-          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+          <div className="grid grid-cols-1 items-start gap-3 lg:grid-cols-2">
             {AZURE_SERVICES.map((svc) => {
               const saved = getSavedConfig(svc.backendKey);
               const isActive = saved?.is_active ?? false;
@@ -420,7 +480,7 @@ export default function AzureConfigPage() {
                     <ServiceExpandedContent
                       svc={svc}
                       saved={saved}
-                      onSaveModel={handleSaveServiceModel}
+                      onSaveConfig={handleSaveServiceConfig}
                       onTest={handleTestService}
                       testMutation={testMutation}
                       t={t}
@@ -483,23 +543,83 @@ function RegionBadge({
 function ServiceExpandedContent({
   svc,
   saved,
-  onSaveModel,
+  onSaveConfig,
   onTest,
   testMutation,
   t,
 }: {
   svc: AzureServiceDef;
-  saved: { model_or_deployment?: string } | undefined;
-  onSaveModel: (backendKey: string, modelValue: string) => void;
+  saved: { model_or_deployment?: string; endpoint?: string; masked_key?: string } | undefined;
+  onSaveConfig: (
+    backendKey: string,
+    opts: { model?: string; endpoint?: string; apiKey?: string },
+  ) => void;
   onTest: (backendKey: string) => Promise<void>;
   testMutation: { isPending: boolean };
   t: (key: string, opts?: Record<string, string>) => string;
 }) {
   const [modelValue, setModelValue] = useState(saved?.model_or_deployment ?? "");
+  const [endpointValue, setEndpointValue] = useState(saved?.endpoint ?? "");
+  const [apiKeyValue, setApiKeyValue] = useState("");
+  const [showKey, setShowKey] = useState(false);
+
+  const hasModelConfig = !!svc.modelPlaceholder;
+  const hasEndpointOverride = !!svc.allowEndpointOverride;
+  const hasAnyConfig = hasModelConfig || hasEndpointOverride;
+
+  const handleSave = () => {
+    onSaveConfig(svc.backendKey, {
+      model: hasModelConfig ? modelValue : undefined,
+      endpoint: hasEndpointOverride ? endpointValue : undefined,
+      apiKey: hasEndpointOverride ? apiKeyValue : undefined,
+    });
+    if (apiKeyValue) setApiKeyValue("");
+  };
 
   return (
     <div className="border-t border-border px-4 py-3 space-y-3 bg-muted/30">
-      {svc.modelPlaceholder && (
+      {hasEndpointOverride && (
+        <div className="space-y-2">
+          <p className="text-[11px] text-muted-foreground">
+            {t("azureConfig.endpointOverrideHint", {
+              defaultValue: "Override if this service uses a different Azure resource than the master endpoint.",
+            })}
+          </p>
+          <div className="grid gap-2 max-w-md">
+            <Label className="text-xs">
+              {t("azureConfig.endpoint", { defaultValue: "Endpoint" })}
+            </Label>
+            <Input
+              value={endpointValue}
+              onChange={(e) => setEndpointValue(e.target.value)}
+              placeholder={svc.endpointPlaceholder ?? "https://...azure.com"}
+              className="h-8 text-sm font-mono"
+            />
+          </div>
+          <div className="grid gap-2 max-w-md">
+            <Label className="text-xs">
+              {t("azureConfig.apiKeyOverride", { defaultValue: "API Key (leave empty to use master)" })}
+            </Label>
+            <div className="relative">
+              <Input
+                type={showKey ? "text" : "password"}
+                value={apiKeyValue}
+                onChange={(e) => setApiKeyValue(e.target.value)}
+                placeholder={saved?.masked_key || t("azureConfig.apiKeyPlaceholder", { defaultValue: "Uses master key" })}
+                className="h-8 pr-8 text-sm font-mono"
+              />
+              <button
+                type="button"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                onClick={() => setShowKey(!showKey)}
+              >
+                {showKey ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {hasModelConfig && (
         <div className="grid gap-2 max-w-sm">
           <Label className="text-xs">{t("azureConfig.model")}</Label>
           <Input
@@ -511,16 +631,14 @@ function ServiceExpandedContent({
         </div>
       )}
       <div className="flex items-center gap-2">
+        {hasAnyConfig && (
+          <Button size="sm" variant="default" onClick={handleSave}>
+            {t("azureConfig.saveConfig")}
+          </Button>
+        )}
         <Button
           size="sm"
-          variant="default"
-          onClick={() => onSaveModel(svc.backendKey, modelValue)}
-        >
-          {t("azureConfig.saveConfig")}
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
+          variant={hasAnyConfig ? "outline" : "default"}
           onClick={() => void onTest(svc.backendKey)}
           disabled={testMutation.isPending}
         >

@@ -73,6 +73,7 @@ async def upsert_master_config(
     if existing:
         existing.endpoint = update.endpoint
         existing.region = update.region
+        existing.model_or_deployment = update.model_or_deployment
         existing.updated_by = updated_by
         existing.is_active = True
         if update.api_key:
@@ -85,6 +86,7 @@ async def upsert_master_config(
             display_name="Azure AI Foundry",
             endpoint=update.endpoint,
             api_key_encrypted=encrypt_value(update.api_key) if update.api_key else "",
+            model_or_deployment=update.model_or_deployment,
             region=update.region,
             is_master=True,
             is_active=True,
@@ -115,7 +117,7 @@ async def upsert_config(
         existing.endpoint = update.endpoint
         existing.model_or_deployment = update.model_or_deployment
         existing.region = update.region
-        existing.is_active = True
+        existing.is_active = update.is_active if update.is_active is not None else existing.is_active
         existing.updated_by = updated_by
         if update.api_key:
             existing.api_key_encrypted = encrypt_value(update.api_key)
@@ -129,7 +131,7 @@ async def upsert_config(
             api_key_encrypted=encrypt_value(update.api_key),
             model_or_deployment=update.model_or_deployment,
             region=update.region,
-            is_active=True,
+            is_active=update.is_active if update.is_active is not None else True,
             updated_by=updated_by,
         )
         db.add(config)

@@ -8,6 +8,7 @@ import UserDashboard from "@/pages/user/dashboard";
 import ScenarioSelection from "@/pages/user/training";
 import AdminDashboard from "@/pages/admin/dashboard";
 import HcpProfilesPage from "@/pages/admin/hcp-profiles";
+import HcpProfileEditorPage from "@/pages/admin/hcp-profile-editor";
 import ScenariosPage from "@/pages/admin/scenarios";
 import AzureConfigPage from "@/pages/admin/azure-config";
 import ScoringFeedback from "@/pages/user/scoring-feedback";
@@ -68,6 +69,9 @@ export const router = createBrowserRouter([
             children: [
               { path: "dashboard", element: <AdminDashboard /> },
               { path: "hcp-profiles", element: <HcpProfilesPage /> },
+              { path: "hcp-profiles/new", element: <HcpProfileEditorPage /> },
+              { path: "hcp-profiles/:id", element: <HcpProfileEditorPage /> },
+              { path: "hcp-profiles/:id/edit", element: <HcpProfileEditorPage /> },
               { path: "scenarios", element: <ScenariosPage /> },
               { path: "azure-config", element: <AzureConfigPage /> },
               { path: "scoring-rubrics", element: <ScoringRubricsPage /> },

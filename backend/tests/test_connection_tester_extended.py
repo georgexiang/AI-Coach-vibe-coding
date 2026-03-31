@@ -115,7 +115,7 @@ class TestAzureAvatarReal:
         """Empty region returns failure."""
         ok, msg = await _test_azure_avatar(api_key="key", region="")
         assert ok is False
-        assert "Region is required" in msg
+        assert "Region or endpoint is required" in msg
 
 
 class TestAzureContentUnderstanding:

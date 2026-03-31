@@ -9,6 +9,9 @@ from app.services.connection_tester import (
     test_azure_avatar as _test_azure_avatar,
 )
 from app.services.connection_tester import (
+    test_azure_speech as _test_azure_speech,
+)
+from app.services.connection_tester import (
     test_azure_content_understanding as _test_azure_content_understanding,
 )
 from app.services.connection_tester import (
@@ -69,7 +72,7 @@ class TestAzureAvatarTester:
     async def test_avatar_no_region(self):
         success, msg = await _test_azure_avatar(api_key="test-key", region="")
         assert success is False
-        assert "Region is required" in msg
+        assert "Region or endpoint is required" in msg
 
     @patch("app.services.connection_tester.httpx.AsyncClient")
     async def test_avatar_success(self, mock_client_cls):
@@ -109,7 +112,7 @@ class TestAzureAvatarTester:
 
         success, msg = await _test_azure_avatar(api_key="key", region="eastus2")
         assert success is False
-        assert "connection failed" in msg.lower()
+        assert "unreachable" in msg.lower() or "connection failed" in msg.lower()
 
 
 class TestAzureContentUnderstanding:
@@ -333,7 +336,7 @@ class TestServiceConnectionDispatch:
                 "azure_speech_stt", "", "key123", "", "eastus2"
             )
             assert success is True
-            mock_fn.assert_called_once_with(key="key123", region="eastus2")
+            mock_fn.assert_called_once_with(key="key123", region="eastus2", endpoint="")
 
     async def test_dispatch_azure_speech_tts(self):
         with patch("app.services.connection_tester.test_azure_speech") as mock_fn:
@@ -350,7 +353,7 @@ class TestServiceConnectionDispatch:
                 "azure_avatar", "", "key123", "", "eastus2"
             )
             assert success is True
-            mock_fn.assert_called_once_with(api_key="key123", region="eastus2")
+            mock_fn.assert_called_once_with(api_key="key123", region="eastus2", endpoint="")
 
     async def test_dispatch_azure_content(self):
         with patch("app.services.connection_tester.test_azure_content_understanding") as mock_fn:
@@ -371,3 +374,503 @@ class TestServiceConnectionDispatch:
                 "",
             )
             assert success is True
+
+
+class TestAzureSpeechTester:
+    """Tests for test_azure_speech — multi-probe strategy with AI Foundry endpoint."""
+
+    async def test_speech_no_key(self):
+        """Empty API key returns failure."""
+        ok, msg = await _test_azure_speech(key="", region="eastus2")
+        assert ok is False
+        assert "API key is required" in msg
+
+    async def test_speech_no_region_no_endpoint(self):
+        """No region and no endpoint returns failure."""
+        ok, msg = await _test_azure_speech(key="test-key", region="")
+        assert ok is False
+        assert "Region or endpoint is required" in msg
+
+    @patch("app.services.connection_tester.httpx.AsyncClient")
+    async def test_speech_endpoint_first_probe_stt_200(self, mock_client_cls):
+        """AI Foundry endpoint: STT models probe returns 200 immediately."""
+        mock_resp = AsyncMock()
+        mock_resp.status_code = 200
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(return_value=mock_resp)
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client_cls.return_value = mock_client
+
+        ok, msg = await _test_azure_speech(
+            key="key", region="eastus2",
+            endpoint="https://ai-foundry.cognitiveservices.azure.com",
+        )
+        assert ok is True
+        assert "Connection successful" in msg
+        # First call should be the STT models endpoint
+        first_url = mock_client.get.call_args_list[0][0][0]
+        assert "speechtotext/v3.2/models/base" in first_url
+
+    @patch("app.services.connection_tester.httpx.AsyncClient")
+    async def test_speech_endpoint_stt_404_voices_200(self, mock_client_cls):
+        """AI Foundry: STT probe 404 → TTS voices probe returns 200."""
+        call_count = 0
+
+        async def mock_get(url, headers=None):
+            nonlocal call_count
+            call_count += 1
+            resp = AsyncMock()
+            if "speechtotext" in url:
+                resp.status_code = 404
+            else:
+                resp.status_code = 200
+            return resp
+
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(side_effect=mock_get)
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client_cls.return_value = mock_client
+
+        ok, msg = await _test_azure_speech(
+            key="key", region="eastus2",
+            endpoint="https://ai-foundry.cognitiveservices.azure.com",
+        )
+        assert ok is True
+        assert "Connection successful" in msg
+        assert call_count >= 2
+
+    @patch("app.services.connection_tester.httpx.AsyncClient")
+    async def test_speech_endpoint_probes_404_regional_200(self, mock_client_cls):
+        """AI Foundry probes both 404 → regional endpoint returns 200."""
+
+        async def mock_get(url, headers=None):
+            resp = AsyncMock()
+            if "cognitiveservices.azure.com" in url:
+                resp.status_code = 404
+            elif "tts.speech.microsoft.com" in url:
+                resp.status_code = 200
+            else:
+                resp.status_code = 404
+            return resp
+
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(side_effect=mock_get)
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client_cls.return_value = mock_client
+
+        ok, msg = await _test_azure_speech(
+            key="key", region="eastus2",
+            endpoint="https://ai-foundry.cognitiveservices.azure.com",
+        )
+        assert ok is True
+        assert "Connection successful" in msg
+
+    @patch("app.services.connection_tester.httpx.AsyncClient")
+    async def test_speech_all_probes_401(self, mock_client_cls):
+        """All probes return 401 — authentication failure."""
+        mock_resp = AsyncMock()
+        mock_resp.status_code = 401
+        mock_resp.text = ""
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(return_value=mock_resp)
+        mock_client.post = AsyncMock(return_value=mock_resp)
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client_cls.return_value = mock_client
+
+        ok, msg = await _test_azure_speech(
+            key="bad-key", region="eastus2",
+            endpoint="https://ai-foundry.cognitiveservices.azure.com",
+        )
+        assert ok is False
+        assert "Authentication failed" in msg
+        assert "401" in msg
+
+    @patch("app.services.connection_tester.httpx.AsyncClient")
+    async def test_speech_all_probes_403(self, mock_client_cls):
+        """All probes return 403 — authentication failure."""
+        mock_resp = AsyncMock()
+        mock_resp.status_code = 403
+        mock_resp.text = "Forbidden"
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(return_value=mock_resp)
+        mock_client.post = AsyncMock(return_value=mock_resp)
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client_cls.return_value = mock_client
+
+        ok, msg = await _test_azure_speech(
+            key="bad-key", region="eastus2",
+            endpoint="https://ai-foundry.cognitiveservices.azure.com",
+        )
+        assert ok is False
+        assert "Authentication failed" in msg
+        assert "403" in msg
+
+    @patch("app.services.connection_tester.httpx.AsyncClient")
+    async def test_speech_endpoint_only_no_region(self, mock_client_cls):
+        """Endpoint but no region — only custom domain probes are tried."""
+        mock_resp = AsyncMock()
+        mock_resp.status_code = 200
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(return_value=mock_resp)
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client_cls.return_value = mock_client
+
+        ok, msg = await _test_azure_speech(
+            key="key", region="",
+            endpoint="https://ai-foundry.cognitiveservices.azure.com",
+        )
+        assert ok is True
+        assert "Connection successful" in msg
+        # No regional URL should be called
+        for call in mock_client.get.call_args_list:
+            assert "tts.speech.microsoft.com" not in call[0][0]
+
+    @patch("app.services.connection_tester.httpx.AsyncClient")
+    async def test_speech_endpoint_only_all_404(self, mock_client_cls):
+        """Endpoint only, all probes 404 → all unreachable."""
+        mock_resp = AsyncMock()
+        mock_resp.status_code = 404
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(return_value=mock_resp)
+        mock_client.post = AsyncMock(return_value=mock_resp)
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client_cls.return_value = mock_client
+
+        ok, msg = await _test_azure_speech(
+            key="key", region="",
+            endpoint="https://ai-foundry.cognitiveservices.azure.com",
+        )
+        assert ok is False
+        assert "unreachable" in msg.lower()
+
+    @patch("app.services.connection_tester.httpx.AsyncClient")
+    async def test_speech_region_only_success(self, mock_client_cls):
+        """Region only (no endpoint) — regional TTS voices probe succeeds."""
+        mock_resp = AsyncMock()
+        mock_resp.status_code = 200
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(return_value=mock_resp)
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client_cls.return_value = mock_client
+
+        ok, msg = await _test_azure_speech(key="key", region="swedencentral")
+        assert ok is True
+        assert "Connection successful" in msg
+        called_url = mock_client.get.call_args_list[0][0][0]
+        assert "swedencentral.tts.speech.microsoft.com" in called_url
+
+    @patch("app.services.connection_tester.httpx.AsyncClient")
+    async def test_speech_region_only_401(self, mock_client_cls):
+        """Region only — regional probe returns 401."""
+        mock_resp = AsyncMock()
+        mock_resp.status_code = 401
+        mock_resp.text = ""
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(return_value=mock_resp)
+        mock_client.post = AsyncMock(return_value=mock_resp)
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client_cls.return_value = mock_client
+
+        ok, msg = await _test_azure_speech(key="bad-key", region="eastus2")
+        assert ok is False
+        assert "Authentication failed" in msg
+
+    @patch("app.services.connection_tester.httpx.AsyncClient")
+    async def test_speech_500_error(self, mock_client_cls):
+        """Non-auth HTTP error (500) reported with status code."""
+        mock_resp = AsyncMock()
+        mock_resp.status_code = 500
+        mock_resp.text = "Internal Server Error"
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(return_value=mock_resp)
+        mock_client.post = AsyncMock(return_value=mock_resp)
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client_cls.return_value = mock_client
+
+        ok, msg = await _test_azure_speech(key="key", region="eastus2")
+        assert ok is False
+        assert "500" in msg
+
+    @patch("app.services.connection_tester.httpx.AsyncClient")
+    async def test_speech_connection_exception(self, mock_client_cls):
+        """Network-level exception (timeout, DNS, etc.)."""
+        mock_client = AsyncMock()
+        mock_client.__aenter__ = AsyncMock(side_effect=Exception("DNS resolution failed"))
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client_cls.return_value = mock_client
+
+        ok, msg = await _test_azure_speech(key="key", region="eastus2")
+        assert ok is False
+        assert "connection failed" in msg.lower() or "unreachable" in msg.lower()
+
+    @patch("app.services.connection_tester.httpx.AsyncClient")
+    async def test_speech_ocp_apim_header_used(self, mock_client_cls):
+        """Verify Ocp-Apim-Subscription-Key header is sent, not api-key."""
+        mock_resp = AsyncMock()
+        mock_resp.status_code = 200
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(return_value=mock_resp)
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client_cls.return_value = mock_client
+
+        await _test_azure_speech(key="my-key", region="eastus2")
+        call_headers = mock_client.get.call_args_list[0][1].get(
+            "headers", mock_client.get.call_args_list[0][0][1] if len(mock_client.get.call_args_list[0][0]) > 1 else {}
+        )
+        assert call_headers.get("Ocp-Apim-Subscription-Key") == "my-key"
+
+
+class TestAzureAvatarWithEndpoint:
+    """Tests for test_azure_avatar with AI Foundry endpoint parameter."""
+
+    @patch("app.services.connection_tester.httpx.AsyncClient")
+    async def test_avatar_endpoint_custom_domain_200(self, mock_client_cls):
+        """AI Foundry custom domain avatar probe returns 200."""
+        mock_resp = AsyncMock()
+        mock_resp.status_code = 200
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(return_value=mock_resp)
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client_cls.return_value = mock_client
+
+        ok, msg = await _test_azure_avatar(
+            api_key="key", region="eastus2",
+            endpoint="https://ai-foundry.cognitiveservices.azure.com",
+        )
+        assert ok is True
+        assert "Avatar service reachable" in msg
+        first_url = mock_client.get.call_args_list[0][0][0]
+        assert "cognitiveservices.azure.com" in first_url
+        assert "avatar/relay/token/v1" in first_url
+
+    @patch("app.services.connection_tester.httpx.AsyncClient")
+    async def test_avatar_endpoint_404_regional_200(self, mock_client_cls):
+        """Custom domain 404 → regional avatar endpoint returns 200."""
+
+        async def mock_get(url, headers=None):
+            resp = AsyncMock()
+            if "cognitiveservices.azure.com" in url:
+                resp.status_code = 404
+            elif "tts.speech.microsoft.com" in url:
+                resp.status_code = 200
+            else:
+                resp.status_code = 404
+            return resp
+
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(side_effect=mock_get)
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client_cls.return_value = mock_client
+
+        ok, msg = await _test_azure_avatar(
+            api_key="key", region="eastus2",
+            endpoint="https://ai-foundry.cognitiveservices.azure.com",
+        )
+        assert ok is True
+        assert "Avatar service reachable" in msg
+
+    @patch("app.services.connection_tester.httpx.AsyncClient")
+    async def test_avatar_endpoint_401(self, mock_client_cls):
+        """Custom domain probe returns 401 — auth failure."""
+        mock_resp = AsyncMock()
+        mock_resp.status_code = 401
+        mock_resp.text = ""
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(return_value=mock_resp)
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client_cls.return_value = mock_client
+
+        ok, msg = await _test_azure_avatar(
+            api_key="bad-key", region="eastus2",
+            endpoint="https://ai-foundry.cognitiveservices.azure.com",
+        )
+        assert ok is False
+        assert "Authentication failed" in msg
+        assert "401" in msg
+
+    @patch("app.services.connection_tester.httpx.AsyncClient")
+    async def test_avatar_endpoint_only_no_region_200(self, mock_client_cls):
+        """Endpoint only (no region) — custom domain probe succeeds."""
+        mock_resp = AsyncMock()
+        mock_resp.status_code = 200
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(return_value=mock_resp)
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client_cls.return_value = mock_client
+
+        ok, msg = await _test_azure_avatar(
+            api_key="key", region="",
+            endpoint="https://ai-foundry.cognitiveservices.azure.com",
+        )
+        assert ok is True
+        assert "Avatar service reachable" in msg
+        # No regional URL should be called
+        for call in mock_client.get.call_args_list:
+            assert "tts.speech.microsoft.com" not in call[0][0]
+
+    @patch("app.services.connection_tester.httpx.AsyncClient")
+    async def test_avatar_endpoint_only_all_404(self, mock_client_cls):
+        """Endpoint only, probe 404 → all unreachable."""
+        mock_resp = AsyncMock()
+        mock_resp.status_code = 404
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(return_value=mock_resp)
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client_cls.return_value = mock_client
+
+        ok, msg = await _test_azure_avatar(
+            api_key="key", region="",
+            endpoint="https://ai-foundry.cognitiveservices.azure.com",
+        )
+        assert ok is False
+        assert "unreachable" in msg.lower() or "404" in msg
+
+    @patch("app.services.connection_tester.httpx.AsyncClient")
+    async def test_avatar_endpoint_per_probe_exception_fallthrough(self, mock_client_cls):
+        """Per-probe exception skipped, next probe succeeds."""
+        call_count = 0
+
+        async def mock_get(url, headers=None):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                raise Exception("Connection refused")
+            resp = AsyncMock()
+            resp.status_code = 200
+            return resp
+
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(side_effect=mock_get)
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client_cls.return_value = mock_client
+
+        ok, msg = await _test_azure_avatar(
+            api_key="key", region="eastus2",
+            endpoint="https://ai-foundry.cognitiveservices.azure.com",
+        )
+        assert ok is True
+        assert call_count >= 2
+
+
+class TestDispatchMasterEndpointFallback:
+    """Tests for dispatch routing with master_endpoint/master_key fallback."""
+
+    async def test_dispatch_speech_stt_master_fallback(self):
+        """Speech STT with empty per-service config uses master_endpoint."""
+        with patch("app.services.connection_tester.test_azure_speech") as mock_fn:
+            mock_fn.return_value = (True, "Connection successful")
+            ok, msg = await _test_service_connection(
+                "azure_speech_stt",
+                "",  # no per-service endpoint
+                "",  # no per-service key
+                "",
+                "",  # no per-service region
+                master_endpoint="https://ai-foundry.cognitiveservices.azure.com",
+                master_key="master-key-123",
+                master_region="swedencentral",
+            )
+            assert ok is True
+            mock_fn.assert_called_once_with(
+                key="master-key-123",
+                region="swedencentral",
+                endpoint="https://ai-foundry.cognitiveservices.azure.com",
+            )
+
+    async def test_dispatch_speech_tts_master_fallback(self):
+        """Speech TTS with empty per-service config uses master values."""
+        with patch("app.services.connection_tester.test_azure_speech") as mock_fn:
+            mock_fn.return_value = (True, "Connection successful")
+            ok, msg = await _test_service_connection(
+                "azure_speech_tts",
+                "",
+                "",
+                "",
+                "",
+                master_endpoint="https://ai-foundry.cognitiveservices.azure.com",
+                master_key="master-key",
+                master_region="eastus2",
+            )
+            assert ok is True
+            mock_fn.assert_called_once_with(
+                key="master-key",
+                region="eastus2",
+                endpoint="https://ai-foundry.cognitiveservices.azure.com",
+            )
+
+    async def test_dispatch_avatar_master_fallback(self):
+        """Avatar with empty per-service config uses master values."""
+        with patch("app.services.connection_tester.test_azure_avatar") as mock_fn:
+            mock_fn.return_value = (True, "Avatar OK")
+            ok, msg = await _test_service_connection(
+                "azure_avatar",
+                "",
+                "",
+                "",
+                "",
+                master_endpoint="https://ai-foundry.cognitiveservices.azure.com",
+                master_key="master-key",
+                master_region="eastus2",
+            )
+            assert ok is True
+            mock_fn.assert_called_once_with(
+                api_key="master-key",
+                region="eastus2",
+                endpoint="https://ai-foundry.cognitiveservices.azure.com",
+            )
+
+    async def test_dispatch_speech_per_service_overrides_master(self):
+        """Per-service config takes precedence over master config."""
+        with patch("app.services.connection_tester.test_azure_speech") as mock_fn:
+            mock_fn.return_value = (True, "OK")
+            await _test_service_connection(
+                "azure_speech_stt",
+                "https://per-service.cognitiveservices.azure.com",
+                "per-service-key",
+                "",
+                "westus2",
+                master_endpoint="https://master.cognitiveservices.azure.com",
+                master_key="master-key",
+                master_region="eastus2",
+            )
+            mock_fn.assert_called_once_with(
+                key="per-service-key",
+                region="westus2",
+                endpoint="https://per-service.cognitiveservices.azure.com",
+            )
+
+    async def test_dispatch_avatar_per_service_overrides_master(self):
+        """Per-service avatar config takes precedence over master config."""
+        with patch("app.services.connection_tester.test_azure_avatar") as mock_fn:
+            mock_fn.return_value = (True, "OK")
+            await _test_service_connection(
+                "azure_avatar",
+                "https://per-service.cognitiveservices.azure.com",
+                "per-service-key",
+                "",
+                "westus2",
+                master_endpoint="https://master.cognitiveservices.azure.com",
+                master_key="master-key",
+                master_region="eastus2",
+            )
+            mock_fn.assert_called_once_with(
+                api_key="per-service-key",
+                region="westus2",
+                endpoint="https://per-service.cognitiveservices.azure.com",
+            )

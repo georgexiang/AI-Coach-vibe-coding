@@ -202,15 +202,18 @@ async def test_get_project_endpoint_existing_path():
     assert endpoint == "https://foundry.azure.com/api/projects/existing-proj"
 
 
-# --- Test 8: get_project_endpoint no project_name fallback ---
+# --- Test 8: get_project_endpoint env var fallback ---
 @pytest.mark.asyncio
-async def test_get_project_endpoint_no_project():
-    """get_project_endpoint falls back to base endpoint when no project_name."""
+async def test_get_project_endpoint_env_var_fallback():
+    """get_project_endpoint uses AZURE_FOUNDRY_DEFAULT_PROJECT env var as fallback."""
     from app.services.agent_sync_service import get_project_endpoint
 
     mock_db = AsyncMock()
     mock_config = MagicMock()
     mock_config.model_or_deployment = "gpt-4o-realtime"  # model mode, no project
+
+    mock_settings = MagicMock()
+    mock_settings.azure_foundry_default_project = "avarda-demo-prj"
 
     with (
         patch(
@@ -229,6 +232,51 @@ async def test_get_project_endpoint_no_project():
             "app.services.agent_sync_service.config_service.get_config",
             new_callable=AsyncMock,
             return_value=mock_config,
+        ),
+        patch(
+            "app.config.get_settings",
+            return_value=mock_settings,
+        ),
+    ):
+        endpoint, _ = await get_project_endpoint(mock_db)
+
+    assert endpoint == "https://foundry.azure.com/api/projects/avarda-demo-prj"
+
+
+# --- Test 8b: get_project_endpoint bare fallback when no env var ---
+@pytest.mark.asyncio
+async def test_get_project_endpoint_no_project_no_env():
+    """get_project_endpoint falls back to bare endpoint when no project at all."""
+    from app.services.agent_sync_service import get_project_endpoint
+
+    mock_db = AsyncMock()
+    mock_config = MagicMock()
+    mock_config.model_or_deployment = "gpt-4o-realtime"
+
+    mock_settings = MagicMock()
+    mock_settings.azure_foundry_default_project = ""
+
+    with (
+        patch(
+            "app.services.agent_sync_service.config_service"
+            ".get_effective_endpoint",
+            new_callable=AsyncMock,
+            return_value="https://foundry.azure.com",
+        ),
+        patch(
+            "app.services.agent_sync_service.config_service"
+            ".get_effective_key",
+            new_callable=AsyncMock,
+            return_value="key",
+        ),
+        patch(
+            "app.services.agent_sync_service.config_service.get_config",
+            new_callable=AsyncMock,
+            return_value=mock_config,
+        ),
+        patch(
+            "app.config.get_settings",
+            return_value=mock_settings,
         ),
     ):
         endpoint, _ = await get_project_endpoint(mock_db)
@@ -477,3 +525,409 @@ async def test_sync_agent_for_profile_no_master_config():
     # Verify model defaults to gpt-4o
     call_args = mock_create.call_args
     assert call_args[1].get("model", call_args[0][3] if len(call_args[0]) > 3 else None) == "gpt-4o"
+
+
+# --- Test 16: three HCP profiles sync to agents end-to-end ---
+@pytest.mark.asyncio
+async def test_three_profiles_sync_to_agents():
+    """Three HCP profiles each create an agent via sync_agent_for_profile.
+
+    This is the critical end-to-end scenario: every HCP profile must have
+    a corresponding AI Foundry agent after sync.
+    """
+    from app.services.agent_sync_service import sync_agent_for_profile
+
+    hcp_profiles = [
+        {
+            "agent_id": "",
+            "name": "Dr. Chen Wei",
+            "prompt_data": {
+                "name": "Dr. Chen Wei",
+                "specialty": "Oncology",
+                "hospital": "Beijing Hospital",
+                "title": "Chief Physician",
+                "personality_type": "analytical",
+                "emotional_state": 50,
+                "communication_style": 30,
+                "expertise_areas": ["lung cancer", "immunotherapy"],
+                "prescribing_habits": "Evidence-based",
+                "concerns": "Drug efficacy",
+                "objections": ["cost concerns"],
+                "probe_topics": ["clinical trial results"],
+            },
+        },
+        {
+            "agent_id": "",
+            "name": "Dr. Li Ming",
+            "prompt_data": {
+                "name": "Dr. Li Ming",
+                "specialty": "Cardiology",
+                "hospital": "Shanghai Heart Center",
+                "title": "Senior Physician",
+                "personality_type": "friendly",
+                "emotional_state": 20,
+                "communication_style": 80,
+                "expertise_areas": ["heart failure", "arrhythmia"],
+                "prescribing_habits": "Conservative",
+                "concerns": "Patient safety",
+                "objections": ["side effects"],
+                "probe_topics": ["dosing"],
+            },
+        },
+        {
+            "agent_id": "",
+            "name": "Dr. Wang Fang",
+            "prompt_data": {
+                "name": "Dr. Wang Fang",
+                "specialty": "Neurology",
+                "hospital": "Guangzhou Medical",
+                "title": "Attending Physician",
+                "personality_type": "skeptical",
+                "emotional_state": 80,
+                "communication_style": 40,
+                "expertise_areas": ["stroke", "epilepsy"],
+                "prescribing_habits": "Guideline-based",
+                "concerns": "Long-term outcomes",
+                "objections": ["limited data", "compliance"],
+                "probe_topics": ["mechanism of action", "safety profile"],
+            },
+        },
+    ]
+
+    agent_counter = 0
+
+    def make_create_agent_side_effect():
+        nonlocal agent_counter
+
+        async def _create(*args, **kwargs):
+            nonlocal agent_counter
+            agent_counter += 1
+            name = args[1] if len(args) > 1 else kwargs.get("name", "agent")
+            return {
+                "id": f"agent-{agent_counter}",
+                "name": name,
+                "version": "1",
+                "model": "gpt-4o",
+            }
+
+        return _create
+
+    results = []
+    mock_db = AsyncMock()
+
+    for profile_data in hcp_profiles:
+        mock_profile = MagicMock()
+        mock_profile.agent_id = profile_data["agent_id"]
+        mock_profile.name = profile_data["name"]
+        mock_profile.to_prompt_dict.return_value = profile_data["prompt_data"]
+
+        with patch(
+            "app.services.agent_sync_service.create_agent",
+            new_callable=AsyncMock,
+            side_effect=make_create_agent_side_effect(),
+        ):
+            result = await sync_agent_for_profile(
+                mock_db,
+                mock_profile,
+                prefetched_model="gpt-4o",
+            )
+            results.append(result)
+
+    # All three must have unique agent IDs
+    assert len(results) == 3
+    agent_ids = [r["id"] for r in results]
+    assert len(set(agent_ids)) == 3, f"Expected 3 unique agent IDs, got: {agent_ids}"
+    for r in results:
+        assert r["id"], f"Agent ID must not be empty: {r}"
+        assert r["model"] == "gpt-4o"
+
+
+# --- Test 17: three profiles batch sync (create + update + retry) ---
+@pytest.mark.asyncio
+async def test_three_profiles_mixed_sync_scenarios():
+    """Three profiles: one new (create), one existing (update), one failed (retry).
+
+    Verifies that sync_agent_for_profile correctly routes to create vs update
+    based on agent_id presence, and all three succeed.
+    """
+    from app.services.agent_sync_service import sync_agent_for_profile
+
+    mock_db = AsyncMock()
+
+    # Profile 1: new (no agent_id)
+    p1 = MagicMock()
+    p1.agent_id = ""
+    p1.name = "Dr. New"
+    p1.to_prompt_dict.return_value = {"name": "Dr. New", "specialty": "GP"}
+
+    # Profile 2: existing (has agent_id, should update)
+    p2 = MagicMock()
+    p2.agent_id = "existing-agent-002"
+    p2.name = "Dr. Update"
+    p2.to_prompt_dict.return_value = {"name": "Dr. Update", "specialty": "Dermatology"}
+
+    # Profile 3: retry (had agent_id but sync_status was failed, treat as update)
+    p3 = MagicMock()
+    p3.agent_id = "failed-agent-003"
+    p3.name = "Dr. Retry"
+    p3.to_prompt_dict.return_value = {"name": "Dr. Retry", "specialty": "Pediatrics"}
+
+    with (
+        patch(
+            "app.services.agent_sync_service.create_agent",
+            new_callable=AsyncMock,
+            return_value={"id": "new-agent-001", "name": "Dr-New", "version": "1", "model": "gpt-4o"},
+        ) as mock_create,
+        patch(
+            "app.services.agent_sync_service.update_agent",
+            new_callable=AsyncMock,
+            side_effect=[
+                {"id": "existing-agent-002", "name": "Dr-Update", "version": "2", "model": "gpt-4o"},
+                {"id": "failed-agent-003", "name": "Dr-Retry", "version": "2", "model": "gpt-4o"},
+            ],
+        ) as mock_update,
+    ):
+        r1 = await sync_agent_for_profile(mock_db, p1, prefetched_model="gpt-4o")
+        r2 = await sync_agent_for_profile(mock_db, p2, prefetched_model="gpt-4o")
+        r3 = await sync_agent_for_profile(mock_db, p3, prefetched_model="gpt-4o")
+
+    # Verify create called once for new profile
+    mock_create.assert_called_once()
+    assert r1["id"] == "new-agent-001"
+
+    # Verify update called twice (existing + retry)
+    assert mock_update.call_count == 2
+    assert r2["id"] == "existing-agent-002"
+    assert r3["id"] == "failed-agent-003"
+
+    # All three synced successfully
+    all_ids = {r1["id"], r2["id"], r3["id"]}
+    assert len(all_ids) == 3
+
+
+# --- Test 18: create_agent builds correct endpoint with env var project ---
+@pytest.mark.asyncio
+async def test_create_agent_uses_project_endpoint():
+    """create_agent uses full project endpoint including /api/projects/."""
+    from app.services.agent_sync_service import create_agent
+
+    mock_db = AsyncMock()
+    mock_result = MagicMock()
+    mock_result.name = "Dr-Chen-Wei"
+    mock_result.version = "1"
+
+    mock_client = MagicMock()
+    mock_client.agents.create_version.return_value = mock_result
+
+    with (
+        patch(
+            "app.services.agent_sync_service.get_project_endpoint",
+            new_callable=AsyncMock,
+            return_value=(
+                "https://foundry.azure.com/api/projects/avarda-demo-prj",
+                "test-key",
+            ),
+        ),
+        patch(
+            "app.services.agent_sync_service._get_project_client",
+            return_value=mock_client,
+        ) as mock_get_client,
+    ):
+        result = await create_agent(mock_db, "Dr. Chen Wei", "Instructions", "gpt-4o")
+
+    assert result["id"] == "Dr-Chen-Wei"
+    # Verify _get_project_client received the full project endpoint and key
+    mock_get_client.assert_called_once_with(
+        "https://foundry.azure.com/api/projects/avarda-demo-prj",
+        "test-key",
+    )
+
+
+# ===========================================================================
+# Real Azure integration tests — use actual .env credentials when available
+# ===========================================================================
+
+def _get_real_azure_config() -> tuple[str, str, str]:
+    """Read Azure AI Foundry config from .env. Returns (endpoint, api_key, project)."""
+    import os
+
+    from dotenv import load_dotenv
+
+    load_dotenv()
+    endpoint = os.getenv("AZURE_FOUNDRY_ENDPOINT", "").rstrip("/")
+    api_key = os.getenv("AZURE_FOUNDRY_API_KEY", "")
+    project = os.getenv("AZURE_FOUNDRY_DEFAULT_PROJECT", "")
+    return endpoint, api_key, project
+
+
+def _has_real_azure_config() -> bool:
+    """Check if real Azure credentials are configured in .env."""
+    endpoint, api_key, project = _get_real_azure_config()
+    return bool(endpoint and api_key and project)
+
+
+_skip_no_creds = pytest.mark.skipif(
+    not _has_real_azure_config(),
+    reason="No Azure AI Foundry credentials in .env",
+)
+
+# Agent names created during tests, for cleanup
+_created_agents: list[str] = []
+
+
+@_skip_no_creds
+@pytest.mark.asyncio
+async def test_real_create_agent():
+    """[REAL] Create a single agent on Azure AI Foundry using .env credentials."""
+    from app.services.agent_sync_service import (
+        _get_project_client,
+        _sanitize_agent_name,
+        build_agent_instructions,
+    )
+
+    endpoint, api_key, project = _get_real_azure_config()
+    project_endpoint = f"{endpoint}/api/projects/{project}"
+    client = _get_project_client(project_endpoint, api_key)
+
+    from azure.ai.projects.models import PromptAgentDefinition
+
+    instructions = build_agent_instructions({
+        "name": "Dr. Test-Chen",
+        "specialty": "Oncology",
+        "hospital": "Test Hospital",
+        "title": "Physician",
+        "personality_type": "analytical",
+        "emotional_state": 50,
+        "communication_style": 30,
+        "expertise_areas": ["testing"],
+        "prescribing_habits": "N/A",
+        "concerns": "test",
+        "objections": ["none"],
+        "probe_topics": ["test"],
+    })
+
+    agent_name = _sanitize_agent_name("Test-Dr-Chen-UT")
+    definition = PromptAgentDefinition(model="gpt-4o", instructions=instructions)
+
+    result = client.agents.create_version(
+        agent_name=agent_name,
+        definition=definition,
+        description="Unit test agent — safe to delete",
+    )
+
+    _created_agents.append(result.name)
+
+    assert result.name == agent_name
+    assert result.version
+    print(f"  Created real agent: name={result.name}, version={result.version}")
+
+
+@_skip_no_creds
+@pytest.mark.asyncio
+async def test_real_three_profiles_sync():
+    """[REAL] Three HCP profiles create three agents on Azure AI Foundry.
+
+    This is the primary acceptance test: 3 HCPs → 3 real agents.
+    """
+    from app.services.agent_sync_service import (
+        _get_project_client,
+        _sanitize_agent_name,
+        build_agent_instructions,
+    )
+
+    endpoint, api_key, project = _get_real_azure_config()
+    project_endpoint = f"{endpoint}/api/projects/{project}"
+    client = _get_project_client(project_endpoint, api_key)
+
+    from azure.ai.projects.models import PromptAgentDefinition
+
+    profiles = [
+        {
+            "name": "UT-Dr-Chen-Wei",
+            "specialty": "Oncology",
+            "hospital": "Beijing Hospital",
+            "title": "Chief Physician",
+            "personality_type": "analytical",
+            "emotional_state": 50,
+            "communication_style": 30,
+            "expertise_areas": ["lung cancer", "immunotherapy"],
+            "prescribing_habits": "Evidence-based",
+            "concerns": "Drug efficacy",
+            "objections": ["cost concerns"],
+            "probe_topics": ["clinical trial results"],
+        },
+        {
+            "name": "UT-Dr-Li-Ming",
+            "specialty": "Cardiology",
+            "hospital": "Shanghai Heart Center",
+            "title": "Senior Physician",
+            "personality_type": "friendly",
+            "emotional_state": 20,
+            "communication_style": 80,
+            "expertise_areas": ["heart failure", "arrhythmia"],
+            "prescribing_habits": "Conservative",
+            "concerns": "Patient safety",
+            "objections": ["side effects"],
+            "probe_topics": ["dosing"],
+        },
+        {
+            "name": "UT-Dr-Wang-Fang",
+            "specialty": "Neurology",
+            "hospital": "Guangzhou Medical",
+            "title": "Attending Physician",
+            "personality_type": "skeptical",
+            "emotional_state": 80,
+            "communication_style": 40,
+            "expertise_areas": ["stroke", "epilepsy"],
+            "prescribing_habits": "Guideline-based",
+            "concerns": "Long-term outcomes",
+            "objections": ["limited data"],
+            "probe_topics": ["mechanism of action"],
+        },
+    ]
+
+    results = []
+    for profile_data in profiles:
+        instructions = build_agent_instructions(profile_data)
+        agent_name = _sanitize_agent_name(profile_data["name"])
+        definition = PromptAgentDefinition(model="gpt-4o", instructions=instructions)
+
+        result = client.agents.create_version(
+            agent_name=agent_name,
+            definition=definition,
+            description="Unit test agent — safe to delete",
+        )
+        _created_agents.append(result.name)
+        results.append({"name": result.name, "version": result.version})
+
+    # All 3 must succeed
+    assert len(results) == 3
+    agent_names = [r["name"] for r in results]
+    assert len(set(agent_names)) == 3, f"Expected 3 unique agents, got: {agent_names}"
+
+    for r in results:
+        assert r["name"], f"Agent name must not be empty: {r}"
+        assert r["version"], f"Agent version must not be empty: {r}"
+        print(f"  Created real agent: name={r['name']}, version={r['version']}")
+
+
+@_skip_no_creds
+@pytest.mark.asyncio
+async def test_real_cleanup_test_agents():
+    """[REAL] Cleanup: delete any agents created by tests."""
+    from app.services.agent_sync_service import _get_project_client
+
+    endpoint, api_key, project = _get_real_azure_config()
+    project_endpoint = f"{endpoint}/api/projects/{project}"
+    client = _get_project_client(project_endpoint, api_key)
+
+    deleted = 0
+    for agent_name in _created_agents:
+        try:
+            client.agents.delete(agent_name=agent_name)
+            deleted += 1
+        except Exception as e:
+            print(f"  Cleanup: could not delete {agent_name}: {e}")
+
+    print(f"  Cleanup: deleted {deleted}/{len(_created_agents)} test agents")
+    _created_agents.clear()

@@ -35,6 +35,7 @@ class HcpProfile(Base, TimestampMixin):
     difficulty: Mapped[str] = mapped_column(String(20), default="medium")  # easy/medium/hard
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     agent_id: Mapped[str] = mapped_column(String(100), default="")
+    agent_version: Mapped[str] = mapped_column(String(50), default="")
     agent_sync_status: Mapped[str] = mapped_column(
         String(20), default="none"
     )  # none|pending|synced|failed

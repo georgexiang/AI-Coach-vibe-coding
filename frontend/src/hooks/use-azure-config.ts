@@ -5,6 +5,7 @@ import {
   testServiceConnection,
   getAIFoundryConfig,
   updateAIFoundryConfig,
+  testAIFoundryConnection,
 } from "@/api/azure-config";
 import type { ServiceConfigUpdate, AIFoundryConfigUpdate } from "@/types/azure-config";
 
@@ -54,6 +55,16 @@ export function useUpdateAIFoundry() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: [...AI_FOUNDRY_KEY] });
       void queryClient.invalidateQueries({ queryKey: [...AZURE_CONFIG_KEY] });
+    },
+  });
+}
+
+export function useTestAIFoundry() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => testAIFoundryConnection(),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: [...AI_FOUNDRY_KEY] });
     },
   });
 }

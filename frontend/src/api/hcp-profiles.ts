@@ -45,3 +45,49 @@ export async function retrySyncHcpProfile(id: string) {
   );
   return data;
 }
+
+export async function batchSyncAgents() {
+  const { data } = await apiClient.post<{
+    synced: number;
+    failed: number;
+    total: number;
+    error?: string;
+  }>("/hcp-profiles/batch-sync");
+  return data;
+}
+
+export interface TestChatRequest {
+  message: string;
+  previous_response_id?: string;
+}
+
+export interface TestChatResponse {
+  response_text: string;
+  response_id: string;
+  agent_name: string;
+  agent_version: string;
+}
+
+export async function testChatWithAgent(
+  profileId: string,
+  body: TestChatRequest,
+) {
+  const { data } = await apiClient.post<TestChatResponse>(
+    `/hcp-profiles/${profileId}/test-chat`,
+    body,
+  );
+  return data;
+}
+
+export interface AgentPortalUrlResponse {
+  url: string;
+  agent_name: string;
+  agent_version: string;
+}
+
+export async function getAgentPortalUrl(profileId: string) {
+  const { data } = await apiClient.get<AgentPortalUrlResponse>(
+    `/hcp-profiles/${profileId}/portal-url`,
+  );
+  return data;
+}

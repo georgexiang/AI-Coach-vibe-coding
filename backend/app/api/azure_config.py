@@ -11,12 +11,17 @@ from app.dependencies import get_db, require_role
 from app.models.user import User
 from app.schemas.azure_config import (
     AIFoundryConfigUpdate,
+    AIFoundryTestResult,
     ConnectionTestResult,
     ServiceConfigResponse,
     ServiceConfigUpdate,
 )
 from app.services import config_service
-from app.services.connection_tester import test_service_connection
+from app.services.connection_tester import (
+    detect_region_from_endpoint,
+    test_ai_foundry_endpoint,
+    test_service_connection,
+)
 from app.services.region_capabilities import get_region_capabilities
 from app.utils.encryption import decrypt_value
 from app.utils.exceptions import AppException
@@ -46,15 +51,17 @@ async def register_adapter_from_config(
     master_endpoint: str = "",
     master_key: str = "",
     master_region: str = "",
+    master_model: str = "",
 ) -> None:
     """Dynamically register an adapter in the ServiceRegistry based on saved config.
 
-    When per-service endpoint/key are empty, falls back to master AI Foundry values.
+    When per-service endpoint/key/model are empty, falls back to master AI Foundry values.
     """
     from app.services.agents.registry import registry
 
     effective_key = api_key or master_key
     effective_region = region or master_region
+    effective_deployment = deployment or master_model
 
     if service_name == "azure_openai" and effective_key:
         from app.services.agents.adapters.azure_openai import AzureOpenAIAdapter
@@ -63,7 +70,7 @@ async def register_adapter_from_config(
             f"{master_endpoint.rstrip('/')}/" if master_endpoint else ""
         )
         adapter = AzureOpenAIAdapter(
-            endpoint=effective_endpoint, api_key=effective_key, deployment=deployment
+            endpoint=effective_endpoint, api_key=effective_key, deployment=effective_deployment
         )
         registry.register("llm", adapter)
         settings.default_llm_provider = "azure_openai"
@@ -94,7 +101,7 @@ async def register_adapter_from_config(
 
         effective_endpoint = endpoint or master_endpoint
         adapter = AzureRealtimeAdapter(
-            endpoint=effective_endpoint, api_key=effective_key, deployment=deployment
+            endpoint=effective_endpoint, api_key=effective_key, deployment=effective_deployment
         )
         registry.register("realtime", adapter)
 
@@ -114,7 +121,7 @@ async def register_adapter_from_config(
         adapter = AzureVoiceLiveAdapter(
             endpoint=effective_endpoint,
             api_key=effective_key,
-            model_or_deployment=deployment,
+            model_or_deployment=effective_deployment,
             region=effective_region,
         )
         registry.register("voice_live", adapter)
@@ -188,6 +195,7 @@ async def update_ai_foundry_config(
                 master_endpoint=master.endpoint,
                 master_key=master_key,
                 master_region=master.region,
+                master_model=master.model_or_deployment,
             )
 
     decrypted_key = decrypt_value(master.api_key_encrypted)
@@ -202,6 +210,43 @@ async def update_ai_foundry_config(
         is_master=True,
         is_active=master.is_active,
         updated_at=master.updated_at,
+    )
+
+
+@router.post("/ai-foundry/test", response_model=AIFoundryTestResult)
+async def test_ai_foundry(
+    db: AsyncSession = Depends(get_db),
+    _admin: User = Depends(require_role("admin")),
+) -> AIFoundryTestResult:
+    """Test AI Foundry connectivity and auto-detect region.
+
+    Uses saved master config. If a model is configured, tests via chat completion.
+    Returns the auto-detected Azure region on success.
+    """
+    master = await config_service.get_master_config(db)
+    if not master:
+        return AIFoundryTestResult(
+            success=False, message="AI Foundry not configured"
+        )
+
+    api_key = decrypt_value(master.api_key_encrypted)
+    success, message = await test_ai_foundry_endpoint(
+        master.endpoint, api_key, master.model_or_deployment
+    )
+
+    detected_region = ""
+    if success:
+        detected_region = await detect_region_from_endpoint(master.endpoint, api_key)
+        if detected_region and detected_region != master.region:
+            # Auto-update the region in the DB
+            master.region = detected_region
+            await db.flush()
+            await db.commit()
+
+    return AIFoundryTestResult(
+        success=success,
+        message=message,
+        region=detected_region or master.region,
     )
 
 
@@ -248,11 +293,12 @@ async def update_service(
     # Determine the effective API key (per-service or master fallback)
     api_key = update.api_key or await config_service.get_effective_key(db, service_name)
 
-    # Get master config for fallback endpoint/region
+    # Get master config for fallback endpoint/region/model
     master = await config_service.get_master_config(db)
     master_endpoint = master.endpoint if master else ""
     master_key = decrypt_value(master.api_key_encrypted) if master else ""
     master_region = master.region if master else ""
+    master_model = master.model_or_deployment if master else ""
 
     await register_adapter_from_config(
         service_name,
@@ -263,6 +309,7 @@ async def update_service(
         master_endpoint=master_endpoint,
         master_key=master_key,
         master_region=master_region,
+        master_model=master_model,
     )
 
     # Return the saved config with masked key
@@ -310,6 +357,7 @@ async def test_service(
     master_endpoint = master.endpoint if master else ""
     master_key = decrypt_value(master.api_key_encrypted) if master else ""
     master_region = master.region if master else ""
+    master_model = master.model_or_deployment if master else ""
 
     success, message = await test_service_connection(
         service_name,
@@ -320,6 +368,7 @@ async def test_service(
         master_endpoint=master_endpoint,
         master_key=master_key,
         master_region=master_region,
+        master_model=master_model,
     )
 
     return ConnectionTestResult(

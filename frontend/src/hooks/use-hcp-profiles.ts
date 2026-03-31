@@ -6,6 +6,7 @@ import {
   updateHcpProfile,
   deleteHcpProfile,
   retrySyncHcpProfile,
+  batchSyncAgents,
 } from "@/api/hcp-profiles";
 import type { HcpProfileCreate, HcpProfileUpdate } from "@/types/hcp";
 
@@ -63,6 +64,16 @@ export function useRetrySyncHcpProfile() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => retrySyncHcpProfile(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["hcp-profiles"] });
+    },
+  });
+}
+
+export function useBatchSyncAgents() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => batchSyncAgents(),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["hcp-profiles"] });
     },

@@ -12,6 +12,7 @@ class ServiceConfigUpdate(BaseModel):
     api_key: str = ""
     model_or_deployment: str = ""
     region: str = ""
+    is_active: bool | None = None  # explicit toggle; None = preserve existing
 
 
 class AIFoundryConfigUpdate(BaseModel):
@@ -20,6 +21,7 @@ class AIFoundryConfigUpdate(BaseModel):
     endpoint: str  # e.g. https://ai-foundary-qiah-east-us2.cognitiveservices.azure.com/
     region: str  # e.g. eastus2
     api_key: str = ""  # master API key (empty string = preserve existing)
+    model_or_deployment: str = ""  # default chat model (e.g. gpt-5.4-mini)
 
 
 class ServiceConfigResponse(BaseModel):
@@ -44,6 +46,14 @@ class ConnectionTestResult(BaseModel):
     service_name: str
     success: bool
     message: str
+
+
+class AIFoundryTestResult(BaseModel):
+    """Result of AI Foundry connectivity test, includes auto-detected region."""
+
+    success: bool
+    message: str
+    region: str = ""
 
 
 class RegionServiceAvailability(BaseModel):

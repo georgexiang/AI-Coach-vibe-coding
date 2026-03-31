@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.dependencies import get_db, require_role
 from app.models.user import User
 from app.schemas.hcp_profile import HcpProfileCreate, HcpProfileUpdate
-from app.services import hcp_profile_service
+from app.services import agent_chat_service, hcp_profile_service
 from app.utils.pagination import PaginatedResponse
 
 router = APIRouter(prefix="/hcp-profiles", tags=["hcp-profiles"])
@@ -36,6 +36,7 @@ class HcpProfileOut(BaseModel):
     difficulty: str
     is_active: bool
     agent_id: str
+    agent_version: str
     agent_sync_status: str
     agent_sync_error: str
     created_by: str
@@ -125,6 +126,113 @@ async def retry_sync(
     """Retry AI Foundry agent sync for a profile with failed status. Admin only. (D-11)"""
     profile = await hcp_profile_service.retry_agent_sync(db, profile_id)
     return profile
+
+
+@router.post("/batch-sync")
+async def batch_sync_agents(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role("admin")),
+):
+    """Batch sync agents for all profiles with missing/failed agent_id. Admin only."""
+    result = await hcp_profile_service.batch_sync_agents(db)
+    return result
+
+
+class TestChatRequest(BaseModel):
+    """Request body for test chat with agent."""
+
+    message: str
+    previous_response_id: str | None = None
+
+
+class TestChatResponse(BaseModel):
+    """Response from test chat with agent."""
+
+    response_text: str
+    response_id: str
+    agent_name: str
+    agent_version: str
+
+
+class AgentPortalUrlResponse(BaseModel):
+    """Azure Portal URL for viewing agent in playground."""
+
+    url: str
+    agent_name: str
+    agent_version: str
+
+
+@router.post("/{profile_id}/test-chat", response_model=TestChatResponse)
+async def test_chat(
+    profile_id: str,
+    body: TestChatRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role("admin")),
+):
+    """Send a test message to the HCP's AI Foundry Agent. Admin only.
+
+    The chat session will appear in Azure Portal's agent playground.
+    Pass previous_response_id for multi-turn conversation.
+    """
+    profile = await hcp_profile_service.get_hcp_profile(db, profile_id)
+    if not profile.agent_id:
+        from app.utils.exceptions import bad_request
+
+        bad_request("No agent synced for this profile. Sync the agent first.")
+
+    result = await agent_chat_service.chat_with_agent(
+        db,
+        agent_name=profile.agent_id,
+        agent_version=profile.agent_version or "1",
+        message=body.message,
+        previous_response_id=body.previous_response_id,
+    )
+    return result
+
+
+@router.get("/{profile_id}/portal-url", response_model=AgentPortalUrlResponse)
+async def get_agent_portal_url(
+    profile_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role("admin")),
+):
+    """Get the Azure Portal URL for viewing this agent in the playground. Admin only.
+
+    Auto-discovers subscription, resource group, resource name from the
+    connections API — no extra env vars needed beyond endpoint + key.
+    """
+    from app.services import agent_sync_service
+
+    profile = await hcp_profile_service.get_hcp_profile(db, profile_id)
+    if not profile.agent_id:
+        from app.utils.exceptions import bad_request
+
+        bad_request("No agent synced for this profile.")
+
+    # Auto-discover portal URL components from connections API
+    components = await agent_sync_service.get_portal_url_components(db)
+    sub_hash = components.get("subscription_hash", "")
+    rg = components.get("resource_group", "")
+    resource_name = components.get("resource_name", "")
+    project_name = components.get("project_name", "")
+
+    # Always fetch latest version from Azure (version increments on each update)
+    version = await agent_sync_service.get_agent_latest_version(db, profile.agent_id)
+    if sub_hash and rg and resource_name and project_name:
+        url = (
+            f"https://ai.azure.com/nextgen/r/"
+            f"{sub_hash},{rg},,{resource_name},{project_name}"
+            f"/build/agents/{profile.agent_id}/build?version={version}"
+        )
+    else:
+        # Fallback: generic Azure AI Studio URL
+        url = "https://ai.azure.com"
+
+    return AgentPortalUrlResponse(
+        url=url,
+        agent_name=profile.agent_id,
+        agent_version=version,
+    )
 
 
 @router.delete("/{profile_id}", status_code=204)

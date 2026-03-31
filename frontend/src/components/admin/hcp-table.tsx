@@ -1,7 +1,6 @@
 import { useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  MoreHorizontal,
   Edit,
   Trash2,
   ArrowUpDown,
@@ -11,12 +10,6 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   Tooltip,
   TooltipContent,
@@ -214,7 +207,8 @@ export function HcpTable({
               paged.map((profile) => (
                 <tr
                   key={profile.id}
-                  className="border-b hover:bg-slate-50/50 transition-colors"
+                  className="border-b hover:bg-slate-50/50 transition-colors cursor-pointer"
+                  onDoubleClick={() => onEdit(profile)}
                 >
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
@@ -251,38 +245,60 @@ export function HcpTable({
                     />
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="size-8"
-                        >
-                          <MoreHorizontal className="size-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => onEdit(profile)}>
-                          <Edit className="size-4" />
-                          {t("materials.edit")}
-                        </DropdownMenuItem>
-                        {profile.agent_sync_status === "failed" && (
-                          <DropdownMenuItem
-                            onClick={() => onRetrySync(profile.id)}
+                    <div className="flex items-center justify-end gap-1">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-8"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onEdit(profile);
+                            }}
                           >
-                            <RefreshCw className="size-4" />
-                            {t("hcp.retrySync")}
-                          </DropdownMenuItem>
-                        )}
-                        <DropdownMenuItem
-                          variant="destructive"
-                          onClick={() => onDelete(profile.id)}
-                        >
-                          <Trash2 className="size-4" />
-                          {t("common:delete")}
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                            <Edit className="size-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>{t("materials.edit")}</TooltipContent>
+                      </Tooltip>
+                      {(profile.agent_sync_status === "failed" ||
+                        profile.agent_sync_status === "none" ||
+                        !profile.agent_id) && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="size-8 text-amber-600 hover:text-amber-700"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onRetrySync(profile.id);
+                              }}
+                            >
+                              <RefreshCw className="size-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>{t("hcp.retrySync")}</TooltipContent>
+                        </Tooltip>
+                      )}
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-8 text-destructive hover:text-destructive"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onDelete(profile.id);
+                            }}
+                          >
+                            <Trash2 className="size-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>{t("common:delete")}</TooltipContent>
+                      </Tooltip>
+                    </div>
                   </td>
                 </tr>
               ))

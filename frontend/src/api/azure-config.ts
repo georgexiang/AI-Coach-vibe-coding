@@ -6,6 +6,7 @@ import type {
   RegionCapabilities,
   AIFoundryConfig,
   AIFoundryConfigUpdate,
+  AIFoundryTestResult,
 } from "@/types/azure-config";
 
 export async function getServiceConfigs(): Promise<ServiceConfigResponse[]> {
@@ -57,6 +58,13 @@ export async function updateAIFoundryConfig(
   const { data } = await apiClient.put<AIFoundryConfig>(
     "/azure-config/ai-foundry",
     config,
+  );
+  return data;
+}
+
+export async function testAIFoundryConnection(): Promise<AIFoundryTestResult> {
+  const { data } = await apiClient.post<AIFoundryTestResult>(
+    "/azure-config/ai-foundry/test",
   );
   return data;
 }
