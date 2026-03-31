@@ -35,6 +35,9 @@ class HcpProfileOut(BaseModel):
     probe_topics: list[str]
     difficulty: str
     is_active: bool
+    agent_id: str
+    agent_sync_status: str
+    agent_sync_error: str
     created_by: str
     created_at: str
     updated_at: str

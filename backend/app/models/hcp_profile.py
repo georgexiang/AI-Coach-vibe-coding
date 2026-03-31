@@ -34,6 +34,11 @@ class HcpProfile(Base, TimestampMixin):
     probe_topics: Mapped[str] = mapped_column(Text, default="[]")  # JSON array of strings
     difficulty: Mapped[str] = mapped_column(String(20), default="medium")  # easy/medium/hard
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    agent_id: Mapped[str] = mapped_column(String(100), default="")
+    agent_sync_status: Mapped[str] = mapped_column(
+        String(20), default="none"
+    )  # none|pending|synced|failed
+    agent_sync_error: Mapped[str] = mapped_column(Text, default="")
     created_by: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False)
 
     # Relationships

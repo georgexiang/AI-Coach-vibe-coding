@@ -65,6 +65,9 @@ class HcpProfileResponse(BaseModel):
     probe_topics: str  # JSON string from DB
     difficulty: str
     is_active: bool
+    agent_id: str = ""
+    agent_sync_status: str = "none"
+    agent_sync_error: str = ""
     created_by: str
     created_at: datetime
     updated_at: datetime
