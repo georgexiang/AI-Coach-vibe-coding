@@ -116,6 +116,17 @@ async def update_profile(
     return profile
 
 
+@router.post("/{profile_id}/retry-sync", response_model=HcpProfileOut)
+async def retry_sync(
+    profile_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role("admin")),
+):
+    """Retry AI Foundry agent sync for a profile with failed status. Admin only. (D-11)"""
+    profile = await hcp_profile_service.retry_agent_sync(db, profile_id)
+    return profile
+
+
 @router.delete("/{profile_id}", status_code=204)
 async def delete_profile(
     profile_id: str,

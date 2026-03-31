@@ -1,4 +1,8 @@
-"""HCP Profile service: CRUD operations for Healthcare Professional profiles."""
+"""HCP Profile service: CRUD operations for Healthcare Professional profiles.
+
+Includes automatic agent sync hooks: creating/updating/deleting HCP profiles
+triggers corresponding AI Foundry Agent operations via agent_sync_service.
+"""
 
 import json
 
@@ -7,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.hcp_profile import HcpProfile
 from app.schemas.hcp_profile import HcpProfileCreate, HcpProfileUpdate
+from app.services import agent_sync_service
 from app.utils.exceptions import not_found
 
 # JSON list fields that need serialization/deserialization
@@ -25,6 +30,20 @@ async def create_hcp_profile(db: AsyncSession, data: HcpProfileCreate, user_id: 
 
     profile = HcpProfile(**profile_data)
     db.add(profile)
+    await db.flush()
+    await db.refresh(profile)
+
+    # Auto-sync agent to AI Foundry (D-01, D-02)
+    profile.agent_sync_status = "pending"
+    await db.flush()
+    try:
+        result = await agent_sync_service.sync_agent_for_profile(db, profile)
+        profile.agent_id = result.get("id", "")
+        profile.agent_sync_status = "synced"
+        profile.agent_sync_error = ""
+    except Exception as e:
+        profile.agent_sync_status = "failed"
+        profile.agent_sync_error = str(e)[:500]
     await db.flush()
     await db.refresh(profile)
     return profile
@@ -92,11 +111,54 @@ async def update_hcp_profile(
 
     await db.flush()
     await db.refresh(profile)
+
+    # Re-sync agent instructions on profile update (D-01)
+    profile.agent_sync_status = "pending"
+    await db.flush()
+    try:
+        result = await agent_sync_service.sync_agent_for_profile(db, profile)
+        if not profile.agent_id and result.get("id"):
+            profile.agent_id = result["id"]
+        profile.agent_sync_status = "synced"
+        profile.agent_sync_error = ""
+    except Exception as e:
+        profile.agent_sync_status = "failed"
+        profile.agent_sync_error = str(e)[:500]
+    await db.flush()
+    await db.refresh(profile)
     return profile
 
 
 async def delete_hcp_profile(db: AsyncSession, profile_id: str) -> None:
     """Delete an HCP profile by ID."""
     profile = await get_hcp_profile(db, profile_id)
+
+    # Delete corresponding AI Foundry Agent (D-01)
+    if profile.agent_id:
+        try:
+            await agent_sync_service.delete_agent(db, profile.agent_id)
+        except Exception:
+            pass  # Agent deletion failure should not block profile deletion
+
     await db.delete(profile)
     await db.flush()
+
+
+async def retry_agent_sync(db: AsyncSession, profile_id: str) -> HcpProfile:
+    """Retry agent sync for a profile with failed sync status (D-11)."""
+    profile = await get_hcp_profile(db, profile_id)
+    profile.agent_sync_status = "pending"
+    profile.agent_sync_error = ""
+    await db.flush()
+    try:
+        result = await agent_sync_service.sync_agent_for_profile(db, profile)
+        if result.get("id"):
+            profile.agent_id = result["id"]
+        profile.agent_sync_status = "synced"
+        profile.agent_sync_error = ""
+    except Exception as e:
+        profile.agent_sync_status = "failed"
+        profile.agent_sync_error = str(e)[:500]
+    await db.flush()
+    await db.refresh(profile)
+    return profile
