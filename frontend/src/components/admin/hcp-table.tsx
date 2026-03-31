@@ -1,0 +1,321 @@
+import { useState, useMemo } from "react";
+import { useTranslation } from "react-i18next";
+import {
+  MoreHorizontal,
+  Edit,
+  Trash2,
+  ArrowUpDown,
+  RefreshCw,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { EmptyState } from "@/components/shared/empty-state";
+import type { HcpProfile } from "@/types/hcp";
+
+interface HcpTableProps {
+  profiles: HcpProfile[];
+  isLoading: boolean;
+  onEdit: (profile: HcpProfile) => void;
+  onDelete: (id: string) => void;
+  onRetrySync: (id: string) => void;
+}
+
+type SortKey = "name" | "specialty";
+type SortDirection = "asc" | "desc";
+
+const AGENT_STATUS_STYLES: Record<string, string> = {
+  synced: "bg-green-100 text-green-700",
+  pending: "bg-amber-100 text-amber-700",
+  failed: "bg-red-100 text-red-700",
+  none: "bg-muted text-muted-foreground",
+};
+
+function AgentStatusBadge({
+  status,
+  error,
+}: {
+  status: HcpProfile["agent_sync_status"];
+  error?: string;
+}) {
+  const { t } = useTranslation("admin");
+
+  const statusLabels: Record<string, string> = {
+    synced: t("hcp.agentSynced"),
+    pending: t("hcp.agentPending"),
+    failed: t("hcp.agentFailed"),
+    none: t("hcp.agentNone"),
+  };
+
+  const tooltipTexts: Record<string, string> = {
+    synced: t("hcp.agentSyncedTooltip"),
+    pending: t("hcp.agentPendingTooltip"),
+    none: t("hcp.agentNoneTooltip"),
+  };
+
+  const tooltipText =
+    status === "failed" && error ? error : tooltipTexts[status] ?? "";
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span
+          className={cn(
+            "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium",
+            AGENT_STATUS_STYLES[status],
+            status === "pending" && "animate-pulse",
+          )}
+        >
+          {statusLabels[status] ?? status}
+        </span>
+      </TooltipTrigger>
+      {tooltipText && <TooltipContent>{tooltipText}</TooltipContent>}
+    </Tooltip>
+  );
+}
+
+function getCommStyleDesc(value: number): string {
+  return value < 50 ? "Direct" : "Indirect";
+}
+
+export function HcpTable({
+  profiles,
+  isLoading,
+  onEdit,
+  onDelete,
+  onRetrySync,
+}: HcpTableProps) {
+  const { t } = useTranslation("admin");
+  const [sortKey, setSortKey] = useState<SortKey>("name");
+  const [sortDir, setSortDir] = useState<SortDirection>("asc");
+  const [page, setPage] = useState(0);
+  const pageSize = 10;
+
+  const toggleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  };
+
+  const sorted = useMemo(() => {
+    const arr = [...profiles];
+    arr.sort((a, b) => {
+      const valA = a[sortKey];
+      const valB = b[sortKey];
+      const cmp = String(valA).localeCompare(String(valB));
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+    return arr;
+  }, [profiles, sortKey, sortDir]);
+
+  const paged = sorted.slice(page * pageSize, (page + 1) * pageSize);
+  const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
+
+  const getInitials = (name: string) =>
+    name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
+
+  return (
+    <div>
+      <div className="rounded-md border">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b bg-slate-50/50">
+              <th className="px-4 py-3 text-left font-medium">
+                <button
+                  type="button"
+                  className="flex items-center gap-1"
+                  onClick={() => toggleSort("name")}
+                >
+                  {t("hcp.name")}
+                  <ArrowUpDown className="size-3.5" />
+                </button>
+              </th>
+              <th className="px-4 py-3 text-left font-medium">
+                <button
+                  type="button"
+                  className="flex items-center gap-1"
+                  onClick={() => toggleSort("specialty")}
+                >
+                  {t("hcp.specialty")}
+                  <ArrowUpDown className="size-3.5" />
+                </button>
+              </th>
+              <th className="px-4 py-3 text-left font-medium">
+                {t("hcp.personalityType")}
+              </th>
+              <th className="px-4 py-3 text-left font-medium">
+                {t("hcp.communicationStyleCol")}
+              </th>
+              <th className="px-4 py-3 text-left font-medium">
+                {t("hcp.agentStatus")}
+              </th>
+              <th className="px-4 py-3 text-right font-medium">
+                {t("hcp.actions")}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {isLoading ? (
+              Array.from({ length: 5 }).map((_, i) => (
+                <tr key={i} className="border-b border-border">
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <Skeleton className="size-6 rounded-full" />
+                      <Skeleton className="h-4 w-[120px] rounded" />
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <Skeleton className="h-4 w-[80px] rounded" />
+                  </td>
+                  <td className="px-4 py-3">
+                    <Skeleton className="h-4 w-[60px] rounded" />
+                  </td>
+                  <td className="px-4 py-3">
+                    <Skeleton className="h-4 w-[40px] rounded" />
+                  </td>
+                  <td className="px-4 py-3">
+                    <Skeleton className="h-5 w-[60px] rounded-full" />
+                  </td>
+                  <td className="px-4 py-3">
+                    <Skeleton className="size-5 rounded" />
+                  </td>
+                </tr>
+              ))
+            ) : paged.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="px-4 py-8">
+                  <EmptyState
+                    title={t("hcp.emptyTitle")}
+                    body={t("hcp.emptyBody")}
+                  />
+                </td>
+              </tr>
+            ) : (
+              paged.map((profile) => (
+                <tr
+                  key={profile.id}
+                  className="border-b hover:bg-slate-50/50 transition-colors"
+                >
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <Avatar className="size-6">
+                        <AvatarImage
+                          src={profile.avatar_url}
+                          alt={profile.name}
+                        />
+                        <AvatarFallback className="bg-blue-100 text-blue-700 text-xs">
+                          {getInitials(profile.name)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="font-medium">{profile.name}</span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-muted-foreground">
+                    {profile.specialty}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700 capitalize">
+                      {profile.personality_type}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-muted-foreground">
+                    {profile.communication_style}{" "}
+                    <span className="text-xs">
+                      ({getCommStyleDesc(profile.communication_style)})
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <AgentStatusBadge
+                      status={profile.agent_sync_status}
+                      error={profile.agent_sync_error}
+                    />
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-8"
+                        >
+                          <MoreHorizontal className="size-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => onEdit(profile)}>
+                          <Edit className="size-4" />
+                          {t("materials.edit")}
+                        </DropdownMenuItem>
+                        {profile.agent_sync_status === "failed" && (
+                          <DropdownMenuItem
+                            onClick={() => onRetrySync(profile.id)}
+                          >
+                            <RefreshCw className="size-4" />
+                            {t("hcp.retrySync")}
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuItem
+                          variant="destructive"
+                          onClick={() => onDelete(profile.id)}
+                        >
+                          <Trash2 className="size-4" />
+                          {t("common:delete")}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between mt-4">
+          <span className="text-sm text-muted-foreground">
+            Page {page + 1} of {totalPages}
+          </span>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page === 0}
+              onClick={() => setPage((p) => p - 1)}
+            >
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page >= totalPages - 1}
+              onClick={() => setPage((p) => p + 1)}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
