@@ -32,6 +32,9 @@ class AzureOpenAIAdapter(BaseCoachingAdapter):
         self._deployment = deployment
         self._api_version = api_version
         self._client = None
+        # Tracks which token limit param this deployment accepts.
+        # None = not yet probed; True = max_completion_tokens; False = max_tokens
+        self._use_max_completion_tokens: bool | None = None
 
         # Conditional import inside constructor to avoid ImportError
         # when openai is not installed (follows project convention from stt/azure.py)
@@ -45,6 +48,16 @@ class AzureOpenAIAdapter(BaseCoachingAdapter):
             )
         except ImportError:
             pass  # is_available() will return False
+
+    def _token_limit_kwargs(self, limit: int) -> dict:
+        """Return the correct token limit kwarg for the current deployment.
+
+        Newer models (gpt-4o, gpt-5.4-mini, o1, o3) require max_completion_tokens.
+        Older models (gpt-4, gpt-35-turbo) require max_tokens.
+        """
+        if self._use_max_completion_tokens is False:
+            return {"max_tokens": limit}
+        return {"max_completion_tokens": limit}
 
     async def execute(self, request: CoachRequest) -> AsyncIterator[CoachEvent]:
         """Execute a coaching interaction via Azure OpenAI streaming chat completion."""
@@ -71,14 +84,35 @@ class AzureOpenAIAdapter(BaseCoachingAdapter):
             # Current user message
             messages.append({"role": "user", "content": request.message})
 
-            # Stream chat completion
-            stream = await self._client.chat.completions.create(
-                model=self._deployment,
-                messages=messages,
-                stream=True,
-                temperature=0.7,
-                max_completion_tokens=1024,
-            )
+            # Stream chat completion with auto-detection of token limit param
+            try:
+                stream = await self._client.chat.completions.create(
+                    model=self._deployment,
+                    messages=messages,
+                    stream=True,
+                    temperature=0.7,
+                    **self._token_limit_kwargs(1024),
+                )
+            except Exception as param_err:
+                # If the param was rejected, flip and retry once
+                err_msg = str(param_err)
+                if "max_completion_tokens" in err_msg or "max_tokens" in err_msg:
+                    self._use_max_completion_tokens = not (
+                        self._use_max_completion_tokens is not False
+                    )
+                    stream = await self._client.chat.completions.create(
+                        model=self._deployment,
+                        messages=messages,
+                        stream=True,
+                        temperature=0.7,
+                        **self._token_limit_kwargs(1024),
+                    )
+                else:
+                    raise
+
+            # If we got here, remember which param worked
+            if self._use_max_completion_tokens is None:
+                self._use_max_completion_tokens = True
 
             async for chunk in stream:
                 if chunk.choices and chunk.choices[0].delta.content:

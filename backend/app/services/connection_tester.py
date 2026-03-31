@@ -42,11 +42,23 @@ async def test_azure_openai(endpoint: str, api_key: str, deployment: str) -> tup
             api_version="2024-06-01",
             timeout=10.0,
         )
-        await client.chat.completions.create(
-            model=deployment,
-            messages=[{"role": "user", "content": "test"}],
-            max_completion_tokens=1,
-        )
+        # Try max_completion_tokens first (newer models like gpt-4o, gpt-5.4-mini, o1, o3),
+        # fall back to max_tokens for older models (gpt-4, gpt-35-turbo)
+        try:
+            await client.chat.completions.create(
+                model=deployment,
+                messages=[{"role": "user", "content": "test"}],
+                max_completion_tokens=1,
+            )
+        except Exception as first_err:
+            if "max_completion_tokens" in str(first_err):
+                await client.chat.completions.create(
+                    model=deployment,
+                    messages=[{"role": "user", "content": "test"}],
+                    max_tokens=1,
+                )
+            else:
+                raise
         return (True, "Connection successful")
     except ImportError:
         return (False, "Connection failed: openai package not installed")
