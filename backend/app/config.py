@@ -44,6 +44,11 @@ class Settings(BaseSettings):
     # Region (PLAT-04): "global" | "china" | "eu"
     region: str = "global"
 
+    # Azure AI Foundry (master config for agent sync)
+    azure_foundry_endpoint: str = ""
+    azure_foundry_api_key: str = ""
+    azure_foundry_default_project: str = ""
+
     # Azure Avatar (optional premium) (ARCH-05)
     azure_avatar_endpoint: str = ""
     azure_avatar_key: str = ""

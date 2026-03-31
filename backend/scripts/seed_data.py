@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from app.config import get_settings
 from app.models.message import SessionMessage
+from app.models.service_config import ServiceConfig
 from app.models.scenario import Scenario
 from app.models.score import ScoreDetail, SessionScore
 from app.models.scoring_rubric import ScoringRubric
@@ -584,6 +585,72 @@ async def seed_sessions(session: AsyncSession) -> None:
     print(f"  [created] {session_count} scored sessions with messages, scores, and feedback")
 
 
+async def seed_azure_config(session: AsyncSession) -> None:
+    """Seed ServiceConfig from .env Azure Foundry vars if not already configured.
+
+    Creates master AI Foundry row + voice_live service row with agent mode
+    so that agent_sync_service can reach the AI Foundry /assistants API.
+    Idempotent — skips if master config already exists.
+    """
+    from app.utils.encryption import encrypt_value
+
+    # Check if master config already exists
+    result = await session.execute(
+        select(ServiceConfig).where(ServiceConfig.is_master == True)  # noqa: E712
+    )
+    if result.scalar_one_or_none() is not None:
+        print("  [skip] AI Foundry master config already exists")
+        return
+
+    endpoint = settings.azure_foundry_endpoint
+    api_key = settings.azure_foundry_api_key
+    project = settings.azure_foundry_default_project
+
+    if not endpoint:
+        print("  [skip] AZURE_FOUNDRY_ENDPOINT not set in .env — skipping config seed")
+        return
+
+    # 1. Master AI Foundry row
+    master = ServiceConfig(
+        service_name="ai_foundry",
+        display_name="Azure AI Foundry",
+        endpoint=endpoint,
+        api_key_encrypted=encrypt_value(api_key) if api_key else "",
+        model_or_deployment=settings.azure_openai_deployment or "gpt-4o",
+        region="swedencentral",
+        is_master=True,
+        is_active=True,
+        updated_by="seed",
+    )
+    session.add(master)
+    print(f"  [created] AI Foundry master config (endpoint={endpoint})")
+
+    # 2. Voice Live service row in agent mode with project_name
+    if project:
+        import json
+
+        mode_json = json.dumps({
+            "mode": "agent",
+            "agent_id": "",
+            "project_name": project,
+        })
+        vl = ServiceConfig(
+            service_name="azure_voice_live",
+            display_name="Azure Voice Live",
+            endpoint="",  # inherits from master
+            api_key_encrypted="",  # inherits from master
+            model_or_deployment=mode_json,
+            region="",
+            is_master=False,
+            is_active=True,
+            updated_by="seed",
+        )
+        session.add(vl)
+        print(f"  [created] Voice Live config (agent mode, project={project})")
+
+    await session.commit()
+
+
 async def main() -> None:
     """Create seed users, default rubric, and sample sessions."""
     from app.models.base import Base
@@ -628,6 +695,9 @@ async def main() -> None:
 
         # Seed sample sessions and scores for analytics
         await seed_sessions(session)
+
+        # Seed Azure AI Foundry config from .env (for agent sync)
+        await seed_azure_config(session)
 
     await engine.dispose()
     print("Seed complete.")

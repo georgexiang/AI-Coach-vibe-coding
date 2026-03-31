@@ -1,17 +1,19 @@
 """Agent sync service: bidirectional sync between HCP profiles and AI Foundry Agents.
 
-Creates, updates, and deletes AI Foundry Agents via REST API (/assistants endpoint)
-when HCP profiles are created, updated, or deleted. Uses httpx for async HTTP calls
-with api-key header auth (matching project convention from connection_tester.py).
+Creates, updates, and deletes AI Foundry Agents when HCP profiles change.
+Uses the official azure-ai-projects SDK with DefaultAzureCredential for Entra
+ID authentication (supports Azure CLI locally, Managed Identity in production).
 """
 
+import logging
 from collections import defaultdict
 
-import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.services import config_service
 from app.services.agents.adapters.azure_voice_live import parse_voice_live_mode
+
+logger = logging.getLogger(__name__)
 
 AI_FOUNDRY_API_VERSION = "2025-05-01"
 
@@ -47,7 +49,6 @@ def build_agent_instructions(profile_data: dict, template: str | None = None) ->
 
     Uses str.format_map with defaultdict for safe missing-key handling.
     """
-    # Create a copy so we don't mutate the original
     data = dict(profile_data)
 
     # Convert list fields to comma-separated strings
@@ -74,19 +75,27 @@ def build_agent_instructions(profile_data: dict, template: str | None = None) ->
     else:
         data["emotional_state_desc"] = "neutral"
 
-    # Use defaultdict for safe missing-key handling
     safe_data = defaultdict(lambda: "", data)
-
     use_template = template or DEFAULT_AGENT_TEMPLATE
     return use_template.format_map(safe_data)
 
 
+def _get_project_client(endpoint: str):
+    """Create an AIProjectClient with DefaultAzureCredential.
+
+    Supports Azure CLI (local dev) and Managed Identity (production).
+    """
+    from azure.ai.projects import AIProjectClient
+    from azure.identity import DefaultAzureCredential
+
+    return AIProjectClient(
+        endpoint=endpoint,
+        credential=DefaultAzureCredential(),
+    )
+
+
 async def get_project_endpoint(db: AsyncSession) -> tuple[str, str]:
     """Derive AI Foundry project endpoint and API key from config.
-
-    Gets the base endpoint from voice_live config (falls back to master),
-    parses project_name from voice_live mode config, and constructs the
-    full project endpoint URL.
 
     Returns:
         Tuple of (project_endpoint, api_key).
@@ -94,25 +103,30 @@ async def get_project_endpoint(db: AsyncSession) -> tuple[str, str]:
     base_endpoint = await config_service.get_effective_endpoint(db, "azure_voice_live")
     api_key = await config_service.get_effective_key(db, "azure_voice_live")
 
-    # Get project_name from voice_live config's model_or_deployment
     voice_config = await config_service.get_config(db, "azure_voice_live")
     project_name = ""
     if voice_config and voice_config.model_or_deployment:
         mode_info = parse_voice_live_mode(voice_config.model_or_deployment)
         project_name = mode_info.get("project_name", "")
 
-    # Construct project endpoint
     base = base_endpoint.rstrip("/")
     if "/api/projects/" in base:
-        # Already contains project path — use as-is
         project_endpoint = base
     elif project_name:
         project_endpoint = f"{base}/api/projects/{project_name}"
     else:
-        # No project_name available — use base endpoint directly
         project_endpoint = base
 
     return (project_endpoint, api_key)
+
+
+def _sanitize_agent_name(name: str) -> str:
+    """Sanitize HCP name into a valid agent name (alphanumeric, hyphens, underscores)."""
+    import re
+
+    sanitized = re.sub(r"[^a-zA-Z0-9_-]", "-", name.strip())
+    sanitized = re.sub(r"-+", "-", sanitized).strip("-")
+    return sanitized[:64] or "hcp-agent"
 
 
 async def create_agent(
@@ -121,24 +135,30 @@ async def create_agent(
     instructions: str,
     model: str = "gpt-4o",
 ) -> dict:
-    """Create an AI Foundry Agent via REST API.
+    """Create an AI Foundry Agent via azure-ai-projects SDK.
 
-    POST to {project_endpoint}/assistants?api-version={API_VERSION}
-    with api-key header auth.
-
-    Returns the response JSON containing the agent 'id'.
+    Uses the Agent Registry API (client.agents.create_version) with
+    PromptAgentDefinition. Returns dict with agent name, version, and id.
     """
-    project_endpoint, api_key = await get_project_endpoint(db)
-    url = f"{project_endpoint}/assistants?api-version={AI_FOUNDRY_API_VERSION}"
+    from azure.ai.projects.models import PromptAgentDefinition
 
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        response = await client.post(
-            url,
-            headers={"api-key": api_key, "Content-Type": "application/json"},
-            json={"model": model, "name": name, "instructions": instructions},
-        )
-        response.raise_for_status()
-        return response.json()
+    project_endpoint, _ = await get_project_endpoint(db)
+    client = _get_project_client(project_endpoint)
+
+    agent_name = _sanitize_agent_name(name)
+    definition = PromptAgentDefinition(model=model, instructions=instructions)
+
+    result = client.agents.create_version(
+        agent_name=agent_name,
+        definition=definition,
+        description=f"HCP Agent: {name}",
+    )
+    return {
+        "id": result.name,
+        "name": result.name,
+        "version": result.version,
+        "model": model,
+    }
 
 
 async def update_agent(
@@ -146,49 +166,47 @@ async def update_agent(
     agent_id: str,
     name: str,
     instructions: str,
+    model: str = "gpt-4o",
 ) -> dict:
-    """Update an existing AI Foundry Agent via REST API.
+    """Update an existing AI Foundry Agent by creating a new version.
 
-    POST to {project_endpoint}/assistants/{agent_id}?api-version={API_VERSION}
-    with updated name and instructions.
-
-    Returns the response JSON.
+    AI Foundry agents are immutable — updates create new versions.
+    Returns dict with updated agent metadata.
     """
-    project_endpoint, api_key = await get_project_endpoint(db)
-    url = (
-        f"{project_endpoint}/assistants/{agent_id}"
-        f"?api-version={AI_FOUNDRY_API_VERSION}"
-    )
+    from azure.ai.projects.models import PromptAgentDefinition
 
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        response = await client.post(
-            url,
-            headers={"api-key": api_key, "Content-Type": "application/json"},
-            json={"name": name, "instructions": instructions},
-        )
-        response.raise_for_status()
-        return response.json()
+    project_endpoint, _ = await get_project_endpoint(db)
+    client = _get_project_client(project_endpoint)
+
+    definition = PromptAgentDefinition(model=model, instructions=instructions)
+
+    result = client.agents.create_version(
+        agent_name=agent_id,
+        definition=definition,
+        description=f"HCP Agent: {name}",
+    )
+    return {
+        "id": result.name,
+        "name": result.name,
+        "version": result.version,
+        "model": model,
+    }
 
 
 async def delete_agent(db: AsyncSession, agent_id: str) -> bool:
-    """Delete an AI Foundry Agent via REST API.
+    """Delete an AI Foundry Agent via azure-ai-projects SDK.
 
-    DELETE to {project_endpoint}/assistants/{agent_id}?api-version={API_VERSION}
-
-    Returns True if the deletion was successful (HTTP 200).
+    Returns True if deletion was successful.
     """
-    project_endpoint, api_key = await get_project_endpoint(db)
-    url = (
-        f"{project_endpoint}/assistants/{agent_id}"
-        f"?api-version={AI_FOUNDRY_API_VERSION}"
-    )
+    project_endpoint, _ = await get_project_endpoint(db)
+    client = _get_project_client(project_endpoint)
 
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        response = await client.delete(
-            url,
-            headers={"api-key": api_key},
-        )
-        return response.status_code == 200
+    try:
+        client.agents.delete(agent_name=agent_id)
+        return True
+    except Exception as e:
+        logger.warning("Failed to delete agent %s: %s", agent_id, e)
+        return False
 
 
 async def sync_agent_for_profile(
@@ -198,25 +216,16 @@ async def sync_agent_for_profile(
 ) -> dict:
     """High-level helper: create or update an AI Foundry agent for an HCP profile.
 
-    If profile.agent_id is truthy, updates the existing agent.
+    If profile.agent_id is truthy, updates the existing agent (creates new version).
     Otherwise, creates a new agent.
-
-    Args:
-        db: Async database session.
-        profile: HcpProfile ORM instance with to_prompt_dict() and agent_id.
-        template: Optional custom instruction template.
-
-    Returns:
-        The API response dict from create or update.
     """
     profile_data = profile.to_prompt_dict()
     instructions = build_agent_instructions(profile_data, template)
 
-    # Get model from master config
     master = await config_service.get_master_config(db)
     model = master.model_or_deployment if master else "gpt-4o"
 
     if profile.agent_id:
-        return await update_agent(db, profile.agent_id, profile.name, instructions)
+        return await update_agent(db, profile.agent_id, profile.name, instructions, model)
     else:
         return await create_agent(db, profile.name, instructions, model)

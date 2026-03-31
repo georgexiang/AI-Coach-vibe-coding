@@ -1,6 +1,7 @@
 """Tests for HCP profile service: CRUD operations."""
 
 import json
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -12,6 +13,7 @@ from app.services.hcp_profile_service import (
     delete_hcp_profile,
     get_hcp_profile,
     get_hcp_profiles,
+    retry_agent_sync,
     update_hcp_profile,
 )
 from app.utils.exceptions import NotFoundException
@@ -186,3 +188,188 @@ class TestDeleteHcpProfile:
     async def test_raises_for_nonexistent(self, db_session):
         with pytest.raises(NotFoundException):
             await delete_hcp_profile(db_session, "nonexistent")
+
+
+class TestAgentSyncOnCreate:
+    """Tests for agent sync triggered on profile creation."""
+
+    async def test_create_syncs_agent_on_success(self, db_session):
+        """create_hcp_profile sets agent_id and sync_status=synced on sync success."""
+        user_id = await _seed_user(db_session)
+        data = HcpProfileCreate(name="Dr. Sync", specialty="Oncology", created_by=user_id)
+
+        with patch(
+            "app.services.hcp_profile_service.agent_sync_service.sync_agent_for_profile",
+            new_callable=AsyncMock,
+            return_value={"id": "asst_created_123", "name": "Dr. Sync", "model": "gpt-4o"},
+        ):
+            profile = await create_hcp_profile(db_session, data, user_id)
+
+        assert profile.agent_id == "asst_created_123"
+        assert profile.agent_sync_status == "synced"
+        assert profile.agent_sync_error == ""
+
+
+class TestAgentSyncOnUpdate:
+    """Tests for agent sync triggered on profile update."""
+
+    async def test_update_resyncs_agent_on_success(self, db_session):
+        """update_hcp_profile sets sync_status=synced on re-sync success."""
+        user_id = await _seed_user(db_session)
+        data = HcpProfileCreate(name="Dr. Up", specialty="Neuro", created_by=user_id)
+
+        # Create with sync success
+        with patch(
+            "app.services.hcp_profile_service.agent_sync_service.sync_agent_for_profile",
+            new_callable=AsyncMock,
+            return_value={"id": "asst_up_456", "name": "Dr. Up", "model": "gpt-4o"},
+        ):
+            profile = await create_hcp_profile(db_session, data, user_id)
+
+        # Update with sync success
+        with patch(
+            "app.services.hcp_profile_service.agent_sync_service.sync_agent_for_profile",
+            new_callable=AsyncMock,
+            return_value={"id": "asst_up_456", "name": "Dr. Updated", "model": "gpt-4o"},
+        ):
+            updated = await update_hcp_profile(
+                db_session, profile.id, HcpProfileUpdate(name="Dr. Updated")
+            )
+
+        assert updated.agent_sync_status == "synced"
+        assert updated.agent_sync_error == ""
+
+    async def test_update_assigns_agent_id_when_missing(self, db_session):
+        """update_hcp_profile sets agent_id if profile had no agent_id."""
+        user_id = await _seed_user(db_session)
+        data = HcpProfileCreate(name="Dr. NoAgent", specialty="Derm", created_by=user_id)
+
+        # Create with sync failure (no agent_id)
+        with patch(
+            "app.services.hcp_profile_service.agent_sync_service.sync_agent_for_profile",
+            new_callable=AsyncMock,
+            side_effect=Exception("Network error"),
+        ):
+            profile = await create_hcp_profile(db_session, data, user_id)
+
+        assert profile.agent_id in ("", None)
+
+        # Update with sync success (should assign agent_id)
+        with patch(
+            "app.services.hcp_profile_service.agent_sync_service.sync_agent_for_profile",
+            new_callable=AsyncMock,
+            return_value={"id": "asst_new_789", "name": "Dr. NoAgent", "model": "gpt-4o"},
+        ):
+            updated = await update_hcp_profile(
+                db_session, profile.id, HcpProfileUpdate(name="Dr. NoAgent Updated")
+            )
+
+        assert updated.agent_id == "asst_new_789"
+        assert updated.agent_sync_status == "synced"
+
+
+class TestDeleteWithAgent:
+    """Tests for delete_hcp_profile that has an agent_id."""
+
+    async def test_delete_calls_agent_delete(self, db_session):
+        """delete_hcp_profile calls agent_sync_service.delete_agent when agent_id exists."""
+        user_id = await _seed_user(db_session)
+        data = HcpProfileCreate(name="Dr. Del Agent", specialty="Onc", created_by=user_id)
+
+        with patch(
+            "app.services.hcp_profile_service.agent_sync_service.sync_agent_for_profile",
+            new_callable=AsyncMock,
+            return_value={"id": "asst_del_999", "name": "Dr. Del Agent", "model": "gpt-4o"},
+        ):
+            profile = await create_hcp_profile(db_session, data, user_id)
+
+        assert profile.agent_id == "asst_del_999"
+
+        with patch(
+            "app.services.hcp_profile_service.agent_sync_service.delete_agent",
+            new_callable=AsyncMock,
+            return_value=True,
+        ) as mock_delete:
+            await delete_hcp_profile(db_session, profile.id)
+
+        mock_delete.assert_called_once_with(db_session, "asst_del_999")
+
+    async def test_delete_tolerates_agent_deletion_failure(self, db_session):
+        """delete_hcp_profile succeeds even if agent deletion fails."""
+        user_id = await _seed_user(db_session)
+        data = HcpProfileCreate(name="Dr. Del Fail", specialty="Onc", created_by=user_id)
+
+        with patch(
+            "app.services.hcp_profile_service.agent_sync_service.sync_agent_for_profile",
+            new_callable=AsyncMock,
+            return_value={"id": "asst_fail_del", "name": "Dr. Del Fail", "model": "gpt-4o"},
+        ):
+            profile = await create_hcp_profile(db_session, data, user_id)
+
+        profile_id = profile.id
+
+        with patch(
+            "app.services.hcp_profile_service.agent_sync_service.delete_agent",
+            new_callable=AsyncMock,
+            side_effect=Exception("Agent not found"),
+        ):
+            await delete_hcp_profile(db_session, profile_id)
+
+        # Profile should still be deleted
+        with pytest.raises(NotFoundException):
+            await get_hcp_profile(db_session, profile_id)
+
+
+class TestRetryAgentSync:
+    """Tests for retry_agent_sync."""
+
+    async def test_retry_syncs_agent_on_success(self, db_session):
+        """retry_agent_sync sets agent_id and sync_status=synced."""
+        user_id = await _seed_user(db_session)
+        data = HcpProfileCreate(name="Dr. Retry", specialty="Onc", created_by=user_id)
+
+        # Create with sync failure
+        with patch(
+            "app.services.hcp_profile_service.agent_sync_service.sync_agent_for_profile",
+            new_callable=AsyncMock,
+            side_effect=Exception("Temp failure"),
+        ):
+            profile = await create_hcp_profile(db_session, data, user_id)
+
+        assert profile.agent_sync_status == "failed"
+
+        # Retry with success
+        with patch(
+            "app.services.hcp_profile_service.agent_sync_service.sync_agent_for_profile",
+            new_callable=AsyncMock,
+            return_value={"id": "asst_retry_ok", "name": "Dr. Retry", "model": "gpt-4o"},
+        ):
+            retried = await retry_agent_sync(db_session, profile.id)
+
+        assert retried.agent_id == "asst_retry_ok"
+        assert retried.agent_sync_status == "synced"
+        assert retried.agent_sync_error == ""
+
+    async def test_retry_handles_second_failure(self, db_session):
+        """retry_agent_sync sets failed status on repeated failure."""
+        user_id = await _seed_user(db_session)
+        data = HcpProfileCreate(name="Dr. Retry2", specialty="Onc", created_by=user_id)
+
+        # Create with sync failure
+        with patch(
+            "app.services.hcp_profile_service.agent_sync_service.sync_agent_for_profile",
+            new_callable=AsyncMock,
+            side_effect=Exception("First failure"),
+        ):
+            profile = await create_hcp_profile(db_session, data, user_id)
+
+        # Retry also fails
+        with patch(
+            "app.services.hcp_profile_service.agent_sync_service.sync_agent_for_profile",
+            new_callable=AsyncMock,
+            side_effect=Exception("Second failure"),
+        ):
+            retried = await retry_agent_sync(db_session, profile.id)
+
+        assert retried.agent_sync_status == "failed"
+        assert "Second failure" in retried.agent_sync_error
