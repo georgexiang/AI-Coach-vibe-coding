@@ -53,8 +53,10 @@ Exceptions: Table cell padding uses 16px horizontal (md) and 12px vertical (matc
 |------|------|--------|-------------|
 | Body | 14px (text-sm) | 400 (--font-weight-normal) | 1.5 |
 | Label | 14px (text-sm) | 500 (--font-weight-medium) | 1.5 |
-| Heading | 16px (text-base) | 600 (font-semibold) | 1.5 |
+| Heading | 16px (text-base) | 500 (font-medium) | 1.5 |
 | Display | 20px (text-xl) | 500 (--font-weight-medium) | 1.5 |
+
+**Font weights used in this phase: 400 (normal) and 500 (medium) only.**
 
 **Phase-specific usage:**
 - Table header cells: 14px, weight 500 (Label role)
@@ -63,7 +65,7 @@ Exceptions: Table cell padding uses 16px horizontal (md) and 12px vertical (matc
 - Page title "HCP Profiles": 20px, weight 500 (Display role)
 - Tooltip error detail text: 12px (text-xs), weight 400
 
-**Source:** Existing base layer styles in `frontend/src/styles/index.css` lines 191-250. Matches `scenario-table.tsx` text sizing convention.
+**Source:** Existing base layer styles in `frontend/src/styles/index.css` lines 191-250. Table headers in `scenario-table.tsx` and `rubric-table.tsx` consistently use `font-medium` (500). Heading role aligned to 500 for this phase to maintain a strict 2-weight budget.
 
 ---
 
@@ -130,6 +132,8 @@ Accent reserved for: "Create New HCP" button, table sort active indicator, "Retr
 ---
 
 ## Layout Contract
+
+**Focal point:** "Create New HCP" button (accent color, right-aligned in header bar) -- the primary action entry point for the entire page.
 
 ### HCP Profiles Page -- Table Layout
 
