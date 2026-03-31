@@ -207,7 +207,7 @@ Phases execute in numeric order: 01 -> 01.1 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07 
 | 08. Voice & Avatar Demo Integration | 5/4 | Complete   | 2026-03-28 |
 | 09. Integration Testing with Real Azure Services | 1/5 | In Progress|  |
 | 10. UI Polish & Professional Unification | 6/6 | Complete    | 2026-03-29 |
-| 11. HCP Profile Agent Integration | 0/3 | Planned | |
+| 11. HCP Profile Agent Integration | 1/3 | In Progress|  |
 
 ### Phase 07: Azure Service Integration
 
@@ -294,7 +294,7 @@ Plans:
 **Goal:** When admin creates/updates/deletes an HCP profile, the system automatically syncs a corresponding AI Foundry Agent. Digital Human Realtime Agent mode uses the HCP's agent_id to drive conversations. HCP profiles admin page is redesigned to table format with Agent sync status.
 **Requirements**: HCP-01, HCP-02, COACH-06, COACH-07, UI-06, PLAT-01, PLAT-03
 **Depends on:** Phase 10
-**Plans:** 3 plans
+**Plans:** 1/3 plans executed
 
 **Success Criteria** (what must be TRUE):
   1. Admin can create/update/delete HCP profiles and the system automatically creates/updates/deletes a corresponding AI Foundry Agent
@@ -306,7 +306,7 @@ Plans:
   7. All new code has unit tests with >=95% coverage maintained
 
 Plans:
-- [ ] 11-01-PLAN.md -- Backend foundation: HcpProfile agent columns, Alembic migration, agent_sync_service (AI Foundry REST API wrapper), schema updates
+- [x] 11-01-PLAN.md -- Backend foundation: HcpProfile agent columns, Alembic migration, agent_sync_service (AI Foundry REST API wrapper), schema updates
 - [ ] 11-02-PLAN.md -- Backend wiring: HCP CRUD sync hooks, retry-sync endpoint, token broker HCP agent_id sourcing, integration tests
 - [ ] 11-03-PLAN.md -- Frontend: TypeScript types, API client, hooks, i18n keys, HcpTable component, HCP profiles page rewrite (table layout)
 
