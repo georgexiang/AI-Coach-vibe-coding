@@ -4,12 +4,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
-import pytest_asyncio
 
 
 # --- Test 1: build_agent_instructions with complete profile data ---
 def test_build_agent_instructions_complete_profile():
-    """build_agent_instructions returns formatted string containing name, specialty, personality_type."""
+    """build_agent_instructions returns formatted string with profile fields."""
     from app.services.agent_sync_service import build_agent_instructions
 
     profile_data = {
@@ -39,7 +38,7 @@ def test_build_agent_instructions_complete_profile():
 
 # --- Test 2: build_agent_instructions joins list fields ---
 def test_build_agent_instructions_joins_list_fields():
-    """build_agent_instructions converts list fields to comma-separated strings."""
+    """build_agent_instructions converts lists to comma-separated strings."""
     from app.services.agent_sync_service import build_agent_instructions
 
     profile_data = {
@@ -70,7 +69,10 @@ def test_build_agent_instructions_custom_template():
     """build_agent_instructions uses provided custom template."""
     from app.services.agent_sync_service import build_agent_instructions
 
-    custom_template = "Hello, I am {name} from {specialty}. Style: {communication_style_desc}."
+    custom_template = (
+        "Hello, I am {name} from {specialty}. "
+        "Style: {communication_style_desc}."
+    )
     profile_data = {
         "name": "Dr. Wang",
         "specialty": "Neurology",
@@ -105,22 +107,27 @@ def test_build_agent_instructions_missing_fields():
 # --- Test 5: get_project_endpoint derives correct URL ---
 @pytest.mark.asyncio
 async def test_get_project_endpoint():
-    """get_project_endpoint derives correct URL from master config endpoint + voice_live project_name."""
+    """get_project_endpoint derives URL from master config + project_name."""
     from app.services.agent_sync_service import get_project_endpoint
 
     mock_db = AsyncMock()
 
     mock_voice_config = MagicMock()
-    mock_voice_config.model_or_deployment = '{"mode": "agent", "agent_id": "asst_abc", "project_name": "my-project"}'
+    mock_voice_config.model_or_deployment = (
+        '{"mode": "agent", "agent_id": "asst_abc",'
+        ' "project_name": "my-project"}'
+    )
 
     with (
         patch(
-            "app.services.agent_sync_service.config_service.get_effective_endpoint",
+            "app.services.agent_sync_service.config_service"
+            ".get_effective_endpoint",
             new_callable=AsyncMock,
             return_value="https://my-foundry.services.ai.azure.com",
         ),
         patch(
-            "app.services.agent_sync_service.config_service.get_effective_key",
+            "app.services.agent_sync_service.config_service"
+            ".get_effective_key",
             new_callable=AsyncMock,
             return_value="test-api-key-123",
         ),
@@ -140,22 +147,31 @@ async def test_get_project_endpoint():
 # --- Test 6: create_agent calls correct URL and returns agent id ---
 @pytest.mark.asyncio
 async def test_create_agent():
-    """create_agent calls POST with api-key header and returns agent id from response."""
+    """create_agent calls POST with api-key header and returns agent id."""
     from app.services.agent_sync_service import create_agent
 
     mock_db = AsyncMock()
     mock_response = MagicMock()
     mock_response.status_code = 200
-    mock_response.json.return_value = {"id": "asst_new_123", "name": "Test Agent"}
+    mock_response.json.return_value = {
+        "id": "asst_new_123",
+        "name": "Test Agent",
+    }
     mock_response.raise_for_status = MagicMock()
 
+    proj_url = (
+        "https://my-foundry.services.ai.azure.com"
+        "/api/projects/my-proj"
+    )
     with (
         patch(
             "app.services.agent_sync_service.get_project_endpoint",
             new_callable=AsyncMock,
-            return_value=("https://my-foundry.services.ai.azure.com/api/projects/my-proj", "key123"),
+            return_value=(proj_url, "key123"),
         ),
-        patch("app.services.agent_sync_service.httpx.AsyncClient") as mock_client_cls,
+        patch(
+            "app.services.agent_sync_service.httpx.AsyncClient",
+        ) as mock_client_cls,
     ):
         mock_client = AsyncMock()
         mock_client.post = AsyncMock(return_value=mock_response)
@@ -163,7 +179,9 @@ async def test_create_agent():
         mock_client.__aexit__ = AsyncMock(return_value=None)
         mock_client_cls.return_value = mock_client
 
-        result = await create_agent(mock_db, "Test Agent", "You are a test agent", "gpt-4o")
+        result = await create_agent(
+            mock_db, "Test Agent", "You are a test agent", "gpt-4o"
+        )
 
     assert result["id"] == "asst_new_123"
     mock_client.post.assert_called_once()
@@ -175,22 +193,31 @@ async def test_create_agent():
 # --- Test 7: update_agent calls POST to /assistants/{agent_id} ---
 @pytest.mark.asyncio
 async def test_update_agent():
-    """update_agent calls POST to /assistants/{agent_id} with updated instructions."""
+    """update_agent calls POST to /assistants/{agent_id}."""
     from app.services.agent_sync_service import update_agent
 
     mock_db = AsyncMock()
     mock_response = MagicMock()
     mock_response.status_code = 200
-    mock_response.json.return_value = {"id": "asst_existing_456", "name": "Updated Agent"}
+    mock_response.json.return_value = {
+        "id": "asst_existing_456",
+        "name": "Updated Agent",
+    }
     mock_response.raise_for_status = MagicMock()
 
+    proj_url = (
+        "https://my-foundry.services.ai.azure.com"
+        "/api/projects/my-proj"
+    )
     with (
         patch(
             "app.services.agent_sync_service.get_project_endpoint",
             new_callable=AsyncMock,
-            return_value=("https://my-foundry.services.ai.azure.com/api/projects/my-proj", "key456"),
+            return_value=(proj_url, "key456"),
         ),
-        patch("app.services.agent_sync_service.httpx.AsyncClient") as mock_client_cls,
+        patch(
+            "app.services.agent_sync_service.httpx.AsyncClient",
+        ) as mock_client_cls,
     ):
         mock_client = AsyncMock()
         mock_client.post = AsyncMock(return_value=mock_response)
@@ -198,7 +225,10 @@ async def test_update_agent():
         mock_client.__aexit__ = AsyncMock(return_value=None)
         mock_client_cls.return_value = mock_client
 
-        result = await update_agent(mock_db, "asst_existing_456", "Updated Agent", "New instructions")
+        result = await update_agent(
+            mock_db, "asst_existing_456",
+            "Updated Agent", "New instructions",
+        )
 
     assert result["id"] == "asst_existing_456"
     call_url = mock_client.post.call_args[0][0]
@@ -208,20 +238,26 @@ async def test_update_agent():
 # --- Test 8: delete_agent calls DELETE and returns True on 200 ---
 @pytest.mark.asyncio
 async def test_delete_agent():
-    """delete_agent calls DELETE to /assistants/{agent_id} and returns True on 200."""
+    """delete_agent calls DELETE and returns True on 200."""
     from app.services.agent_sync_service import delete_agent
 
     mock_db = AsyncMock()
     mock_response = MagicMock()
     mock_response.status_code = 200
 
+    proj_url = (
+        "https://my-foundry.services.ai.azure.com"
+        "/api/projects/my-proj"
+    )
     with (
         patch(
             "app.services.agent_sync_service.get_project_endpoint",
             new_callable=AsyncMock,
-            return_value=("https://my-foundry.services.ai.azure.com/api/projects/my-proj", "key789"),
+            return_value=(proj_url, "key789"),
         ),
-        patch("app.services.agent_sync_service.httpx.AsyncClient") as mock_client_cls,
+        patch(
+            "app.services.agent_sync_service.httpx.AsyncClient",
+        ) as mock_client_cls,
     ):
         mock_client = AsyncMock()
         mock_client.delete = AsyncMock(return_value=mock_response)
@@ -239,7 +275,7 @@ async def test_delete_agent():
 # --- Test 9: create_agent raises on 401/404 ---
 @pytest.mark.asyncio
 async def test_create_agent_raises_on_error():
-    """create_agent raises httpx.HTTPStatusError on 401/404 responses."""
+    """create_agent raises httpx.HTTPStatusError on 401/404."""
     from app.services.agent_sync_service import create_agent
 
     mock_db = AsyncMock()
@@ -248,18 +284,26 @@ async def test_create_agent_raises_on_error():
     mock_response.raise_for_status = MagicMock(
         side_effect=httpx.HTTPStatusError(
             "Unauthorized",
-            request=httpx.Request("POST", "https://example.com/assistants"),
+            request=httpx.Request(
+                "POST", "https://example.com/assistants"
+            ),
             response=mock_response,
         )
     )
 
+    proj_url = (
+        "https://my-foundry.services.ai.azure.com"
+        "/api/projects/my-proj"
+    )
     with (
         patch(
             "app.services.agent_sync_service.get_project_endpoint",
             new_callable=AsyncMock,
-            return_value=("https://my-foundry.services.ai.azure.com/api/projects/my-proj", "bad-key"),
+            return_value=(proj_url, "bad-key"),
         ),
-        patch("app.services.agent_sync_service.httpx.AsyncClient") as mock_client_cls,
+        patch(
+            "app.services.agent_sync_service.httpx.AsyncClient",
+        ) as mock_client_cls,
     ):
         mock_client = AsyncMock()
         mock_client.post = AsyncMock(return_value=mock_response)
@@ -291,7 +335,8 @@ async def test_sync_agent_for_profile_creates_when_no_agent_id():
 
     with (
         patch(
-            "app.services.agent_sync_service.config_service.get_master_config",
+            "app.services.agent_sync_service.config_service"
+            ".get_master_config",
             new_callable=AsyncMock,
             return_value=mock_master,
         ),
@@ -331,7 +376,8 @@ async def test_sync_agent_for_profile_updates_when_agent_id_exists():
 
     with (
         patch(
-            "app.services.agent_sync_service.config_service.get_master_config",
+            "app.services.agent_sync_service.config_service"
+            ".get_master_config",
             new_callable=AsyncMock,
             return_value=mock_master,
         ),
@@ -342,7 +388,10 @@ async def test_sync_agent_for_profile_updates_when_agent_id_exists():
         patch(
             "app.services.agent_sync_service.update_agent",
             new_callable=AsyncMock,
-            return_value={"id": "asst_existing", "name": "Dr. Existing"},
+            return_value={
+                "id": "asst_existing",
+                "name": "Dr. Existing",
+            },
         ) as mock_update,
     ):
         result = await sync_agent_for_profile(mock_db, mock_profile)
