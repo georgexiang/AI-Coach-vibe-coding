@@ -45,7 +45,7 @@ async def test_azure_openai(endpoint: str, api_key: str, deployment: str) -> tup
         await client.chat.completions.create(
             model=deployment,
             messages=[{"role": "user", "content": "test"}],
-            max_tokens=1,
+            max_completion_tokens=1,
         )
         return (True, "Connection successful")
     except ImportError:

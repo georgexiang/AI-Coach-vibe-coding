@@ -211,7 +211,7 @@ class TestAzureOpenAIAdapterStreaming:
         assert call_kwargs["model"] == "gpt-4o"
         assert call_kwargs["stream"] is True
         assert call_kwargs["temperature"] == 0.7
-        assert call_kwargs["max_tokens"] == 1024
+        assert call_kwargs["max_completion_tokens"] == 1024
 
 
 class TestAzureOpenAIAdapterAvailability:

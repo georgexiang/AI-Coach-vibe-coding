@@ -77,7 +77,7 @@ class AzureOpenAIAdapter(BaseCoachingAdapter):
                 messages=messages,
                 stream=True,
                 temperature=0.7,
-                max_tokens=1024,
+                max_completion_tokens=1024,
             )
 
             async for chunk in stream:
