@@ -29,7 +29,7 @@ test.describe("Admin Azure Configuration", () => {
 
     // Service descriptions should be visible
     await expect(
-      page.getByText("GPT-4o for AI coaching conversations and scoring"),
+      page.getByText("LLM for AI coaching conversations and scoring"),
     ).toBeVisible();
     await expect(
       page.getByText("Speech-to-text for voice input recognition"),

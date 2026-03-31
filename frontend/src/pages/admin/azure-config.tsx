@@ -54,9 +54,9 @@ const AZURE_SERVICES: AzureServiceDef[] = [
     key: "openai",
     backendKey: "azure_openai",
     name: "Azure OpenAI",
-    description: "GPT-4o for AI coaching conversations and scoring",
+    description: "LLM for AI coaching conversations and scoring",
     icon: <Brain className="size-5 text-primary" />,
-    modelPlaceholder: "gpt-4o",
+    modelPlaceholder: "e.g. gpt-4o, gpt-5.4-mini",
   },
   {
     key: "speechStt",
@@ -102,9 +102,9 @@ const AZURE_SERVICES: AzureServiceDef[] = [
     key: "voiceLive",
     backendKey: "azure_voice_live",
     name: "Azure Voice Live API",
-    description: "Real-time voice coaching with GPT-4o Realtime",
+    description: "Real-time voice coaching with configurable model",
     icon: <Phone className="size-5 text-primary" />,
-    modelPlaceholder: "gpt-4o-realtime-preview",
+    modelPlaceholder: "e.g. gpt-4o-realtime-preview",
   },
 ];
 

@@ -175,7 +175,7 @@
   },
   "voiceLive": {
     "name": "Azure Voice Live API",
-    "description": "Real-time voice coaching with GPT-4o Realtime",
+    "description": "Real-time voice coaching with configurable model",
     "regionWarning": "Voice Live API is available in most Azure regions. Some models and Agent mode may have regional restrictions. Check the Azure documentation for your region.",
     "regionLabel": "Region",
     "modeLabel": "Voice Live API Mode",

@@ -24,7 +24,7 @@ const authDir = join(dirname(fileURLToPath(import.meta.url)), ".auth");
  * 7. Azure Voice Live (via Database for PostgreSQL card or Voice Live tab)
  */
 const SEVEN_MODES = [
-  { name: "Azure OpenAI", description: "GPT-4o for AI coaching" },
+  { name: "Azure OpenAI", description: "LLM for AI coaching" },
   { name: "Azure Speech (STT)", description: "Speech-to-text" },
   { name: "Azure Speech (TTS)", description: "Text-to-speech" },
   { name: "Azure AI Avatar", description: "avatar" },

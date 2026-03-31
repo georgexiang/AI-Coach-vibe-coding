@@ -163,13 +163,13 @@ describe("AzureConfigPage", () => {
 
   it("renders all service descriptions", () => {
     renderWithProviders();
-    expect(screen.getByText("GPT-4o for AI coaching conversations and scoring")).toBeInTheDocument();
+    expect(screen.getByText("LLM for AI coaching conversations and scoring")).toBeInTheDocument();
     expect(screen.getByText("Speech-to-text for voice input recognition")).toBeInTheDocument();
     expect(screen.getByText("Text-to-speech for HCP voice responses")).toBeInTheDocument();
     expect(screen.getByText("Digital human avatar for HCP visualization")).toBeInTheDocument();
     expect(screen.getByText("Multimodal evaluation for training materials")).toBeInTheDocument();
     expect(screen.getByText("Real-time audio streaming for voice conversations")).toBeInTheDocument();
-    expect(screen.getByText("Real-time voice coaching with GPT-4o Realtime")).toBeInTheDocument();
+    expect(screen.getByText("Real-time voice coaching with configurable model")).toBeInTheDocument();
     expect(screen.getByText("Managed PostgreSQL database for production data")).toBeInTheDocument();
   });
 

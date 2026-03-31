@@ -175,7 +175,7 @@
   },
   "voiceLive": {
     "name": "Azure Voice Live API",
-    "description": "使用 GPT-4o Realtime 的实时语音训练",
+    "description": "使用可配置模型的实时语音训练",
     "regionWarning": "Voice Live API 在大多数 Azure 区域可用。部分模型和 Agent 模式可能有区域限制。请查阅您所在区域的 Azure 文档。",
     "regionLabel": "区域",
     "modeLabel": "Voice Live API 模式",

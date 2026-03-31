@@ -107,7 +107,7 @@ describe("AzureConfigPage", () => {
     render(<AzureConfigPage />, { wrapper });
 
     expect(
-      screen.getByText("GPT-4o for AI coaching conversations and scoring"),
+      screen.getByText("LLM for AI coaching conversations and scoring"),
     ).toBeInTheDocument();
   });
 });
