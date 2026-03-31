@@ -95,7 +95,10 @@ Plan: 3 of 3
 | Phase 10 P03 | 20min | 2 tasks | 16 files |
 | Phase 11 P01 | 10min | 2 tasks | 6 files |
 | Phase 11 P02 | 8min | 2 tasks | 4 files |
+<<<<<<< HEAD
 | Phase 11 P03 | 14min | 2 tasks | 12 files |
+=======
+>>>>>>> worktree-agent-afcd067e
 
 ## Accumulated Context
 
@@ -207,8 +210,11 @@ Recent decisions affecting current work:
 - [Phase 11]: server_default on all migration columns for SQLite compat with existing rows
 - [Phase 11]: Agent sync hooks use try/except so CRUD operations succeed even when AI Foundry API is unavailable
 - [Phase 11]: Lazy import of hcp_profile_service in voice_live_service to avoid circular dependency
+<<<<<<< HEAD
 - [Phase 11]: Used Dialog instead of AlertDialog for delete confirmation (AlertDialog not available in UI library)
 - [Phase 11]: Table + Dialog edit pattern replaces list+editor sidebar layout for HCP profiles admin page
+=======
+>>>>>>> worktree-agent-afcd067e
 
 ### Pending Todos
 
@@ -230,6 +236,11 @@ None yet.
 ## Session Continuity
 
 Last activity: 2026-03-31
+<<<<<<< HEAD
 Last session: 2026-03-31T09:18:16.244Z
 Stopped at: Completed 11-03-PLAN.md
+=======
+Last session: 2026-03-31T09:15:12.703Z
+Stopped at: Completed 11-02-PLAN.md
+>>>>>>> worktree-agent-afcd067e
 Resume file: None
