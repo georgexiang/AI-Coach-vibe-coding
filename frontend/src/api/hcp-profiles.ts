@@ -38,3 +38,10 @@ export async function updateHcpProfile(id: string, profile: HcpProfileUpdate) {
 export async function deleteHcpProfile(id: string) {
   await apiClient.delete(`/hcp-profiles/${id}`);
 }
+
+export async function retrySyncHcpProfile(id: string) {
+  const { data } = await apiClient.post<HcpProfile>(
+    `/hcp-profiles/${id}/retry-sync`,
+  );
+  return data;
+}

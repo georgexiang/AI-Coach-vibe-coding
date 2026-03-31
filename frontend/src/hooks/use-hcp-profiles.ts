@@ -5,6 +5,7 @@ import {
   createHcpProfile,
   updateHcpProfile,
   deleteHcpProfile,
+  retrySyncHcpProfile,
 } from "@/api/hcp-profiles";
 import type { HcpProfileCreate, HcpProfileUpdate } from "@/types/hcp";
 
@@ -52,6 +53,16 @@ export function useDeleteHcpProfile() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => deleteHcpProfile(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["hcp-profiles"] });
+    },
+  });
+}
+
+export function useRetrySyncHcpProfile() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => retrySyncHcpProfile(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["hcp-profiles"] });
     },
