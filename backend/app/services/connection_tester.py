@@ -28,6 +28,29 @@ def validate_endpoint_url(endpoint: str) -> tuple[bool, str]:
     return (True, "")
 
 
+async def test_ai_foundry_endpoint(endpoint: str, api_key: str) -> tuple[bool, str]:
+    """Test AI Foundry master config by listing deployments (no specific deployment needed)."""
+    valid, msg = validate_endpoint_url(endpoint)
+    if not valid:
+        return (False, msg)
+    if not api_key:
+        return (False, "API key is required")
+    try:
+        base = endpoint.rstrip("/")
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            url = f"{base}/openai/deployments?api-version=2024-06-01"
+            response = await client.get(url, headers={"api-key": api_key})
+            if response.status_code == 200:
+                data = response.json()
+                count = len(data.get("data", []))
+                return (True, f"Connection successful ({count} deployment(s) found)")
+            elif response.status_code in (401, 403):
+                return (False, f"Authentication failed: HTTP {response.status_code}")
+            return (False, f"HTTP {response.status_code}: {response.text[:200]}")
+    except Exception as e:
+        return (False, f"Connection failed: {e!s}")
+
+
 async def test_azure_openai(endpoint: str, api_key: str, deployment: str) -> tuple[bool, str]:
     """Test Azure OpenAI connection by making a minimal chat completion call."""
     valid, msg = validate_endpoint_url(endpoint)
@@ -47,15 +70,15 @@ async def test_azure_openai(endpoint: str, api_key: str, deployment: str) -> tup
         try:
             await client.chat.completions.create(
                 model=deployment,
-                messages=[{"role": "user", "content": "test"}],
-                max_completion_tokens=1,
+                messages=[{"role": "user", "content": "Hi"}],
+                max_completion_tokens=10,
             )
         except Exception as first_err:
             if "max_completion_tokens" in str(first_err):
                 await client.chat.completions.create(
                     model=deployment,
-                    messages=[{"role": "user", "content": "test"}],
-                    max_tokens=1,
+                    messages=[{"role": "user", "content": "Hi"}],
+                    max_tokens=10,
                 )
             else:
                 raise
@@ -211,7 +234,10 @@ async def test_service_connection(
     effective_key = api_key or master_key
     effective_region = region or master_region
 
-    if service_name in ("azure_openai", "ai_foundry"):
+    if service_name == "ai_foundry":
+        effective_endpoint = endpoint or master_endpoint
+        return await test_ai_foundry_endpoint(effective_endpoint, effective_key)
+    elif service_name == "azure_openai":
         effective_endpoint = endpoint or (
             f"{master_endpoint.rstrip('/')}/" if master_endpoint else ""
         )

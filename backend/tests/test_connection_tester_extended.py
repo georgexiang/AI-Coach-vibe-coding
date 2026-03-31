@@ -263,11 +263,11 @@ class TestDispatch:
             assert ok is True
 
     async def test_dispatch_ai_foundry(self):
-        """ai_foundry dispatches to test_azure_openai (same as azure_openai)."""
+        """ai_foundry dispatches to test_ai_foundry_endpoint (list deployments)."""
         with patch(
-            "app.services.connection_tester.test_azure_openai",
+            "app.services.connection_tester.test_ai_foundry_endpoint",
             new_callable=AsyncMock,
-            return_value=(True, "Connection successful"),
+            return_value=(True, "Connection successful (3 deployment(s) found)"),
         ) as mock_fn:
             ok, msg = await _test_service_connection(
                 "ai_foundry",

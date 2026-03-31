@@ -306,9 +306,9 @@ class TestServiceConnectionDispatch:
     """Tests for test_service_connection dispatch routing."""
 
     async def test_dispatch_ai_foundry(self):
-        """ai_foundry service dispatches to test_azure_openai."""
-        with patch("app.services.connection_tester.test_azure_openai") as mock_fn:
-            mock_fn.return_value = (True, "Connection successful")
+        """ai_foundry service dispatches to test_ai_foundry_endpoint."""
+        with patch("app.services.connection_tester.test_ai_foundry_endpoint") as mock_fn:
+            mock_fn.return_value = (True, "Connection successful (3 deployment(s) found)")
             success, msg = await _test_service_connection(
                 "ai_foundry",
                 "https://test.openai.azure.com",
