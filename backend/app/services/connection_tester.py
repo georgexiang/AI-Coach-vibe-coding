@@ -211,7 +211,7 @@ async def test_service_connection(
     effective_key = api_key or master_key
     effective_region = region or master_region
 
-    if service_name == "azure_openai":
+    if service_name in ("azure_openai", "ai_foundry"):
         effective_endpoint = endpoint or (
             f"{master_endpoint.rstrip('/')}/" if master_endpoint else ""
         )

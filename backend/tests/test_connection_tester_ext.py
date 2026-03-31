@@ -3,7 +3,7 @@
 Covers all branches of backend/app/services/connection_tester.py.
 """
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from app.services.connection_tester import (
     test_azure_avatar as _test_azure_avatar,
@@ -231,8 +231,100 @@ class TestAzureRealtimeTester:
         assert "500" in msg
 
 
+class TestAzureOpenAITokenFallback:
+    """Tests for max_tokens vs max_completion_tokens auto-fallback in test_azure_openai."""
+
+    async def test_openai_success_with_max_completion_tokens(self):
+        """Newer models succeed with max_completion_tokens."""
+        from app.services.connection_tester import test_azure_openai
+
+        mock_create = AsyncMock(return_value=AsyncMock())
+        mock_client_instance = AsyncMock()
+        mock_client_instance.chat.completions.create = mock_create
+
+        mock_cls = MagicMock(return_value=mock_client_instance)
+        with patch.dict("sys.modules", {"openai": MagicMock(AsyncAzureOpenAI=mock_cls)}):
+            ok, msg = await test_azure_openai(
+                "https://test.openai.azure.com", "key", "gpt-5.4-mini"
+            )
+        assert ok is True
+        assert "Connection successful" in msg
+        call_kwargs = mock_create.call_args.kwargs
+        assert "max_completion_tokens" in call_kwargs
+
+    async def test_openai_fallback_to_max_tokens(self):
+        """Older models that reject max_completion_tokens fall back to max_tokens."""
+        from app.services.connection_tester import test_azure_openai
+
+        call_count = 0
+
+        async def side_effect(**kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1 and "max_completion_tokens" in kwargs:
+                raise Exception("Unsupported parameter: 'max_completion_tokens'")
+            return AsyncMock()
+
+        mock_client_instance = AsyncMock()
+        mock_client_instance.chat.completions.create = AsyncMock(side_effect=side_effect)
+
+        mock_cls = MagicMock(return_value=mock_client_instance)
+        with patch.dict("sys.modules", {"openai": MagicMock(AsyncAzureOpenAI=mock_cls)}):
+            ok, msg = await test_azure_openai(
+                "https://test.openai.azure.com", "key", "gpt-35-turbo"
+            )
+        assert ok is True
+        assert "Connection successful" in msg
+        assert call_count == 2
+
+    async def test_openai_401_unauthorized(self):
+        """Invalid credentials return clear failure message."""
+        from app.services.connection_tester import test_azure_openai
+
+        mock_client_instance = AsyncMock()
+        mock_client_instance.chat.completions.create = AsyncMock(
+            side_effect=Exception("Error code: 401 - Access denied due to invalid subscription key")
+        )
+
+        mock_cls = MagicMock(return_value=mock_client_instance)
+        with patch.dict("sys.modules", {"openai": MagicMock(AsyncAzureOpenAI=mock_cls)}):
+            ok, msg = await test_azure_openai("https://test.openai.azure.com", "bad-key", "gpt-4o")
+        assert ok is False
+        assert "Connection failed" in msg
+        assert "401" in msg
+
+    async def test_openai_bad_endpoint(self):
+        """Non-Azure endpoint rejected before making API call."""
+        from app.services.connection_tester import test_azure_openai
+
+        ok, msg = await test_azure_openai("https://evil.com", "key", "gpt-4o")
+        assert ok is False
+        assert "Azure service URL" in msg
+
+
 class TestServiceConnectionDispatch:
     """Tests for test_service_connection dispatch routing."""
+
+    async def test_dispatch_ai_foundry(self):
+        """ai_foundry service dispatches to test_azure_openai."""
+        with patch("app.services.connection_tester.test_azure_openai") as mock_fn:
+            mock_fn.return_value = (True, "Connection successful")
+            success, msg = await _test_service_connection(
+                "ai_foundry",
+                "https://test.openai.azure.com",
+                "key123",
+                "gpt-4o",
+                "eastus2",
+            )
+            assert success is True
+            assert "Connection successful" in msg
+            mock_fn.assert_called_once()
+
+    async def test_dispatch_unknown_returns_error(self):
+        """Unknown service name returns clear error."""
+        success, msg = await _test_service_connection("nonexistent_service", "", "", "", "")
+        assert success is False
+        assert "Unknown service: nonexistent_service" in msg
 
     async def test_dispatch_azure_speech_stt(self):
         with patch("app.services.connection_tester.test_azure_speech") as mock_fn:

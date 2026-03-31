@@ -262,6 +262,113 @@ class TestDispatch:
             )
             assert ok is True
 
+    async def test_dispatch_ai_foundry(self):
+        """ai_foundry dispatches to test_azure_openai (same as azure_openai)."""
+        with patch(
+            "app.services.connection_tester.test_azure_openai",
+            new_callable=AsyncMock,
+            return_value=(True, "Connection successful"),
+        ) as mock_fn:
+            ok, msg = await _test_service_connection(
+                "ai_foundry",
+                "https://test.openai.azure.com",
+                "key",
+                "gpt-4o",
+                "eastus2",
+            )
+            mock_fn.assert_called_once()
+            assert ok is True
+            assert "Connection successful" in msg
+
+    async def test_dispatch_azure_openai(self):
+        """azure_openai dispatches to test_azure_openai."""
+        with patch(
+            "app.services.connection_tester.test_azure_openai",
+            new_callable=AsyncMock,
+            return_value=(True, "Connection successful"),
+        ) as mock_fn:
+            ok, msg = await _test_service_connection(
+                "azure_openai",
+                "https://test.openai.azure.com",
+                "key",
+                "gpt-4o",
+                "eastus2",
+            )
+            mock_fn.assert_called_once()
+            assert ok is True
+
+    async def test_dispatch_azure_speech_stt(self):
+        """azure_speech_stt dispatches to test_azure_speech."""
+        with patch(
+            "app.services.connection_tester.test_azure_speech",
+            new_callable=AsyncMock,
+            return_value=(True, "Connection successful"),
+        ) as mock_fn:
+            ok, msg = await _test_service_connection("azure_speech_stt", "", "key", "", "eastus2")
+            mock_fn.assert_called_once()
+            assert ok is True
+
+    async def test_dispatch_azure_speech_tts(self):
+        """azure_speech_tts dispatches to test_azure_speech."""
+        with patch(
+            "app.services.connection_tester.test_azure_speech",
+            new_callable=AsyncMock,
+            return_value=(True, "Connection successful"),
+        ) as mock_fn:
+            ok, msg = await _test_service_connection("azure_speech_tts", "", "key", "", "westus2")
+            mock_fn.assert_called_once()
+            assert ok is True
+
+    async def test_dispatch_azure_avatar(self):
+        """azure_avatar dispatches to test_azure_avatar."""
+        with patch(
+            "app.services.connection_tester.test_azure_avatar",
+            new_callable=AsyncMock,
+            return_value=(True, "Avatar OK"),
+        ) as mock_fn:
+            ok, msg = await _test_service_connection("azure_avatar", "", "key", "", "eastus2")
+            mock_fn.assert_called_once()
+            assert ok is True
+
+    async def test_dispatch_azure_voice_live(self):
+        """azure_voice_live dispatches to test_azure_voice_live."""
+        with patch(
+            "app.services.connection_tester.test_azure_voice_live",
+            new_callable=AsyncMock,
+            return_value=(True, "OK"),
+        ) as mock_fn:
+            ok, msg = await _test_service_connection(
+                "azure_voice_live",
+                "https://test.openai.azure.com",
+                "key",
+                "",
+                "eastus2",
+            )
+            mock_fn.assert_called_once()
+            assert ok is True
+
+    async def test_dispatch_master_fallback(self):
+        """When per-service key is empty, master key is used as fallback."""
+        with patch(
+            "app.services.connection_tester.test_azure_openai",
+            new_callable=AsyncMock,
+            return_value=(True, "OK"),
+        ) as mock_fn:
+            ok, _ = await _test_service_connection(
+                "azure_openai",
+                "",
+                "",  # empty per-service key
+                "gpt-4o",
+                "",
+                master_endpoint="https://master.openai.azure.com",
+                master_key="master-key-123",
+                master_region="eastus2",
+            )
+            # Verify master key was passed through
+            call_args = mock_fn.call_args
+            assert call_args[0][1] == "master-key-123"  # effective_key
+            assert ok is True
+
     async def test_dispatch_unknown_service(self):
         """Unknown service returns failure."""
         ok, msg = await _test_service_connection("unknown", "", "", "", "")
