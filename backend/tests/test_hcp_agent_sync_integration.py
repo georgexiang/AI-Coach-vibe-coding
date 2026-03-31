@@ -288,10 +288,10 @@ async def test_delete_profile_attempts_agent_deletion(mock_sync, aclient):
     resp = await aclient.delete(f"/api/v1/hcp-profiles/{profile_id}")
 
     assert resp.status_code == 204
-    mock_sync.delete_agent.assert_called_once_with(
-        pytest.approx(object),  # db session
-        "asst_delete_me",
-    )
+    # Verify delete_agent was called with the agent_id
+    mock_sync.delete_agent.assert_called_once()
+    call_args = mock_sync.delete_agent.call_args
+    assert call_args[0][1] == "asst_delete_me"  # second positional arg is agent_id
 
 
 # ---------------------------------------------------------------------------

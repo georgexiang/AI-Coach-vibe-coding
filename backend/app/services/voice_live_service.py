@@ -16,11 +16,17 @@ from app.services.region_capabilities import VOICE_LIVE_REGIONS
 SUPPORTED_REGIONS = VOICE_LIVE_REGIONS
 
 
-async def get_voice_live_token(db: AsyncSession) -> VoiceLiveTokenResponse:
+async def get_voice_live_token(
+    db: AsyncSession,
+    hcp_profile_id: str | None = None,
+) -> VoiceLiveTokenResponse:
     """Generate a token response for the frontend to connect directly to Azure Voice Live API.
 
     Uses unified AI Foundry config as fallback for endpoint and API key.
     Parses agent/model mode to include agent_id and project_name when applicable.
+
+    If hcp_profile_id is provided and the profile has a synced agent_id,
+    returns that profile-specific agent_id instead of the config-level one (D-12, D-14).
     """
     # Fetch azure_voice_live config
     vl_config = await config_service.get_config(db, "azure_voice_live")
@@ -51,6 +57,22 @@ async def get_voice_live_token(db: AsyncSession) -> VoiceLiveTokenResponse:
     mode_info = parse_voice_live_mode(vl_config.model_or_deployment)
     is_agent = mode_info.get("mode") == "agent"
 
+    # Resolve agent_id and project_name
+    agent_id = mode_info.get("agent_id") if is_agent else None
+    project_name_val = mode_info.get("project_name") if is_agent else None
+
+    # If agent mode AND hcp_profile_id provided, source agent_id from HCP profile (D-12, D-14)
+    if is_agent and hcp_profile_id:
+        from app.services import hcp_profile_service
+
+        try:
+            profile = await hcp_profile_service.get_hcp_profile(db, hcp_profile_id)
+            if profile.agent_id:
+                agent_id = profile.agent_id
+            # project_name still comes from voice_live config
+        except Exception:
+            pass  # Fall back to config-level agent_id
+
     return VoiceLiveTokenResponse(
         endpoint=effective_endpoint,
         token=api_key,
@@ -61,8 +83,8 @@ async def get_voice_live_token(db: AsyncSession) -> VoiceLiveTokenResponse:
             avatar_config.model_or_deployment if avatar_config else "Lisa-casual-sitting"
         ),
         voice_name="zh-CN-XiaoxiaoMultilingualNeural",
-        agent_id=mode_info.get("agent_id") if is_agent else None,
-        project_name=mode_info.get("project_name") if is_agent else None,
+        agent_id=agent_id,
+        project_name=project_name_val,
     )
 
 
