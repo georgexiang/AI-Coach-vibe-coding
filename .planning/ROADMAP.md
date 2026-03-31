@@ -22,6 +22,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 08: Voice & Avatar Demo Integration** - Integrate Azure Voice Live Agent with Avatar into the AI Coach platform for real-time voice coaching with digital HCP avatar (completed 2026-03-28)
 - [ ] **Phase 09: Integration Testing with Real Azure Services** - Unified AI Foundry config, 7 interaction modes, agent mode runtime, integration tests, E2E demo validation
 - [x] **Phase 10: UI Polish & Professional Unification** - Comprehensive UI overhaul for professional appearance, unified design language, polished visuals for BeiGene customer demo (completed 2026-03-29)
+- [ ] **Phase 11: HCP Profile Agent Integration** - Auto-create AI Foundry agent when adding HCP profiles, bidirectional sync, table UI redesign
 
 ## Phase Details
 
@@ -191,7 +192,7 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 01 -> 01.1 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07 -> 08 -> 09 -> 10
+Phases execute in numeric order: 01 -> 01.1 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07 -> 08 -> 09 -> 10 -> 11
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -206,6 +207,7 @@ Phases execute in numeric order: 01 -> 01.1 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07 
 | 08. Voice & Avatar Demo Integration | 5/4 | Complete   | 2026-03-28 |
 | 09. Integration Testing with Real Azure Services | 1/5 | In Progress|  |
 | 10. UI Polish & Professional Unification | 6/6 | Complete    | 2026-03-29 |
+| 11. HCP Profile Agent Integration | 0/3 | Planned | |
 
 ### Phase 07: Azure Service Integration
 
@@ -286,3 +288,26 @@ Plans:
 - [x] 10-04-PLAN.md -- User page audit: login, dashboard, training, session history, scoring, reports, training sessions vs Figma specs
 - [x] 10-05-PLAN.md -- Admin page audit: dashboard, users, HCP profiles, scenarios, rubrics, materials, reports, azure config, settings vs Figma specs
 - [x] 10-06-PLAN.md -- Demo seed data polish: BeiGene products, bilingual HCPs, final build verification
+
+### Phase 11: HCP Profile Agent Integration — Auto-create AI Foundry agent when adding HCP profiles
+
+**Goal:** When admin creates/updates/deletes an HCP profile, the system automatically syncs a corresponding AI Foundry Agent. Digital Human Realtime Agent mode uses the HCP's agent_id to drive conversations. HCP profiles admin page is redesigned to table format with Agent sync status.
+**Requirements**: HCP-01, HCP-02, COACH-06, COACH-07, UI-06, PLAT-01, PLAT-03
+**Depends on:** Phase 10
+**Plans:** 3 plans
+
+**Success Criteria** (what must be TRUE):
+  1. Admin can create/update/delete HCP profiles and the system automatically creates/updates/deletes a corresponding AI Foundry Agent
+  2. Agent sync status (synced/pending/failed/none) is visible per HCP profile in the admin table with error details on hover
+  3. Failed agent sync does not prevent HCP profile save -- status shows as "failed" with retry option
+  4. Token broker returns per-HCP agent_id for Digital Human Realtime Agent mode sessions
+  5. HCP profiles page uses sortable table layout with agent status column replacing the previous list+editor layout
+  6. All new UI text externalized to i18n in both en-US and zh-CN
+  7. All new code has unit tests with >=95% coverage maintained
+
+Plans:
+- [ ] 11-01-PLAN.md -- Backend foundation: HcpProfile agent columns, Alembic migration, agent_sync_service (AI Foundry REST API wrapper), schema updates
+- [ ] 11-02-PLAN.md -- Backend wiring: HCP CRUD sync hooks, retry-sync endpoint, token broker HCP agent_id sourcing, integration tests
+- [ ] 11-03-PLAN.md -- Frontend: TypeScript types, API client, hooks, i18n keys, HcpTable component, HCP profiles page rewrite (table layout)
+
+**UI hint**: yes
