@@ -200,3 +200,58 @@ async def seed_all(session: AsyncSession) -> None:
             await seed_materials()
         except Exception:
             pass  # Materials seed creates its own engine/session
+
+    # --- 6. Azure AI Foundry config from env vars ---
+    try:
+        from app.config import get_settings
+        from app.models.service_config import ServiceConfig
+        from app.utils.encryption import encrypt_value
+
+        foundry_settings = get_settings()
+        existing_master = await session.execute(
+            select(ServiceConfig).where(ServiceConfig.is_master == True)  # noqa: E712
+        )
+        if existing_master.scalar_one_or_none() is None and foundry_settings.azure_foundry_endpoint:
+            master = ServiceConfig(
+                service_name="ai_foundry",
+                display_name="Azure AI Foundry",
+                endpoint=foundry_settings.azure_foundry_endpoint,
+                api_key_encrypted=(
+                    encrypt_value(foundry_settings.azure_foundry_api_key)
+                    if foundry_settings.azure_foundry_api_key
+                    else ""
+                ),
+                model_or_deployment=foundry_settings.azure_openai_deployment or "gpt-4o",
+                region="swedencentral",
+                is_master=True,
+                is_active=True,
+                updated_by="seed",
+            )
+            session.add(master)
+
+            # Voice Live service row in agent mode
+            if foundry_settings.azure_foundry_default_project:
+                import json as _json
+
+                mode_json = _json.dumps(
+                    {
+                        "mode": "agent",
+                        "agent_id": "",
+                        "project_name": foundry_settings.azure_foundry_default_project,
+                    }
+                )
+                vl = ServiceConfig(
+                    service_name="azure_voice_live",
+                    display_name="Azure Voice Live",
+                    endpoint="",
+                    api_key_encrypted="",
+                    model_or_deployment=mode_json,
+                    region="",
+                    is_master=False,
+                    is_active=True,
+                    updated_by="seed",
+                )
+                session.add(vl)
+            await session.commit()
+    except Exception:
+        pass
