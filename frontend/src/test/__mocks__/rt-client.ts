@@ -1,9 +1,11 @@
 export class RTClient {
   configure() { return Promise.resolve({}); }
   close() { return Promise.resolve(); }
-  responses() {
+  events() {
     return { [Symbol.asyncIterator]: () => ({ next: () => new Promise(() => {}) }) };
   }
-  sendItem() {}
-  generateResponse() {}
+  sendAudio() { return Promise.resolve(); }
+  sendItem() { return Promise.resolve(); }
+  generateResponse() { return Promise.resolve(); }
+  connectAvatar() { return Promise.resolve({}); }
 }

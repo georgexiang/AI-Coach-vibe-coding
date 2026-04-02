@@ -32,7 +32,7 @@ import { PersonalitySliders } from "@/components/admin/personality-sliders";
 import { ObjectionList } from "@/components/admin/objection-list";
 import { TestChatDialog } from "@/components/admin/test-chat-dialog";
 import { VoiceAvatarTab } from "@/components/admin/voice-avatar-tab";
-import { AgentTab } from "@/components/admin/agent-tab";
+import { AgentStatusSection } from "@/components/admin/agent-status-section";
 import {
   useHcpProfile,
   useCreateHcpProfile,
@@ -231,7 +231,7 @@ export default function HcpProfileEditorPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-6xl mx-auto">
       {/* Header */}
       <div className="flex items-center gap-4 mb-6">
         <Button
@@ -249,15 +249,6 @@ export default function HcpProfileEditorPage() {
           </h1>
         </div>
         <div className="flex items-center gap-2">
-          {!isNew && profile && (
-            <Button
-              variant="outline"
-              onClick={() => setTestChatOpen(true)}
-            >
-              <MessageSquare className="size-4 mr-2" />
-              {t("admin:hcp.testChat")}
-            </Button>
-          )}
           <Button
             onClick={form.handleSubmit(handleSubmit)}
             disabled={createMutation.isPending || updateMutation.isPending}
@@ -280,97 +271,117 @@ export default function HcpProfileEditorPage() {
             <TabsTrigger value="voice-avatar" className="flex-1">
               {t("admin:hcp.tabVoiceAvatar")}
             </TabsTrigger>
-            <TabsTrigger value="agent" className="flex-1">
-              {t("admin:hcp.tabAgent")}
-            </TabsTrigger>
           </TabsList>
 
           {/* Profile Tab */}
           <TabsContent value="profile" className="mt-4">
             <div className="space-y-6">
-              {/* Identity Card */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base font-semibold">
-                    {t("admin:hcp.identity")}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-start gap-6">
-                    <Avatar className="size-20 shrink-0">
-                      <AvatarFallback className="bg-blue-600 text-white text-2xl font-semibold">
-                        {getInitials(watchName)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="grid grid-cols-2 gap-4 flex-1">
-                      <FormField
-                        control={form.control}
-                        name="name"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Name *</FormLabel>
-                            <FormControl>
-                              <Input {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="specialty"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Specialty *</FormLabel>
-                            <Select
-                              value={field.value}
-                              onValueChange={field.onChange}
-                            >
+              {/* Top row: Identity + Agent Status side by side */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Identity Card — spans 2 columns */}
+                <Card className="lg:col-span-2">
+                  <CardHeader>
+                    <CardTitle className="text-base font-semibold">
+                      {t("admin:hcp.identity")}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-start gap-6">
+                      <Avatar className="size-20 shrink-0">
+                        <AvatarFallback className="bg-blue-600 text-white text-2xl font-semibold">
+                          {getInitials(watchName)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="grid grid-cols-2 gap-4 flex-1">
+                        <FormField
+                          control={form.control}
+                          name="name"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Name *</FormLabel>
                               <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select specialty" />
-                                </SelectTrigger>
+                                <Input {...field} />
                               </FormControl>
-                              <SelectContent>
-                                {SPECIALTIES.map((s) => (
-                                  <SelectItem key={s} value={s}>
-                                    {s}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="hospital"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Hospital</FormLabel>
-                            <FormControl>
-                              <Input {...field} />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="title"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Title</FormLabel>
-                            <FormControl>
-                              <Input {...field} />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="specialty"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Specialty *</FormLabel>
+                              <Select
+                                value={field.value}
+                                onValueChange={field.onChange}
+                              >
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select specialty" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {SPECIALTIES.map((s) => (
+                                    <SelectItem key={s} value={s}>
+                                      {s}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="hospital"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Hospital</FormLabel>
+                              <FormControl>
+                                <Input {...field} />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="title"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Title</FormLabel>
+                              <FormControl>
+                                <Input {...field} />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                      </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+
+                {/* Agent Status + Test Chat — right column */}
+                <div className="space-y-4">
+                  <AgentStatusSection
+                    profile={profile}
+                    isNew={isNew}
+                    onRetrySync={handleRetrySync}
+                    retrySyncPending={retrySyncMutation.isPending}
+                  />
+                  {!isNew && profile && (
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => setTestChatOpen(true)}
+                    >
+                      <MessageSquare className="size-4 mr-2" />
+                      {t("admin:hcp.testChat")}
+                    </Button>
+                  )}
+                </div>
+              </div>
 
               {/* Personality Card */}
               <PersonalitySliders
@@ -486,23 +497,13 @@ export default function HcpProfileEditorPage() {
                   </div>
                 </CardContent>
               </Card>
+
             </div>
           </TabsContent>
 
           {/* Voice & Avatar Tab */}
           <TabsContent value="voice-avatar" className="mt-4">
-            <VoiceAvatarTab form={form} />
-          </TabsContent>
-
-          {/* Agent Tab */}
-          <TabsContent value="agent" className="mt-4">
-            <AgentTab
-              form={form}
-              profile={profile}
-              isNew={isNew}
-              onRetrySync={handleRetrySync}
-              retrySyncPending={retrySyncMutation.isPending}
-            />
+            <VoiceAvatarTab form={form} profile={profile} isNew={isNew} />
           </TabsContent>
         </Tabs>
       </Form>

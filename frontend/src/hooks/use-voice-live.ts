@@ -70,10 +70,16 @@ export function useVoiceLive(options: VoiceLiveOptions) {
     async (client: unknown) => {
       try {
         const rtClient = client as {
-          responses: () => AsyncIterable<unknown>;
+          events: () => AsyncIterable<{ type: string } & Record<string, unknown>>;
         };
-        for await (const response of rtClient.responses()) {
-          await processResponse(response);
+        for await (const serverEvent of rtClient.events()) {
+          if (serverEvent.type === "response") {
+            await processResponse(serverEvent);
+          } else if (serverEvent.type === "input_audio") {
+            // User speech detected
+            setAudioState("listening");
+            optionsRef.current.onAudioStateChange?.("listening");
+          }
         }
       } catch (error) {
         if (connectionStateRef.current !== "disconnected") {
@@ -96,95 +102,128 @@ export function useVoiceLive(options: VoiceLiveOptions) {
         // Dynamic import rt-client to handle case where SDK not yet installed
         const { RTClient } = await import("rt-client");
 
-        // Determine WebSocket URL based on agent vs model mode (D-11)
-        const endpointUrl = new URL(tokenData.endpoint);
-        let wsUrl: string;
+        // Pass https:// endpoint URL directly — SDK internally sets pathname
+        // to voice-agent/realtime and WebSocket auto-converts https→wss (WHATWG spec).
+        // Reference: Voice-Live-Agent-With-Avadar/src/app/chat-interface.tsx line 521
+        const endpointUrl = tokenData.endpoint;
 
         if (tokenData.agent_id) {
-          // Agent mode: voice-agent/realtime
-          wsUrl = `wss://${endpointUrl.host}/voice-agent/realtime?api-version=2025-04-01-preview`;
           console.info("[VoiceLive] Connecting in agent mode", {
             agent_id: tokenData.agent_id,
             project_name: tokenData.project_name,
           });
         } else {
-          // Model mode: openai/realtime with deployment
-          wsUrl = `wss://${endpointUrl.host}/openai/realtime?api-version=2025-04-01-preview&deployment=${encodeURIComponent(tokenData.model)}`;
           console.info("[VoiceLive] Connecting in model mode", {
             model: tokenData.model,
           });
         }
 
+        // Auth: Agent mode requires bearer token (API key auth is rejected).
+        // Backend returns auth_type="bearer" with an STS token for agent mode.
+        // Reference: chat-interface.tsx line 501-509
+        //
+        // rt-client SDK accepts KeyCredential ({key}) or TokenCredential ({getToken}).
+        // TypeScript types may be narrow, so we cast to the union the SDK actually handles.
+        const clientAuth: { key: string } | { getToken: (scope: string) => Promise<{ token: string; expiresOnTimestamp: number }> } =
+          tokenData.auth_type === "bearer"
+            ? {
+                getToken: async (_scope: string) => ({
+                  token: tokenData.token,
+                  expiresOnTimestamp: Date.now() + 600_000, // 10 min STS token
+                }),
+              }
+            : { key: tokenData.token };
+
+        // Both modes use RTVoiceAgentOptions with modelOrAgent
+        // Agent mode: { agentId, projectName, agentAccessToken } — reference line 524-529
+        // Model mode: model string — reference line 533
         const client = new RTClient(
-          new URL(wsUrl),
-          { key: tokenData.token },
-          { model: tokenData.model },
+          new URL(endpointUrl),
+          clientAuth as { key: string },
+          tokenData.agent_id
+            ? {
+                modelOrAgent: {
+                  agentId: tokenData.agent_id,
+                  projectName: tokenData.project_name || "",
+                  agentAccessToken:
+                    tokenData.auth_type === "bearer"
+                      ? tokenData.token
+                      : undefined,
+                },
+                apiVersion: "2025-05-01-preview",
+              }
+            : {
+                modelOrAgent: tokenData.model,
+                apiVersion: "2025-05-01-preview",
+              },
         );
 
-        // Configure session with per-HCP settings from token broker (D-08)
+        // Build session config following reference repo pattern
+        // Reference: chat-interface.tsx lines 577-601
+        const instructions =
+          tokenData.agent_instructions_override ||
+          optionsRef.current.systemPrompt;
+
+        // Voice config: reference lines 552-569
+        const voice = {
+          type: tokenData.voice_type || "azure-standard",
+          name: tokenData.voice_name,
+          temperature: tokenData.voice_temperature ?? 0.9,
+        };
+
+        // Turn detection config
+        const turnDetection: Record<string, unknown> = {
+          type: tokenData.turn_detection_type || "server_vad",
+        };
+        // Add EOU detection if enabled (reference lines 540-548)
+        if (tokenData.eou_detection) {
+          turnDetection["end_of_utterance_detection"] = {
+            model: "semantic_detection_v1",
+          };
+        }
+
+        // Avatar config: reference lines 682-714
+        const avatarConfig = tokenData.avatar_enabled
+          ? {
+              character: tokenData.avatar_character,
+              style: tokenData.avatar_style || "casual",
+              customized: tokenData.avatar_customized || false,
+              video: {
+                codec: "h264",
+                crop: { top_left: [560, 0], bottom_right: [1360, 1080] },
+              },
+            }
+          : undefined;
+
+        // Session configure — matches reference structure exactly
         const sessionConfig: Record<string, unknown> = {
-          modalities: ["text", "audio"],
-          voice: {
-            type: tokenData.voice_type || "azure-standard",
-            name: tokenData.voice_name,
-            temperature: tokenData.voice_temperature ?? 0.9,
-          },
+          instructions: instructions?.length > 0 ? instructions : undefined,
           input_audio_transcription: {
             model: "azure-fast-transcription",
             language:
               tokenData.recognition_language === "auto"
-                ? optionsRef.current.language
-                : tokenData.recognition_language ||
-                  optionsRef.current.language,
+                ? undefined
+                : tokenData.recognition_language || undefined,
           },
-          turn_detection: {
-            type: tokenData.turn_detection_type || "server_vad",
-          },
-          instructions:
-            tokenData.agent_instructions_override ||
-            optionsRef.current.systemPrompt,
+          turn_detection: turnDetection,
+          voice,
+          avatar: avatarConfig,
+          modalities: ["text", "audio"],
+          // Noise suppression: pass null when disabled (reference line 592-596)
+          input_audio_noise_reduction: tokenData.noise_suppression
+            ? { type: "azure_deep_noise_suppression" }
+            : null,
+          // Echo cancellation: pass null when disabled (reference line 597-601)
+          input_audio_echo_cancellation: tokenData.echo_cancellation
+            ? { type: "server_echo_cancellation" }
+            : null,
         };
-
-        // Conditionally add noise suppression (per-HCP setting)
-        if (tokenData.noise_suppression) {
-          sessionConfig["input_audio_noise_reduction"] = {
-            type: "azure_deep_noise_suppression",
-          };
-        }
-
-        // Conditionally add echo cancellation (per-HCP setting)
-        if (tokenData.echo_cancellation) {
-          sessionConfig["input_audio_echo_cancellation"] = {
-            type: "server_echo_cancellation",
-          };
-        }
-
-        // Add agent config if agent mode (D-11)
-        if (tokenData.agent_id) {
-          sessionConfig["agent_id"] = tokenData.agent_id;
-          if (tokenData.project_name) {
-            sessionConfig["project_name"] = tokenData.project_name;
-          }
-        }
-
-        // Add avatar config if avatar is enabled (D-07, with per-HCP style/customized)
-        if (tokenData.avatar_enabled) {
-          sessionConfig["avatar"] = {
-            character: tokenData.avatar_character,
-            style: tokenData.avatar_style || "casual",
-            customized: tokenData.avatar_customized || false,
-            video: {
-              codec: "h264",
-              crop: { top_left: [560, 0], bottom_right: [1360, 1080] },
-            },
-          };
-        }
 
         const session = await (
           client as {
             configure: (
               cfg: Record<string, unknown>,
-            ) => Promise<unknown>;
+            ) => Promise<Record<string, unknown>>;
           }
         ).configure(sessionConfig);
 
@@ -197,7 +236,11 @@ export function useVoiceLive(options: VoiceLiveOptions) {
         // Start response listener in background
         void startResponseListener(client);
 
-        return session;
+        // Return session so caller can access avatar.ice_servers
+        return session as {
+          avatar?: { ice_servers?: RTCIceServer[] };
+          [key: string]: unknown;
+        };
       } catch (error) {
         setConnectionState("error");
         connectionStateRef.current = "error";

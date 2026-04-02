@@ -43,19 +43,21 @@ export function AvatarView({
       role="region"
       aria-label={t("title")}
     >
+      {/* Always render video container so WebRTC ontrack can attach streams */}
+      <div
+        ref={videoContainerRef}
+        className={cn(
+          "h-full w-full",
+          (!isAvatarConnected || isConnecting) && "hidden",
+        )}
+        data-testid="avatar-video-container"
+      />
+
       {isConnecting && (
         <div className="flex flex-col items-center gap-3">
           <Skeleton className="h-20 w-20 rounded-full" />
           <p className="text-sm text-white/70">{t("connectingAvatar")}</p>
         </div>
-      )}
-
-      {!isConnecting && isAvatarConnected && (
-        <div
-          ref={videoContainerRef}
-          className="h-full w-full"
-          data-testid="avatar-video-container"
-        />
       )}
 
       {!isConnecting && !isAvatarConnected && (

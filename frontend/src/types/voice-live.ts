@@ -10,6 +10,7 @@ export type SessionMode =
 export interface VoiceLiveToken {
   endpoint: string;
   token: string;
+  auth_type?: "key" | "bearer"; // "key" for API key, "bearer" for STS bearer token
   region: string;
   model: string;
   avatar_enabled: boolean;

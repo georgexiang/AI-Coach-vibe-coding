@@ -13,6 +13,8 @@ beforeEach(() => {
     setLocalDescription: vi.fn(),
     setRemoteDescription: vi.fn(),
     close: vi.fn(),
+    addEventListener: vi.fn(),
+    createDataChannel: vi.fn(),
     iceGatheringState: "complete",
     localDescription: { sdp: "mock-sdp", type: "offer" },
     ontrack: null as ((event: unknown) => void) | null,
@@ -139,7 +141,7 @@ describe("useAvatarStream", () => {
       });
     });
 
-    const videoEl = container.querySelector("#avatar-video");
+    const videoEl = container.querySelector("#video");
     expect(videoEl).toBeTruthy();
     expect(videoEl?.tagName).toBe("VIDEO");
     expect((videoEl as HTMLVideoElement).autoplay).toBe(true);
@@ -171,13 +173,13 @@ describe("useAvatarStream", () => {
       });
     });
 
-    const audioEl = container.querySelector("#avatar-audio");
+    const audioEl = container.querySelector("#audio");
     expect(audioEl).toBeTruthy();
     expect(audioEl?.tagName).toBe("AUDIO");
     expect((audioEl as HTMLAudioElement).autoplay).toBe(true);
   });
 
-  it("ontrack removes existing element of same type before appending", async () => {
+  it("ontrack appends new element for each track event (per reference repo)", async () => {
     const container = document.createElement("div");
     const ref = { current: container } as React.RefObject<HTMLDivElement | null>;
     const mockRtClient = {
@@ -200,9 +202,9 @@ describe("useAvatarStream", () => {
       });
     });
 
-    expect(container.querySelectorAll("#avatar-video").length).toBe(1);
+    expect(container.querySelectorAll("#video").length).toBe(1);
 
-    // Add second video track - should replace the first
+    // Add second video track — hook appends without removing previous
     act(() => {
       ontrack({
         track: { kind: "video" },
@@ -210,8 +212,8 @@ describe("useAvatarStream", () => {
       });
     });
 
-    // Should still be only 1 video element
-    expect(container.querySelectorAll("#avatar-video").length).toBe(1);
+    // Both elements should exist (matches reference repo behavior)
+    expect(container.querySelectorAll("#video").length).toBe(2);
   });
 
   it("ontrack handles empty streams array using null", async () => {
@@ -237,7 +239,7 @@ describe("useAvatarStream", () => {
       });
     });
 
-    const videoEl = container.querySelector("#avatar-video") as HTMLVideoElement;
+    const videoEl = container.querySelector("#video") as HTMLVideoElement;
     expect(videoEl).toBeTruthy();
     expect(videoEl.srcObject).toBeNull();
   });
@@ -330,6 +332,81 @@ describe("useAvatarStream", () => {
 
     // Restore setTimeout
     vi.stubGlobal("setTimeout", originalSetTimeout);
+  });
+
+  it("connect() passes ICE servers to RTCPeerConnection configuration", async () => {
+    const container = document.createElement("div");
+    const ref = { current: container } as React.RefObject<HTMLDivElement | null>;
+    const mockRtClient = {
+      connectAvatar: vi.fn().mockResolvedValue({ sdp: "answer-sdp", type: "answer" }),
+    };
+
+    const iceServers: RTCIceServer[] = [
+      { urls: "stun:stun.azure.com:3478" },
+      { urls: "turn:turn.azure.com:3478", username: "user", credential: "pass" },
+    ];
+
+    const { result } = renderHook(() => useAvatarStream(ref));
+
+    await act(async () => {
+      await result.current.connect(iceServers, mockRtClient);
+    });
+
+    expect(RTCPeerConnection).toHaveBeenCalledWith({ iceServers });
+    expect(result.current.isConnected).toBe(true);
+  });
+
+  it("connect() with empty ICE servers array works correctly", async () => {
+    const container = document.createElement("div");
+    const ref = { current: container } as React.RefObject<HTMLDivElement | null>;
+    const mockRtClient = {
+      connectAvatar: vi.fn().mockResolvedValue({ sdp: "answer-sdp", type: "answer" }),
+    };
+
+    const { result } = renderHook(() => useAvatarStream(ref));
+
+    await act(async () => {
+      await result.current.connect([], mockRtClient);
+    });
+
+    expect(RTCPeerConnection).toHaveBeenCalledWith({ iceServers: [] });
+    expect(result.current.isConnected).toBe(true);
+  });
+
+  it("connect() SDP offer is passed to connectAvatar", async () => {
+    const container = document.createElement("div");
+    const ref = { current: container } as React.RefObject<HTMLDivElement | null>;
+    const mockRtClient = {
+      connectAvatar: vi.fn().mockResolvedValue({ sdp: "answer-sdp", type: "answer" }),
+    };
+
+    const { result } = renderHook(() => useAvatarStream(ref));
+
+    await act(async () => {
+      await result.current.connect([], mockRtClient);
+    });
+
+    // connectAvatar receives the local SDP description
+    expect(mockRtClient.connectAvatar).toHaveBeenCalledWith(
+      expect.objectContaining({ sdp: "mock-sdp", type: "offer" }),
+    );
+  });
+
+  it("connect() sets remote description from connectAvatar response", async () => {
+    const container = document.createElement("div");
+    const ref = { current: container } as React.RefObject<HTMLDivElement | null>;
+    const answerSdp = { sdp: "remote-answer-sdp", type: "answer" };
+    const mockRtClient = {
+      connectAvatar: vi.fn().mockResolvedValue(answerSdp),
+    };
+
+    const { result } = renderHook(() => useAvatarStream(ref));
+
+    await act(async () => {
+      await result.current.connect([], mockRtClient);
+    });
+
+    expect(mockPc.setRemoteDescription).toHaveBeenCalledWith(answerSdp);
   });
 
   it("connect() adds video and audio transceivers", async () => {

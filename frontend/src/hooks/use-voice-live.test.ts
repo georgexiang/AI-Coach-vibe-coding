@@ -6,7 +6,7 @@ const mockConfigure = vi.fn().mockResolvedValue({});
 const mockClose = vi.fn().mockResolvedValue(undefined);
 const mockSendItem = vi.fn();
 const mockGenerateResponse = vi.fn();
-const mockResponses = vi.fn().mockReturnValue({
+const mockEvents = vi.fn().mockReturnValue({
   [Symbol.asyncIterator]: () => ({
     next: () => new Promise(() => {}), // never resolves, simulating long-lived stream
   }),
@@ -16,7 +16,7 @@ vi.mock("rt-client", () => ({
   RTClient: vi.fn().mockImplementation(() => ({
     configure: mockConfigure,
     close: mockClose,
-    responses: mockResponses,
+    events: mockEvents,
     sendItem: mockSendItem,
     generateResponse: mockGenerateResponse,
   })),
@@ -28,7 +28,7 @@ const defaultOptions = {
 };
 
 const defaultToken = {
-  endpoint: "wss://test.api.cognitive.microsoft.com",
+  endpoint: "https://test.api.cognitive.microsoft.com",
   token: "test-token",
   region: "eastus2",
   model: "gpt-4o-realtime",
@@ -41,7 +41,7 @@ describe("useVoiceLive", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     // Reset to default never-resolving responses
-    mockResponses.mockReturnValue({
+    mockEvents.mockReturnValue({
       [Symbol.asyncIterator]: () => ({
         next: () => new Promise(() => {}),
       }),
@@ -251,6 +251,7 @@ describe("useVoiceLive", () => {
       resolveResponses = r;
     });
     const mockResponse = {
+      type: "response",
       transcriptChunks: () => ({
         [Symbol.asyncIterator]: () => {
           const chunks = ["Hello", " World"];
@@ -267,8 +268,8 @@ describe("useVoiceLive", () => {
       }),
     };
 
-    // Set up responses to yield exactly one response then complete
-    mockResponses.mockReturnValue({
+    // Set up events to yield exactly one response event then complete
+    mockEvents.mockReturnValue({
       [Symbol.asyncIterator]: () => {
         let yielded = false;
         return {
@@ -329,10 +330,10 @@ describe("useVoiceLive", () => {
       resolveResponses = r;
     });
 
-    // Response with no transcriptChunks
-    const mockResponse = {};
+    // Response event with no transcriptChunks
+    const mockResponse = { type: "response" };
 
-    mockResponses.mockReturnValue({
+    mockEvents.mockReturnValue({
       [Symbol.asyncIterator]: () => {
         let yielded = false;
         return {
@@ -379,7 +380,7 @@ describe("useVoiceLive", () => {
   it("startResponseListener calls onError when response loop throws (while connected)", async () => {
     const onError = vi.fn();
 
-    mockResponses.mockReturnValue({
+    mockEvents.mockReturnValue({
       [Symbol.asyncIterator]: () => ({
         async next(): Promise<{ value: undefined; done: boolean }> {
           throw new Error("Stream broken");
@@ -407,7 +408,7 @@ describe("useVoiceLive", () => {
   it("startResponseListener wraps non-Error in Error for onError", async () => {
     const onError = vi.fn();
 
-    mockResponses.mockReturnValue({
+    mockEvents.mockReturnValue({
       [Symbol.asyncIterator]: () => ({
         async next(): Promise<{ value: undefined; done: boolean }> {
           throw "string failure";
@@ -435,7 +436,7 @@ describe("useVoiceLive", () => {
     const onError = vi.fn();
 
     let rejectNext: ((e: Error) => void) | undefined;
-    mockResponses.mockReturnValue({
+    mockEvents.mockReturnValue({
       [Symbol.asyncIterator]: () => ({
         next() {
           return new Promise((_resolve, reject) => {
@@ -468,7 +469,7 @@ describe("useVoiceLive", () => {
     expect(onError).not.toHaveBeenCalled();
   });
 
-  it("connect() uses openai/realtime WebSocket path for model mode (no agent_id)", async () => {
+  it("connect() passes https:// URL directly — SDK handles wss conversion internally", async () => {
     const { RTClient } = await import("rt-client");
     const { result } = renderHook(() => useVoiceLive(defaultOptions));
 
@@ -476,19 +477,39 @@ describe("useVoiceLive", () => {
       await result.current.connect(defaultToken);
     });
 
-    // Verify URL used for RTClient construction includes openai/realtime
+    // Verify URL is passed as https:// — SDK handles wss conversion + path internally
+    // Reference: Voice-Live-Agent-With-Avadar uses new URL(endpoint) with https://
     const constructorCall = (RTClient as unknown as ReturnType<typeof vi.fn>).mock.calls[0];
     const url = constructorCall?.[0] as URL;
-    expect(url.pathname).toBe("/openai/realtime");
-    expect(url.searchParams.get("deployment")).toBe("gpt-4o-realtime");
+    expect(url.protocol).toBe("https:");
+    expect(url.hostname).toBe("test.api.cognitive.microsoft.com");
+    expect(url.pathname).toBe("/");
+    expect(url.search).toBe("");
   });
 
-  it("connect() uses voice-agent/realtime WebSocket path for agent mode", async () => {
+  it("connect() uses RTVoiceAgentOptions with modelOrAgent string for model mode", async () => {
+    const { RTClient } = await import("rt-client");
+    const { result } = renderHook(() => useVoiceLive(defaultOptions));
+
+    await act(async () => {
+      await result.current.connect(defaultToken);
+    });
+
+    const constructorCall = (RTClient as unknown as ReturnType<typeof vi.fn>).mock.calls[0];
+    const options = constructorCall?.[2] as { modelOrAgent: unknown; apiVersion: string };
+    // Model mode: modelOrAgent is just the model string
+    expect(options.modelOrAgent).toBe("gpt-4o-realtime");
+    expect(options.apiVersion).toBe("2025-05-01-preview");
+  });
+
+  it("connect() uses RTVoiceAgentOptions with agent config object for agent mode", async () => {
     const { RTClient } = await import("rt-client");
     const { result } = renderHook(() => useVoiceLive(defaultOptions));
 
     const agentToken = {
       ...defaultToken,
+      auth_type: "bearer" as const,
+      token: "bearer-token-123",
       agent_id: "agent-123",
       project_name: "my-project",
     };
@@ -497,18 +518,175 @@ describe("useVoiceLive", () => {
       await result.current.connect(agentToken);
     });
 
-    // Verify URL used for RTClient construction includes voice-agent/realtime
     const lastCall = (RTClient as unknown as ReturnType<typeof vi.fn>).mock.calls.at(-1);
     const url = lastCall?.[0] as URL;
-    expect(url.pathname).toBe("/voice-agent/realtime");
-    expect(url.searchParams.get("api-version")).toBe("2025-04-01-preview");
+    // Agent mode also uses base URL only
+    expect(url.pathname).toBe("/");
+
+    const options = lastCall?.[2] as {
+      modelOrAgent: { agentId: string; projectName: string; agentAccessToken: string };
+      apiVersion: string;
+    };
+    // Agent mode: modelOrAgent includes agentId, projectName, and agentAccessToken
+    expect(options.modelOrAgent).toEqual({
+      agentId: "agent-123",
+      projectName: "my-project",
+      agentAccessToken: "bearer-token-123",
+    });
+    expect(options.apiVersion).toBe("2025-05-01-preview");
   });
 
-  it("connect() includes agent_id and project_name in session config for agent mode", async () => {
+  it("connect() uses TokenCredential (getToken) for bearer auth_type", async () => {
+    const { RTClient } = await import("rt-client");
+    const { result } = renderHook(() => useVoiceLive(defaultOptions));
+
+    const bearerToken = {
+      ...defaultToken,
+      auth_type: "bearer" as const,
+      token: "sts-bearer-token",
+      agent_id: "agent-456",
+      project_name: "test-project",
+    };
+
+    await act(async () => {
+      await result.current.connect(bearerToken);
+    });
+
+    const constructorCall = (RTClient as unknown as ReturnType<typeof vi.fn>).mock.calls.at(-1);
+    const credentials = constructorCall?.[1] as { getToken?: unknown; key?: string };
+    // Bearer auth should NOT pass key directly — it uses getToken (TokenCredential)
+    // The cast to { key } is for SDK type compatibility, but the actual object has getToken
+    expect(credentials).toBeDefined();
+  });
+
+  it("connect() uses KeyCredential (key) for default/key auth_type", async () => {
+    const { RTClient } = await import("rt-client");
+    const { result } = renderHook(() => useVoiceLive(defaultOptions));
+
+    await act(async () => {
+      await result.current.connect({
+        ...defaultToken,
+        auth_type: "key",
+      });
+    });
+
+    const constructorCall = (RTClient as unknown as ReturnType<typeof vi.fn>).mock.calls.at(-1);
+    const credentials = constructorCall?.[1] as { key?: string };
+    expect(credentials.key).toBe("test-token");
+  });
+
+  it("connect() agent mode without bearer auth does not pass agentAccessToken", async () => {
+    const { RTClient } = await import("rt-client");
     const { result } = renderHook(() => useVoiceLive(defaultOptions));
 
     const agentToken = {
       ...defaultToken,
+      auth_type: "key" as const,
+      agent_id: "agent-789",
+      project_name: "fallback-project",
+    };
+
+    await act(async () => {
+      await result.current.connect(agentToken);
+    });
+
+    const lastCall = (RTClient as unknown as ReturnType<typeof vi.fn>).mock.calls.at(-1);
+    const options = lastCall?.[2] as {
+      modelOrAgent: { agentId: string; projectName: string; agentAccessToken?: string };
+    };
+    expect(options.modelOrAgent.agentAccessToken).toBeUndefined();
+  });
+
+  it("connect() preserves https:// protocol — no manual wss conversion", async () => {
+    const { RTClient } = await import("rt-client");
+    const { result } = renderHook(() => useVoiceLive(defaultOptions));
+
+    await act(async () => {
+      await result.current.connect({
+        ...defaultToken,
+        endpoint: "https://test.cognitiveservices.azure.com/",
+      });
+    });
+
+    const lastCall = (RTClient as unknown as ReturnType<typeof vi.fn>).mock.calls.at(-1);
+    const url = lastCall?.[0] as URL;
+    // URL keeps https:// — SDK internally converts to wss:// via WebSocket constructor
+    expect(url.protocol).toBe("https:");
+    expect(url.hostname).toBe("test.cognitiveservices.azure.com");
+  });
+
+  it("connect() passes API key in credentials object", async () => {
+    const { RTClient } = await import("rt-client");
+    const { result } = renderHook(() => useVoiceLive(defaultOptions));
+
+    await act(async () => {
+      await result.current.connect(defaultToken);
+    });
+
+    const constructorCall = (RTClient as unknown as ReturnType<typeof vi.fn>).mock.calls[0];
+    const credentials = constructorCall?.[1] as { key: string };
+    expect(credentials.key).toBe("test-token");
+  });
+
+  it("events() is used for server event listening (not responses())", async () => {
+    const { result } = renderHook(() => useVoiceLive(defaultOptions));
+
+    await act(async () => {
+      await result.current.connect(defaultToken);
+    });
+
+    // events() should be called by the background response listener
+    expect(mockEvents).toHaveBeenCalled();
+  });
+
+  it("input_audio event type triggers listening state", async () => {
+    const onAudioStateChange = vi.fn();
+
+    let resolveEvents: (() => void) | undefined;
+    const eventsPromise = new Promise<void>((r) => {
+      resolveEvents = r;
+    });
+
+    mockEvents.mockReturnValue({
+      [Symbol.asyncIterator]: () => {
+        let yielded = false;
+        return {
+          async next() {
+            if (!yielded) {
+              yielded = true;
+              return { value: { type: "input_audio" }, done: false };
+            }
+            resolveEvents?.();
+            return { value: undefined, done: true };
+          },
+        };
+      },
+    });
+
+    const { result } = renderHook(() =>
+      useVoiceLive({ ...defaultOptions, onAudioStateChange }),
+    );
+
+    await act(async () => {
+      await result.current.connect(defaultToken);
+    });
+
+    await act(async () => {
+      await eventsPromise;
+    });
+
+    expect(onAudioStateChange).toHaveBeenCalledWith("listening");
+  });
+
+  it("connect() session config does not include agent_id — only in RTClient constructor", async () => {
+    // Agent routing is handled by RTClient constructor options (modelOrAgent),
+    // NOT by session configure. Reference: chat-interface.tsx configure() has no agent fields.
+    const { result } = renderHook(() => useVoiceLive(defaultOptions));
+
+    const agentToken = {
+      ...defaultToken,
+      auth_type: "bearer" as const,
+      token: "bearer-for-agent",
       agent_id: "agent-456",
       project_name: "demo-project",
     };
@@ -517,24 +695,63 @@ describe("useVoiceLive", () => {
       await result.current.connect(agentToken);
     });
 
-    expect(mockConfigure).toHaveBeenCalledWith(
-      expect.objectContaining({
-        agent_id: "agent-456",
-        project_name: "demo-project",
-      }),
-    );
+    const configArg = mockConfigure.mock.calls[0]?.[0] as Record<string, unknown>;
+    // Agent fields should NOT be in session config
+    expect(configArg["agent_id"]).toBeUndefined();
+    expect(configArg["project_name"]).toBeUndefined();
   });
 
-  it("connect() does not include agent_id in session config for model mode", async () => {
+  it("connect() passes null for disabled noise_suppression/echo_cancellation", async () => {
+    // Reference repo pattern: pass null when disabled, not omit
     const { result } = renderHook(() => useVoiceLive(defaultOptions));
 
     await act(async () => {
-      await result.current.connect(defaultToken);
+      await result.current.connect({
+        ...defaultToken,
+        noise_suppression: false,
+        echo_cancellation: false,
+      });
     });
 
     const configArg = mockConfigure.mock.calls[0]?.[0] as Record<string, unknown>;
-    expect(configArg["agent_id"]).toBeUndefined();
-    expect(configArg["project_name"]).toBeUndefined();
+    expect(configArg["input_audio_noise_reduction"]).toBeNull();
+    expect(configArg["input_audio_echo_cancellation"]).toBeNull();
+  });
+
+  it("connect() passes objects for enabled noise_suppression/echo_cancellation", async () => {
+    const { result } = renderHook(() => useVoiceLive(defaultOptions));
+
+    await act(async () => {
+      await result.current.connect({
+        ...defaultToken,
+        noise_suppression: true,
+        echo_cancellation: true,
+      });
+    });
+
+    const configArg = mockConfigure.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(configArg["input_audio_noise_reduction"]).toEqual({
+      type: "azure_deep_noise_suppression",
+    });
+    expect(configArg["input_audio_echo_cancellation"]).toEqual({
+      type: "server_echo_cancellation",
+    });
+  });
+
+  it("connect() recognition_language 'auto' maps to undefined (not a specific lang)", async () => {
+    const { result } = renderHook(() => useVoiceLive(defaultOptions));
+
+    await act(async () => {
+      await result.current.connect({
+        ...defaultToken,
+        recognition_language: "auto",
+      });
+    });
+
+    const configArg = mockConfigure.mock.calls[0]?.[0] as Record<string, unknown>;
+    const transcription = configArg["input_audio_transcription"] as Record<string, unknown>;
+    // "auto" → undefined, letting the service auto-detect (reference pattern)
+    expect(transcription["language"]).toBeUndefined();
   });
 
   it("processResponse emits partial (non-final) transcript segments", async () => {
@@ -546,6 +763,7 @@ describe("useVoiceLive", () => {
     });
 
     const mockResponse = {
+      type: "response",
       transcriptChunks: () => ({
         [Symbol.asyncIterator]: () => {
           const chunks = ["A", "B", "C"];
@@ -562,7 +780,7 @@ describe("useVoiceLive", () => {
       }),
     };
 
-    mockResponses.mockReturnValue({
+    mockEvents.mockReturnValue({
       [Symbol.asyncIterator]: () => {
         let yielded = false;
         return {

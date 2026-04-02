@@ -5,6 +5,14 @@ import type { RefObject } from "react";
  * WebRTC avatar video stream hook.
  * Manages RTCPeerConnection lifecycle for Azure AI Avatar rendering.
  * Handles ICE gathering, SDP exchange, and video/audio track injection.
+ *
+ * Flow (matches reference Voice-Live-Agent-With-Avadar):
+ * 1. Create RTCPeerConnection with server-provided ICE servers
+ * 2. Setup ontrack handler, add video+audio transceivers, create data channel
+ * 3. Create SDP offer, set local description
+ * 4. Wait for ICE gathering (2s timeout)
+ * 5. Exchange SDP via RTClient.connectAvatar()
+ * 6. Set remote description -> WebRTC handshake complete
  */
 export function useAvatarStream(
   videoContainerRef: RefObject<HTMLDivElement | null>,
@@ -12,17 +20,26 @@ export function useAvatarStream(
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const [isConnected, setIsConnected] = useState(false);
 
+  const clearVideo = useCallback(() => {
+    if (videoContainerRef.current) {
+      videoContainerRef.current.innerHTML = "";
+    }
+  }, [videoContainerRef]);
+
   const connect = useCallback(
     async (iceServers: RTCIceServer[], rtClient: unknown) => {
+      // Clear any previous video elements
+      clearVideo();
+
       const pc = new RTCPeerConnection({ iceServers });
 
       // Receive avatar video and audio tracks
       pc.ontrack = (event) => {
         if (!videoContainerRef.current) return;
         const el = document.createElement(
-          event.track.kind === "video" ? "video" : "audio",
+          event.track.kind,
         ) as HTMLMediaElement;
-        el.id = `avatar-${event.track.kind}`;
+        el.id = event.track.kind;
         el.srcObject = event.streams[0] ?? null;
         el.autoplay = true;
         if (event.track.kind === "video") {
@@ -31,28 +48,35 @@ export function useAvatarStream(
           el.style.height = "100%";
           el.style.objectFit = "cover";
         }
-        // Remove existing element of same type before appending
-        const existing = videoContainerRef.current.querySelector(
-          `#avatar-${event.track.kind}`,
-        );
-        if (existing) existing.remove();
         videoContainerRef.current.appendChild(el);
       };
 
+      // Add transceivers for bidirectional media
       pc.addTransceiver("video", { direction: "sendrecv" });
       pc.addTransceiver("audio", { direction: "sendrecv" });
 
-      // SDP offer/answer exchange
+      // Setup data channel for avatar events (blendshapes, etc.)
+      pc.addEventListener("datachannel", (event) => {
+        const dataChannel = event.channel;
+        dataChannel.onmessage = (e) => {
+          console.log(
+            "[" + new Date().toISOString() + "] WebRTC event: " + e.data,
+          );
+        };
+      });
+      pc.createDataChannel("eventChannel");
+
+      // Create SDP offer
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
 
-      // Wait for ICE gathering complete instead of fixed timeout (avoids Pitfall 3)
+      // Wait for ICE gathering (2s timeout like reference implementation)
       await new Promise<void>((resolve) => {
         if (pc.iceGatheringState === "complete") {
           resolve();
           return;
         }
-        const timeout = setTimeout(resolve, 5000); // 5s max wait
+        const timeout = setTimeout(resolve, 2000);
         pc.onicegatheringstatechange = () => {
           if (pc.iceGatheringState === "complete") {
             clearTimeout(timeout);
@@ -61,7 +85,7 @@ export function useAvatarStream(
         };
       });
 
-      // Exchange SDP with Azure via rt-client
+      // Exchange SDP with Azure via rt-client connectAvatar
       const client = rtClient as {
         connectAvatar?: (
           sdp: RTCSessionDescription,
@@ -78,7 +102,7 @@ export function useAvatarStream(
       pcRef.current = pc;
       setIsConnected(true);
     },
-    [videoContainerRef],
+    [videoContainerRef, clearVideo],
   );
 
   const disconnect = useCallback(() => {
@@ -86,12 +110,9 @@ export function useAvatarStream(
       pcRef.current.close();
       pcRef.current = null;
     }
-    // Clear video elements
-    if (videoContainerRef.current) {
-      videoContainerRef.current.innerHTML = "";
-    }
+    clearVideo();
     setIsConnected(false);
-  }, [videoContainerRef]);
+  }, [clearVideo]);
 
   return { connect, disconnect, isConnected };
 }

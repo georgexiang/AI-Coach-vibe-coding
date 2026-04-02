@@ -80,9 +80,10 @@ PROFILE_DATA = {
 # ---------------------------------------------------------------------------
 
 
+@patch("app.services.voice_live_service._exchange_api_key_for_bearer_token", new_callable=AsyncMock, return_value="sts-bearer-token")
 @patch("app.services.voice_live_service.config_service")
 @patch("app.services.voice_live_service.parse_voice_live_mode")
-async def test_voice_live_token_with_hcp_profile_id(mock_parse, mock_cfg, db_session):
+async def test_voice_live_token_with_hcp_profile_id(mock_parse, mock_cfg, mock_sts, db_session):
     """Token broker returns agent_id from HCP profile when hcp_profile_id provided."""
     # Create a profile with agent_id
     profile = HcpProfile(
@@ -106,6 +107,7 @@ async def test_voice_live_token_with_hcp_profile_id(mock_parse, mock_cfg, db_ses
     mock_cfg.get_effective_endpoint = AsyncMock(return_value="https://test.openai.azure.com")
     master = MagicMock()
     master.region = "eastus2"
+    master.default_project = "master-default-project"
     mock_cfg.get_master_config = AsyncMock(return_value=master)
 
     # Parse returns agent mode
@@ -121,7 +123,12 @@ async def test_voice_live_token_with_hcp_profile_id(mock_parse, mock_cfg, db_ses
 
     # Should use profile's agent_id, not config-level
     assert result.agent_id == "asst_from_profile"
-    assert result.project_name == "proj_test"
+    # When HCP profile overrides agent, project_name comes from master default_project
+    assert result.project_name == "master-default-project"
+    # Agent mode should use bearer token, not API key
+    assert result.auth_type == "bearer"
+    assert result.token == "sts-bearer-token"
+    mock_sts.assert_called_once()
 
 
 # ---------------------------------------------------------------------------
@@ -129,9 +136,10 @@ async def test_voice_live_token_with_hcp_profile_id(mock_parse, mock_cfg, db_ses
 # ---------------------------------------------------------------------------
 
 
+@patch("app.services.voice_live_service._exchange_api_key_for_bearer_token", new_callable=AsyncMock, return_value="sts-bearer-token")
 @patch("app.services.voice_live_service.config_service")
 @patch("app.services.voice_live_service.parse_voice_live_mode")
-async def test_voice_live_token_fallback_to_config(mock_parse, mock_cfg, db_session):
+async def test_voice_live_token_fallback_to_config(mock_parse, mock_cfg, mock_sts, db_session):
     """Token broker falls back to config-level agent_id when profile has none."""
     profile = HcpProfile(
         name="Dr. No Agent",
@@ -153,6 +161,7 @@ async def test_voice_live_token_fallback_to_config(mock_parse, mock_cfg, db_sess
     mock_cfg.get_effective_endpoint = AsyncMock(return_value="https://test.openai.azure.com")
     master = MagicMock()
     master.region = "eastus2"
+    master.default_project = "master-default-project"
     mock_cfg.get_master_config = AsyncMock(return_value=master)
 
     mock_parse.return_value = {
@@ -174,9 +183,10 @@ async def test_voice_live_token_fallback_to_config(mock_parse, mock_cfg, db_sess
 # ---------------------------------------------------------------------------
 
 
+@patch("app.services.voice_live_service._exchange_api_key_for_bearer_token", new_callable=AsyncMock, return_value="sts-bearer-token")
 @patch("app.services.voice_live_service.config_service")
 @patch("app.services.voice_live_service.parse_voice_live_mode")
-async def test_voice_live_token_backward_compatible(mock_parse, mock_cfg, db_session):
+async def test_voice_live_token_backward_compatible(mock_parse, mock_cfg, mock_sts, db_session):
     """Token broker behaves as before when no hcp_profile_id provided."""
     vl_config = MagicMock()
     vl_config.is_active = True
@@ -187,6 +197,7 @@ async def test_voice_live_token_backward_compatible(mock_parse, mock_cfg, db_ses
     mock_cfg.get_effective_endpoint = AsyncMock(return_value="https://test.openai.azure.com")
     master = MagicMock()
     master.region = "eastus2"
+    master.default_project = "master-default-project"
     mock_cfg.get_master_config = AsyncMock(return_value=master)
 
     mock_parse.return_value = {

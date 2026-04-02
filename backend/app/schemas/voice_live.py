@@ -13,6 +13,7 @@ class VoiceLiveTokenResponse(BaseModel):
     avatar_enabled: bool
     avatar_character: str
     voice_name: str
+    auth_type: str = "key"  # "key" for API key, "bearer" for STS bearer token
     agent_id: str | None = None
     project_name: str | None = None
 

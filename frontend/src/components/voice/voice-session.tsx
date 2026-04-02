@@ -25,9 +25,9 @@ import { AvatarView } from "./avatar-view";
 import { VoiceTranscript } from "./voice-transcript";
 import { VoiceControls } from "./voice-controls";
 import { FloatingTranscript } from "./floating-transcript";
+import { resolveMode } from "@/lib/voice-utils";
 import type {
   SessionMode,
-  VoiceLiveToken,
   TranscriptSegment,
 } from "@/types/voice-live";
 import type { KeyMessageStatus, CoachingHint } from "@/types/session";
@@ -40,23 +40,6 @@ interface VoiceSessionProps {
   hcpName: string;
   systemPrompt: string;
   language: string;
-}
-
-/**
- * Auto-resolve the best available session mode from token broker response (D-10).
- * Priority: Digital Human Realtime Agent > Digital Human Realtime Model > Voice Realtime Agent > Voice Realtime Model.
- */
-function resolveMode(tokenData: VoiceLiveToken): SessionMode {
-  if (tokenData.avatar_enabled && tokenData.agent_id) {
-    return "digital_human_realtime_agent";
-  }
-  if (tokenData.avatar_enabled) {
-    return "digital_human_realtime_model";
-  }
-  if (tokenData.agent_id) {
-    return "voice_realtime_agent";
-  }
-  return "voice_realtime_model";
 }
 
 /**
@@ -181,13 +164,15 @@ export function VoiceSession({
         await audioHandler.initialize();
 
         // Connect voice with per-HCP settings
-        await voiceLive.connect(tokenData);
+        const session = await voiceLive.connect(tokenData);
 
         // If digital human mode, try connecting avatar (D-11 fallback)
         const isDigitalHumanMode = resolvedMode.startsWith("digital_human");
         if (isDigitalHumanMode && tokenData.avatar_enabled) {
           try {
-            await avatarStream.connect([], voiceLive.clientRef.current);
+            // ICE servers come from session.avatar after configure()
+            const iceServers = session?.avatar?.ice_servers ?? [];
+            await avatarStream.connect(iceServers, voiceLive.clientRef.current);
           } catch {
             // Avatar failed -> voice-only fallback (D-11)
             toast.warning(t("error.avatarFallback"));

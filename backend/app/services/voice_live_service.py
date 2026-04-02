@@ -2,10 +2,23 @@
 
 Supports unified AI Foundry config: when the per-service voice_live row lacks
 its own endpoint or API key, falls back to the master AI Foundry config.
-Parses agent/model mode from model_or_deployment to include agent_id and
-project_name in token responses when agent mode is selected.
+
+Endpoint resolution:
+  Voice Live WebSocket requires the cognitiveservices.azure.com endpoint,
+  NOT the AI Foundry services.ai.azure.com endpoint. When the effective
+  endpoint is an AI Foundry URL, it is automatically transformed to the
+  corresponding Cognitive Services URL.
+
+Agent mode resolution:
+  Agent mode is activated when the HCP profile has a synced agent_id,
+  regardless of the config-level model_or_deployment setting.
+  This allows per-HCP agent routing through the Voice Live API.
 """
 
+import logging
+import re
+
+import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.schemas.voice_live import VoiceLiveConfigStatus, VoiceLiveTokenResponse
@@ -13,7 +26,48 @@ from app.services import config_service
 from app.services.agents.adapters.azure_voice_live import parse_voice_live_mode
 from app.services.region_capabilities import VOICE_LIVE_REGIONS
 
+logger = logging.getLogger(__name__)
+
 SUPPORTED_REGIONS = VOICE_LIVE_REGIONS
+
+
+def _to_cognitive_services_endpoint(endpoint: str) -> str:
+    """Transform AI Foundry endpoint to Cognitive Services endpoint for Voice Live.
+
+    Voice Live WebSocket (/voice-agent/realtime) requires the cognitiveservices
+    domain. The AI Foundry services.ai.azure.com endpoint returns 404 for this path.
+
+    Examples:
+        https://foo.services.ai.azure.com/ → https://foo.cognitiveservices.azure.com/
+        https://foo.cognitiveservices.azure.com/ → unchanged
+        https://foo.openai.azure.com/ → unchanged
+    """
+    return re.sub(
+        r"\.services\.ai\.azure\.com",
+        ".cognitiveservices.azure.com",
+        endpoint,
+    )
+
+
+async def _exchange_api_key_for_bearer_token(endpoint: str, api_key: str) -> str:
+    """Exchange an API key for a short-lived bearer token via the Cognitive Services STS endpoint.
+
+    Agent mode requires bearer token authentication — API key auth is rejected with
+    'Key authentication is not supported in Agent mode'. This function calls the
+    STS issueToken endpoint to obtain a 10-minute JWT bearer token.
+
+    Reference: Azure Cognitive Services token authentication docs.
+    """
+    # STS endpoint: https://{resource}.cognitiveservices.azure.com/sts/v1.0/issueToken
+    sts_url = f"{endpoint.rstrip('/')}/sts/v1.0/issueToken"
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        resp = await client.post(
+            sts_url,
+            headers={"Ocp-Apim-Subscription-Key": api_key},
+            content=b"",
+        )
+        resp.raise_for_status()
+        return resp.text
 
 
 async def get_voice_live_token(
@@ -39,9 +93,12 @@ async def get_voice_live_token(
         raise ValueError("Voice Live API key not set")
 
     # Derive effective endpoint from per-service or master config
-    effective_endpoint = await config_service.get_effective_endpoint(db, "azure_voice_live")
-    if not effective_endpoint:
+    raw_endpoint = await config_service.get_effective_endpoint(db, "azure_voice_live")
+    if not raw_endpoint:
         raise ValueError("Voice Live endpoint not configured")
+
+    # Voice Live WebSocket requires cognitiveservices.azure.com, not services.ai.azure.com
+    effective_endpoint = _to_cognitive_services_endpoint(raw_endpoint)
 
     # Derive effective region
     master = await config_service.get_master_config(db)
@@ -53,13 +110,14 @@ async def get_voice_live_token(
     if avatar_config and avatar_config.is_active:
         avatar_key = await config_service.get_effective_key(db, "azure_avatar")
 
-    # Parse agent/model mode from model_or_deployment
+    # Parse config-level agent/model mode from model_or_deployment
     mode_info = parse_voice_live_mode(vl_config.model_or_deployment)
-    is_agent = mode_info.get("mode") == "agent"
+    config_is_agent = mode_info.get("mode") == "agent"
 
-    # Resolve agent_id and project_name
-    agent_id = mode_info.get("agent_id") if is_agent else None
-    project_name_val = mode_info.get("project_name") if is_agent else None
+    # Config-level agent/project defaults
+    agent_id = mode_info.get("agent_id") if config_is_agent else None
+    default_project = master.default_project if master else ""
+    project_name_val = mode_info.get("project_name") or default_project if config_is_agent else None
 
     # Per-HCP defaults (used when no profile provided or on fallback)
     voice_name = "zh-CN-XiaoxiaoMultilingualNeural"
@@ -84,8 +142,14 @@ async def get_voice_live_token(
 
         try:
             profile = await hcp_profile_service.get_hcp_profile(db, hcp_profile_id)
-            if profile.agent_id and is_agent:
+
+            # HCP-level agent override: if this profile has a synced agent_id,
+            # activate agent mode regardless of config-level setting.
+            # This enables per-HCP agent routing through Voice Live.
+            if profile.agent_id and profile.agent_sync_status == "synced":
                 agent_id = profile.agent_id
+                project_name_val = default_project
+
             # Source voice/avatar settings from HCP profile
             voice_name = profile.voice_name or "en-US-AvaNeural"
             voice_type = profile.voice_type or "azure-standard"
@@ -105,9 +169,28 @@ async def get_voice_live_token(
         except Exception:
             pass  # Fall back to defaults
 
+    # Determine final mode: agent if agent_id is set (from config or HCP profile)
+    is_agent = bool(agent_id)
+
+    # Agent mode requires bearer token auth — API key auth is rejected.
+    # Exchange API key for a short-lived STS bearer token when in agent mode.
+    auth_type = "key"
+    token_value = api_key
+    if is_agent:
+        try:
+            bearer_token = await _exchange_api_key_for_bearer_token(
+                effective_endpoint, api_key
+            )
+            token_value = bearer_token
+            auth_type = "bearer"
+            logger.info("STS bearer token obtained for agent mode")
+        except Exception as exc:
+            logger.warning("STS token exchange failed, falling back to API key: %s", exc)
+
     return VoiceLiveTokenResponse(
         endpoint=effective_endpoint,
-        token=api_key,
+        token=token_value,
+        auth_type=auth_type,
         region=effective_region,
         model=mode_info.get("model", "gpt-4o-realtime-preview") if not is_agent else "",
         avatar_enabled=bool(avatar_config and avatar_config.is_active and avatar_key),
