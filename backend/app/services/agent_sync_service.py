@@ -43,12 +43,19 @@ Respond as this HCP would in a real face-to-face interaction with a Medical Repr
 def build_agent_instructions(profile_data: dict, template: str | None = None) -> str:
     """Build agent instructions from HCP profile data.
 
+    If agent_instructions_override is non-empty, use it instead of auto-generated text (D-02).
+
     Converts list fields to comma-separated strings, adds computed descriptor
     fields (communication_style_desc, emotional_state_desc), and formats
     using the provided template or DEFAULT_AGENT_TEMPLATE.
 
     Uses str.format_map with defaultdict for safe missing-key handling.
     """
+    # Check for override first (D-02)
+    override = profile_data.get("agent_instructions_override", "")
+    if override and override.strip():
+        return override.strip()
+
     data = dict(profile_data)
 
     # Convert list fields to comma-separated strings

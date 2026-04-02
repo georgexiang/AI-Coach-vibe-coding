@@ -61,17 +61,49 @@ async def get_voice_live_token(
     agent_id = mode_info.get("agent_id") if is_agent else None
     project_name_val = mode_info.get("project_name") if is_agent else None
 
-    # If agent mode AND hcp_profile_id provided, source agent_id from HCP profile (D-12, D-14)
-    if is_agent and hcp_profile_id:
+    # Per-HCP defaults (used when no profile provided or on fallback)
+    voice_name = "zh-CN-XiaoxiaoMultilingualNeural"
+    voice_type = "azure-standard"
+    voice_temperature = 0.9
+    voice_custom = False
+    avatar_character_val = (
+        avatar_config.model_or_deployment if avatar_config else "Lisa-casual-sitting"
+    )
+    avatar_style_val = "casual"
+    avatar_customized_val = False
+    turn_detection_type = "server_vad"
+    noise_suppression = False
+    echo_cancellation = False
+    eou_detection = False
+    recognition_language = "auto"
+    agent_instructions_override = ""
+
+    # If hcp_profile_id provided, source ALL settings from HCP profile (D-08, D-12, D-14)
+    if hcp_profile_id:
         from app.services import hcp_profile_service
 
         try:
             profile = await hcp_profile_service.get_hcp_profile(db, hcp_profile_id)
-            if profile.agent_id:
+            if profile.agent_id and is_agent:
                 agent_id = profile.agent_id
-            # project_name still comes from voice_live config
+            # Source voice/avatar settings from HCP profile
+            voice_name = profile.voice_name or "en-US-AvaNeural"
+            voice_type = profile.voice_type or "azure-standard"
+            voice_temperature = (
+                profile.voice_temperature if profile.voice_temperature is not None else 0.9
+            )
+            voice_custom = profile.voice_custom
+            avatar_character_val = profile.avatar_character or "lori"
+            avatar_style_val = profile.avatar_style or "casual"
+            avatar_customized_val = profile.avatar_customized
+            turn_detection_type = profile.turn_detection_type or "server_vad"
+            noise_suppression = profile.noise_suppression
+            echo_cancellation = profile.echo_cancellation
+            eou_detection = profile.eou_detection
+            recognition_language = profile.recognition_language or "auto"
+            agent_instructions_override = profile.agent_instructions_override or ""
         except Exception:
-            pass  # Fall back to config-level agent_id
+            pass  # Fall back to defaults
 
     return VoiceLiveTokenResponse(
         endpoint=effective_endpoint,
@@ -79,12 +111,22 @@ async def get_voice_live_token(
         region=effective_region,
         model=mode_info.get("model", "gpt-4o-realtime-preview") if not is_agent else "",
         avatar_enabled=bool(avatar_config and avatar_config.is_active and avatar_key),
-        avatar_character=(
-            avatar_config.model_or_deployment if avatar_config else "Lisa-casual-sitting"
-        ),
-        voice_name="zh-CN-XiaoxiaoMultilingualNeural",
+        avatar_character=avatar_character_val,
+        voice_name=voice_name,
         agent_id=agent_id,
         project_name=project_name_val,
+        # Per-HCP fields (D-08)
+        avatar_style=avatar_style_val,
+        avatar_customized=avatar_customized_val,
+        voice_type=voice_type,
+        voice_temperature=voice_temperature,
+        voice_custom=voice_custom,
+        turn_detection_type=turn_detection_type,
+        noise_suppression=noise_suppression,
+        echo_cancellation=echo_cancellation,
+        eou_detection=eou_detection,
+        recognition_language=recognition_language,
+        agent_instructions_override=agent_instructions_override,
     )
 
 
