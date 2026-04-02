@@ -353,22 +353,25 @@ export default function AzureConfigPage() {
                 />
               </div>
               <div className="grid gap-2">
+                <Label>{t("azureConfig.aiFoundry.project", { defaultValue: "Project" })}</Label>
+                <Input
+                  value={aiFoundryProject}
+                  onChange={(e) => setAiFoundryProject(e.target.value)}
+                  placeholder={t("azureConfig.aiFoundry.projectPlaceholder", { defaultValue: "e.g. my-ai-project" })}
+                />
+                <p className="text-xs text-muted-foreground">
+                  {t("azureConfig.aiFoundry.projectHint", { defaultValue: "AI Foundry project name — required for HCP agent sync" })}
+                </p>
+              </div>
+              <div className="grid gap-2">
                 <Label>{t("azureConfig.aiFoundry.model", { defaultValue: "Default Model" })}</Label>
                 <Input
                   value={aiFoundryModel}
                   onChange={(e) => setAiFoundryModel(e.target.value)}
-                  placeholder={t("azureConfig.aiFoundry.modelPlaceholder", { defaultValue: "e.g. gpt-5.4-mini" })}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label>{t("azureConfig.aiFoundry.defaultProject", { defaultValue: "Default Project" })}</Label>
-                <Input
-                  value={aiFoundryProject}
-                  onChange={(e) => setAiFoundryProject(e.target.value)}
-                  placeholder={t("azureConfig.aiFoundry.defaultProjectPlaceholder", { defaultValue: "e.g. my-ai-project" })}
+                  placeholder={t("azureConfig.aiFoundry.modelPlaceholder", { defaultValue: "e.g. gpt-4o" })}
                 />
                 <p className="text-xs text-muted-foreground">
-                  {t("azureConfig.aiFoundry.defaultProjectHint", { defaultValue: "AI Foundry project name — required for HCP agent sync" })}
+                  {t("azureConfig.aiFoundry.modelHint", { defaultValue: "Default model for AI coaching and agent creation" })}
                 </p>
               </div>
             </div>
