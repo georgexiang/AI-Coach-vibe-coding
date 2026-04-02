@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Ready to execute
-stopped_at: Completed 12-03-PLAN.md
-last_updated: "2026-04-02T09:03:21.646Z"
+stopped_at: Completed 12-04-PLAN.md
+last_updated: "2026-04-02T09:20:34.654Z"
 last_activity: 2026-04-02
 progress:
   total_phases: 13
-  completed_phases: 12
+  completed_phases: 13
   total_plans: 66
-  completed_plans: 63
+  completed_plans: 66
 ---
 
 # Project State
@@ -25,7 +25,7 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 ## Current Position
 
 Phase: 12 (voice-realtime-api-agent) — EXECUTING
-Plan: 3 of 4
+Plan: 4 of 4
 
 ## Performance Metrics
 
@@ -99,6 +99,7 @@ Plan: 3 of 4
 | Phase 12 P01 | 3min | 2 tasks | 7 files |
 | Phase 12 P02 | 12min | 2 tasks | 19 files |
 | Phase 12 P03 | 5min | 2 tasks | 9 files |
+| Phase 12 P04 | 10min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -221,6 +222,7 @@ Recent decisions affecting current work:
 - [Phase 12]: Avatar style select dynamically filtered by selected character from AVATAR_VIDEO_CHARACTERS constant
 - [Phase 12]: Mode auto-resolved from token broker capabilities, not URL params; toast.warning for fallback (not toast.error)
 - [Phase 12]: Per-HCP noise_suppression/echo_cancellation conditionally added to session config, not always-on
+- [Phase 12]: HcpProfileOut in API router was missing 13 voice/avatar fields — added as Rule 1 bug fix
 
 ### Pending Todos
 
@@ -243,6 +245,6 @@ None yet.
 ## Session Continuity
 
 Last activity: 2026-04-02
-Last session: 2026-04-02T09:03:21.642Z
-Stopped at: Completed 12-02-PLAN.md
+Last session: 2026-04-02T09:20:34.643Z
+Stopped at: Completed 12-04-PLAN.md
 Resume file: None

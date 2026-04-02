@@ -23,7 +23,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 09: Integration Testing with Real Azure Services** - Unified AI Foundry config, 7 interaction modes, agent mode runtime, integration tests, E2E demo validation (completed 2026-03-29)
 - [x] **Phase 10: UI Polish & Professional Unification** - Comprehensive UI overhaul for professional appearance, unified design language, polished visuals for BeiGene customer demo (completed 2026-03-29)
 - [x] **Phase 11: HCP Profile Agent Integration** - Auto-create AI Foundry agent when adding HCP profiles, bidirectional sync, table UI redesign (completed 2026-03-31)
-- [ ] **Phase 12: Voice Realtime API & Agent Mode Integration** - Per-HCP digital persona (voice/avatar/conversation config), auto-mode selection, fallback chain, tabbed HCP editor
+- [x] **Phase 12: Voice Realtime API & Agent Mode Integration** - Per-HCP digital persona (voice/avatar/conversation config), auto-mode selection, fallback chain, tabbed HCP editor (completed 2026-04-02)
 
 ## Phase Details
 
@@ -209,7 +209,7 @@ Phases execute in numeric order: 01 -> 01.1 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07 
 | 09. Integration Testing with Real Azure Services | 5/5 | Complete    | 2026-03-29 |
 | 10. UI Polish & Professional Unification | 6/6 | Complete    | 2026-03-29 |
 | 11. HCP Profile Agent Integration | 3/3 | Complete    | 2026-03-31 |
-| 12. Voice Realtime API & Agent Mode Integration | 1/4 | In Progress|  |
+| 12. Voice Realtime API & Agent Mode Integration | 4/4 | Complete   | 2026-04-02 |
 
 ### Phase 07: Azure Service Integration
 
@@ -319,7 +319,7 @@ Plans:
 **Goal:** Each HCP profile becomes a complete "digital persona" with per-HCP voice, avatar, and conversation parameters. The token broker returns all settings in one response. MRs get automatic mode selection (Digital Human Realtime Agent as default) with graceful fallback to voice-only or text. Admin configures HCP digital personas via a tabbed editor.
 **Requirements**: VOICE-12-01, VOICE-12-02, VOICE-12-03, VOICE-12-04, VOICE-12-05, VOICE-12-06
 **Depends on:** Phase 11
-**Plans:** 1/4 plans executed
+**Plans:** 4/4 plans complete
 
 **Success Criteria** (what must be TRUE):
   1. Admin can configure per-HCP voice settings (voice name, temperature), avatar settings (character, style), and conversation parameters (turn detection, noise suppression, echo cancellation) via tabbed HCP editor
@@ -333,8 +333,8 @@ Plans:
 
 Plans:
 - [x] 12-01-PLAN.md -- Backend foundation: Alembic migration (13 voice/avatar columns), ORM model, Pydantic schemas, token broker per-HCP wiring, API endpoint extension
-- [ ] 12-02-PLAN.md -- Frontend admin: TypeScript types, API client, i18n keys, VoiceAvatarTab, AgentTab, HCP editor tabbed rewrite, HCP table Voice+Avatar column
-- [ ] 12-03-PLAN.md -- Frontend voice session: ModeStatusIndicator, auto-mode resolution, fallback chain, per-HCP token wiring, useVoiceLive per-HCP config
-- [ ] 12-04-PLAN.md -- Backend tests, seed data with per-HCP digital persona configurations, full build verification
+- [x] 12-02-PLAN.md -- Frontend admin: TypeScript types, API client, i18n keys, VoiceAvatarTab, AgentTab, HCP editor tabbed rewrite, HCP table Voice+Avatar column
+- [x] 12-03-PLAN.md -- Frontend voice session: ModeStatusIndicator, auto-mode resolution, fallback chain, per-HCP token wiring, useVoiceLive per-HCP config
+- [x] 12-04-PLAN.md -- Backend tests, seed data with per-HCP digital persona configurations, full build verification
 
 **UI hint**: yes
