@@ -274,7 +274,7 @@ vi.mock("@/api/voice-live", () => ({
 const defaultProps: React.ComponentProps<typeof VoiceSession> = {
   sessionId: "session-123",
   scenarioId: "scenario-1",
-  mode: "text",
+  hcpProfileId: "hcp-1",
   hcpName: "Dr. Smith",
   systemPrompt: "You are a helpful assistant",
   language: "en-US",
@@ -322,7 +322,7 @@ describe("VoiceSession", () => {
     });
 
     it("passes mode to header", () => {
-      renderSession({ mode: "text" });
+      renderSession();
       expect(screen.getByTestId("header-mode")).toHaveTextContent("text");
     });
 
@@ -741,7 +741,7 @@ describe("VoiceSession", () => {
 
   describe("connection state change callback", () => {
     it("falls back to text mode on error state when not in text mode", async () => {
-      renderSession({ mode: "voice_pipeline" });
+      renderSession();
 
       await act(async () => {
         capturedOnConnectionStateChange?.("error");
@@ -752,7 +752,7 @@ describe("VoiceSession", () => {
     });
 
     it("does not fall back when already in text mode", async () => {
-      renderSession({ mode: "text" });
+      renderSession();
 
       await act(async () => {
         capturedOnConnectionStateChange?.("error");
@@ -782,7 +782,7 @@ describe("VoiceSession", () => {
 
   describe("voice initialization on mount", () => {
     it("does not initialize voice when mode is text", () => {
-      renderSession({ mode: "text" });
+      renderSession();
 
       expect(mockTokenMutateAsync).not.toHaveBeenCalled();
       expect(mockAudioInitialize).not.toHaveBeenCalled();
@@ -790,7 +790,7 @@ describe("VoiceSession", () => {
     });
 
     it("initializes voice when mode is voice_pipeline", async () => {
-      renderSession({ mode: "voice_pipeline" });
+      renderSession();
 
       await waitFor(() => {
         expect(mockTokenMutateAsync).toHaveBeenCalled();
@@ -811,7 +811,7 @@ describe("VoiceSession", () => {
         voice_name: "en-US-JennyNeural",
       });
 
-      renderSession({ mode: "digital_human_pipeline" });
+      renderSession();
 
       await waitFor(() => {
         expect(mockTokenMutateAsync).toHaveBeenCalled();
@@ -834,7 +834,7 @@ describe("VoiceSession", () => {
       });
       mockAvatarConnect.mockRejectedValueOnce(new Error("Avatar failed"));
 
-      renderSession({ mode: "digital_human_pipeline" });
+      renderSession();
 
       await waitFor(() => {
         expect(mockToastError).toHaveBeenCalledWith("voice.error.avatarFailed");
@@ -844,7 +844,7 @@ describe("VoiceSession", () => {
     it("falls back to text mode when voice connection fails", async () => {
       mockTokenMutateAsync.mockRejectedValueOnce(new Error("Token fetch failed"));
 
-      renderSession({ mode: "voice_pipeline" });
+      renderSession();
 
       await waitFor(() => {
         expect(mockToastError).toHaveBeenCalledWith("voice.error.connectionFailed");
@@ -862,7 +862,7 @@ describe("VoiceSession", () => {
         voice_name: "en-US-JennyNeural",
       });
 
-      renderSession({ mode: "digital_human_pipeline" });
+      renderSession();
 
       await waitFor(() => {
         expect(mockConnect).toHaveBeenCalled();
@@ -881,7 +881,7 @@ describe("VoiceSession", () => {
           }),
       );
 
-      renderSession({ mode: "voice_pipeline" });
+      renderSession();
 
       // Should be connecting
       await waitFor(() => {
@@ -1051,7 +1051,7 @@ describe("VoiceSession", () => {
 
   describe("startRecording callback", () => {
     it("starts recording with callback that sends audio to client", async () => {
-      renderSession({ mode: "voice_pipeline" });
+      renderSession();
 
       await waitFor(() => {
         expect(mockStartRecording).toHaveBeenCalled();
