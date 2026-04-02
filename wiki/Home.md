@@ -14,7 +14,7 @@ Welcome to the AI Coach Platform wiki. This is the central knowledge base for ar
 ## Planning (auto-synced from .planning/)
 
 - [Project Overview](Planning-Overview) | [Roadmap](Planning-Roadmap) | [Requirements](Planning-Requirements) | [Research](Planning-Research)
-- Phases: [01](Planning-Phase-01) | [01.1](Planning-Phase-01-1) | [02](Planning-Phase-02) | [03](Planning-Phase-03) | [04](Planning-Phase-04) | [05](Planning-Phase-05) | [06](Planning-Phase-06) | [07](Planning-Phase-07) | [08](Planning-Phase-08) | [09](Planning-Phase-09) | [10](Planning-Phase-10)
+- Phases: [01](Planning-Phase-01) | [01.1](Planning-Phase-01-1) | [02](Planning-Phase-02) | [03](Planning-Phase-03) | [04](Planning-Phase-04) | [05](Planning-Phase-05) | [06](Planning-Phase-06) | [07](Planning-Phase-07) | [08](Planning-Phase-08) | [09](Planning-Phase-09) | [10](Planning-Phase-10) | [11](Planning-Phase-11)
 
 ## Project Stats
 
@@ -23,14 +23,14 @@ Welcome to the AI Coach Platform wiki. This is the central knowledge base for ar
 |--------|-------|
 | API Routers | 13 |
 | ORM Models | 10 |
-| Backend Tests | 74 |
-| Pages | 40 |
+| Backend Tests | 78 |
+| Pages | 41 |
 | Shared Components | 32 |
 | E2E Tests | 31 |
 | Specifications | 1 |
 | Plans | 1 |
-| GSD Phases | 11 |
-| GSD Plans | 59 |
+| GSD Phases | 12 |
+| GSD Plans | 62 |
 | GSD Requirements | 52 |
 <!-- STATS_END -->
 

@@ -1,13 +1,14 @@
 # Changelog
 
-## v1.0.0 — Complete AI Coach Platform (2026-03-29)
+## v1.0.0 — Complete AI Coach Platform (2026-03-31)
 
 ### Added
 - **Phase 07: Azure Service Integration** — Admin Azure config persistence, real connection testing, dynamic mock/Azure provider switching
 - **Phase 08: Voice & Avatar Demo** — Azure Voice Live Agent with Avatar for real-time voice coaching with digital HCP
 - **Phase 09: Integration Testing** — Unified AI Foundry config, 7 interaction modes (text/voice/avatar/conference/realtime/content-understanding/model-mode), agent mode runtime, integration tests
 - **Phase 10: UI Polish** — 5-color accent theme system with dark/light mode, page transitions, breadcrumbs, grouped admin sidebar, Figma-audited spacing/typography, BeiGene demo seed data
-- 921+ backend tests, frontend TypeScript strict compilation
+- **Phase 11: HCP Profile Agent Integration** — Auto-create AI Foundry agent when adding HCP profiles, bidirectional sync, agent status badges, table UI redesign
+- All 12 phases (62 plans) complete
 - Live deployment on Azure Container Apps (East Asia region)
 
 ### Deployment

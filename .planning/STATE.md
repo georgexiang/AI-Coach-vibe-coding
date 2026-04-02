@@ -95,10 +95,7 @@ Plan: Not started
 | Phase 10 P03 | 20min | 2 tasks | 16 files |
 | Phase 11 P01 | 10min | 2 tasks | 6 files |
 | Phase 11 P02 | 8min | 2 tasks | 4 files |
-<<<<<<< HEAD
 | Phase 11 P03 | 14min | 2 tasks | 12 files |
-=======
->>>>>>> worktree-agent-afcd067e
 
 ## Accumulated Context
 
@@ -234,11 +231,6 @@ None yet.
 ## Session Continuity
 
 Last activity: 2026-03-31
-<<<<<<< HEAD
 Last session: 2026-03-31T09:18:16.244Z
 Stopped at: Completed 11-03-PLAN.md
-=======
-Last session: 2026-03-31T09:15:12.703Z
-Stopped at: Completed 11-02-PLAN.md
->>>>>>> worktree-agent-afcd067e
 Resume file: None

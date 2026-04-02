@@ -1,7 +1,7 @@
 # Phase 07: Azure Service Integration
 
 > Auto-generated from [`.planning/phases/07-azure-service-integration`](../blob/main/.planning/phases/07-azure-service-integration)  
-> Last synced: 2026-03-29
+> Last synced: 2026-04-02
 
 ## Context & Decisions
 

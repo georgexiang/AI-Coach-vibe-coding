@@ -1,7 +1,7 @@
 # Requirements Traceability
 
 > Auto-generated from [`.planning/REQUIREMENTS.md`](../blob/main/.planning/REQUIREMENTS.md)  
-> Last synced: 2026-03-29
+> Last synced: 2026-04-02
 
 # Requirements: AI Coach Platform (BeiGene)
 

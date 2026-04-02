@@ -25,6 +25,7 @@
   - [Phase 08: Voice Avatar Demo Integration](Planning-Phase-08)
   - [Phase 09: Integration Testing With Real Azure Services](Planning-Phase-09)
   - [Phase 10: Ui Polish Professional Unification](Planning-Phase-10)
+  - [Phase 11: Hcp Profile Agent Integration Auto Create Ai Foundry Agent When Adding Hcp Profiles](Planning-Phase-11)
 <!-- PLANNING_END -->
 
 ---

@@ -1,7 +1,7 @@
 # Research Summary
 
 > Auto-generated from [`.planning/research`](../blob/main/.planning/research)  
-> Last synced: 2026-03-29
+> Last synced: 2026-04-02
 
 **Detailed research:**
 - [ARCHITECTURE](../blob/main/.planning/research/ARCHITECTURE.md)

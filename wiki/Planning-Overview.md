@@ -1,7 +1,7 @@
 # Project Overview
 
 > Auto-generated from [`.planning/PROJECT.md`](../blob/main/.planning/PROJECT.md)  
-> Last synced: 2026-03-29
+> Last synced: 2026-04-02
 
 # AI Coach Platform — BeiGene
 
@@ -104,4 +104,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-29 after Phase 10 completion — UI Polish & Professional Unification (5-color theme system, page transitions, navigation polish, Figma-audited components, BeiGene demo seed data)*
+*Last updated: 2026-03-31 after Phase 11 completion — HCP Profile Agent Integration (auto-create AI Foundry agents on HCP CRUD, agent sync status badges, table UI, token broker per-HCP agent_id)*
