@@ -1,5 +1,5 @@
 # Stage 1: Build
-FROM node:20-slim AS builder
+FROM mcr.microsoft.com/mirror/docker/library/node:20-slim AS builder
 WORKDIR /app
 COPY package*.json ./
 COPY rt-client-0.5.2.tgz ./
@@ -10,7 +10,7 @@ ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 RUN npm run build
 
 # Stage 2: Serve
-FROM nginx:alpine
+FROM mcr.microsoft.com/mirror/docker/library/nginx:alpine
 COPY --from=builder /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/templates/default.conf.template
 
