@@ -22,6 +22,23 @@ export interface HcpProfile {
   agent_version: string;
   agent_sync_status: "synced" | "pending" | "failed" | "none";
   agent_sync_error: string;
+  // Voice settings (D-01)
+  voice_name: string;
+  voice_type: string;
+  voice_temperature: number;
+  voice_custom: boolean;
+  // Avatar settings (D-03)
+  avatar_character: string;
+  avatar_style: string;
+  avatar_customized: boolean;
+  // Conversation parameters (D-01)
+  turn_detection_type: string;
+  noise_suppression: boolean;
+  echo_cancellation: boolean;
+  eou_detection: boolean;
+  recognition_language: string;
+  // Agent override (D-02)
+  agent_instructions_override: string;
 }
 
 export interface HcpProfileCreate {
@@ -39,6 +56,19 @@ export interface HcpProfileCreate {
   objections?: string[];
   probe_topics?: string[];
   difficulty?: HcpProfile["difficulty"];
+  voice_name?: string;
+  voice_type?: string;
+  voice_temperature?: number;
+  voice_custom?: boolean;
+  avatar_character?: string;
+  avatar_style?: string;
+  avatar_customized?: boolean;
+  turn_detection_type?: string;
+  noise_suppression?: boolean;
+  echo_cancellation?: boolean;
+  eou_detection?: boolean;
+  recognition_language?: string;
+  agent_instructions_override?: string;
 }
 
 export interface HcpProfileUpdate extends Partial<HcpProfileCreate> {}

@@ -1,8 +1,9 @@
 import apiClient from "@/api/client";
 import type { VoiceLiveToken, VoiceLiveConfigStatus } from "@/types/voice-live";
 
-export async function fetchVoiceLiveToken(): Promise<VoiceLiveToken> {
-  const response = await apiClient.post<VoiceLiveToken>("/voice-live/token");
+export async function fetchVoiceLiveToken(hcpProfileId?: string): Promise<VoiceLiveToken> {
+  const params = hcpProfileId ? { hcp_profile_id: hcpProfileId } : {};
+  const response = await apiClient.post<VoiceLiveToken>("/voice-live/token", null, { params });
   return response.data;
 }
 

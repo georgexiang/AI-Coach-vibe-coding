@@ -146,7 +146,7 @@ export function VoiceSession({
     const initVoice = async () => {
       setIsConnecting(true);
       try {
-        const tokenData = await tokenMutation.mutateAsync();
+        const tokenData = await tokenMutation.mutateAsync(undefined);
 
         // Initialize audio first
         await audioHandler.initialize();

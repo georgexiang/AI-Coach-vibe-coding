@@ -68,7 +68,14 @@
     "tokenExpired": "Session token expired. Reconnecting...",
     "regionUnsupported": "Voice Live API is not available in the configured region. Check Azure documentation for supported regions.",
     "audioWorkletFailed": "Audio system initialization failed. Please refresh the page.",
-    "webrtcFailed": "Video connection failed. Switching to voice-only mode."
+    "webrtcFailed": "Video connection failed. Switching to voice-only mode.",
+    "avatarFallback": "Avatar unavailable, switching to voice mode",
+    "voiceFallback": "Voice unavailable, switching to text mode"
+  },
+  "modeStatus": {
+    "connected": "Connected",
+    "degraded": "Degraded",
+    "disconnected": "Disconnected"
   },
   "endSession": "End Session",
   "endSessionTitle": "End Voice Session",
