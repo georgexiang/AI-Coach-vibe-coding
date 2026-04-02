@@ -3,8 +3,8 @@ import { fetchVoiceLiveToken, fetchVoiceLiveStatus } from "@/api/voice-live";
 import type { VoiceLiveToken, VoiceLiveConfigStatus } from "@/types/voice-live";
 
 export function useVoiceToken() {
-  return useMutation<VoiceLiveToken, Error>({
-    mutationFn: fetchVoiceLiveToken,
+  return useMutation<VoiceLiveToken, Error, string | undefined>({
+    mutationFn: (hcpProfileId?: string) => fetchVoiceLiveToken(hcpProfileId),
   });
 }
 

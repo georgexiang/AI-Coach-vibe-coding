@@ -17,6 +17,18 @@ export interface VoiceLiveToken {
   voice_name: string;
   agent_id?: string;
   project_name?: string;
+  // Per-HCP fields from token broker (D-08)
+  avatar_style?: string;
+  avatar_customized?: boolean;
+  voice_type?: string;
+  voice_temperature?: number;
+  voice_custom?: boolean;
+  turn_detection_type?: string;
+  noise_suppression?: boolean;
+  echo_cancellation?: boolean;
+  eou_detection?: boolean;
+  recognition_language?: string;
+  agent_instructions_override?: string;
 }
 
 export interface VoiceLiveConfigStatus {
