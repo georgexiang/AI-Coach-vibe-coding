@@ -128,15 +128,13 @@ def test_build_agent_instructions_emotional_descriptors():
 # --- Test 6: get_project_endpoint derives correct URL ---
 @pytest.mark.asyncio
 async def test_get_project_endpoint():
-    """get_project_endpoint derives URL from master config + project_name."""
+    """get_project_endpoint derives URL from master config default_project."""
     from app.services.agent_sync_service import get_project_endpoint
 
     mock_db = AsyncMock()
 
-    mock_voice_config = MagicMock()
-    mock_voice_config.model_or_deployment = (
-        '{"mode": "agent", "agent_id": "asst_abc", "project_name": "my-project"}'
-    )
+    mock_master = MagicMock()
+    mock_master.default_project = "my-project"
 
     with (
         patch(
@@ -150,9 +148,9 @@ async def test_get_project_endpoint():
             return_value="test-api-key-123",
         ),
         patch(
-            "app.services.agent_sync_service.config_service.get_config",
+            "app.services.agent_sync_service.config_service.get_master_config",
             new_callable=AsyncMock,
-            return_value=mock_voice_config,
+            return_value=mock_master,
         ),
     ):
         endpoint, key = await get_project_endpoint(mock_db)
@@ -169,6 +167,8 @@ async def test_get_project_endpoint_existing_path():
     from app.services.agent_sync_service import get_project_endpoint
 
     mock_db = AsyncMock()
+    mock_master = MagicMock()
+    mock_master.default_project = ""
 
     with (
         patch(
@@ -180,6 +180,11 @@ async def test_get_project_endpoint_existing_path():
             "app.services.agent_sync_service.config_service.get_effective_key",
             new_callable=AsyncMock,
             return_value="key",
+        ),
+        patch(
+            "app.services.agent_sync_service.config_service.get_master_config",
+            new_callable=AsyncMock,
+            return_value=mock_master,
         ),
         patch(
             "app.services.agent_sync_service.config_service.get_config",
@@ -199,6 +204,9 @@ async def test_get_project_endpoint_env_var_fallback():
     from app.services.agent_sync_service import get_project_endpoint
 
     mock_db = AsyncMock()
+    mock_master = MagicMock()
+    mock_master.default_project = ""  # no DB project → fall through to voice_live then env
+
     mock_config = MagicMock()
     mock_config.model_or_deployment = "gpt-4o-realtime"  # model mode, no project
 
@@ -215,6 +223,11 @@ async def test_get_project_endpoint_env_var_fallback():
             "app.services.agent_sync_service.config_service.get_effective_key",
             new_callable=AsyncMock,
             return_value="key",
+        ),
+        patch(
+            "app.services.agent_sync_service.config_service.get_master_config",
+            new_callable=AsyncMock,
+            return_value=mock_master,
         ),
         patch(
             "app.services.agent_sync_service.config_service.get_config",
@@ -238,6 +251,9 @@ async def test_get_project_endpoint_no_project_no_env():
     from app.services.agent_sync_service import get_project_endpoint
 
     mock_db = AsyncMock()
+    mock_master = MagicMock()
+    mock_master.default_project = ""
+
     mock_config = MagicMock()
     mock_config.model_or_deployment = "gpt-4o-realtime"
 
@@ -254,6 +270,11 @@ async def test_get_project_endpoint_no_project_no_env():
             "app.services.agent_sync_service.config_service.get_effective_key",
             new_callable=AsyncMock,
             return_value="key",
+        ),
+        patch(
+            "app.services.agent_sync_service.config_service.get_master_config",
+            new_callable=AsyncMock,
+            return_value=mock_master,
         ),
         patch(
             "app.services.agent_sync_service.config_service.get_config",

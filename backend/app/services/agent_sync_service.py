@@ -135,9 +135,10 @@ async def get_project_endpoint(db: AsyncSession) -> tuple[str, str]:
     """Derive AI Foundry project endpoint and API key from config.
 
     Resolution order for project_name:
-      1. voice_live config model_or_deployment (agent mode JSON)
-      2. AZURE_FOUNDRY_DEFAULT_PROJECT env var (Settings)
-      3. Bare endpoint (no /api/projects/ suffix — will likely 404)
+      1. Master AI Foundry config default_project field (DB)
+      2. voice_live config model_or_deployment (agent mode JSON with project_name)
+      3. AZURE_FOUNDRY_DEFAULT_PROJECT env var (Settings)
+      4. Bare endpoint (no /api/projects/ suffix — will likely 404)
 
     Returns:
         Tuple of (project_endpoint, api_key).
@@ -147,13 +148,18 @@ async def get_project_endpoint(db: AsyncSession) -> tuple[str, str]:
     base_endpoint = await config_service.get_effective_endpoint(db, "azure_voice_live")
     api_key = await config_service.get_effective_key(db, "azure_voice_live")
 
-    voice_config = await config_service.get_config(db, "azure_voice_live")
-    project_name = ""
-    if voice_config and voice_config.model_or_deployment:
-        mode_info = parse_voice_live_mode(voice_config.model_or_deployment)
-        project_name = mode_info.get("project_name", "")
+    # 1. Master config default_project (most authoritative, set via admin UI)
+    master = await config_service.get_master_config(db)
+    project_name = master.default_project if master else ""
 
-    # Fallback: env var AZURE_FOUNDRY_DEFAULT_PROJECT
+    # 2. voice_live config agent mode JSON
+    if not project_name:
+        voice_config = await config_service.get_config(db, "azure_voice_live")
+        if voice_config and voice_config.model_or_deployment:
+            mode_info = parse_voice_live_mode(voice_config.model_or_deployment)
+            project_name = mode_info.get("project_name", "")
+
+    # 3. Fallback: env var AZURE_FOUNDRY_DEFAULT_PROJECT
     if not project_name:
         settings = get_settings()
         project_name = settings.azure_foundry_default_project
@@ -166,11 +172,17 @@ async def get_project_endpoint(db: AsyncSession) -> tuple[str, str]:
     else:
         logger.warning(
             "No project name configured for AI Foundry agent sync. "
-            "Set AZURE_FOUNDRY_DEFAULT_PROJECT env var or configure voice_live "
-            "in agent mode with a project_name."
+            "Set default_project in AI Foundry config or "
+            "AZURE_FOUNDRY_DEFAULT_PROJECT env var."
         )
         project_endpoint = base
 
+    logger.info(
+        "get_project_endpoint: base=%s, project=%s, final=%s",
+        base_endpoint,
+        project_name,
+        project_endpoint,
+    )
     return (project_endpoint, api_key)
 
 
@@ -188,15 +200,23 @@ async def create_agent(
     name: str,
     instructions: str,
     model: str = "gpt-4o",
+    *,
+    endpoint_override: str = "",
+    key_override: str = "",
 ) -> dict:
     """Create an AI Foundry Agent via azure-ai-projects SDK.
 
     Uses the Agent Registry API (client.agents.create_version) with
     PromptAgentDefinition. Returns dict with agent name, version, and id.
+
+    Pass endpoint_override/key_override to skip DB+env lookup (used by batch sync).
     """
     from azure.ai.projects.models import PromptAgentDefinition
 
-    project_endpoint, api_key = await get_project_endpoint(db)
+    if endpoint_override:
+        project_endpoint, api_key = endpoint_override, key_override
+    else:
+        project_endpoint, api_key = await get_project_endpoint(db)
     logger.info("create_agent: endpoint=%s, has_key=%s", project_endpoint, bool(api_key))
     client = _get_project_client(project_endpoint, api_key)
 
@@ -231,15 +251,23 @@ async def update_agent(
     name: str,
     instructions: str,
     model: str = "gpt-4o",
+    *,
+    endpoint_override: str = "",
+    key_override: str = "",
 ) -> dict:
     """Update an existing AI Foundry Agent by creating a new version.
 
     AI Foundry agents are immutable — updates create new versions.
     Returns dict with updated agent metadata.
+
+    Pass endpoint_override/key_override to skip DB+env lookup (used by batch sync).
     """
     from azure.ai.projects.models import PromptAgentDefinition
 
-    project_endpoint, api_key = await get_project_endpoint(db)
+    if endpoint_override:
+        project_endpoint, api_key = endpoint_override, key_override
+    else:
+        project_endpoint, api_key = await get_project_endpoint(db)
     logger.info("update_agent: endpoint=%s, agent_id=%s", project_endpoint, agent_id)
     client = _get_project_client(project_endpoint, api_key)
 
@@ -283,16 +311,19 @@ async def delete_agent(db: AsyncSession, agent_id: str) -> bool:
         return False
 
 
-async def prefetch_sync_config(db: AsyncSession) -> tuple[str, str]:
-    """Pre-fetch config values needed for agent sync (endpoint + model).
+async def prefetch_sync_config(db: AsyncSession) -> tuple[str, str, str]:
+    """Pre-fetch config values needed for agent sync (endpoint, api_key, model).
 
     Call this BEFORE flushing DB writes so the config reads happen before
     any write locks are held (avoids SQLite "database is locked" errors).
+
+    Returns:
+        Tuple of (project_endpoint, api_key, model).
     """
-    endpoint, _ = await get_project_endpoint(db)
+    endpoint, api_key = await get_project_endpoint(db)
     master = await config_service.get_master_config(db)
     model = master.model_or_deployment if master else "gpt-4o"
-    return endpoint, model
+    return endpoint, api_key, model
 
 
 async def sync_agent_for_profile(
@@ -301,6 +332,7 @@ async def sync_agent_for_profile(
     template: str | None = None,
     *,
     prefetched_endpoint: str | None = None,
+    prefetched_key: str | None = None,
     prefetched_model: str | None = None,
 ) -> dict:
     """High-level helper: create or update an AI Foundry agent for an HCP profile.
@@ -308,8 +340,8 @@ async def sync_agent_for_profile(
     If profile.agent_id is truthy, updates the existing agent (creates new version).
     Otherwise, creates a new agent.
 
-    Pass prefetched_endpoint/prefetched_model (from prefetch_sync_config) to avoid
-    DB reads during an active write transaction (prevents SQLite locking).
+    Pass prefetched_endpoint/prefetched_key/prefetched_model (from prefetch_sync_config)
+    to avoid DB reads during an active write transaction (prevents SQLite locking).
     """
     profile_data = profile.to_prompt_dict()
     instructions = build_agent_instructions(profile_data, template)
@@ -321,10 +353,23 @@ async def sync_agent_for_profile(
 
     if profile.agent_id:
         return await update_agent(
-            db, profile.agent_id, profile.name, instructions, prefetched_model
+            db,
+            profile.agent_id,
+            profile.name,
+            instructions,
+            prefetched_model,
+            endpoint_override=prefetched_endpoint or "",
+            key_override=prefetched_key or "",
         )
     else:
-        return await create_agent(db, profile.name, instructions, prefetched_model)
+        return await create_agent(
+            db,
+            profile.name,
+            instructions,
+            prefetched_model,
+            endpoint_override=prefetched_endpoint or "",
+            key_override=prefetched_key or "",
+        )
 
 
 # ---------------------------------------------------------------------------

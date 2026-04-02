@@ -34,6 +34,7 @@ async def get_all_configs(db: AsyncSession) -> list[ServiceConfigResponse]:
                 masked_key=masked_key,
                 model_or_deployment=row.model_or_deployment,
                 region=row.region,
+                default_project=row.default_project,
                 is_master=row.is_master,
                 is_active=row.is_active,
                 updated_at=row.updated_at,
@@ -74,6 +75,7 @@ async def upsert_master_config(
         existing.endpoint = update.endpoint
         existing.region = update.region
         existing.model_or_deployment = update.model_or_deployment
+        existing.default_project = update.default_project
         existing.updated_by = updated_by
         existing.is_active = True
         if update.api_key:
@@ -87,6 +89,7 @@ async def upsert_master_config(
             endpoint=update.endpoint,
             api_key_encrypted=encrypt_value(update.api_key) if update.api_key else "",
             model_or_deployment=update.model_or_deployment,
+            default_project=update.default_project,
             region=update.region,
             is_master=True,
             is_active=True,

@@ -22,6 +22,7 @@ class AIFoundryConfigUpdate(BaseModel):
     region: str  # e.g. eastus2
     api_key: str = ""  # master API key (empty string = preserve existing)
     model_or_deployment: str = ""  # default chat model (e.g. gpt-5.4-mini)
+    default_project: str = ""  # AI Foundry project name for agent sync
 
 
 class ServiceConfigResponse(BaseModel):
@@ -33,6 +34,7 @@ class ServiceConfigResponse(BaseModel):
     masked_key: str
     model_or_deployment: str
     region: str
+    default_project: str = ""
     is_master: bool = False
     is_active: bool
     updated_at: datetime | None = None

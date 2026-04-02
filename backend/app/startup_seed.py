@@ -222,6 +222,7 @@ async def seed_all(session: AsyncSession) -> None:
                     else ""
                 ),
                 model_or_deployment=foundry_settings.azure_openai_deployment or "gpt-4o",
+                default_project=foundry_settings.azure_foundry_default_project,
                 region="swedencentral",
                 is_master=True,
                 is_active=True,

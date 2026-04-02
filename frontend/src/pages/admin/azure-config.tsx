@@ -152,6 +152,7 @@ export default function AzureConfigPage() {
   const [aiFoundryRegion, setAiFoundryRegion] = useState("");
   const [aiFoundryApiKey, setAiFoundryApiKey] = useState("");
   const [aiFoundryModel, setAiFoundryModel] = useState("");
+  const [aiFoundryProject, setAiFoundryProject] = useState("");
   const [showApiKey, setShowApiKey] = useState(false);
 
   // Initialize AI Foundry form from loaded data
@@ -160,6 +161,7 @@ export default function AzureConfigPage() {
       setAiFoundryEndpoint(aiFoundryData.endpoint || "");
       setAiFoundryRegion(aiFoundryData.region || "");
       setAiFoundryModel(aiFoundryData.model_or_deployment || "");
+      setAiFoundryProject(aiFoundryData.default_project || "");
     }
   }, [aiFoundryData]);
 
@@ -193,6 +195,7 @@ export default function AzureConfigPage() {
         region: aiFoundryRegion,
         api_key: aiFoundryApiKey,
         model_or_deployment: aiFoundryModel,
+        default_project: aiFoundryProject,
       },
       {
         onSuccess: () => {
@@ -212,6 +215,7 @@ export default function AzureConfigPage() {
         region: aiFoundryRegion,
         api_key: aiFoundryApiKey,
         model_or_deployment: aiFoundryModel,
+        default_project: aiFoundryProject,
       },
       {
         onSuccess: () => {
@@ -355,6 +359,17 @@ export default function AzureConfigPage() {
                   onChange={(e) => setAiFoundryModel(e.target.value)}
                   placeholder={t("azureConfig.aiFoundry.modelPlaceholder", { defaultValue: "e.g. gpt-5.4-mini" })}
                 />
+              </div>
+              <div className="grid gap-2">
+                <Label>{t("azureConfig.aiFoundry.defaultProject", { defaultValue: "Default Project" })}</Label>
+                <Input
+                  value={aiFoundryProject}
+                  onChange={(e) => setAiFoundryProject(e.target.value)}
+                  placeholder={t("azureConfig.aiFoundry.defaultProjectPlaceholder", { defaultValue: "e.g. my-ai-project" })}
+                />
+                <p className="text-xs text-muted-foreground">
+                  {t("azureConfig.aiFoundry.defaultProjectHint", { defaultValue: "AI Foundry project name — required for HCP agent sync" })}
+                </p>
               </div>
             </div>
             <div className="grid gap-2">

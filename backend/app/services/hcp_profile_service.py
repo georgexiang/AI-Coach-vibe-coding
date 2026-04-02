@@ -22,9 +22,9 @@ async def create_hcp_profile(db: AsyncSession, data: HcpProfileCreate, user_id: 
     """Create a new HCP profile."""
     # Pre-fetch config BEFORE any writes to avoid SQLite locking
     try:
-        endpoint, model = await agent_sync_service.prefetch_sync_config(db)
+        endpoint, api_key, model = await agent_sync_service.prefetch_sync_config(db)
     except Exception:
-        endpoint, model = None, None
+        endpoint, api_key, model = None, None, None
 
     profile_data = data.model_dump()
     profile_data["created_by"] = user_id
@@ -44,7 +44,11 @@ async def create_hcp_profile(db: AsyncSession, data: HcpProfileCreate, user_id: 
     await db.flush()
     try:
         result = await agent_sync_service.sync_agent_for_profile(
-            db, profile, prefetched_endpoint=endpoint, prefetched_model=model
+            db,
+            profile,
+            prefetched_endpoint=endpoint,
+            prefetched_key=api_key,
+            prefetched_model=model,
         )
         profile.agent_id = result.get("id", "")
         profile.agent_version = str(result.get("version", ""))
@@ -109,9 +113,9 @@ async def update_hcp_profile(
     """Update an existing HCP profile with partial data."""
     # Pre-fetch config BEFORE any writes to avoid SQLite locking
     try:
-        endpoint, model = await agent_sync_service.prefetch_sync_config(db)
+        endpoint, api_key, model = await agent_sync_service.prefetch_sync_config(db)
     except Exception:
-        endpoint, model = None, None
+        endpoint, api_key, model = None, None, None
 
     profile = await get_hcp_profile(db, profile_id)
     update_data = data.model_dump(exclude_unset=True)
@@ -132,7 +136,11 @@ async def update_hcp_profile(
     await db.flush()
     try:
         result = await agent_sync_service.sync_agent_for_profile(
-            db, profile, prefetched_endpoint=endpoint, prefetched_model=model
+            db,
+            profile,
+            prefetched_endpoint=endpoint,
+            prefetched_key=api_key,
+            prefetched_model=model,
         )
         if not profile.agent_id and result.get("id"):
             profile.agent_id = result["id"]
@@ -166,9 +174,9 @@ async def retry_agent_sync(db: AsyncSession, profile_id: str) -> HcpProfile:
     """Retry agent sync for a profile with failed sync status (D-11)."""
     # Pre-fetch config BEFORE any writes to avoid SQLite locking
     try:
-        endpoint, model = await agent_sync_service.prefetch_sync_config(db)
+        endpoint, api_key, model = await agent_sync_service.prefetch_sync_config(db)
     except Exception:
-        endpoint, model = None, None
+        endpoint, api_key, model = None, None, None
 
     profile = await get_hcp_profile(db, profile_id)
     profile.agent_sync_status = "pending"
@@ -176,7 +184,11 @@ async def retry_agent_sync(db: AsyncSession, profile_id: str) -> HcpProfile:
     await db.flush()
     try:
         result = await agent_sync_service.sync_agent_for_profile(
-            db, profile, prefetched_endpoint=endpoint, prefetched_model=model
+            db,
+            profile,
+            prefetched_endpoint=endpoint,
+            prefetched_key=api_key,
+            prefetched_model=model,
         )
         if result.get("id"):
             profile.agent_id = result["id"]
@@ -198,7 +210,7 @@ async def batch_sync_agents(db: AsyncSession) -> dict:
     """
     # Pre-fetch config once for all syncs
     try:
-        endpoint, model = await agent_sync_service.prefetch_sync_config(db)
+        endpoint, api_key, model = await agent_sync_service.prefetch_sync_config(db)
     except Exception as e:
         return {"synced": 0, "failed": 0, "skipped": 0, "error": str(e)[:500]}
 
@@ -220,7 +232,11 @@ async def batch_sync_agents(db: AsyncSession) -> dict:
         await db.flush()
         try:
             sync_result = await agent_sync_service.sync_agent_for_profile(
-                db, profile, prefetched_endpoint=endpoint, prefetched_model=model
+                db,
+                profile,
+                prefetched_endpoint=endpoint,
+                prefetched_key=api_key,
+                prefetched_model=model,
             )
             if sync_result.get("id"):
                 profile.agent_id = sync_result["id"]
