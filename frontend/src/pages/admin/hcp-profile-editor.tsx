@@ -1,22 +1,11 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { useForm } from "react-hook-form";
+import { useForm, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import {
-  ArrowLeft,
-  Save,
-  MessageSquare,
-  RefreshCw,
-  ExternalLink,
-  Bot,
-  CheckCircle2,
-  XCircle,
-  Clock,
-  AlertTriangle,
-} from "lucide-react";
+import { ArrowLeft, Save, MessageSquare, RefreshCw } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -38,24 +27,19 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Label } from "@/components/ui/label";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { PersonalitySliders } from "@/components/admin/personality-sliders";
 import { ObjectionList } from "@/components/admin/objection-list";
 import { TestChatDialog } from "@/components/admin/test-chat-dialog";
+import { VoiceAvatarTab } from "@/components/admin/voice-avatar-tab";
+import { AgentTab } from "@/components/admin/agent-tab";
 import {
   useHcpProfile,
   useCreateHcpProfile,
   useUpdateHcpProfile,
   useRetrySyncHcpProfile,
 } from "@/hooks/use-hcp-profiles";
-import { getAgentPortalUrl } from "@/api/hcp-profiles";
 import type { HcpProfileCreate, HcpProfileUpdate } from "@/types/hcp";
-import { cn } from "@/lib/utils";
-import { useState } from "react";
 
 const SPECIALTIES = [
   "Oncology",
@@ -74,8 +58,8 @@ const DIFFICULTIES = ["easy", "medium", "hard"] as const;
 const hcpSchema = z.object({
   name: z.string().min(1, "Name is required"),
   specialty: z.string().min(1, "Specialty is required"),
-  hospital: z.string().optional(),
-  title: z.string().optional(),
+  hospital: z.string().default(""),
+  title: z.string().default(""),
   personality_type: z.enum([
     "friendly",
     "skeptical",
@@ -86,41 +70,28 @@ const hcpSchema = z.object({
   emotional_state: z.number().min(0).max(100),
   communication_style: z.number().min(0).max(100),
   expertise_areas: z.array(z.string()),
-  prescribing_habits: z.string().optional(),
-  concerns: z.string().optional(),
+  prescribing_habits: z.string().default(""),
+  concerns: z.string().default(""),
   objections: z.array(z.string()),
   probe_topics: z.array(z.string()),
   difficulty: z.enum(["easy", "medium", "hard"]),
+  // Voice/avatar fields
+  voice_name: z.string().default("en-US-AvaNeural"),
+  voice_type: z.string().default("azure-standard"),
+  voice_temperature: z.number().min(0).max(1).default(0.9),
+  voice_custom: z.boolean().default(false),
+  avatar_character: z.string().default("lori"),
+  avatar_style: z.string().default("casual"),
+  avatar_customized: z.boolean().default(false),
+  turn_detection_type: z.string().default("server_vad"),
+  noise_suppression: z.boolean().default(false),
+  echo_cancellation: z.boolean().default(false),
+  eou_detection: z.boolean().default(false),
+  recognition_language: z.string().default("auto"),
+  agent_instructions_override: z.string().default(""),
 });
 
-type HcpFormValues = z.infer<typeof hcpSchema>;
-
-const AGENT_STATUS_CONFIG = {
-  synced: {
-    icon: CheckCircle2,
-    color: "text-green-600",
-    bg: "bg-green-50 border-green-200",
-    label: "Agent Synced",
-  },
-  pending: {
-    icon: Clock,
-    color: "text-amber-600",
-    bg: "bg-amber-50 border-amber-200",
-    label: "Sync Pending",
-  },
-  failed: {
-    icon: XCircle,
-    color: "text-red-600",
-    bg: "bg-red-50 border-red-200",
-    label: "Sync Failed",
-  },
-  none: {
-    icon: AlertTriangle,
-    color: "text-muted-foreground",
-    bg: "bg-muted/50 border-muted",
-    label: "No Agent",
-  },
-} as const;
+export type HcpFormValues = z.infer<typeof hcpSchema>;
 
 export default function HcpProfileEditorPage() {
   const { id } = useParams<{ id: string }>();
@@ -136,7 +107,7 @@ export default function HcpProfileEditorPage() {
   const [testChatOpen, setTestChatOpen] = useState(false);
 
   const form = useForm<HcpFormValues>({
-    resolver: zodResolver(hcpSchema),
+    resolver: zodResolver(hcpSchema) as Resolver<HcpFormValues>,
     defaultValues: {
       name: "",
       specialty: "",
@@ -151,6 +122,19 @@ export default function HcpProfileEditorPage() {
       objections: [],
       probe_topics: [],
       difficulty: "medium",
+      voice_name: "en-US-AvaNeural",
+      voice_type: "azure-standard",
+      voice_temperature: 0.9,
+      voice_custom: false,
+      avatar_character: "lori",
+      avatar_style: "casual",
+      avatar_customized: false,
+      turn_detection_type: "server_vad",
+      noise_suppression: false,
+      echo_cancellation: false,
+      eou_detection: false,
+      recognition_language: "auto",
+      agent_instructions_override: "",
     },
   });
 
@@ -170,6 +154,20 @@ export default function HcpProfileEditorPage() {
         objections: profile.objections,
         probe_topics: profile.probe_topics,
         difficulty: profile.difficulty,
+        voice_name: profile.voice_name ?? "en-US-AvaNeural",
+        voice_type: profile.voice_type ?? "azure-standard",
+        voice_temperature: profile.voice_temperature ?? 0.9,
+        voice_custom: profile.voice_custom ?? false,
+        avatar_character: profile.avatar_character ?? "lori",
+        avatar_style: profile.avatar_style ?? "casual",
+        avatar_customized: profile.avatar_customized ?? false,
+        turn_detection_type: profile.turn_detection_type ?? "server_vad",
+        noise_suppression: profile.noise_suppression ?? false,
+        echo_cancellation: profile.echo_cancellation ?? false,
+        eou_detection: profile.eou_detection ?? false,
+        recognition_language: profile.recognition_language ?? "auto",
+        agent_instructions_override:
+          profile.agent_instructions_override ?? "",
       });
     }
   }, [profile, form]);
@@ -232,10 +230,6 @@ export default function HcpProfileEditorPage() {
     );
   }
 
-  const agentStatus = profile?.agent_sync_status ?? "none";
-  const statusConfig = AGENT_STATUS_CONFIG[agentStatus];
-  const StatusIcon = statusConfig.icon;
-
   return (
     <div className="max-w-4xl mx-auto">
       {/* Header */}
@@ -276,14 +270,24 @@ export default function HcpProfileEditorPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-6">
-        {/* Left: Main form (2 cols) */}
-        <div className="col-span-2 space-y-6">
-          <Form {...form}>
-            <form
-              onSubmit={form.handleSubmit(handleSubmit)}
-              className="space-y-6"
-            >
+      {/* Form wraps entire Tabs so state persists across tab switches */}
+      <Form {...form}>
+        <Tabs defaultValue="profile">
+          <TabsList className="w-full">
+            <TabsTrigger value="profile" className="flex-1">
+              {t("admin:hcp.tabProfile")}
+            </TabsTrigger>
+            <TabsTrigger value="voice-avatar" className="flex-1">
+              {t("admin:hcp.tabVoiceAvatar")}
+            </TabsTrigger>
+            <TabsTrigger value="agent" className="flex-1">
+              {t("admin:hcp.tabAgent")}
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Profile Tab */}
+          <TabsContent value="profile" className="mt-4">
+            <div className="space-y-6">
               {/* Identity Card */}
               <Card>
                 <CardHeader>
@@ -453,7 +457,9 @@ export default function HcpProfileEditorPage() {
                   />
                   <ObjectionList
                     items={form.watch("probe_topics")}
-                    onChange={(items) => form.setValue("probe_topics", items)}
+                    onChange={(items) =>
+                      form.setValue("probe_topics", items)
+                    }
                     label={t("admin:hcp.probeTopics")}
                     addLabel={t("admin:hcp.addTopic")}
                   />
@@ -480,133 +486,26 @@ export default function HcpProfileEditorPage() {
                   </div>
                 </CardContent>
               </Card>
-            </form>
-          </Form>
-        </div>
+            </div>
+          </TabsContent>
 
-        {/* Right sidebar: Agent info (1 col) */}
-        <div className="space-y-6">
-          {/* Agent Status Card */}
-          <Card className={cn("border", statusConfig.bg)}>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base font-semibold flex items-center gap-2">
-                <Bot className="size-5" />
-                AI Foundry Agent
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Status */}
-              <div className="flex items-center gap-2">
-                <StatusIcon className={cn("size-5", statusConfig.color)} />
-                <span className={cn("text-sm font-medium", statusConfig.color)}>
-                  {statusConfig.label}
-                </span>
-              </div>
+          {/* Voice & Avatar Tab */}
+          <TabsContent value="voice-avatar" className="mt-4">
+            <VoiceAvatarTab form={form} />
+          </TabsContent>
 
-              {/* Agent ID */}
-              {profile?.agent_id && (
-                <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">
-                    Agent ID
-                  </Label>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <p className="text-sm font-mono bg-background/80 rounded px-2 py-1 truncate border">
-                        {profile.agent_id}
-                      </p>
-                    </TooltipTrigger>
-                    <TooltipContent>{profile.agent_id}</TooltipContent>
-                  </Tooltip>
-                </div>
-              )}
-
-              {/* Error message */}
-              {agentStatus === "failed" && profile?.agent_sync_error && (
-                <div className="space-y-1">
-                  <Label className="text-xs text-red-600">Error</Label>
-                  <p className="text-xs text-red-600 bg-red-50 rounded px-2 py-1 border border-red-200 max-h-24 overflow-y-auto">
-                    {profile.agent_sync_error}
-                  </p>
-                </div>
-              )}
-
-              {/* Actions */}
-              <div className="flex flex-col gap-2 pt-2">
-                {(agentStatus === "failed" || agentStatus === "none") && !isNew && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleRetrySync}
-                    disabled={retrySyncMutation.isPending}
-                    className="w-full"
-                  >
-                    <RefreshCw
-                      className={cn(
-                        "size-4 mr-2",
-                        retrySyncMutation.isPending && "animate-spin",
-                      )}
-                    />
-                    {retrySyncMutation.isPending
-                      ? "Syncing..."
-                      : t("admin:hcp.retrySync")}
-                  </Button>
-                )}
-                {profile?.agent_id && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="w-full text-xs"
-                    onClick={async () => {
-                      try {
-                        const result = await getAgentPortalUrl(profile.id);
-                        window.open(result.url, "_blank", "noopener,noreferrer");
-                      } catch {
-                        window.open("https://ai.azure.com", "_blank", "noopener,noreferrer");
-                      }
-                    }}
-                  >
-                    <ExternalLink className="size-3.5 mr-1.5" />
-                    View in Azure Portal
-                  </Button>
-                )}
-              </div>
-
-              {/* Info for new profiles */}
-              {isNew && (
-                <p className="text-xs text-muted-foreground">
-                  An AI Foundry Agent will be automatically created when you save
-                  this profile. The agent will use the profile data as its
-                  instructions.
-                </p>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Timestamps */}
-          {!isNew && profile && (
-            <Card>
-              <CardContent className="pt-6 space-y-3">
-                <div>
-                  <Label className="text-xs text-muted-foreground">
-                    Created
-                  </Label>
-                  <p className="text-sm">
-                    {new Date(profile.created_at).toLocaleString()}
-                  </p>
-                </div>
-                <div>
-                  <Label className="text-xs text-muted-foreground">
-                    Last Updated
-                  </Label>
-                  <p className="text-sm">
-                    {new Date(profile.updated_at).toLocaleString()}
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-      </div>
+          {/* Agent Tab */}
+          <TabsContent value="agent" className="mt-4">
+            <AgentTab
+              form={form}
+              profile={profile}
+              isNew={isNew}
+              onRetrySync={handleRetrySync}
+              retrySyncPending={retrySyncMutation.isPending}
+            />
+          </TabsContent>
+        </Tabs>
+      </Form>
 
       {/* Test Chat Dialog */}
       {!isNew && profile && (

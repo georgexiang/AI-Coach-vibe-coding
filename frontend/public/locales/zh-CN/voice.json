@@ -68,7 +68,14 @@
     "tokenExpired": "会话令牌已过期。正在重新连接...",
     "regionUnsupported": "Voice Live API 在配置的区域不可用。请查阅 Azure 文档了解支持的区域。",
     "audioWorkletFailed": "音频系统初始化失败。请刷新页面。",
-    "webrtcFailed": "视频连接失败。切换到纯语音模式。"
+    "webrtcFailed": "视频连接失败。切换到纯语音模式。",
+    "avatarFallback": "数字人不可用，已切换为语音模式",
+    "voiceFallback": "语音不可用，已切换为文字模式"
+  },
+  "modeStatus": {
+    "connected": "已连接",
+    "degraded": "降级模式",
+    "disconnected": "已断开"
   },
   "endSession": "结束对话",
   "endSessionTitle": "结束语音对话",

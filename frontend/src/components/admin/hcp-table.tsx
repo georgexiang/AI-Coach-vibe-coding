@@ -15,8 +15,23 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/shared/empty-state";
 import type { HcpProfile } from "@/types/hcp";
+
+function getVoiceLabel(voiceName: string): string {
+  if (!voiceName) return "";
+  // Extract short name from Azure voice ID
+  // e.g., "en-US-AvaNeural" -> "Ava", "zh-CN-XiaoxiaoMultilingualNeural" -> "Xiaoxiao ML"
+  const parts = voiceName.split("-");
+  if (parts.length < 3) return voiceName;
+  const namePart = parts.slice(2).join("-");
+  const cleaned = namePart
+    .replace("Neural", "")
+    .replace("Multilingual", "ML")
+    .replace(":DragonHDLatest", " HD");
+  return cleaned || voiceName;
+}
 
 interface HcpTableProps {
   profiles: HcpProfile[];
@@ -162,6 +177,9 @@ export function HcpTable({
               <th className="px-4 py-3 text-left font-medium">
                 {t("hcp.agentStatus")}
               </th>
+              <th className="px-4 py-3 text-left font-medium">
+                {t("hcp.voiceAvatarCol")}
+              </th>
               <th className="px-4 py-3 text-right font-medium">
                 {t("hcp.actions")}
               </th>
@@ -190,13 +208,16 @@ export function HcpTable({
                     <Skeleton className="h-5 w-[60px] rounded-full" />
                   </td>
                   <td className="px-4 py-3">
+                    <Skeleton className="h-5 w-[100px] rounded" />
+                  </td>
+                  <td className="px-4 py-3">
                     <Skeleton className="size-5 rounded" />
                   </td>
                 </tr>
               ))
             ) : paged.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-8">
+                <td colSpan={7} className="px-4 py-8">
                   <EmptyState
                     title={t("hcp.emptyTitle")}
                     body={t("hcp.emptyBody")}
@@ -243,6 +264,22 @@ export function HcpTable({
                       status={profile.agent_sync_status}
                       error={profile.agent_sync_error}
                     />
+                  </td>
+                  <td className="px-4 py-3">
+                    {profile.voice_name ? (
+                      <span className="flex items-center gap-1">
+                        <Badge variant="outline" className="text-xs">
+                          {getVoiceLabel(profile.voice_name)}
+                        </Badge>
+                        <Badge variant="outline" className="text-xs">
+                          {profile.avatar_character}-{profile.avatar_style}
+                        </Badge>
+                      </span>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">
+                        {t("hcp.notConfigured")}
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-1">
