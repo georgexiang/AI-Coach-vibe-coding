@@ -99,4 +99,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-31 after Phase 11 completion — HCP Profile Agent Integration (auto-create AI Foundry agents on HCP CRUD, agent sync status badges, table UI, token broker per-HCP agent_id)*
+*Last updated: 2026-04-02 after Phase 12 completion — Voice Realtime API & Agent Mode Integration (per-HCP digital persona with voice/avatar/conversation config, auto-mode selection with fallback chain, tabbed HCP editor, token broker per-HCP settings)*
