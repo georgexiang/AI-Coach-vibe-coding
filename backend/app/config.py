@@ -65,6 +65,9 @@ class Settings(BaseSettings):
     # Encryption (for API key storage)
     encryption_key: str = ""  # Set via ENCRYPTION_KEY env var; generated at runtime if empty
 
+    # Seed data control: set SEED_DATA_IGNORE=true to skip seed on startup
+    seed_data_ignore: bool = False
+
     # Default AI provider per category
     default_llm_provider: str = "mock"
     default_stt_provider: str = "mock"
