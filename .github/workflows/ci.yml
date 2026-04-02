@@ -116,7 +116,8 @@ jobs:
           az containerapp update \
             --name ai-coach-frontend \
             --resource-group ${{ vars.RESOURCE_GROUP }} \
-            --image ${{ vars.ACR_NAME }}.azurecr.io/ai-coach-frontend:${{ github.sha }}
+            --image ${{ vars.ACR_NAME }}.azurecr.io/ai-coach-frontend:${{ github.sha }} \
+            --set-env-vars "BACKEND_URL=https://${{ steps.backend-fqdn.outputs.fqdn }}"
 
       - name: Verify Deployment
         run: |

@@ -65,6 +65,74 @@ async def lifespan(app: FastAPI):
             "avatar", AzureAvatarAdapter(settings.azure_avatar_endpoint, settings.azure_avatar_key)
         )
 
+    # Seed initial data (idempotent — skips if data exists)
+    from app.database import AsyncSessionLocal as _SeedSessionLocal
+
+    try:
+        async with _SeedSessionLocal() as seed_session:
+            from sqlalchemy import select as seed_select
+
+            from app.models.user import User
+            from app.services.auth import get_password_hash
+
+            seed_users = [
+                {
+                    "username": "admin",
+                    "email": "admin@aicoach.com",
+                    "password": "admin123",
+                    "role": "admin",
+                    "full_name": "System Admin",
+                    "preferred_language": "zh-CN",
+                    "business_unit": "",
+                },
+                {
+                    "username": "user1",
+                    "email": "user1@aicoach.com",
+                    "password": "user123",
+                    "role": "user",
+                    "full_name": "Zhang Wei",
+                    "preferred_language": "zh-CN",
+                    "business_unit": "Oncology BU (肿瘤事业部)",
+                },
+                {
+                    "username": "user2",
+                    "email": "user2@aicoach.com",
+                    "password": "user123",
+                    "role": "user",
+                    "full_name": "Li Ming",
+                    "preferred_language": "zh-CN",
+                    "business_unit": "Hematology BU (血液事业部)",
+                },
+                {
+                    "username": "user3",
+                    "email": "user3@aicoach.com",
+                    "password": "user123",
+                    "role": "user",
+                    "full_name": "Wang Fang",
+                    "preferred_language": "en-US",
+                    "business_unit": "Solid Tumor BU (实体瘤事业部)",
+                },
+            ]
+            for ud in seed_users:
+                result = await seed_session.execute(
+                    seed_select(User).where(User.username == ud["username"])
+                )
+                if result.scalar_one_or_none() is None:
+                    seed_session.add(
+                        User(
+                            username=ud["username"],
+                            email=ud["email"],
+                            hashed_password=get_password_hash(ud["password"]),
+                            full_name=ud["full_name"],
+                            role=ud["role"],
+                            preferred_language=ud["preferred_language"],
+                            business_unit=ud.get("business_unit", ""),
+                        )
+                    )
+            await seed_session.commit()
+    except Exception:
+        pass  # Tolerate missing table on first run
+
     # Load active configs from DB and register real adapters (overrides mocks)
     # First load master AI Foundry config, then pass it to per-service registrations
     from app.api.azure_config import register_adapter_from_config

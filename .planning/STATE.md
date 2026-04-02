@@ -221,6 +221,7 @@ None yet.
 - Phase 07 added: Azure Service Integration — admin Azure config persistence, real connection testing, dynamic provider switching (mock → Azure OpenAI/Speech/Avatar)
 - Phase 10 added: UI Polish & Professional Unification — comprehensive UI overhaul for professional appearance, unified design language, polished visuals for BeiGene demo
 - Phase 11 added: HCP Profile Agent Integration — Auto-create AI Foundry agent when adding HCP profiles
+- Phase 12 added: voice realtime api & agent模式联调
 
 ### Quick Tasks Completed
 

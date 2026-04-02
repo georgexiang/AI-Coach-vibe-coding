@@ -311,3 +311,13 @@ Plans:
 - [x] 11-03-PLAN.md -- Frontend: TypeScript types, API client, hooks, i18n keys, HcpTable component, HCP profiles page rewrite (table layout)
 
 **UI hint**: yes
+
+### Phase 12: voice realtime api & agent模式联调
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 11
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 12 to break down)
