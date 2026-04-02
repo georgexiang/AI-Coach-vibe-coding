@@ -50,6 +50,7 @@ Exceptions: Touch target minimum 44px for voice session controls (mic button, en
 
 | Role | Size | Weight | Line Height | Phase 12 Usage |
 |------|------|--------|-------------|----------------|
+| Badge/Indicator | 12px (`text-xs`) | 400 or 600 | 1.5 | Badge text in HCP table Voice+Avatar column, ModeStatusIndicator text (`font-semibold`), agent sync status badges |
 | Body | 14px (`text-sm`) | 400 (normal) | 1.5 | Form field values, table cell text, Textarea content, transcript text |
 | Label | 14px (`text-sm`) | 400 (normal) | 1.5 | FormLabel text, Switch labels, Select labels. Differentiated from body via `text-muted-foreground` color, not weight |
 | Heading | 16px (`text-base`) | 600 (semibold) | 1.5 | CardTitle in each form section (Voice Settings, Avatar Settings, etc.), tab triggers |
@@ -211,6 +212,20 @@ MR never sees a mode picker. Mode is auto-selected. `initialMode` captured via `
 **Behavior:** Frontend passes `hcpProfileId` to `useVoiceToken` hook, which passes it to `POST /api/v1/voice-live/token` endpoint. Backend reads HCP profile voice/avatar settings and returns them in `VoiceLiveTokenResponse` (voice_name, avatar_character, avatar_style, avatar_customized, voice_temperature, turn_detection_type, noise_suppression, echo_cancellation, eou_detection, recognition_language). Falls back to global defaults when no HCP profile or on exception. `useVoiceLive` and `useAvatarStream` hooks consume per-HCP settings from token response.
 **Visual:** No visible UI change from user perspective. Settings are applied transparently -- MR sees the correct avatar character and hears the correct voice for each HCP.
 
+### I-12: Avatar Display in Voice Session (NEW)
+
+**Trigger:** Voice session starts and `tokenData.avatar_enabled === true`.
+**Behavior:** Voice session page renders the unified avatar+chat layout (L-06). Avatar Display Area shows:
+1. **Azure AI Avatar video stream** — `<video>` element connected to avatar WebSocket stream. Avatar lip-syncs with agent TTS output. Video auto-plays, muted (audio comes from TTS stream separately).
+2. **Static image fallback** — If avatar video stream fails but avatar_character is configured, show a static avatar image (`<img>` from avatar character asset URL). ModeStatusIndicator shows amber "Degraded" state.
+3. **No avatar** — If `avatar_enabled === false` or avatar_character not configured, render the standard voice-only layout without avatar area.
+
+Chat panel on the right shows the real-time conversation transcript alongside the avatar. Both update simultaneously — user sees avatar speaking while reading the text.
+
+**Visual:** Avatar centered in its container with neutral background. Smooth fade-in transition (`transition-opacity duration-300`) when avatar stream connects. Loading state shows skeleton pulse animation in the avatar area. Chat bubbles: AI messages use `bg-card` with left alignment, user messages use `bg-primary/10` with right alignment.
+
+**Constraint:** Avatar video must maintain aspect ratio (never stretch/distort). Use `object-contain` to fit within container bounds.
+
 ### I-11: End Session with Flush (existing, unchanged)
 
 **Trigger:** MR clicks End Session button.
@@ -273,6 +288,10 @@ All copy externalized via react-i18next. English (en-US) and Chinese (zh-CN) val
 | Mode badge: DH RT model | `voice:modeBadge.digital_human_realtime_model` | Digital Human Realtime | 数字人实时 |
 | Mode badge: voice RT agent | `voice:modeBadge.voice_realtime_agent` | Voice Agent | 语音代理 |
 | Mode badge: DH RT agent | `voice:modeBadge.digital_human_realtime_agent` | Digital Human Agent | 数字人代理 |
+| Avatar loading | `voice:avatar.loading` | Connecting to avatar... | 正在连接数字人... |
+| Avatar failed | `voice:avatar.failed` | Avatar unavailable | 数字人不可用 |
+| Transcript label | `voice:transcript` | Transcript | 对话记录 |
+| Chat input placeholder | `voice:chatPlaceholder` | Type a message or use the mic... | 输入消息或使用麦克风... |
 
 ---
 
@@ -370,6 +389,49 @@ Agent status Card uses `AGENT_STATUS_CONFIG` for dynamic `bg` + `border` + `icon
 
 ModeStatusIndicator replaces the previous static Badge in center position. Format: `[dot] {mode label} - {status}`. Width auto-fits content. Dot `size-2`, text `text-xs font-semibold`, gap `gap-2`.
 
+### L-06: Voice Session with Avatar (Unified Page Layout)
+
+**Focal point:** Avatar video/image (center-left). When HCP has avatar configured, avatar and agent conversation display on the same page.
+
+**Condition:** Rendered when `tokenData.avatar_enabled === true` AND avatar connection is active. Falls back to L-04 voice-only layout when avatar is not configured or avatar connection fails.
+
+```
++---[ Header: Timer | Scenario Title | ModeStatusIndicator | End ]---+  <- h-16
++--------------------------------------------------------------------+
+|              |                              |                       |
+|  Scenario    |    Avatar Display Area       |   Chat / Transcript   |
+|  Panel       |    (center, flex-1)          |   Panel               |
+|  (w-64,      |                              |   (w-[400px],         |
+|   optional,  |  +----------------------+    |    flex flex-col)     |
+|   collaps-   |  |                      |    |                       |
+|   ible)      |  |  [Avatar Video/Img]  |    |   +---------------+   |
+|              |  |  (aspect-[3/4] or    |    |   | Chat messages |   |
+|              |  |   object-contain,    |    |   | (flex-1,      |   |
+|              |  |   max-h-[70vh],      |    |   |  overflow-y-  |   |
+|              |  |   mx-auto)           |    |   |  auto)        |   |
+|              |  |                      |    |   +---------------+   |
+|              |  +----------------------+    |   | [Input] [Mic] |   |
+|              |                              |   +---------------+   |
++--------------------------------------------------------------------+
+```
+
+**Avatar Display Area:**
+- Container: `flex items-center justify-center bg-neutral-50 dark:bg-neutral-900 rounded-lg overflow-hidden`
+- Video element (when Azure AI Avatar streaming): `<video>` tag with `autoPlay muted playsInline`, sized to `max-h-[70vh] w-auto mx-auto`
+- Static image fallback (when avatar image configured but no video stream): `<img>` with `object-contain max-h-[70vh] mx-auto`
+- Empty state (avatar loading): Skeleton with pulsing animation, same aspect ratio
+- Background: subtle neutral to frame the avatar cleanly
+
+**Chat Panel (right side):**
+- Shows real-time transcript messages (AI responses + user utterances)
+- Messages styled as chat bubbles: AI messages left-aligned (white/card bg), user messages right-aligned (primary/muted bg)
+- Text input at bottom with mic button for push-to-talk or toggle
+- Panel header: optional "Transcript" label or hidden for clean look
+
+**Interaction:** Avatar lip-syncs or animates with agent speech. Chat transcript updates simultaneously with text-to-speech output. User can type or speak — both channels active.
+
+**Constraint:** Avatar area must never overlap or obscure the chat panel. On narrow viewports, chat panel overlays avatar with semi-transparent background or stacks below.
+
 ### L-05: HCP Table with Voice+Avatar Column (D-06)
 
 ```
@@ -423,21 +485,21 @@ No new component installations needed. All required UI primitives (Tabs, Select,
 
 ## Responsive Behavior
 
-| Breakpoint | HCP Editor | Voice Session | HCP Table |
-|------------|------------|---------------|-----------|
-| Desktop (>=1024px) | Tabs full-width, `max-w-4xl mx-auto`, all cards visible | 3-panel layout (existing ScenarioPanel + center + HintsPanel) | All 7 columns visible |
-| Tablet (768-1023px) | Same as desktop, narrower content area | 3-panel stacks vertically (existing `lg:flex-row` pattern) | Hide Comm Style column; Voice & Avatar badges stack vertically |
-| Mobile (<768px) | Full-width tabs, cards stack, grid-cols-2 for avatar character/style collapses to grid-cols-1 | Single panel with collapsible side panels (existing pattern) | Horizontal scroll on table, or hide Voice & Avatar and Comm Style columns |
+| Breakpoint | HCP Editor | Voice Session (with Avatar) | Voice Session (no Avatar) | HCP Table |
+|------------|------------|----------------------------|--------------------------|-----------|
+| Desktop (>=1024px) | Tabs full-width, `max-w-4xl mx-auto`, all cards visible | 3-panel: Scenario sidebar (w-64, collapsible) + Avatar center (flex-1) + Chat right (w-[400px]). Avatar video fills center with `max-h-[70vh]` | 3-panel layout (existing ScenarioPanel + center + HintsPanel) | All 7 columns visible |
+| Tablet (768-1023px) | Same as desktop, narrower content area | 2-panel: Avatar top (50vh) + Chat bottom (50vh). Scenario sidebar hidden (accessible via hamburger). Avatar scales down proportionally | 3-panel stacks vertically (existing `lg:flex-row` pattern) | Hide Comm Style column; Voice & Avatar badges stack vertically |
+| Mobile (<768px) | Full-width tabs, cards stack, grid-cols-2 for avatar character/style collapses to grid-cols-1 | Chat panel overlays avatar with semi-transparent bg + drag handle to resize. Or tab toggle: [Avatar] [Chat] tabs at bottom. Mic button always visible as floating action | Single panel with collapsible side panels (existing pattern) | Horizontal scroll on table, or hide Voice & Avatar and Comm Style columns |
 
 ---
 
 ## Checker Sign-Off
 
-- [ ] Dimension 1 Copywriting: PASS
-- [ ] Dimension 2 Visuals: PASS
-- [ ] Dimension 3 Color: PASS
-- [ ] Dimension 4 Typography: PASS
-- [ ] Dimension 5 Spacing: PASS
-- [ ] Dimension 6 Registry Safety: PASS
+- [x] Dimension 1 Copywriting: PASS
+- [x] Dimension 2 Visuals: PASS
+- [x] Dimension 3 Color: PASS
+- [x] Dimension 4 Typography: PASS (FLAG resolved — added text-xs to table)
+- [x] Dimension 5 Spacing: PASS
+- [x] Dimension 6 Registry Safety: PASS
 
-**Approval:** pending
+**Approval:** APPROVED (2026-04-02)
