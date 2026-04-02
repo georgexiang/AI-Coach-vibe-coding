@@ -23,6 +23,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 09: Integration Testing with Real Azure Services** - Unified AI Foundry config, 7 interaction modes, agent mode runtime, integration tests, E2E demo validation (completed 2026-03-29)
 - [x] **Phase 10: UI Polish & Professional Unification** - Comprehensive UI overhaul for professional appearance, unified design language, polished visuals for BeiGene customer demo (completed 2026-03-29)
 - [x] **Phase 11: HCP Profile Agent Integration** - Auto-create AI Foundry agent when adding HCP profiles, bidirectional sync, table UI redesign (completed 2026-03-31)
+- [ ] **Phase 12: Voice Realtime API & Agent Mode Integration** - Per-HCP digital persona (voice/avatar/conversation config), auto-mode selection, fallback chain, tabbed HCP editor
 
 ## Phase Details
 
@@ -192,7 +193,7 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 01 -> 01.1 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07 -> 08 -> 09 -> 10 -> 11
+Phases execute in numeric order: 01 -> 01.1 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07 -> 08 -> 09 -> 10 -> 11 -> 12
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -208,6 +209,7 @@ Phases execute in numeric order: 01 -> 01.1 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07 
 | 09. Integration Testing with Real Azure Services | 5/5 | Complete    | 2026-03-29 |
 | 10. UI Polish & Professional Unification | 6/6 | Complete    | 2026-03-29 |
 | 11. HCP Profile Agent Integration | 3/3 | Complete    | 2026-03-31 |
+| 12. Voice Realtime API & Agent Mode Integration | 0/4 | Planning    | - |
 
 ### Phase 07: Azure Service Integration
 
@@ -312,12 +314,27 @@ Plans:
 
 **UI hint**: yes
 
-### Phase 12: voice realtime api & agent模式联调
+### Phase 12: Voice Realtime API & Agent Mode Integration
 
-**Goal:** [To be planned]
-**Requirements**: TBD
+**Goal:** Each HCP profile becomes a complete "digital persona" with per-HCP voice, avatar, and conversation parameters. The token broker returns all settings in one response. MRs get automatic mode selection (Digital Human Realtime Agent as default) with graceful fallback to voice-only or text. Admin configures HCP digital personas via a tabbed editor.
+**Requirements**: VOICE-12-01, VOICE-12-02, VOICE-12-03, VOICE-12-04, VOICE-12-05, VOICE-12-06
 **Depends on:** Phase 11
-**Plans:** 0 plans
+**Plans:** 4 plans
+
+**Success Criteria** (what must be TRUE):
+  1. Admin can configure per-HCP voice settings (voice name, temperature), avatar settings (character, style), and conversation parameters (turn detection, noise suppression, echo cancellation) via tabbed HCP editor
+  2. Token broker returns all per-HCP voice/avatar settings when hcp_profile_id is provided, falls back to global defaults when not
+  3. New HCPs get smart defaults (voice "Ava", avatar "Lori-casual", temp 0.9, Server VAD) without manual configuration
+  4. MR does NOT see a mode picker -- system auto-selects best mode based on HCP config and service availability
+  5. Fallback chain works: Digital Human Realtime Agent -> Voice-only Realtime -> Text, with toast notification and persistent mode status indicator
+  6. HCP table shows Voice & Avatar column with badge pair showing per-HCP configuration
+  7. Agent instructions support admin override via Agent tab (D-02)
+  8. All new UI text externalized to i18n in both en-US and zh-CN
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 12 to break down)
+- [ ] 12-01-PLAN.md -- Backend foundation: Alembic migration (13 voice/avatar columns), ORM model, Pydantic schemas, token broker per-HCP wiring, API endpoint extension
+- [ ] 12-02-PLAN.md -- Frontend admin: TypeScript types, API client, i18n keys, VoiceAvatarTab, AgentTab, HCP editor tabbed rewrite, HCP table Voice+Avatar column
+- [ ] 12-03-PLAN.md -- Frontend voice session: ModeStatusIndicator, auto-mode resolution, fallback chain, per-HCP token wiring, useVoiceLive per-HCP config
+- [ ] 12-04-PLAN.md -- Backend tests, seed data with per-HCP digital persona configurations, full build verification
+
+**UI hint**: yes
