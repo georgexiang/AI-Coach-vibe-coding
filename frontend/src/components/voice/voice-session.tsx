@@ -25,28 +25,49 @@ import { AvatarView } from "./avatar-view";
 import { VoiceTranscript } from "./voice-transcript";
 import { VoiceControls } from "./voice-controls";
 import { FloatingTranscript } from "./floating-transcript";
-import type { SessionMode, TranscriptSegment } from "@/types/voice-live";
+import type {
+  SessionMode,
+  VoiceLiveToken,
+  TranscriptSegment,
+} from "@/types/voice-live";
 import type { KeyMessageStatus, CoachingHint } from "@/types/session";
 import type { Scenario } from "@/types/scenario";
 
 interface VoiceSessionProps {
   sessionId: string;
   scenarioId: string;
-  mode: SessionMode;
+  hcpProfileId: string;
   hcpName: string;
   systemPrompt: string;
   language: string;
 }
 
 /**
+ * Auto-resolve the best available session mode from token broker response (D-10).
+ * Priority: Digital Human Realtime Agent > Digital Human Realtime Model > Voice Realtime Agent > Voice Realtime Model.
+ */
+function resolveMode(tokenData: VoiceLiveToken): SessionMode {
+  if (tokenData.avatar_enabled && tokenData.agent_id) {
+    return "digital_human_realtime_agent";
+  }
+  if (tokenData.avatar_enabled) {
+    return "digital_human_realtime_model";
+  }
+  if (tokenData.agent_id) {
+    return "voice_realtime_agent";
+  }
+  return "voice_realtime_model";
+}
+
+/**
  * Main voice session container orchestrating all hooks and leaf components.
- * Implements three-mode rendering (text/voice/avatar) with graceful fallback chain (D-10).
+ * Auto-resolves mode from token broker (D-10), implements 3-level fallback chain (D-11, D-12).
  * Handles transcript persistence and flush-before-end-session (D-09, Pitfall 5).
  */
 export function VoiceSession({
   sessionId,
   scenarioId,
-  mode: initialMode,
+  hcpProfileId,
   hcpName,
   systemPrompt,
   language,
@@ -55,8 +76,9 @@ export function VoiceSession({
   const { t: tc } = useTranslation("common");
   const navigate = useNavigate();
 
-  // State
-  const [currentMode, setCurrentMode] = useState<SessionMode>(initialMode);
+  // State -- mode starts as "text", resolved dynamically after token fetch (D-10)
+  const [currentMode, setCurrentMode] = useState<SessionMode>("text");
+  const initialModeRef = useRef<SessionMode>("text");
   const [transcripts, setTranscripts] = useState<TranscriptSegment[]>([]);
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [showKeyboard, setShowKeyboard] = useState(false);
@@ -65,7 +87,9 @@ export function VoiceSession({
   const [rightCollapsed, setRightCollapsed] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [hints] = useState<CoachingHint[]>([]);
-  const [keyMessagesStatus, setKeyMessagesStatus] = useState<KeyMessageStatus[]>([]);
+  const [keyMessagesStatus, setKeyMessagesStatus] = useState<
+    KeyMessageStatus[]
+  >([]);
   const [startedAt] = useState<string>(new Date().toISOString());
   const videoContainerRef = useRef<HTMLDivElement>(null);
 
@@ -113,8 +137,9 @@ export function VoiceSession({
     systemPrompt,
     onTranscript: handleTranscript,
     onConnectionStateChange: (state) => {
+      // Voice connection error -> text fallback (D-11)
       if (state === "error" && currentMode !== "text") {
-        toast.error(t("error.connectionFailed"));
+        toast.warning(t("error.voiceFallback"));
         setCurrentMode("text");
       }
     },
@@ -139,30 +164,37 @@ export function VoiceSession({
     }
   }, [scenario, keyMessagesStatus.length]);
 
-  // Connect voice on mount
+  // Connect voice on mount -- always try (mode resolved dynamically from token)
   useEffect(() => {
-    if (currentMode === "text") return;
-
     const initVoice = async () => {
       setIsConnecting(true);
       try {
-        const tokenData = await tokenMutation.mutateAsync();
+        // Fetch token with per-HCP settings (D-08)
+        const tokenData = await tokenMutation.mutateAsync(hcpProfileId);
+
+        // Auto-resolve best mode (D-10)
+        const resolvedMode = resolveMode(tokenData);
+        setCurrentMode(resolvedMode);
+        initialModeRef.current = resolvedMode;
 
         // Initialize audio first
         await audioHandler.initialize();
 
-        // Connect voice
+        // Connect voice with per-HCP settings
         await voiceLive.connect(tokenData);
 
-        // If digital human mode, try connecting avatar
-        const isDigitalHumanMode = currentMode.startsWith("digital_human");
+        // If digital human mode, try connecting avatar (D-11 fallback)
+        const isDigitalHumanMode = resolvedMode.startsWith("digital_human");
         if (isDigitalHumanMode && tokenData.avatar_enabled) {
           try {
             await avatarStream.connect([], voiceLive.clientRef.current);
           } catch {
-            // Avatar failed, fallback to voice-only (D-10)
-            toast.error(t("error.avatarFailed"));
-            setCurrentMode("voice_pipeline");
+            // Avatar failed -> voice-only fallback (D-11)
+            toast.warning(t("error.avatarFallback"));
+            const fallbackMode = tokenData.agent_id
+              ? "voice_realtime_agent"
+              : "voice_realtime_model";
+            setCurrentMode(fallbackMode);
           }
         }
 
@@ -174,8 +206,8 @@ export function VoiceSession({
           client?.sendAudio?.(audioData);
         });
       } catch {
-        // Voice connection failed, fallback to text (D-10)
-        toast.error(t("error.connectionFailed"));
+        // Voice connection failed -> text fallback (D-11)
+        toast.warning(t("error.voiceFallback"));
         setCurrentMode("text");
       } finally {
         setIsConnecting(false);
@@ -209,7 +241,14 @@ export function VoiceSession({
     } catch {
       // Error handled by mutation
     }
-  }, [sessionId, voiceLive, avatarStream, audioHandler, endSessionMutation, navigate]);
+  }, [
+    sessionId,
+    voiceLive,
+    avatarStream,
+    audioHandler,
+    endSessionMutation,
+    navigate,
+  ]);
 
   // Text message handler (keyboard input within voice session)
   const handleSendText = useCallback(
@@ -269,7 +308,9 @@ export function VoiceSession({
 
   // Session stats for hints panel
   const sessionStats = {
-    duration: Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000),
+    duration: Math.floor(
+      (Date.now() - new Date(startedAt).getTime()) / 1000,
+    ),
     wordCount: transcripts
       .filter((s) => s.role === "user" && s.isFinal)
       .reduce((acc, s) => acc + s.content.split(/\s+/).length, 0),
@@ -279,7 +320,7 @@ export function VoiceSession({
   // Last transcript for floating overlay
   const lastTranscript =
     transcripts.length > 0
-      ? transcripts[transcripts.length - 1] ?? null
+      ? (transcripts[transcripts.length - 1] ?? null)
       : null;
 
   return (
@@ -287,7 +328,8 @@ export function VoiceSession({
       {/* Header */}
       <VoiceSessionHeader
         scenarioTitle={currentScenario.name}
-        mode={currentMode}
+        currentMode={currentMode}
+        initialMode={initialModeRef.current}
         connectionState={voiceLive.connectionState}
         onEndSession={handleEndSession}
         startedAt={startedAt}
@@ -295,7 +337,7 @@ export function VoiceSession({
         onToggleView={() => setIsFullScreen((prev) => !prev)}
       />
 
-      {/* Main content: 3-panel layout — stacks vertically on mobile */}
+      {/* Main content: 3-panel layout -- stacks vertically on mobile */}
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
         {/* Left panel: Scenario */}
         {!isFullScreen && (
