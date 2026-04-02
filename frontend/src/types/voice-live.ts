@@ -17,7 +17,7 @@ export interface VoiceLiveToken {
   voice_name: string;
   agent_id?: string;
   project_name?: string;
-  // Per-HCP fields (D-08)
+  // Per-HCP fields from token broker (D-08)
   avatar_style?: string;
   avatar_customized?: boolean;
   voice_type?: string;

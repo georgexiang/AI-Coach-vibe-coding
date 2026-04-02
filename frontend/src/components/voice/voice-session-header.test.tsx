@@ -22,10 +22,26 @@ vi.mock("./connection-status", () => ({
   ),
 }));
 
+vi.mock("./mode-status-indicator", () => ({
+  ModeStatusIndicator: ({
+    currentMode,
+    connectionState,
+  }: {
+    currentMode: string;
+    initialMode: string;
+    connectionState: string;
+  }) => (
+    <div data-testid="mode-status-indicator">
+      {currentMode}-{connectionState}
+    </div>
+  ),
+}));
+
 describe("VoiceSessionHeader", () => {
   const defaultProps = {
     scenarioTitle: "Drug Efficacy Discussion",
-    mode: "voice_pipeline" as const,
+    currentMode: "voice_pipeline" as const,
+    initialMode: "voice_pipeline" as const,
     connectionState: "connected" as const,
     onEndSession: vi.fn(),
     startedAt: "2026-03-27T08:00:00Z",
@@ -36,13 +52,22 @@ describe("VoiceSessionHeader", () => {
     expect(screen.getByText("Drug Efficacy Discussion")).toBeInTheDocument();
   });
 
-  it("renders mode badge with translated mode text", () => {
-    render(<VoiceSessionHeader {...defaultProps} mode="digital_human_pipeline" />);
-    expect(screen.getByText("modeBadge.digital_human_pipeline")).toBeInTheDocument();
+  it("renders ModeStatusIndicator with correct mode", () => {
+    render(
+      <VoiceSessionHeader
+        {...defaultProps}
+        currentMode="digital_human_pipeline"
+      />,
+    );
+    expect(screen.getByTestId("mode-status-indicator")).toHaveTextContent(
+      "digital_human_pipeline-connected",
+    );
   });
 
   it("renders ConnectionStatus component with correct state", () => {
-    render(<VoiceSessionHeader {...defaultProps} connectionState="connecting" />);
+    render(
+      <VoiceSessionHeader {...defaultProps} connectionState="connecting" />,
+    );
     const status = screen.getByTestId("connection-status");
     expect(status).toHaveTextContent("connecting");
   });
@@ -56,7 +81,9 @@ describe("VoiceSessionHeader", () => {
 
   it("calls onEndSession when End Session button is clicked", async () => {
     const onEndSession = vi.fn();
-    render(<VoiceSessionHeader {...defaultProps} onEndSession={onEndSession} />);
+    render(
+      <VoiceSessionHeader {...defaultProps} onEndSession={onEndSession} />,
+    );
     const endBtn = screen.getByTestId("end-session-btn");
     await userEvent.click(endBtn);
     expect(onEndSession).toHaveBeenCalledTimes(1);

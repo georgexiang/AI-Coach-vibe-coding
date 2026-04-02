@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Ready to execute
-stopped_at: Completed 12-02-PLAN.md
+stopped_at: Completed 12-03-PLAN.md
 last_updated: "2026-04-02T09:03:21.646Z"
 last_activity: 2026-04-02
 progress:
@@ -98,6 +98,7 @@ Plan: 3 of 4
 | Phase 11 P03 | 14min | 2 tasks | 12 files |
 | Phase 12 P01 | 3min | 2 tasks | 7 files |
 | Phase 12 P02 | 12min | 2 tasks | 19 files |
+| Phase 12 P03 | 5min | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -218,6 +219,8 @@ Recent decisions affecting current work:
 - [Phase 12]: Used Resolver type cast on zodResolver for TS5/FormProvider compat
 - [Phase 12]: Tabbed form layout: Form wraps Tabs (not individual TabsContent) for cross-tab state persistence
 - [Phase 12]: Avatar style select dynamically filtered by selected character from AVATAR_VIDEO_CHARACTERS constant
+- [Phase 12]: Mode auto-resolved from token broker capabilities, not URL params; toast.warning for fallback (not toast.error)
+- [Phase 12]: Per-HCP noise_suppression/echo_cancellation conditionally added to session config, not always-on
 
 ### Pending Todos
 

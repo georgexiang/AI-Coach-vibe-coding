@@ -1,14 +1,16 @@
 import { useTranslation } from "react-i18next";
 import { Square, Maximize2, Minimize2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Badge, Button } from "@/components/ui";
+import { Button } from "@/components/ui";
 import { SessionTimer } from "@/components/coach/session-timer";
 import { ConnectionStatus } from "./connection-status";
+import { ModeStatusIndicator } from "./mode-status-indicator";
 import type { SessionMode, VoiceConnectionState } from "@/types/voice-live";
 
 interface VoiceSessionHeaderProps {
   scenarioTitle: string;
-  mode: SessionMode;
+  currentMode: SessionMode;
+  initialMode: SessionMode;
   connectionState: VoiceConnectionState;
   onEndSession: () => void;
   startedAt: string | null;
@@ -19,11 +21,12 @@ interface VoiceSessionHeaderProps {
 /**
  * Session header bar for voice coaching sessions.
  * Height: 64px, matching existing coaching session header.
- * Left: SessionTimer + scenario title. Center: Mode badge. Right: Connection status, view toggle, end session.
+ * Left: SessionTimer + scenario title. Center: ModeStatusIndicator. Right: Connection status, view toggle, end session.
  */
 export function VoiceSessionHeader({
   scenarioTitle,
-  mode,
+  currentMode,
+  initialMode,
   connectionState,
   onEndSession,
   startedAt,
@@ -54,11 +57,13 @@ export function VoiceSessionHeader({
         </span>
       </div>
 
-      {/* Center: Mode badge */}
+      {/* Center: Mode status indicator (replaces static Badge) */}
       <div className="flex items-center">
-        <Badge variant="secondary" className="text-xs">
-          {t(`modeBadge.${mode}`)}
-        </Badge>
+        <ModeStatusIndicator
+          currentMode={currentMode}
+          initialMode={initialMode}
+          connectionState={connectionState}
+        />
       </div>
 
       {/* Right: Connection + View toggle + End session */}

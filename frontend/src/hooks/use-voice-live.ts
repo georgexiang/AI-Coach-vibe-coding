@@ -11,6 +11,7 @@ import type {
  * RTClient lifecycle management hook.
  * Wraps the rt-client SDK, managing WebSocket connection to Azure Voice Live API.
  * Uses dynamic import for rt-client to gracefully handle missing SDK.
+ * Session config built from per-HCP settings in tokenData (D-08).
  */
 export function useVoiceLive(options: VoiceLiveOptions) {
   const clientRef = useRef<unknown>(null);
@@ -120,20 +121,43 @@ export function useVoiceLive(options: VoiceLiveOptions) {
           { model: tokenData.model },
         );
 
-        // Configure session per D-01 (unified pipeline)
+        // Configure session with per-HCP settings from token broker (D-08)
         const sessionConfig: Record<string, unknown> = {
           modalities: ["text", "audio"],
-          voice: { type: "azure-standard", name: tokenData.voice_name },
+          voice: {
+            type: tokenData.voice_type || "azure-standard",
+            name: tokenData.voice_name,
+            temperature: tokenData.voice_temperature ?? 0.9,
+          },
           input_audio_transcription: {
             model: "azure-fast-transcription",
-            language: optionsRef.current.language,
+            language:
+              tokenData.recognition_language === "auto"
+                ? optionsRef.current.language
+                : tokenData.recognition_language ||
+                  optionsRef.current.language,
           },
-          turn_detection: { type: "server_vad" },
-          instructions: optionsRef.current.systemPrompt,
-          input_audio_noise_reduction: {
-            type: "azure_deep_noise_suppression",
+          turn_detection: {
+            type: tokenData.turn_detection_type || "server_vad",
           },
+          instructions:
+            tokenData.agent_instructions_override ||
+            optionsRef.current.systemPrompt,
         };
+
+        // Conditionally add noise suppression (per-HCP setting)
+        if (tokenData.noise_suppression) {
+          sessionConfig["input_audio_noise_reduction"] = {
+            type: "azure_deep_noise_suppression",
+          };
+        }
+
+        // Conditionally add echo cancellation (per-HCP setting)
+        if (tokenData.echo_cancellation) {
+          sessionConfig["input_audio_echo_cancellation"] = {
+            type: "server_echo_cancellation",
+          };
+        }
 
         // Add agent config if agent mode (D-11)
         if (tokenData.agent_id) {
@@ -143,10 +167,12 @@ export function useVoiceLive(options: VoiceLiveOptions) {
           }
         }
 
-        // Add avatar config if avatar is enabled (D-07)
+        // Add avatar config if avatar is enabled (D-07, with per-HCP style/customized)
         if (tokenData.avatar_enabled) {
           sessionConfig["avatar"] = {
             character: tokenData.avatar_character,
+            style: tokenData.avatar_style || "casual",
+            customized: tokenData.avatar_customized || false,
             video: {
               codec: "h264",
               crop: { top_left: [560, 0], bottom_right: [1360, 1080] },
@@ -155,7 +181,11 @@ export function useVoiceLive(options: VoiceLiveOptions) {
         }
 
         const session = await (
-          client as { configure: (cfg: Record<string, unknown>) => Promise<unknown> }
+          client as {
+            configure: (
+              cfg: Record<string, unknown>,
+            ) => Promise<unknown>;
+          }
         ).configure(sessionConfig);
 
         clientRef.current = client;
