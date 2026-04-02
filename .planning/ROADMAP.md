@@ -209,7 +209,7 @@ Phases execute in numeric order: 01 -> 01.1 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07 
 | 09. Integration Testing with Real Azure Services | 5/5 | Complete    | 2026-03-29 |
 | 10. UI Polish & Professional Unification | 6/6 | Complete    | 2026-03-29 |
 | 11. HCP Profile Agent Integration | 3/3 | Complete    | 2026-03-31 |
-| 12. Voice Realtime API & Agent Mode Integration | 0/4 | Planning    | - |
+| 12. Voice Realtime API & Agent Mode Integration | 1/4 | In Progress|  |
 
 ### Phase 07: Azure Service Integration
 
@@ -319,7 +319,7 @@ Plans:
 **Goal:** Each HCP profile becomes a complete "digital persona" with per-HCP voice, avatar, and conversation parameters. The token broker returns all settings in one response. MRs get automatic mode selection (Digital Human Realtime Agent as default) with graceful fallback to voice-only or text. Admin configures HCP digital personas via a tabbed editor.
 **Requirements**: VOICE-12-01, VOICE-12-02, VOICE-12-03, VOICE-12-04, VOICE-12-05, VOICE-12-06
 **Depends on:** Phase 11
-**Plans:** 4 plans
+**Plans:** 1/4 plans executed
 
 **Success Criteria** (what must be TRUE):
   1. Admin can configure per-HCP voice settings (voice name, temperature), avatar settings (character, style), and conversation parameters (turn detection, noise suppression, echo cancellation) via tabbed HCP editor
@@ -332,7 +332,7 @@ Plans:
   8. All new UI text externalized to i18n in both en-US and zh-CN
 
 Plans:
-- [ ] 12-01-PLAN.md -- Backend foundation: Alembic migration (13 voice/avatar columns), ORM model, Pydantic schemas, token broker per-HCP wiring, API endpoint extension
+- [x] 12-01-PLAN.md -- Backend foundation: Alembic migration (13 voice/avatar columns), ORM model, Pydantic schemas, token broker per-HCP wiring, API endpoint extension
 - [ ] 12-02-PLAN.md -- Frontend admin: TypeScript types, API client, i18n keys, VoiceAvatarTab, AgentTab, HCP editor tabbed rewrite, HCP table Voice+Avatar column
 - [ ] 12-03-PLAN.md -- Frontend voice session: ModeStatusIndicator, auto-mode resolution, fallback chain, per-HCP token wiring, useVoiceLive per-HCP config
 - [ ] 12-04-PLAN.md -- Backend tests, seed data with per-HCP digital persona configurations, full build verification

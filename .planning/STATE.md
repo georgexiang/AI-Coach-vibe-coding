@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: Milestone complete
-stopped_at: Phase 12 context gathered
-last_updated: "2026-04-02T07:45:56.771Z"
-last_activity: 2026-03-31
+status: Ready to execute
+stopped_at: Completed 12-01-PLAN.md
+last_updated: "2026-04-02T08:48:05.957Z"
+last_activity: 2026-04-02
 progress:
   total_phases: 13
   completed_phases: 12
-  total_plans: 62
-  completed_plans: 62
+  total_plans: 66
+  completed_plans: 63
 ---
 
 # Project State
@@ -20,12 +20,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-24)
 
 **Core value:** MRs can practice realistic conversations with AI-powered digital HCPs and receive immediate, multi-dimensional feedback to improve their communication skills -- anytime, without needing a real HCP or trainer.
-**Current focus:** Phase 11 — hcp-profile-agent-integration-auto-create-ai-foundry-agent-when-adding-hcp-profiles
+**Current focus:** Phase 12 — voice-realtime-api-agent
 
 ## Current Position
 
-Phase: 11
-Plan: Not started
+Phase: 12 (voice-realtime-api-agent) — EXECUTING
+Plan: 2 of 4
 
 ## Performance Metrics
 
@@ -96,6 +96,7 @@ Plan: Not started
 | Phase 11 P01 | 10min | 2 tasks | 6 files |
 | Phase 11 P02 | 8min | 2 tasks | 4 files |
 | Phase 11 P03 | 14min | 2 tasks | 12 files |
+| Phase 12 P01 | 3min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -210,6 +211,9 @@ Recent decisions affecting current work:
 
 - [Phase 11]: Used Dialog instead of AlertDialog for delete confirmation (AlertDialog not available in UI library)
 - [Phase 11]: Table + Dialog edit pattern replaces list+editor sidebar layout for HCP profiles admin page
+- [Phase 12]: server_default on all 13 new voice/avatar columns for SQLite compat
+- [Phase 12]: agent_instructions_override checked first in build_agent_instructions (D-02 priority)
+- [Phase 12]: Token broker falls back to global defaults when no hcp_profile_id or on exception
 
 ### Pending Todos
 
@@ -231,7 +235,7 @@ None yet.
 
 ## Session Continuity
 
-Last activity: 2026-03-31
-Last session: 2026-04-02T07:45:56.753Z
-Stopped at: Phase 12 context gathered
-Resume file: .planning/phases/12-voice-realtime-api-agent/12-CONTEXT.md
+Last activity: 2026-04-02
+Last session: 2026-04-02T08:48:05.952Z
+Stopped at: Completed 12-01-PLAN.md
+Resume file: None
