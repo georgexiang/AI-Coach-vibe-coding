@@ -25,6 +25,21 @@ class HcpProfileCreate(BaseModel):
     difficulty: str = "medium"
     is_active: bool = True
 
+    # Voice/Avatar settings (D-01, D-04 defaults)
+    voice_name: str = "en-US-AvaNeural"
+    voice_type: str = "azure-standard"
+    voice_temperature: float = 0.9
+    voice_custom: bool = False
+    avatar_character: str = "lori"
+    avatar_style: str = "casual"
+    avatar_customized: bool = False
+    turn_detection_type: str = "server_vad"
+    noise_suppression: bool = False
+    echo_cancellation: bool = False
+    eou_detection: bool = False
+    recognition_language: str = "auto"
+    agent_instructions_override: str = ""
+
 
 class HcpProfileUpdate(BaseModel):
     """Update an existing HCP profile. All fields optional for partial updates."""
@@ -44,6 +59,21 @@ class HcpProfileUpdate(BaseModel):
     probe_topics: list[str] | None = None
     difficulty: str | None = None
     is_active: bool | None = None
+
+    # Voice/Avatar settings (all optional for partial updates)
+    voice_name: str | None = None
+    voice_type: str | None = None
+    voice_temperature: float | None = None
+    voice_custom: bool | None = None
+    avatar_character: str | None = None
+    avatar_style: str | None = None
+    avatar_customized: bool | None = None
+    turn_detection_type: str | None = None
+    noise_suppression: bool | None = None
+    echo_cancellation: bool | None = None
+    eou_detection: bool | None = None
+    recognition_language: str | None = None
+    agent_instructions_override: str | None = None
 
 
 class HcpProfileResponse(BaseModel):
@@ -68,6 +98,22 @@ class HcpProfileResponse(BaseModel):
     agent_id: str = ""
     agent_sync_status: str = "none"
     agent_sync_error: str = ""
+
+    # Voice/Avatar settings
+    voice_name: str = "en-US-AvaNeural"
+    voice_type: str = "azure-standard"
+    voice_temperature: float = 0.9
+    voice_custom: bool = False
+    avatar_character: str = "lori"
+    avatar_style: str = "casual"
+    avatar_customized: bool = False
+    turn_detection_type: str = "server_vad"
+    noise_suppression: bool = False
+    echo_cancellation: bool = False
+    eou_detection: bool = False
+    recognition_language: str = "auto"
+    agent_instructions_override: str = ""
+
     created_by: str
     created_at: datetime
     updated_at: datetime

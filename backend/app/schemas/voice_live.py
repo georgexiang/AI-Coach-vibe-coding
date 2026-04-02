@@ -16,6 +16,19 @@ class VoiceLiveTokenResponse(BaseModel):
     agent_id: str | None = None
     project_name: str | None = None
 
+    # Per-HCP fields (D-08)
+    avatar_style: str = "casual"
+    avatar_customized: bool = False
+    voice_type: str = "azure-standard"
+    voice_temperature: float = 0.9
+    voice_custom: bool = False
+    turn_detection_type: str = "server_vad"
+    noise_suppression: bool = False
+    echo_cancellation: bool = False
+    eou_detection: bool = False
+    recognition_language: str = "auto"
+    agent_instructions_override: str = ""
+
 
 class VoiceLiveConfigStatus(BaseModel):
     """Voice Live and Avatar availability status for the current deployment."""
