@@ -34,7 +34,7 @@ Declared values (must be multiples of 4):
 | Token | Value | Usage |
 |-------|-------|-------|
 | xs | 4px | Icon gaps, inline badge padding, switch-to-label gap |
-| sm | 8px | Compact element spacing, tab trigger padding, form field gaps within a row |
+| sm | 8px | Compact element spacing, tab trigger padding, form field gaps within a row, dot-to-text gap in ModeStatusIndicator |
 | md | 16px | Default element spacing, card content padding, tab content top margin |
 | lg | 24px | Section padding within cards, gap between form sections inside a tab |
 | xl | 32px | Gap between major card sections in the editor, header-to-content gap |
@@ -50,11 +50,11 @@ Exceptions: Touch target minimum 44px for voice session controls (mic button, en
 | Role | Size | Weight | Line Height |
 |------|------|--------|-------------|
 | Body | 14px (text-sm) | 400 (normal) | 1.5 |
-| Label | 14px (text-sm) | 500 (medium) | 1.5 |
+| Label | 14px (text-sm) | 400 (normal) | 1.5 |
 | Heading | 16px (text-base) | 600 (semibold) | 1.5 |
-| Display | 24px (text-2xl) | 700 (bold) | 1.5 |
+| Display | 24px (text-2xl) | 600 (semibold) | 1.5 |
 
-Source: Existing `@layer base` rules in `index.css`. Phase 12 introduces no new typography roles. Card titles use Heading (16px/semibold) per established `CardTitle` pattern with `text-base font-semibold`.
+Two weights only: 400 (normal) for body text and labels, 600 (semibold) for headings and display. Labels are differentiated from body text via color (using `text-muted-foreground` for secondary labels) or size context, not weight. Card titles use Heading (16px/600) per established `CardTitle` pattern with `text-base font-semibold`.
 
 ---
 
@@ -84,6 +84,16 @@ Source: Existing CSS custom properties in `index.css`, Phase 10 theme system.
 
 ---
 
+## Focal Points
+
+| Screen | Primary Focal Point | Rationale |
+|--------|---------------------|-----------|
+| HCP Profile Editor | Save Profile button (top-right of header bar) | The single CTA that commits all tab changes; placed in persistent header outside tabs so it remains visible regardless of active tab |
+| Voice Session | ModeStatusIndicator (center of VoiceSessionHeader) | Communicates the live connection state and active mode; center placement ensures MR always knows the session health at a glance |
+| HCP Table | Voice & Avatar column badges | New column added in this phase; draws attention to per-HCP digital persona configuration status |
+
+---
+
 ## Component Inventory
 
 ### New Components
@@ -92,7 +102,7 @@ Source: Existing CSS custom properties in `index.css`, Phase 10 theme system.
 |-----------|----------|-------------|
 | VoiceAvatarTab | `frontend/src/components/admin/voice-avatar-tab.tsx` | Form tab content for Voice & Avatar settings. Contains: voice name select/input, avatar character dropdown, avatar style dropdown, custom toggles (Switch), conversation parameters (temperature Slider, turn detection Select, boolean Switches for noise suppression / echo cancellation / EOU detection), recognition language Select. Uses react-hook-form field registration from parent form instance. |
 | AgentTab | `frontend/src/components/admin/agent-tab.tsx` | Form tab content for Agent instructions. Contains: read-only auto-generated instructions preview (Textarea disabled), editable override Textarea, agent sync status card (reuses existing `AGENT_STATUS_CONFIG` pattern), retry sync button. |
-| ModeStatusIndicator | `frontend/src/components/voice/mode-status-indicator.tsx` | Persistent session mode badge replacing the center Badge in VoiceSessionHeader. Shows current active mode with colored dot indicator: green dot = connected at target mode, amber dot = fell back to degraded mode, red dot = disconnected. Uses existing Badge component with `variant="outline"` and a 8px colored circle prepended. Height: 28px. Always visible during session. |
+| ModeStatusIndicator | `frontend/src/components/voice/mode-status-indicator.tsx` | Persistent session mode badge replacing the center Badge in VoiceSessionHeader. Shows current active mode with colored dot indicator: green dot = connected at target mode, amber dot = fell back to degraded mode, red dot = disconnected. Uses existing Badge component with `variant="outline"` and a 8px colored circle prepended. Height: 28px. Gap between dot and text: 8px (`gap-2`). Always visible during session. |
 
 ### Modified Components
 
@@ -186,7 +196,7 @@ MR never sees a mode picker. Mode is auto-selected.
 **Behavior:** Renders in VoiceSessionHeader center area. Shows:
 - Mode label text from i18n (e.g., "Digital Human Agent", "Voice Only", "Text")
 - Colored dot: green (8px circle `bg-strength`) when at optimal mode, amber (`bg-weakness`) when degraded/fell back, red (`bg-destructive`) when disconnected
-**Visual:** `Badge variant="outline"` with prepended colored dot. Total height 28px. Text `text-xs font-medium`. Gap between dot and text: 6px.
+**Visual:** `Badge variant="outline"` with prepended colored dot. Total height 28px. Text `text-xs font-semibold`. Gap between dot and text: 8px (`gap-2`).
 
 ### I-10: Token Broker Per-HCP Wiring (D-08)
 
@@ -247,6 +257,8 @@ All copy below must be externalized via react-i18next. English (en-US) values sh
 ## Layout Contracts
 
 ### L-01: HCP Profile Editor (Tabbed, D-05)
+
+**Focal point:** Save Profile button (top-right of header bar). Remains visible and accessible regardless of active tab.
 
 ```
 +-----------------------------------------------------------+
@@ -315,12 +327,14 @@ Each section is a Card. Fields within cards use `space-y-4`. Switch rows use `fl
 
 ### L-04: Voice Session Header with Mode Status (D-12)
 
+**Focal point:** ModeStatusIndicator (center of header). Communicates live connection state; MR always knows session health at a glance.
+
 ```
 +---[ Timer | Scenario Title ]---[ ModeStatusIndicator ]---[ ConnectionStatus | View | End ]---+
 |  h-16 (64px)                                                                                  |
 ```
 
-ModeStatusIndicator replaces the previous static `Badge` in center position. It shows: `[colored dot] Mode Label`. Width auto-fits content.
+ModeStatusIndicator replaces the previous static `Badge` in center position. It shows: `[colored dot] Mode Label`. Width auto-fits content. Dot and text separated by 8px (`gap-2`).
 
 ### L-05: HCP Table with Voice+Avatar Column (D-06)
 
