@@ -68,10 +68,7 @@ def test_build_agent_instructions_custom_template():
     """build_agent_instructions uses provided custom template."""
     from app.services.agent_sync_service import build_agent_instructions
 
-    custom_template = (
-        "Hello, I am {name} from {specialty}. "
-        "Style: {communication_style_desc}."
-    )
+    custom_template = "Hello, I am {name} from {specialty}. Style: {communication_style_desc}."
     profile_data = {
         "name": "Dr. Wang",
         "specialty": "Neurology",
@@ -124,9 +121,7 @@ def test_build_agent_instructions_emotional_descriptors():
     assert "neutral" in r4
 
     # Non-numeric comm style
-    r5 = build_agent_instructions(
-        {"name": "A", "specialty": "B", "communication_style": "auto"}
-    )
+    r5 = build_agent_instructions({"name": "A", "specialty": "B", "communication_style": "auto"})
     assert "moderate" in r5
 
 
@@ -140,20 +135,17 @@ async def test_get_project_endpoint():
 
     mock_voice_config = MagicMock()
     mock_voice_config.model_or_deployment = (
-        '{"mode": "agent", "agent_id": "asst_abc",'
-        ' "project_name": "my-project"}'
+        '{"mode": "agent", "agent_id": "asst_abc", "project_name": "my-project"}'
     )
 
     with (
         patch(
-            "app.services.agent_sync_service.config_service"
-            ".get_effective_endpoint",
+            "app.services.agent_sync_service.config_service.get_effective_endpoint",
             new_callable=AsyncMock,
             return_value="https://my-foundry.services.ai.azure.com",
         ),
         patch(
-            "app.services.agent_sync_service.config_service"
-            ".get_effective_key",
+            "app.services.agent_sync_service.config_service.get_effective_key",
             new_callable=AsyncMock,
             return_value="test-api-key-123",
         ),
@@ -180,14 +172,12 @@ async def test_get_project_endpoint_existing_path():
 
     with (
         patch(
-            "app.services.agent_sync_service.config_service"
-            ".get_effective_endpoint",
+            "app.services.agent_sync_service.config_service.get_effective_endpoint",
             new_callable=AsyncMock,
             return_value="https://foundry.azure.com/api/projects/existing-proj",
         ),
         patch(
-            "app.services.agent_sync_service.config_service"
-            ".get_effective_key",
+            "app.services.agent_sync_service.config_service.get_effective_key",
             new_callable=AsyncMock,
             return_value="key",
         ),
@@ -217,14 +207,12 @@ async def test_get_project_endpoint_env_var_fallback():
 
     with (
         patch(
-            "app.services.agent_sync_service.config_service"
-            ".get_effective_endpoint",
+            "app.services.agent_sync_service.config_service.get_effective_endpoint",
             new_callable=AsyncMock,
             return_value="https://foundry.azure.com",
         ),
         patch(
-            "app.services.agent_sync_service.config_service"
-            ".get_effective_key",
+            "app.services.agent_sync_service.config_service.get_effective_key",
             new_callable=AsyncMock,
             return_value="key",
         ),
@@ -258,14 +246,12 @@ async def test_get_project_endpoint_no_project_no_env():
 
     with (
         patch(
-            "app.services.agent_sync_service.config_service"
-            ".get_effective_endpoint",
+            "app.services.agent_sync_service.config_service.get_effective_endpoint",
             new_callable=AsyncMock,
             return_value="https://foundry.azure.com",
         ),
         patch(
-            "app.services.agent_sync_service.config_service"
-            ".get_effective_key",
+            "app.services.agent_sync_service.config_service.get_effective_key",
             new_callable=AsyncMock,
             return_value="key",
         ),
@@ -342,9 +328,7 @@ async def test_update_agent():
             return_value=mock_client,
         ),
     ):
-        result = await update_agent(
-            mock_db, "existing-agent", "Updated", "New instructions"
-        )
+        result = await update_agent(mock_db, "existing-agent", "Updated", "New instructions")
 
     assert result["id"] == "existing-agent"
     assert result["version"] == "2"
@@ -426,8 +410,7 @@ async def test_sync_agent_for_profile_creates_when_no_agent_id():
 
     with (
         patch(
-            "app.services.agent_sync_service.config_service"
-            ".get_master_config",
+            "app.services.agent_sync_service.config_service.get_master_config",
             new_callable=AsyncMock,
             return_value=mock_master,
         ),
@@ -468,8 +451,7 @@ async def test_sync_agent_for_profile_updates_when_agent_id_exists():
 
     with (
         patch(
-            "app.services.agent_sync_service.config_service"
-            ".get_master_config",
+            "app.services.agent_sync_service.config_service.get_master_config",
             new_callable=AsyncMock,
             return_value=mock_master,
         ),
@@ -508,8 +490,7 @@ async def test_sync_agent_for_profile_no_master_config():
 
     with (
         patch(
-            "app.services.agent_sync_service.config_service"
-            ".get_master_config",
+            "app.services.agent_sync_service.config_service.get_master_config",
             new_callable=AsyncMock,
             return_value=None,
         ),
@@ -676,14 +657,29 @@ async def test_three_profiles_mixed_sync_scenarios():
         patch(
             "app.services.agent_sync_service.create_agent",
             new_callable=AsyncMock,
-            return_value={"id": "new-agent-001", "name": "Dr-New", "version": "1", "model": "gpt-4o"},
+            return_value={
+                "id": "new-agent-001",
+                "name": "Dr-New",
+                "version": "1",
+                "model": "gpt-4o",
+            },
         ) as mock_create,
         patch(
             "app.services.agent_sync_service.update_agent",
             new_callable=AsyncMock,
             side_effect=[
-                {"id": "existing-agent-002", "name": "Dr-Update", "version": "2", "model": "gpt-4o"},
-                {"id": "failed-agent-003", "name": "Dr-Retry", "version": "2", "model": "gpt-4o"},
+                {
+                    "id": "existing-agent-002",
+                    "name": "Dr-Update",
+                    "version": "2",
+                    "model": "gpt-4o",
+                },
+                {
+                    "id": "failed-agent-003",
+                    "name": "Dr-Retry",
+                    "version": "2",
+                    "model": "gpt-4o",
+                },
             ],
         ) as mock_update,
     ):
@@ -747,6 +743,7 @@ async def test_create_agent_uses_project_endpoint():
 # Real Azure integration tests — use actual .env credentials when available
 # ===========================================================================
 
+
 def _get_real_azure_config() -> tuple[str, str, str]:
     """Read Azure AI Foundry config from .env. Returns (endpoint, api_key, project)."""
     import os
@@ -791,20 +788,22 @@ async def test_real_create_agent():
 
     from azure.ai.projects.models import PromptAgentDefinition
 
-    instructions = build_agent_instructions({
-        "name": "Dr. Test-Chen",
-        "specialty": "Oncology",
-        "hospital": "Test Hospital",
-        "title": "Physician",
-        "personality_type": "analytical",
-        "emotional_state": 50,
-        "communication_style": 30,
-        "expertise_areas": ["testing"],
-        "prescribing_habits": "N/A",
-        "concerns": "test",
-        "objections": ["none"],
-        "probe_topics": ["test"],
-    })
+    instructions = build_agent_instructions(
+        {
+            "name": "Dr. Test-Chen",
+            "specialty": "Oncology",
+            "hospital": "Test Hospital",
+            "title": "Physician",
+            "personality_type": "analytical",
+            "emotional_state": 50,
+            "communication_style": 30,
+            "expertise_areas": ["testing"],
+            "prescribing_habits": "N/A",
+            "concerns": "test",
+            "objections": ["none"],
+            "probe_topics": ["test"],
+        }
+    )
 
     agent_name = _sanitize_agent_name("Test-Dr-Chen-UT")
     definition = PromptAgentDefinition(model="gpt-4o", instructions=instructions)

@@ -205,7 +205,8 @@ async def batch_sync_agents(db: AsyncSession) -> dict:
     # Find profiles needing sync
     result = await db.execute(
         select(HcpProfile).where(
-            (HcpProfile.agent_id == "") | (HcpProfile.agent_id.is_(None))
+            (HcpProfile.agent_id == "")
+            | (HcpProfile.agent_id.is_(None))
             | (HcpProfile.agent_sync_status == "failed")
         )
     )

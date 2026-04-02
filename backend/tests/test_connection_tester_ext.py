@@ -9,13 +9,13 @@ from app.services.connection_tester import (
     test_azure_avatar as _test_azure_avatar,
 )
 from app.services.connection_tester import (
-    test_azure_speech as _test_azure_speech,
-)
-from app.services.connection_tester import (
     test_azure_content_understanding as _test_azure_content_understanding,
 )
 from app.services.connection_tester import (
     test_azure_realtime as _test_azure_realtime,
+)
+from app.services.connection_tester import (
+    test_azure_speech as _test_azure_speech,
 )
 from app.services.connection_tester import (
     test_service_connection as _test_service_connection,
@@ -403,7 +403,8 @@ class TestAzureSpeechTester:
         mock_client_cls.return_value = mock_client
 
         ok, msg = await _test_azure_speech(
-            key="key", region="eastus2",
+            key="key",
+            region="eastus2",
             endpoint="https://ai-foundry.cognitiveservices.azure.com",
         )
         assert ok is True
@@ -434,7 +435,8 @@ class TestAzureSpeechTester:
         mock_client_cls.return_value = mock_client
 
         ok, msg = await _test_azure_speech(
-            key="key", region="eastus2",
+            key="key",
+            region="eastus2",
             endpoint="https://ai-foundry.cognitiveservices.azure.com",
         )
         assert ok is True
@@ -462,7 +464,8 @@ class TestAzureSpeechTester:
         mock_client_cls.return_value = mock_client
 
         ok, msg = await _test_azure_speech(
-            key="key", region="eastus2",
+            key="key",
+            region="eastus2",
             endpoint="https://ai-foundry.cognitiveservices.azure.com",
         )
         assert ok is True
@@ -482,7 +485,8 @@ class TestAzureSpeechTester:
         mock_client_cls.return_value = mock_client
 
         ok, msg = await _test_azure_speech(
-            key="bad-key", region="eastus2",
+            key="bad-key",
+            region="eastus2",
             endpoint="https://ai-foundry.cognitiveservices.azure.com",
         )
         assert ok is False
@@ -503,7 +507,8 @@ class TestAzureSpeechTester:
         mock_client_cls.return_value = mock_client
 
         ok, msg = await _test_azure_speech(
-            key="bad-key", region="eastus2",
+            key="bad-key",
+            region="eastus2",
             endpoint="https://ai-foundry.cognitiveservices.azure.com",
         )
         assert ok is False
@@ -522,7 +527,8 @@ class TestAzureSpeechTester:
         mock_client_cls.return_value = mock_client
 
         ok, msg = await _test_azure_speech(
-            key="key", region="",
+            key="key",
+            region="",
             endpoint="https://ai-foundry.cognitiveservices.azure.com",
         )
         assert ok is True
@@ -544,7 +550,8 @@ class TestAzureSpeechTester:
         mock_client_cls.return_value = mock_client
 
         ok, msg = await _test_azure_speech(
-            key="key", region="",
+            key="key",
+            region="",
             endpoint="https://ai-foundry.cognitiveservices.azure.com",
         )
         assert ok is False
@@ -625,9 +632,9 @@ class TestAzureSpeechTester:
         mock_client_cls.return_value = mock_client
 
         await _test_azure_speech(key="my-key", region="eastus2")
-        call_headers = mock_client.get.call_args_list[0][1].get(
-            "headers", mock_client.get.call_args_list[0][0][1] if len(mock_client.get.call_args_list[0][0]) > 1 else {}
-        )
+        first_call = mock_client.get.call_args_list[0]
+        fallback = first_call[0][1] if len(first_call[0]) > 1 else {}
+        call_headers = first_call[1].get("headers", fallback)
         assert call_headers.get("Ocp-Apim-Subscription-Key") == "my-key"
 
 
@@ -646,7 +653,8 @@ class TestAzureAvatarWithEndpoint:
         mock_client_cls.return_value = mock_client
 
         ok, msg = await _test_azure_avatar(
-            api_key="key", region="eastus2",
+            api_key="key",
+            region="eastus2",
             endpoint="https://ai-foundry.cognitiveservices.azure.com",
         )
         assert ok is True
@@ -676,7 +684,8 @@ class TestAzureAvatarWithEndpoint:
         mock_client_cls.return_value = mock_client
 
         ok, msg = await _test_azure_avatar(
-            api_key="key", region="eastus2",
+            api_key="key",
+            region="eastus2",
             endpoint="https://ai-foundry.cognitiveservices.azure.com",
         )
         assert ok is True
@@ -695,7 +704,8 @@ class TestAzureAvatarWithEndpoint:
         mock_client_cls.return_value = mock_client
 
         ok, msg = await _test_azure_avatar(
-            api_key="bad-key", region="eastus2",
+            api_key="bad-key",
+            region="eastus2",
             endpoint="https://ai-foundry.cognitiveservices.azure.com",
         )
         assert ok is False
@@ -714,7 +724,8 @@ class TestAzureAvatarWithEndpoint:
         mock_client_cls.return_value = mock_client
 
         ok, msg = await _test_azure_avatar(
-            api_key="key", region="",
+            api_key="key",
+            region="",
             endpoint="https://ai-foundry.cognitiveservices.azure.com",
         )
         assert ok is True
@@ -735,7 +746,8 @@ class TestAzureAvatarWithEndpoint:
         mock_client_cls.return_value = mock_client
 
         ok, msg = await _test_azure_avatar(
-            api_key="key", region="",
+            api_key="key",
+            region="",
             endpoint="https://ai-foundry.cognitiveservices.azure.com",
         )
         assert ok is False
@@ -762,7 +774,8 @@ class TestAzureAvatarWithEndpoint:
         mock_client_cls.return_value = mock_client
 
         ok, msg = await _test_azure_avatar(
-            api_key="key", region="eastus2",
+            api_key="key",
+            region="eastus2",
             endpoint="https://ai-foundry.cognitiveservices.azure.com",
         )
         assert ok is True

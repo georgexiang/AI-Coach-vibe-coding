@@ -27,6 +27,7 @@ if _is_sqlite:
         cursor.execute("PRAGMA busy_timeout=30000")
         cursor.close()
 
+
 AsyncSessionLocal = async_sessionmaker(
     engine,
     class_=AsyncSession,

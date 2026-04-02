@@ -212,11 +212,11 @@ async def create_agent(
     except Exception as e:
         logger.error(
             "create_agent failed: endpoint=%s, agent_name=%s, error=%s",
-            project_endpoint, agent_name, e,
+            project_endpoint,
+            agent_name,
+            e,
         )
-        raise RuntimeError(
-            f"Agent creation failed (endpoint: {project_endpoint}): {e}"
-        ) from e
+        raise RuntimeError(f"Agent creation failed (endpoint: {project_endpoint}): {e}") from e
     return {
         "id": result.name,
         "name": result.name,
@@ -254,11 +254,11 @@ async def update_agent(
     except Exception as e:
         logger.error(
             "update_agent failed: endpoint=%s, agent_id=%s, error=%s",
-            project_endpoint, agent_id, e,
+            project_endpoint,
+            agent_id,
+            e,
         )
-        raise RuntimeError(
-            f"Agent update failed (endpoint: {project_endpoint}): {e}"
-        ) from e
+        raise RuntimeError(f"Agent update failed (endpoint: {project_endpoint}): {e}") from e
     return {
         "id": result.name,
         "name": result.name,
@@ -362,7 +362,8 @@ async def get_portal_url_components(db: AsyncSession) -> dict:
         for conn in connections:
             conn_id = conn.get("id", "")
             # ARM ID format:
-            # /subscriptions/{sub}/resourceGroups/{rg}/providers/.../accounts/{name}/projects/{proj}/...
+            # /subscriptions/{sub}/resourceGroups/{rg}/providers/
+            # .../accounts/{name}/projects/{proj}/...
             match = re.search(
                 r"/subscriptions/([^/]+)/resourceGroups/([^/]+)"
                 r"/providers/[^/]+/[^/]+/([^/]+)/projects/([^/]+)",

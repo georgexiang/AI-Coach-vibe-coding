@@ -73,15 +73,16 @@ async def chat_with_agent(
 
     logger.info(
         "chat_with_agent: endpoint=%s, agent=%s, version=%s, model=%s",
-        project_endpoint, agent_name, agent_version, model,
+        project_endpoint,
+        agent_name,
+        agent_version,
+        model,
     )
 
     try:
         response = openai_client.responses.create(**kwargs)
     except Exception as e:
-        logger.error(
-            "chat_with_agent failed: agent=%s, error=%s", agent_name, e
-        )
+        logger.error("chat_with_agent failed: agent=%s, error=%s", agent_name, e)
         raise RuntimeError(f"Agent chat failed: {e}") from e
 
     return {

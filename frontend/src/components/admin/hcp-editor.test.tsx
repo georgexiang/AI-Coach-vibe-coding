@@ -31,6 +31,7 @@ const mockProfile: HcpProfile = {
   created_at: "2024-01-01",
   updated_at: "2024-01-02",
   agent_id: "",
+  agent_version: "",
   agent_sync_status: "none",
   agent_sync_error: "",
 };

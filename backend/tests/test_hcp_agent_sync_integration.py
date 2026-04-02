@@ -15,7 +15,6 @@ from app.main import app
 from app.models.hcp_profile import HcpProfile
 from app.models.user import User
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -213,9 +212,7 @@ async def test_voice_live_token_backward_compatible(mock_parse, mock_cfg, db_ses
 @patch("app.services.hcp_profile_service.agent_sync_service")
 async def test_create_profile_triggers_agent_sync(mock_sync, aclient):
     """POST /hcp-profiles triggers agent sync and returns agent_sync_status."""
-    mock_sync.sync_agent_for_profile = AsyncMock(
-        return_value={"id": "asst_test123"}
-    )
+    mock_sync.sync_agent_for_profile = AsyncMock(return_value={"id": "asst_test123"})
 
     resp = await aclient.post(
         "/api/v1/hcp-profiles",
@@ -236,9 +233,7 @@ async def test_create_profile_triggers_agent_sync(mock_sync, aclient):
 @patch("app.services.hcp_profile_service.agent_sync_service")
 async def test_update_profile_triggers_agent_sync(mock_sync, aclient):
     """PUT /hcp-profiles/{id} triggers agent re-sync."""
-    mock_sync.sync_agent_for_profile = AsyncMock(
-        return_value={"id": "asst_test123"}
-    )
+    mock_sync.sync_agent_for_profile = AsyncMock(return_value={"id": "asst_test123"})
 
     # First create a profile
     create_resp = await aclient.post(
@@ -271,9 +266,7 @@ async def test_update_profile_triggers_agent_sync(mock_sync, aclient):
 @patch("app.services.hcp_profile_service.agent_sync_service")
 async def test_delete_profile_attempts_agent_deletion(mock_sync, aclient):
     """DELETE /hcp-profiles/{id} attempts to delete the AI Foundry agent."""
-    mock_sync.sync_agent_for_profile = AsyncMock(
-        return_value={"id": "asst_delete_me"}
-    )
+    mock_sync.sync_agent_for_profile = AsyncMock(return_value={"id": "asst_delete_me"})
     mock_sync.delete_agent = AsyncMock(return_value=True)
 
     # Create a profile (which gets an agent_id via mock)
@@ -303,9 +296,7 @@ async def test_delete_profile_attempts_agent_deletion(mock_sync, aclient):
 async def test_retry_sync(mock_sync, aclient):
     """POST /hcp-profiles/{id}/retry-sync retries agent sync."""
     # First sync fails on create
-    mock_sync.sync_agent_for_profile = AsyncMock(
-        side_effect=Exception("Connection failed")
-    )
+    mock_sync.sync_agent_for_profile = AsyncMock(side_effect=Exception("Connection failed"))
 
     create_resp = await aclient.post(
         "/api/v1/hcp-profiles",
@@ -316,9 +307,7 @@ async def test_retry_sync(mock_sync, aclient):
     assert create_resp.json()["agent_sync_status"] == "failed"
 
     # Now retry succeeds
-    mock_sync.sync_agent_for_profile = AsyncMock(
-        return_value={"id": "asst_retried_ok"}
-    )
+    mock_sync.sync_agent_for_profile = AsyncMock(return_value={"id": "asst_retried_ok"})
 
     resp = await aclient.post(f"/api/v1/hcp-profiles/{profile_id}/retry-sync")
 

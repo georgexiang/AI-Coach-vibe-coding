@@ -92,17 +92,42 @@ async def detect_region_from_endpoint(endpoint: str, api_key: str) -> str:
         resource_name = hostname.split(".")[0]
         # Common Azure region suffixes
         known_regions = [
-            "eastus", "eastus2", "westus", "westus2", "westus3",
-            "centralus", "northcentralus", "southcentralus", "westcentralus",
-            "canadacentral", "canadaeast",
-            "northeurope", "westeurope", "uksouth", "ukwest",
-            "francecentral", "germanywestcentral", "switzerlandnorth",
-            "swedencentral", "norwayeast", "polandcentral",
-            "eastasia", "southeastasia", "japaneast", "japanwest",
-            "koreacentral", "koreasouth",
-            "australiaeast", "australiasoutheast", "australiacentral",
-            "centralindia", "southindia", "westindia",
-            "brazilsouth", "southafricanorth", "uaenorth",
+            "eastus",
+            "eastus2",
+            "westus",
+            "westus2",
+            "westus3",
+            "centralus",
+            "northcentralus",
+            "southcentralus",
+            "westcentralus",
+            "canadacentral",
+            "canadaeast",
+            "northeurope",
+            "westeurope",
+            "uksouth",
+            "ukwest",
+            "francecentral",
+            "germanywestcentral",
+            "switzerlandnorth",
+            "swedencentral",
+            "norwayeast",
+            "polandcentral",
+            "eastasia",
+            "southeastasia",
+            "japaneast",
+            "japanwest",
+            "koreacentral",
+            "koreasouth",
+            "australiaeast",
+            "australiasoutheast",
+            "australiacentral",
+            "centralindia",
+            "southindia",
+            "westindia",
+            "brazilsouth",
+            "southafricanorth",
+            "uaenorth",
         ]
         name_lower = resource_name.lower().replace("-", "")
         for r in known_regions:
@@ -193,9 +218,7 @@ async def test_azure_openai(endpoint: str, api_key: str, deployment: str) -> tup
         return (False, f"Connection failed: {e!s}")
 
 
-async def test_azure_speech(
-    key: str, region: str, endpoint: str = ""
-) -> tuple[bool, str]:
+async def test_azure_speech(key: str, region: str, endpoint: str = "") -> tuple[bool, str]:
     """Test Azure Speech connectivity.
 
     In AI Foundry, all services (Speech, OpenAI, Content Understanding…) share
@@ -231,25 +254,31 @@ async def test_azure_speech(
                 probes.append(("GET", url, headers_ocp))
                 probes.append(("GET", url, headers_apikey))
             # STS token endpoint on each domain
-            probes.append((
-                "POST",
-                f"{base}/sts/v1.0/issueToken",
-                headers_ocp,
-            ))
+            probes.append(
+                (
+                    "POST",
+                    f"{base}/sts/v1.0/issueToken",
+                    headers_ocp,
+                )
+            )
 
     if region:
         # Regional TTS endpoint
-        probes.append((
-            "GET",
-            f"https://{region}.tts.speech.microsoft.com/cognitiveservices/voices/list",
-            headers_ocp,
-        ))
+        probes.append(
+            (
+                "GET",
+                f"https://{region}.tts.speech.microsoft.com/cognitiveservices/voices/list",
+                headers_ocp,
+            )
+        )
         # Regional STS token endpoint
-        probes.append((
-            "POST",
-            f"https://{region}.api.cognitive.microsoft.com/sts/v1.0/issueToken",
-            headers_ocp,
-        ))
+        probes.append(
+            (
+                "POST",
+                f"https://{region}.api.cognitive.microsoft.com/sts/v1.0/issueToken",
+                headers_ocp,
+            )
+        )
 
     if not probes:
         return (False, "No testable endpoint available")
@@ -291,9 +320,7 @@ async def test_azure_speech(
     return (False, f"HTTP {last_status}. Tried: {detail}")
 
 
-async def test_azure_avatar(
-    api_key: str, region: str, endpoint: str = ""
-) -> tuple[bool, str]:
+async def test_azure_avatar(api_key: str, region: str, endpoint: str = "") -> tuple[bool, str]:
     """Test Avatar by fetching ICE relay token.
 
     Tries AI Foundry custom domain first, then regional endpoint.
@@ -311,23 +338,29 @@ async def test_azure_avatar(
     if endpoint:
         bases = _derive_endpoint_variants(endpoint)
         for base in bases:
-            probes.append((
-                "GET",
-                f"{base}/cognitiveservices/avatar/relay/token/v1",
-                headers_ocp,
-            ))
-            probes.append((
-                "GET",
-                f"{base}/cognitiveservices/avatar/relay/token/v1",
-                headers_apikey,
-            ))
+            probes.append(
+                (
+                    "GET",
+                    f"{base}/cognitiveservices/avatar/relay/token/v1",
+                    headers_ocp,
+                )
+            )
+            probes.append(
+                (
+                    "GET",
+                    f"{base}/cognitiveservices/avatar/relay/token/v1",
+                    headers_apikey,
+                )
+            )
 
     if region:
-        probes.append((
-            "GET",
-            f"https://{region}.tts.speech.microsoft.com/cognitiveservices/avatar/relay/token/v1",
-            headers_ocp,
-        ))
+        probes.append(
+            (
+                "GET",
+                f"https://{region}.tts.speech.microsoft.com/cognitiveservices/avatar/relay/token/v1",
+                headers_ocp,
+            )
+        )
 
     if not probes:
         return (False, "No testable endpoint available")
@@ -393,7 +426,7 @@ async def test_azure_content_understanding(
     # Move .services.ai.azure.com to front (CU only works on that domain)
     bases_sorted = sorted(
         bases,
-        key=lambda b: (0 if ".services.ai.azure.com" in b else 1),
+        key=lambda b: 0 if ".services.ai.azure.com" in b else 1,
     )
 
     path = "/contentunderstanding/analyzers?api-version=2025-11-01"
@@ -436,8 +469,7 @@ async def test_azure_content_understanding(
         )
     return (
         False,
-        f"Content Understanding test failed: HTTP {last_status}. "
-        f"Tried: {detail}",
+        f"Content Understanding test failed: HTTP {last_status}. Tried: {detail}",
     )
 
 

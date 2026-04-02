@@ -212,7 +212,11 @@ class TestAzureOpenAIAdapterStreaming:
         assert call_kwargs["stream"] is True
         assert call_kwargs["temperature"] == 0.7
         # Default is max_completion_tokens for newer models
-        assert call_kwargs.get("max_completion_tokens") == 1024 or call_kwargs.get("max_tokens") == 1024
+        has_max = (
+            call_kwargs.get("max_completion_tokens") == 1024
+            or call_kwargs.get("max_tokens") == 1024
+        )
+        assert has_max
 
 
 class TestAzureOpenAIAdapterAvailability:

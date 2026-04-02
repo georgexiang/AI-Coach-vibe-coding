@@ -19,10 +19,10 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from app.config import get_settings
 from app.models.message import SessionMessage
-from app.models.service_config import ServiceConfig
 from app.models.scenario import Scenario
 from app.models.score import ScoreDetail, SessionScore
 from app.models.scoring_rubric import ScoringRubric
+from app.models.service_config import ServiceConfig
 from app.models.session import CoachingSession
 from app.models.user import User
 from app.services.auth import get_password_hash
@@ -629,11 +629,13 @@ async def seed_azure_config(session: AsyncSession) -> None:
     if project:
         import json
 
-        mode_json = json.dumps({
-            "mode": "agent",
-            "agent_id": "",
-            "project_name": project,
-        })
+        mode_json = json.dumps(
+            {
+                "mode": "agent",
+                "agent_id": "",
+                "project_name": project,
+            }
+        )
         vl = ServiceConfig(
             service_name="azure_voice_live",
             display_name="Azure Voice Live",

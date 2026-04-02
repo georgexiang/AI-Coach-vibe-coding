@@ -7,7 +7,6 @@ Run locally:  python3 -m pytest tests/test_hcp_agent_live_integration.py -v -s
 """
 
 import json
-import os
 
 import pytest
 from sqlalchemy import select
@@ -16,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import get_settings
 from app.models.hcp_profile import HcpProfile
 from app.models.service_config import ServiceConfig
-from app.services import agent_sync_service, config_service
+from app.services import agent_sync_service
 from app.utils.encryption import encrypt_value
 
 settings = get_settings()
@@ -55,11 +54,13 @@ async def _seed_config(db: AsyncSession) -> None:
 
     project = settings.azure_foundry_default_project
     if project:
-        mode_json = json.dumps({
-            "mode": "agent",
-            "agent_id": "",
-            "project_name": project,
-        })
+        mode_json = json.dumps(
+            {
+                "mode": "agent",
+                "agent_id": "",
+                "project_name": project,
+            }
+        )
         vl = ServiceConfig(
             service_name="azure_voice_live",
             display_name="Azure Voice Live",
@@ -246,7 +247,7 @@ async def test_live_sync_agent_for_profile(db_session):
 
     update_result = await agent_sync_service.sync_agent_for_profile(db_session, profile)
     assert update_result["id"] == agent_id
-    print(f"  Updated agent after profile change")
+    print("  Updated agent after profile change")
 
 
 # ---------------------------------------------------------------------------
@@ -279,9 +280,7 @@ async def test_live_full_crud_lifecycle(db_session):
         is_active=True,
         created_by="test-user",
     )
-    profile = await hcp_profile_service.create_hcp_profile(
-        db_session, create_data, "test-user"
-    )
+    profile = await hcp_profile_service.create_hcp_profile(db_session, create_data, "test-user")
     print(f"\n  1. Created profile: {profile.id}")
     print(f"     agent_sync_status: {profile.agent_sync_status}")
     print(f"     agent_id: {profile.agent_id}")
@@ -296,15 +295,13 @@ async def test_live_full_crud_lifecycle(db_session):
 
         # 2. Update HCP profile (triggers re-sync)
         update_data = HcpProfileUpdate(name="Dr. CRUD Updated")
-        updated = await hcp_profile_service.update_hcp_profile(
-            db_session, profile.id, update_data
-        )
+        updated = await hcp_profile_service.update_hcp_profile(db_session, profile.id, update_data)
         print(f"  2. Updated profile, sync status: {updated.agent_sync_status}")
         assert updated.agent_sync_status in ("synced", "failed")
 
         # 3. Delete HCP profile (deletes agent)
         await hcp_profile_service.delete_hcp_profile(db_session, profile.id)
-        print(f"  3. Deleted profile and agent")
+        print("  3. Deleted profile and agent")
 
         # Remove from cleanup since delete_hcp_profile handles it
         if profile.agent_id in _created_agent_ids:

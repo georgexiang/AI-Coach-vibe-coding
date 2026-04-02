@@ -5,8 +5,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-
 # --- Helper: mock master config for all mock tests ---
+
 
 def _mock_master_config():
     """Return a mock master config with model_or_deployment."""
@@ -159,6 +159,7 @@ async def test_chat_with_agent_error_mock():
 # Real Azure integration tests — use actual .env credentials when available
 # ===========================================================================
 
+
 def _get_real_azure_config() -> tuple[str, str, str]:
     """Read Azure AI Foundry config from .env."""
     from dotenv import load_dotenv
@@ -218,20 +219,22 @@ async def test_real_chat_with_existing_agent():
     from azure.ai.projects.models import PromptAgentDefinition
 
     agent_name = _sanitize_agent_name("UT-Chat-Dr-Chen")
-    instructions = build_agent_instructions({
-        "name": "UT-Chat-Dr-Chen",
-        "specialty": "Oncology",
-        "hospital": "Test Hospital",
-        "title": "Physician",
-        "personality_type": "friendly",
-        "emotional_state": 30,
-        "communication_style": 60,
-        "expertise_areas": ["testing"],
-        "prescribing_habits": "N/A",
-        "concerns": "test",
-        "objections": ["none"],
-        "probe_topics": ["test"],
-    })
+    instructions = build_agent_instructions(
+        {
+            "name": "UT-Chat-Dr-Chen",
+            "specialty": "Oncology",
+            "hospital": "Test Hospital",
+            "title": "Physician",
+            "personality_type": "friendly",
+            "emotional_state": 30,
+            "communication_style": 60,
+            "expertise_areas": ["testing"],
+            "prescribing_habits": "N/A",
+            "concerns": "test",
+            "objections": ["none"],
+            "probe_topics": ["test"],
+        }
+    )
 
     definition = PromptAgentDefinition(model=model, instructions=instructions)
     create_result = client.agents.create_version(

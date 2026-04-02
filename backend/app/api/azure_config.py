@@ -225,9 +225,7 @@ async def test_ai_foundry(
     """
     master = await config_service.get_master_config(db)
     if not master:
-        return AIFoundryTestResult(
-            success=False, message="AI Foundry not configured"
-        )
+        return AIFoundryTestResult(success=False, message="AI Foundry not configured")
 
     api_key = decrypt_value(master.api_key_encrypted)
     success, message = await test_ai_foundry_endpoint(
