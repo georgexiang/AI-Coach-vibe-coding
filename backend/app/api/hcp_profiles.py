@@ -39,6 +39,22 @@ class HcpProfileOut(BaseModel):
     agent_version: str
     agent_sync_status: str
     agent_sync_error: str
+
+    # Voice/Avatar settings (Phase 12)
+    voice_name: str = "en-US-AvaNeural"
+    voice_type: str = "azure-standard"
+    voice_temperature: float = 0.9
+    voice_custom: bool = False
+    avatar_character: str = "lori"
+    avatar_style: str = "casual"
+    avatar_customized: bool = False
+    turn_detection_type: str = "server_vad"
+    noise_suppression: bool = False
+    echo_cancellation: bool = False
+    eou_detection: bool = False
+    recognition_language: str = "auto"
+    agent_instructions_override: str = ""
+
     created_by: str
     created_at: str
     updated_at: str

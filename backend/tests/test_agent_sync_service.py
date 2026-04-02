@@ -951,3 +951,75 @@ async def test_real_cleanup_test_agents():
 
     print(f"  Cleanup: deleted {deleted}/{len(_created_agents)} test agents")
     _created_agents.clear()
+
+
+# ===========================================================================
+# Phase 12: Agent instruction override tests (D-02)
+# ===========================================================================
+
+
+def test_build_agent_instructions_with_override():
+    """build_agent_instructions returns override when non-empty (D-02)."""
+    from app.services.agent_sync_service import build_agent_instructions
+
+    data = {
+        "name": "Dr. Zhang",
+        "specialty": "Oncology",
+        "agent_instructions_override": "Custom override instructions for Dr. Zhang",
+    }
+    result = build_agent_instructions(data)
+    assert result == "Custom override instructions for Dr. Zhang"
+
+
+def test_build_agent_instructions_empty_override():
+    """build_agent_instructions returns template when override is empty string."""
+    from app.services.agent_sync_service import build_agent_instructions
+
+    data = {
+        "name": "Dr. Zhang",
+        "specialty": "Oncology",
+        "agent_instructions_override": "",
+    }
+    result = build_agent_instructions(data)
+    assert "Dr. Zhang" in result
+    assert "Oncology" in result
+
+
+def test_build_agent_instructions_whitespace_override():
+    """build_agent_instructions returns template when override is whitespace-only."""
+    from app.services.agent_sync_service import build_agent_instructions
+
+    data = {
+        "name": "Dr. Li",
+        "specialty": "Hematology",
+        "agent_instructions_override": "   ",
+    }
+    result = build_agent_instructions(data)
+    assert "Dr. Li" in result
+    assert "Hematology" in result
+
+
+def test_build_agent_instructions_no_override_key():
+    """build_agent_instructions returns template when no override key present."""
+    from app.services.agent_sync_service import build_agent_instructions
+
+    data = {
+        "name": "Dr. Wang",
+        "specialty": "Cardiology",
+    }
+    result = build_agent_instructions(data)
+    assert "Dr. Wang" in result
+    assert "Cardiology" in result
+
+
+def test_build_agent_instructions_override_with_whitespace_stripped():
+    """build_agent_instructions strips leading/trailing whitespace from override."""
+    from app.services.agent_sync_service import build_agent_instructions
+
+    data = {
+        "name": "Dr. Pad",
+        "specialty": "GP",
+        "agent_instructions_override": "  Custom padded instructions  ",
+    }
+    result = build_agent_instructions(data)
+    assert result == "Custom padded instructions"
