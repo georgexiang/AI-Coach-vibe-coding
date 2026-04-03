@@ -24,6 +24,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 10: UI Polish & Professional Unification** - Comprehensive UI overhaul for professional appearance, unified design language, polished visuals for BeiGene customer demo (completed 2026-03-29)
 - [x] **Phase 11: HCP Profile Agent Integration** - Auto-create AI Foundry agent when adding HCP profiles, bidirectional sync, table UI redesign (completed 2026-03-31)
 - [x] **Phase 12: Voice Realtime API & Agent Mode Integration** - Per-HCP digital persona (voice/avatar/conversation config), auto-mode selection, fallback chain, tabbed HCP editor (completed 2026-04-02)
+- [ ] **Phase 13: Voice Live Instance & Agent Voice Management** - Create/manage Voice Live instances, bind to HCP Agents, enable Voice mode, configure speech/avatar — matching AI Foundry portal workflow
 
 ## Phase Details
 
@@ -210,6 +211,7 @@ Phases execute in numeric order: 01 -> 01.1 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07 
 | 10. UI Polish & Professional Unification | 6/6 | Complete    | 2026-03-29 |
 | 11. HCP Profile Agent Integration | 3/3 | Complete    | 2026-03-31 |
 | 12. Voice Realtime API & Agent Mode Integration | 4/4 | Complete    | 2026-04-02 |
+| 13. Voice Live Instance & Agent Voice Management | 0/0 | Not planned | - |
 
 ### Phase 07: Azure Service Integration
 
@@ -338,3 +340,13 @@ Plans:
 - [x] 12-04-PLAN.md -- Backend tests, seed data with per-HCP digital persona configurations, full build verification
 
 **UI hint**: yes
+
+### Phase 13: Voice Live Instance & Agent Voice Management
+
+**Goal:** Admin can create/manage Voice Live instances (select generative AI model from GPT-4o/4.1/5 tiers), bind Voice Live to HCP Agents, enable Voice mode on agents, and configure speech input/output/avatar parameters — matching AI Foundry portal's Voice Live workflow end-to-end via Azure AI Projects SDK. The platform automates the full chain: HCP Profile → Agent → Voice Live instance → Voice mode → Speech/Avatar config.
+**Requirements**: VOICE-13-01, VOICE-13-02, VOICE-13-03, VOICE-13-04, VOICE-13-05
+**Depends on:** Phase 12
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 13 to break down)

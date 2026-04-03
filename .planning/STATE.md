@@ -235,6 +235,7 @@ None yet.
 - Phase 10 added: UI Polish & Professional Unification — comprehensive UI overhaul for professional appearance, unified design language, polished visuals for BeiGene demo
 - Phase 11 added: HCP Profile Agent Integration — Auto-create AI Foundry agent when adding HCP profiles
 - Phase 12 added: voice realtime api & agent模式联调
+- Phase 13 added: Voice Live Instance & Agent Voice Management — Admin创建/管理Voice Live实例，绑定HCP Agent，开启Voice mode，配置Speech/Avatar参数，匹配AI Foundry门户完整工作流
 
 ### Quick Tasks Completed
 
