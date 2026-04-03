@@ -5,11 +5,35 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies import get_current_user, get_db
 from app.models.user import User
-from app.schemas.voice_live import VoiceLiveConfigStatus, VoiceLiveTokenResponse
+from app.schemas.voice_live import (
+    VoiceLiveConfigStatus,
+    VoiceLiveModelInfo,
+    VoiceLiveModelsResponse,
+    VoiceLiveTokenResponse,
+)
 from app.services import voice_live_service
 from app.utils.exceptions import AppException
 
 router = APIRouter(prefix="/voice-live", tags=["voice-live"])
+
+
+@router.get("/models", response_model=VoiceLiveModelsResponse, status_code=200)
+async def get_voice_live_models(
+    user: User = Depends(get_current_user),
+) -> VoiceLiveModelsResponse:
+    """Return the list of supported Voice Live generative AI models."""
+    from app.services.voice_live_models import VOICE_LIVE_MODELS
+
+    models = [
+        VoiceLiveModelInfo(
+            id=model_id,
+            label=info["label"],
+            tier=info["tier"],
+            description=info["description"],
+        )
+        for model_id, info in VOICE_LIVE_MODELS.items()
+    ]
+    return VoiceLiveModelsResponse(models=models)
 
 
 @router.post("/token", response_model=VoiceLiveTokenResponse, status_code=200)

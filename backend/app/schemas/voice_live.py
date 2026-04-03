@@ -31,6 +31,21 @@ class VoiceLiveTokenResponse(BaseModel):
     agent_instructions_override: str = ""
 
 
+class VoiceLiveModelInfo(BaseModel):
+    """Single Voice Live model entry."""
+
+    id: str
+    label: str
+    tier: str
+    description: str
+
+
+class VoiceLiveModelsResponse(BaseModel):
+    """List of supported Voice Live models grouped by tier."""
+
+    models: list[VoiceLiveModelInfo]
+
+
 class VoiceLiveConfigStatus(BaseModel):
     """Voice Live and Avatar availability status for the current deployment."""
 
