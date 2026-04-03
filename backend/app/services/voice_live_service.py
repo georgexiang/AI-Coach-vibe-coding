@@ -114,6 +114,9 @@ async def get_voice_live_token(
     mode_info = parse_voice_live_mode(vl_config.model_or_deployment)
     config_is_agent = mode_info.get("mode") == "agent"
 
+    # Default voice_live_model from config (overridden by per-HCP profile if available)
+    voice_live_model = mode_info.get("model", "gpt-4o")
+
     # Config-level agent/project defaults
     agent_id = mode_info.get("agent_id") if config_is_agent else None
     default_project = master.default_project if master else ""
@@ -166,6 +169,9 @@ async def get_voice_live_token(
             eou_detection = profile.eou_detection
             recognition_language = profile.recognition_language or "auto"
             agent_instructions_override = profile.agent_instructions_override or ""
+
+            # Per-HCP Voice Live model selection (Phase 13)
+            voice_live_model = profile.voice_live_model or "gpt-4o"
         except Exception:
             pass  # Fall back to defaults
 
@@ -178,9 +184,7 @@ async def get_voice_live_token(
     token_value = api_key
     if is_agent:
         try:
-            bearer_token = await _exchange_api_key_for_bearer_token(
-                effective_endpoint, api_key
-            )
+            bearer_token = await _exchange_api_key_for_bearer_token(effective_endpoint, api_key)
             token_value = bearer_token
             auth_type = "bearer"
             logger.info("STS bearer token obtained for agent mode")
@@ -192,7 +196,7 @@ async def get_voice_live_token(
         token=token_value,
         auth_type=auth_type,
         region=effective_region,
-        model=mode_info.get("model", "gpt-4o-realtime-preview") if not is_agent else "",
+        model=voice_live_model if not is_agent else "",
         avatar_enabled=bool(avatar_config and avatar_config.is_active and avatar_key),
         avatar_character=avatar_character_val,
         voice_name=voice_name,

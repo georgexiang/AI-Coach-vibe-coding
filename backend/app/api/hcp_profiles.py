@@ -40,6 +40,9 @@ class HcpProfileOut(BaseModel):
     agent_sync_status: str
     agent_sync_error: str
 
+    # Voice Live model selection (Phase 13)
+    voice_live_model: str = "gpt-4o"
+
     # Voice/Avatar settings (Phase 12)
     voice_name: str = "en-US-AvaNeural"
     voice_type: str = "azure-standard"
