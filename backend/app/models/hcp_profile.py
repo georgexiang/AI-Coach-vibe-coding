@@ -41,6 +41,9 @@ class HcpProfile(Base, TimestampMixin):
     )  # none|pending|synced|failed
     agent_sync_error: Mapped[str] = mapped_column(Text, default="")
 
+    # Voice Live generative AI model selection (Phase 13)
+    voice_live_model: Mapped[str] = mapped_column(String(50), default="gpt-4o")
+
     # Voice settings (D-01, D-04)
     voice_name: Mapped[str] = mapped_column(String(200), default="en-US-AvaNeural")
     voice_type: Mapped[str] = mapped_column(String(50), default="azure-standard")

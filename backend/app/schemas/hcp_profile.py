@@ -25,6 +25,9 @@ class HcpProfileCreate(BaseModel):
     difficulty: str = "medium"
     is_active: bool = True
 
+    # Voice Live model selection (Phase 13)
+    voice_live_model: str = "gpt-4o"
+
     # Voice/Avatar settings (D-01, D-04 defaults)
     voice_name: str = "en-US-AvaNeural"
     voice_type: str = "azure-standard"
@@ -59,6 +62,9 @@ class HcpProfileUpdate(BaseModel):
     probe_topics: list[str] | None = None
     difficulty: str | None = None
     is_active: bool | None = None
+
+    # Voice Live model selection (Phase 13)
+    voice_live_model: str | None = None
 
     # Voice/Avatar settings (all optional for partial updates)
     voice_name: str | None = None
@@ -98,6 +104,9 @@ class HcpProfileResponse(BaseModel):
     agent_id: str = ""
     agent_sync_status: str = "none"
     agent_sync_error: str = ""
+
+    # Voice Live model selection (Phase 13)
+    voice_live_model: str = "gpt-4o"
 
     # Voice/Avatar settings
     voice_name: str = "en-US-AvaNeural"
