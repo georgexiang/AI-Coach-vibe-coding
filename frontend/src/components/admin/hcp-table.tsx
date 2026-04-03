@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/shared/empty-state";
+import { VOICE_LIVE_MODEL_OPTIONS } from "@/components/admin/voice-live-model-select";
 import type { HcpProfile } from "@/types/hcp";
 
 function getVoiceLabel(voiceName: string): string {
@@ -31,6 +32,11 @@ function getVoiceLabel(voiceName: string): string {
     .replace("Multilingual", "ML")
     .replace(":DragonHDLatest", " HD");
   return cleaned || voiceName;
+}
+
+function getModelLabel(modelId: string): string {
+  const found = VOICE_LIVE_MODEL_OPTIONS.find((m) => m.value === modelId);
+  return found?.label ?? modelId;
 }
 
 interface HcpTableProps {
@@ -267,13 +273,18 @@ export function HcpTable({
                   </td>
                   <td className="px-4 py-3">
                     {profile.voice_name ? (
-                      <span className="flex items-center gap-1">
+                      <span className="flex flex-wrap items-center gap-1">
                         <Badge variant="outline" className="text-xs">
                           {getVoiceLabel(profile.voice_name)}
                         </Badge>
                         <Badge variant="outline" className="text-xs">
                           {profile.avatar_character}-{profile.avatar_style}
                         </Badge>
+                        {profile.voice_live_enabled && profile.voice_live_model && (
+                          <Badge variant="outline" className="text-xs">
+                            {getModelLabel(profile.voice_live_model)}
+                          </Badge>
+                        )}
                       </span>
                     ) : (
                       <span className="text-xs text-muted-foreground">

@@ -24,6 +24,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Label } from "@/components/ui/label";
+import { VoiceLiveModelSelect } from "@/components/admin/voice-live-model-select";
 import { useVoiceToken } from "@/hooks/use-voice-token";
 import { useVoiceLive } from "@/hooks/use-voice-live";
 import { useAvatarStream } from "@/hooks/use-avatar-stream";
@@ -187,6 +188,9 @@ export function VoiceAvatarTab({ form, profile, isNew }: VoiceAvatarTabProps) {
         toast.error(t("admin:hcp.voiceTestError", "Connection error"));
         setIsConnected(false);
         setIsConnecting(false);
+      } else if (state === "disconnected") {
+        setIsConnected(false);
+        setIsConnecting(false);
       }
     },
     onError: (error) => {
@@ -202,22 +206,47 @@ export function VoiceAvatarTab({ form, profile, isNew }: VoiceAvatarTabProps) {
       const tokenData = await tokenMutation.mutateAsync(profile.id);
       const mode = resolveMode(tokenData);
       await audioHandler.initialize();
-      const session = await voiceLive.connect(tokenData);
+      // Wire up avatar SDP callback before connecting
+      if (mode.startsWith("digital_human") && tokenData.avatar_enabled) {
+        voiceLive.avatarSdpCallbackRef.current = (serverSdp: string) => {
+          void avatarStream.handleServerSdp(serverSdp);
+        };
+      }
+
+      const result = await voiceLive.connect(tokenData);
+      const vlSession = result.session as {
+        sendEvent?: (event: unknown) => Promise<void>;
+      };
+      const iceServers = result.iceServers;
 
       if (mode.startsWith("digital_human") && tokenData.avatar_enabled) {
         try {
-          const iceServers = session?.avatar?.ice_servers ?? [];
-          await avatarStream.connect(iceServers, voiceLive.clientRef.current);
+          await avatarStream.connect(
+            iceServers,
+            async (clientSdp: string) => {
+              await vlSession.sendEvent?.({
+                type: "session.avatar.connect",
+                clientSdp,
+              });
+            },
+          );
         } catch {
           toast.warning(t("admin:hcp.avatarFallback", "Avatar unavailable, voice-only mode"));
         }
       }
 
       audioHandler.startRecording((audioData: Float32Array) => {
-        const client = voiceLive.clientRef.current as {
-          sendAudio?: (data: Float32Array) => void;
+        const vlSession = voiceLive.sessionRef.current as {
+          sendAudio?: (data: Uint8Array) => Promise<void>;
         } | null;
-        client?.sendAudio?.(audioData);
+        if (vlSession?.sendAudio) {
+          const int16 = new Int16Array(audioData.length);
+          for (let i = 0; i < audioData.length; i++) {
+            const s = Math.max(-1, Math.min(1, audioData[i] ?? 0));
+            int16[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+          }
+          void vlSession.sendAudio(new Uint8Array(int16.buffer));
+        }
       });
 
       setIsConnected(true);
@@ -260,6 +289,39 @@ export function VoiceAvatarTab({ form, profile, isNew }: VoiceAvatarTabProps) {
     <div className="flex gap-6 h-[calc(100vh-280px)] min-h-[500px]">
       {/* Left: Settings (scrollable) */}
       <div className="w-80 flex-shrink-0 overflow-y-auto space-y-4 pr-2">
+        {/* Voice Live Agent Config Toggle */}
+        <Card>
+          <CardContent className="pt-4 pb-3">
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label className="text-sm font-semibold">
+                  {t("admin:hcp.voiceLiveEnabled", "Voice Live Config")}
+                </Label>
+                <p className="text-[10px] leading-tight text-muted-foreground">
+                  {t(
+                    "admin:hcp.voiceLiveEnabledDesc",
+                    "Sync voice settings as agent metadata",
+                  )}
+                </p>
+              </div>
+              <FormField
+                control={form.control}
+                name="voice_live_enabled"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Voice Settings Card */}
         <Card>
           <CardHeader className="pb-3">
@@ -268,6 +330,27 @@ export function VoiceAvatarTab({ form, profile, isNew }: VoiceAvatarTabProps) {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
+            <FormField
+              control={form.control}
+              name="voice_live_model"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-xs">
+                    {t("admin:hcp.voiceLiveModel")}
+                  </FormLabel>
+                  <FormControl>
+                    <VoiceLiveModelSelect
+                      value={field.value}
+                      onValueChange={field.onChange}
+                    />
+                  </FormControl>
+                  <p className="text-[10px] text-muted-foreground">
+                    {t("admin:hcp.voiceLiveModelDesc")}
+                  </p>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             <div className="flex items-center justify-between">
               <Label className="text-xs">{t("admin:hcp.customVoice")}</Label>
               <FormField

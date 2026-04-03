@@ -75,6 +75,9 @@ const hcpSchema = z.object({
   objections: z.array(z.string()),
   probe_topics: z.array(z.string()),
   difficulty: z.enum(["easy", "medium", "hard"]),
+  // Voice Live agent metadata toggle
+  voice_live_enabled: z.boolean().default(true),
+  voice_live_model: z.string().default("gpt-4o"),
   // Voice/avatar fields
   voice_name: z.string().default("en-US-AvaNeural"),
   voice_type: z.string().default("azure-standard"),
@@ -122,6 +125,8 @@ export default function HcpProfileEditorPage() {
       objections: [],
       probe_topics: [],
       difficulty: "medium",
+      voice_live_enabled: true,
+      voice_live_model: "gpt-4o",
       voice_name: "en-US-AvaNeural",
       voice_type: "azure-standard",
       voice_temperature: 0.9,
@@ -154,6 +159,8 @@ export default function HcpProfileEditorPage() {
         objections: profile.objections,
         probe_topics: profile.probe_topics,
         difficulty: profile.difficulty,
+        voice_live_enabled: profile.voice_live_enabled ?? true,
+        voice_live_model: profile.voice_live_model ?? "gpt-4o",
         voice_name: profile.voice_name ?? "en-US-AvaNeural",
         voice_type: profile.voice_type ?? "azure-standard",
         voice_temperature: profile.voice_temperature ?? 0.9,
