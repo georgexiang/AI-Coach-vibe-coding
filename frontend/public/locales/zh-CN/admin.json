@@ -70,7 +70,14 @@
     "overridePlaceholder": "留空则使用自动生成的指令",
     "voiceAvatarCol": "语音和数字人",
     "notConfigured": "未配置",
-    "deleteConfirmAgent": "确定删除此 HCP 配置？关联的 AI Foundry Agent 也将被删除。"
+    "deleteConfirmAgent": "确定删除此 HCP 配置？关联的 AI Foundry Agent 也将被删除。",
+    "voiceLiveEnabled": "启用Voice Live配置",
+    "voiceLiveEnabledDesc": "将语音、数字人和对话设置作为Agent元数据同步到Voice Live会话",
+    "voiceLiveModel": "Voice Live 模型",
+    "voiceLiveModelDesc": "Voice Live 会话的生成式 AI 模型（仅模型模式）",
+    "modelTierPro": "专业版",
+    "modelTierStandard": "标准版",
+    "modelTierLite": "轻量版"
   },
   "scenarios": {
     "title": "培训场景",
@@ -236,6 +243,27 @@
     "agentIdPlaceholder": "输入 Azure AI Agent ID",
     "projectPlaceholder": "输入 AI Foundry 项目名称",
     "agentIdRequired": "Agent 模式需要 Agent ID",
-    "projectNameRequired": "Agent 模式需要项目名称"
+    "projectNameRequired": "Agent 模式需要项目名称",
+    "title": "Voice Live 管理",
+    "batchResync": "批量同步",
+    "batchResyncSuccess": "已同步 {{synced}} 个代理（{{failed}} 个失败）",
+    "batchResyncError": "批量同步代理失败，请重试。",
+    "statTotalHcps": "HCP 总数",
+    "statAgentsSynced": "已同步代理",
+    "statVoiceLiveEnabled": "Voice Live 已启用",
+    "statFullyConfigured": "完全配置",
+    "stepProfile": "HCP 配置",
+    "stepAgent": "代理同步",
+    "stepVoiceLive": "Voice Live 配置",
+    "stepSpeechAvatar": "语音和数字人",
+    "statusComplete": "已完成",
+    "statusPartial": "部分完成",
+    "statusNotConfigured": "未配置",
+    "statusDisabled": "已禁用",
+    "editHcp": "编辑 HCP",
+    "emptyTitle": "暂无 Voice Live 配置",
+    "emptyBody": "创建 HCP 配置并启用 Voice Live 以在此处查看配置。",
+    "loadError": "加载 Voice Live 配置失败。点击重试。",
+    "nav": "Voice Live"
   }
 }

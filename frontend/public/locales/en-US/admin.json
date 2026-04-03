@@ -70,7 +70,14 @@
     "overridePlaceholder": "Leave empty to use auto-generated instructions",
     "voiceAvatarCol": "Voice & Avatar",
     "notConfigured": "Not configured",
-    "deleteConfirmAgent": "Delete this HCP profile? This will also delete the linked AI Foundry Agent."
+    "deleteConfirmAgent": "Delete this HCP profile? This will also delete the linked AI Foundry Agent.",
+    "voiceLiveEnabled": "Enable Voice Live Configuration",
+    "voiceLiveEnabledDesc": "Sync voice, avatar and conversation settings as agent metadata for Voice Live sessions",
+    "voiceLiveModel": "Voice Live Model",
+    "voiceLiveModelDesc": "Generative AI model for Voice Live sessions (model mode only)",
+    "modelTierPro": "Pro",
+    "modelTierStandard": "Standard",
+    "modelTierLite": "Lite"
   },
   "scenarios": {
     "title": "Training Scenarios",
@@ -236,6 +243,27 @@
     "agentIdPlaceholder": "Enter Azure AI Agent ID",
     "projectPlaceholder": "Enter AI Foundry project name",
     "agentIdRequired": "Agent ID is required for Agent mode",
-    "projectNameRequired": "Project Name is required for Agent mode"
+    "projectNameRequired": "Project Name is required for Agent mode",
+    "title": "Voice Live Management",
+    "batchResync": "Batch Re-sync",
+    "batchResyncSuccess": "Re-synced {{synced}} agents ({{failed}} failed)",
+    "batchResyncError": "Failed to batch re-sync agents. Please try again.",
+    "statTotalHcps": "Total HCPs",
+    "statAgentsSynced": "Agents Synced",
+    "statVoiceLiveEnabled": "Voice Live Enabled",
+    "statFullyConfigured": "Fully Configured",
+    "stepProfile": "HCP Profile",
+    "stepAgent": "Agent Sync",
+    "stepVoiceLive": "Voice Live Config",
+    "stepSpeechAvatar": "Speech & Avatar",
+    "statusComplete": "Complete",
+    "statusPartial": "Partial",
+    "statusNotConfigured": "Not configured",
+    "statusDisabled": "Disabled",
+    "editHcp": "Edit HCP",
+    "emptyTitle": "No Voice Live Configurations",
+    "emptyBody": "Create HCP profiles and enable Voice Live to see configurations here.",
+    "loadError": "Failed to load Voice Live configurations. Click retry to try again.",
+    "nav": "Voice Live"
   }
 }

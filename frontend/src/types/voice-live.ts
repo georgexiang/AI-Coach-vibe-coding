@@ -17,6 +17,7 @@ export interface VoiceLiveToken {
   avatar_character: string;
   voice_name: string;
   agent_id?: string;
+  agent_version?: string;
   project_name?: string;
   // Per-HCP fields from token broker (D-08)
   avatar_style?: string;
@@ -37,6 +38,17 @@ export interface VoiceLiveConfigStatus {
   avatar_available: boolean;
   voice_name: string;
   avatar_character: string;
+}
+
+export interface VoiceLiveModelInfo {
+  id: string;
+  label: string;
+  tier: string;
+  description: string;
+}
+
+export interface VoiceLiveModelsResponse {
+  models: VoiceLiveModelInfo[];
 }
 
 export type VoiceConnectionState =
@@ -66,17 +78,29 @@ export interface VoiceLiveOptions {
 }
 
 export interface VoiceLiveControls {
-  connect: (tokenData: VoiceLiveToken) => Promise<void>;
+  connect: (
+    tokenData: VoiceLiveToken,
+  ) => Promise<{ session: unknown; iceServers: RTCIceServer[] }>;
   disconnect: () => Promise<void>;
   toggleMute: () => void;
   sendTextMessage: (text: string) => Promise<void>;
   isMuted: boolean;
   connectionState: VoiceConnectionState;
   audioState: AudioState;
+  sessionRef: React.MutableRefObject<unknown>;
+  avatarSdpCallbackRef: React.MutableRefObject<
+    ((serverSdp: string) => void) | null
+  >;
 }
 
 export interface AvatarStreamControls {
-  connect: (iceServers: RTCIceServer[], rtClient: unknown) => Promise<void>;
+  /** Start avatar WebRTC handshake. Sends SDP offer via VoiceLive session event. */
+  connect: (
+    iceServers: RTCIceServer[],
+    sendSdpOffer: (sdp: string) => Promise<void>,
+  ) => Promise<void>;
+  /** Handle SDP answer from server (via onSessionAvatarConnecting handler). */
+  handleServerSdp: (serverSdp: string) => Promise<void>;
   disconnect: () => void;
   isConnected: boolean;
 }

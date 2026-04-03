@@ -22,6 +22,10 @@ export interface HcpProfile {
   agent_version: string;
   agent_sync_status: "synced" | "pending" | "failed" | "none";
   agent_sync_error: string;
+  // Voice Live agent metadata toggle
+  voice_live_enabled: boolean;
+  // Voice Live model selection (Phase 13)
+  voice_live_model: string;
   // Voice settings (D-01)
   voice_name: string;
   voice_type: string;
@@ -56,6 +60,8 @@ export interface HcpProfileCreate {
   objections?: string[];
   probe_topics?: string[];
   difficulty?: HcpProfile["difficulty"];
+  voice_live_enabled?: boolean;
+  voice_live_model?: string;
   voice_name?: string;
   voice_type?: string;
   voice_temperature?: number;

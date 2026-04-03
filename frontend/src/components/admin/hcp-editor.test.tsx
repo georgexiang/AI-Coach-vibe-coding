@@ -47,6 +47,8 @@ const mockProfile: HcpProfile = {
   eou_detection: false,
   recognition_language: "auto",
   agent_instructions_override: "",
+  voice_live_enabled: true,
+  voice_live_model: "gpt-4o",
 };
 
 describe("HcpEditor", () => {
