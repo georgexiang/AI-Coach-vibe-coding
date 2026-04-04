@@ -1,6 +1,7 @@
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Loader2 } from "lucide-react";
+import { Loader2, AlertTriangle } from "lucide-react";
+import { Button } from "@/components/ui";
 import { VoiceSession } from "@/components/voice/voice-session";
 import { useSession } from "@/hooks/use-session";
 import { useScenario } from "@/hooks/use-scenarios";
@@ -12,18 +13,38 @@ import { useScenario } from "@/hooks/use-scenarios";
  * Mode is auto-resolved from token broker (D-10) -- no manual mode selection.
  */
 export default function VoiceSessionPage() {
-  const { t } = useTranslation("voice");
+  const { t, i18n } = useTranslation("voice");
+  const { t: tc } = useTranslation("common");
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const sessionId = searchParams.get("id") ?? "";
 
   // Fetch session and scenario data
-  const { data: session, isLoading: sessionLoading } = useSession(
+  const { data: session, isLoading: sessionLoading, isError: sessionError } = useSession(
     sessionId || undefined,
   );
-  const { data: scenario } = useScenario(session?.scenario_id);
+  const { data: scenario, isLoading: scenarioLoading, isError: scenarioError } = useScenario(
+    session?.scenario_id,
+  );
 
-  // Only block on session loading -- scenario is optional (graceful degradation)
-  if (sessionLoading || !session) {
+  // Error state — show actionable message instead of perpetual spinner
+  if (sessionError || scenarioError) {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4">
+          <AlertTriangle className="h-10 w-10 text-destructive" />
+          <p className="text-sm text-muted-foreground">{t("error.loadFailed")}</p>
+          <Button variant="outline" onClick={() => navigate("/user/scenarios")}>
+            {tc("back")}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Block on BOTH session AND scenario loading — VoiceSession needs hcpProfileId
+  // from scenario to fetch per-HCP voice/avatar config from token broker (D-08)
+  if (sessionLoading || !session || (session.scenario_id && scenarioLoading)) {
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-3">
@@ -37,7 +58,7 @@ export default function VoiceSessionPage() {
   const hcpProfileId = scenario?.hcp_profile_id ?? "";
   const hcpName = scenario?.hcp_profile?.name ?? "HCP";
   const systemPrompt = scenario?.description ?? "";
-  const language = "zh-CN";
+  const language = i18n.language || "zh-CN";
 
   return (
     <VoiceSession

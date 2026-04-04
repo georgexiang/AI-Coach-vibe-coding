@@ -72,7 +72,8 @@
     "audioWorkletFailed": "Audio system initialization failed. Please refresh the page.",
     "webrtcFailed": "Video connection failed. Switching to voice-only mode.",
     "avatarFallback": "Avatar unavailable, switching to voice mode",
-    "voiceFallback": "Voice unavailable, switching to text mode"
+    "voiceFallback": "Voice unavailable, switching to text mode",
+    "loadFailed": "Failed to load session data. Please go back and try again."
   },
   "modeStatus": {
     "connected": "Connected",
