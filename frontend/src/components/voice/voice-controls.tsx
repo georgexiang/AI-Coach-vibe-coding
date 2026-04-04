@@ -189,30 +189,6 @@ export function VoiceControls({
       {/* Separator */}
       <div className="mx-1 h-8 w-px bg-white/20" />
 
-      {/* Mute toggle (secondary) */}
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            type="button"
-            onClick={onToggleMute}
-            disabled={connectionState !== "connected"}
-            className={cn(
-              "flex h-10 w-10 items-center justify-center rounded-full transition-colors",
-              "text-white/70 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed",
-              isMuted && "text-destructive",
-            )}
-            aria-label={isMuted ? t("unmute") : t("mute")}
-          >
-            {isMuted ? (
-              <MicOff className="h-5 w-5" />
-            ) : (
-              <Mic className="h-5 w-5" />
-            )}
-          </button>
-        </TooltipTrigger>
-        <TooltipContent>{isMuted ? t("unmute") : t("mute")}</TooltipContent>
-      </Tooltip>
-
       {/* Keyboard input toggle */}
       <Tooltip>
         <TooltipTrigger asChild>

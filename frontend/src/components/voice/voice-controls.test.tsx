@@ -39,13 +39,13 @@ describe("VoiceControls", () => {
     expect(screen.getByTestId("camera-off-btn")).toBeDisabled();
   });
 
-  it("calls onToggleMute when mute button is clicked", () => {
+  it("calls onToggleMute when mic button is clicked", () => {
     const onToggleMute = vi.fn();
     render(
       <VoiceControls {...defaultProps} onToggleMute={onToggleMute} />,
     );
-    const muteBtn = screen.getByLabelText("mute");
-    fireEvent.click(muteBtn);
+    const micBtn = screen.getByTestId("mic-button");
+    fireEvent.click(micBtn);
     expect(onToggleMute).toHaveBeenCalled();
   });
 
@@ -133,22 +133,10 @@ describe("VoiceControls", () => {
     expect(micBtn).toHaveAttribute("aria-label", "micButton.disabled");
   });
 
-  it("mute toggle button shows unmute label when muted", () => {
+  it("mic button shows muted aria-label when muted", () => {
     render(<VoiceControls {...defaultProps} isMuted={true} />);
-    expect(screen.getByLabelText("unmute")).toBeInTheDocument();
-  });
-
-  it("mute toggle button shows mute label when not muted", () => {
-    render(<VoiceControls {...defaultProps} isMuted={false} />);
-    expect(screen.getByLabelText("mute")).toBeInTheDocument();
-  });
-
-  it("mute toggle button is disabled when not connected", () => {
-    render(
-      <VoiceControls {...defaultProps} connectionState="disconnected" />,
-    );
-    const muteBtn = screen.getByLabelText("mute");
-    expect(muteBtn).toBeDisabled();
+    const micBtn = screen.getByTestId("mic-button");
+    expect(micBtn).toHaveAttribute("aria-label", "micButton.muted");
   });
 
   it("renders view toggle button when onToggleView is provided", () => {
