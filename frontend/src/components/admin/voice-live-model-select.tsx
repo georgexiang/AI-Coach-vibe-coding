@@ -11,20 +11,20 @@ import {
 
 const VOICE_LIVE_MODEL_OPTIONS = [
   // Pro tier
-  { value: "gpt-realtime", label: "GPT Realtime", tier: "pro" },
-  { value: "gpt-4o", label: "GPT-4o", tier: "pro" },
-  { value: "gpt-4.1", label: "GPT-4.1", tier: "pro" },
-  { value: "gpt-5", label: "GPT-5", tier: "pro" },
-  { value: "gpt-5-chat", label: "GPT-5 Chat", tier: "pro" },
+  { value: "gpt-realtime", i18nKey: "modelGptRealtime", tier: "pro" },
+  { value: "gpt-4o", i18nKey: "modelGpt4o", tier: "pro" },
+  { value: "gpt-4.1", i18nKey: "modelGpt41", tier: "pro" },
+  { value: "gpt-5", i18nKey: "modelGpt5", tier: "pro" },
+  { value: "gpt-5-chat", i18nKey: "modelGpt5Chat", tier: "pro" },
   // Basic tier
-  { value: "gpt-realtime-mini", label: "GPT Realtime Mini", tier: "basic" },
-  { value: "gpt-4o-mini", label: "GPT-4o Mini", tier: "basic" },
-  { value: "gpt-4.1-mini", label: "GPT-4.1 Mini", tier: "basic" },
-  { value: "gpt-5-mini", label: "GPT-5 Mini", tier: "basic" },
+  { value: "gpt-realtime-mini", i18nKey: "modelGptRealtimeMini", tier: "basic" },
+  { value: "gpt-4o-mini", i18nKey: "modelGpt4oMini", tier: "basic" },
+  { value: "gpt-4.1-mini", i18nKey: "modelGpt41Mini", tier: "basic" },
+  { value: "gpt-5-mini", i18nKey: "modelGpt5Mini", tier: "basic" },
   // Lite tier
-  { value: "gpt-5-nano", label: "GPT-5 Nano", tier: "lite" },
-  { value: "phi4-mm-realtime", label: "Phi4-MM Realtime", tier: "lite" },
-  { value: "phi4-mini", label: "Phi4 Mini", tier: "lite" },
+  { value: "gpt-5-nano", i18nKey: "modelGpt5Nano", tier: "lite" },
+  { value: "phi4-mm-realtime", i18nKey: "modelPhi4MmRealtime", tier: "lite" },
+  { value: "phi4-mini", i18nKey: "modelPhi4Mini", tier: "lite" },
 ] as const;
 
 export { VOICE_LIVE_MODEL_OPTIONS };
@@ -63,7 +63,7 @@ export function VoiceLiveModelSelect({
             {VOICE_LIVE_MODEL_OPTIONS.filter((m) => m.tier === tier).map(
               (model) => (
                 <SelectItem key={model.value} value={model.value}>
-                  {model.label}
+                  {t(`hcp.${model.i18nKey}`)}
                 </SelectItem>
               ),
             )}
