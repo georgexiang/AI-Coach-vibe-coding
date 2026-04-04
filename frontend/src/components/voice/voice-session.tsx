@@ -143,7 +143,7 @@ export function VoiceSession({
     onTranscript: handleTranscript,
     onConnectionStateChange: (state) => {
       if (state === "error") {
-        toast.error(t("error.voiceConnectionFailed"));
+        toast.error(t("error.connectionFailed"));
       }
     },
     onError: (error) => {
@@ -193,17 +193,25 @@ export function VoiceSession({
 
       // Connect avatar WebRTC using ICE servers from session
       if (result.avatarEnabled) {
-        await avatarStream.connect(
-          result.iceServers,
-          async (clientSdp: string) => {
-            // Send SDP offer via backend proxy → Azure
-            voiceLive.send({
-              type: "session.avatar.connect",
-              client_sdp: clientSdp,
-            });
-          },
-        );
-        console.info("[VoiceSession] Avatar WebRTC connected");
+        try {
+          await avatarStream.connect(
+            result.iceServers,
+            async (clientSdp: string) => {
+              // Send SDP offer via backend proxy → Azure
+              voiceLive.send({
+                type: "session.avatar.connect",
+                client_sdp: clientSdp,
+              });
+            },
+          );
+          console.info("[VoiceSession] Avatar WebRTC connected");
+        } catch (avatarError) {
+          console.error("[VoiceSession] Avatar WebRTC failed:", avatarError);
+          toast.error(t("error.avatarFailed"));
+          // Continue with voice-only mode — avatar is a Voice Live API
+          // feature that enhances the session but voice still works without it
+          setCurrentMode("voice_realtime_model");
+        }
       }
 
       // Start recording — send audio via backend WebSocket proxy
@@ -226,7 +234,7 @@ export function VoiceSession({
       });
     } catch (error) {
       console.error("[VoiceSession] Connection failed:", error);
-      toast.error(t("error.voiceConnectionFailed"));
+      toast.error(t("error.connectionFailed"));
     } finally {
       setIsConnecting(false);
     }

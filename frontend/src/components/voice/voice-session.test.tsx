@@ -835,7 +835,7 @@ describe("VoiceSession", () => {
       });
 
       // No fallback — shows error toast
-      expect(mockToastError).toHaveBeenCalledWith("voice.error.voiceConnectionFailed");
+      expect(mockToastError).toHaveBeenCalledWith("voice.error.connectionFailed");
     });
   });
 
@@ -961,7 +961,7 @@ describe("VoiceSession", () => {
       await user.click(screen.getByTestId("start-session-btn"));
 
       await waitFor(() => {
-        expect(mockToastError).toHaveBeenCalledWith("voice.error.voiceConnectionFailed");
+        expect(mockToastError).toHaveBeenCalledWith("voice.error.connectionFailed");
       });
       consoleSpy.mockRestore();
     });
