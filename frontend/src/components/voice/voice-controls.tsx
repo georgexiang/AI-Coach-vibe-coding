@@ -7,6 +7,8 @@ import {
   Maximize2,
   Minimize2,
   Loader2,
+  VideoOff,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui";
@@ -19,6 +21,7 @@ interface VoiceControlsProps {
   onToggleMute: () => void;
   onToggleKeyboard: () => void;
   onToggleView?: () => void;
+  onEndSession?: () => void;
   isFullScreen?: boolean;
   className?: string;
 }
@@ -93,9 +96,9 @@ function getMicButtonConfig(
 }
 
 /**
- * Mic button and control bar.
- * Centered 56px mic button with state-dependent colors and animations.
- * Side buttons for mute toggle, keyboard input, and view mode toggle.
+ * Voice session control bar — AI Foundry-style bottom controls.
+ * Layout: [camera off] [mic button (large)] [end call (red)] + secondary controls.
+ * Central mic button is 56px with state-dependent colors and animations.
  */
 export function VoiceControls({
   audioState,
@@ -104,6 +107,7 @@ export function VoiceControls({
   onToggleMute,
   onToggleKeyboard,
   onToggleView,
+  onEndSession,
   isFullScreen = false,
   className,
 }: VoiceControlsProps) {
@@ -114,31 +118,27 @@ export function VoiceControls({
   return (
     <div
       className={cn(
-        "flex h-16 items-center justify-center gap-4",
+        "flex h-20 items-center justify-center gap-3 bg-slate-900/95 backdrop-blur-sm",
         className,
       )}
     >
-      {/* Mute toggle */}
+      {/* Camera off button (AI Foundry style - always show as camera off since we do voice) */}
       <Tooltip>
         <TooltipTrigger asChild>
           <button
             type="button"
-            onClick={onToggleMute}
-            disabled={connectionState !== "connected"}
+            disabled
             className={cn(
-              "flex h-10 w-10 items-center justify-center rounded-full transition-colors",
-              "hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed",
+              "flex h-12 w-12 items-center justify-center rounded-full transition-colors",
+              "bg-white/10 text-white/60 cursor-not-allowed",
             )}
-            aria-label={isMuted ? t("unmute") : t("mute")}
+            aria-label={t("cameraOff")}
+            data-testid="camera-off-btn"
           >
-            {isMuted ? (
-              <MicOff className="h-5 w-5" />
-            ) : (
-              <Mic className="h-5 w-5" />
-            )}
+            <VideoOff className="h-5 w-5" />
           </button>
         </TooltipTrigger>
-        <TooltipContent>{isMuted ? t("unmute") : t("mute")}</TooltipContent>
+        <TooltipContent>{t("cameraOff")}</TooltipContent>
       </Tooltip>
 
       {/* Central mic button */}
@@ -165,6 +165,54 @@ export function VoiceControls({
         </button>
       </div>
 
+      {/* End call button (AI Foundry style red circle with X) */}
+      {onEndSession && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              onClick={onEndSession}
+              className={cn(
+                "flex h-12 w-12 items-center justify-center rounded-full transition-colors",
+                "bg-destructive text-white hover:bg-destructive/80",
+              )}
+              aria-label={t("endSession")}
+              data-testid="end-call-btn"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>{t("endSession")}</TooltipContent>
+        </Tooltip>
+      )}
+
+      {/* Separator */}
+      <div className="mx-1 h-8 w-px bg-white/20" />
+
+      {/* Mute toggle (secondary) */}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            onClick={onToggleMute}
+            disabled={connectionState !== "connected"}
+            className={cn(
+              "flex h-10 w-10 items-center justify-center rounded-full transition-colors",
+              "text-white/70 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed",
+              isMuted && "text-destructive",
+            )}
+            aria-label={isMuted ? t("unmute") : t("mute")}
+          >
+            {isMuted ? (
+              <MicOff className="h-5 w-5" />
+            ) : (
+              <Mic className="h-5 w-5" />
+            )}
+          </button>
+        </TooltipTrigger>
+        <TooltipContent>{isMuted ? t("unmute") : t("mute")}</TooltipContent>
+      </Tooltip>
+
       {/* Keyboard input toggle */}
       <Tooltip>
         <TooltipTrigger asChild>
@@ -173,7 +221,7 @@ export function VoiceControls({
             onClick={onToggleKeyboard}
             className={cn(
               "flex h-10 w-10 items-center justify-center rounded-full transition-colors",
-              "hover:bg-accent",
+              "text-white/70 hover:bg-white/10",
             )}
             aria-label={t("keyboardInput")}
           >
@@ -192,7 +240,7 @@ export function VoiceControls({
               onClick={onToggleView}
               className={cn(
                 "flex h-10 w-10 items-center justify-center rounded-full transition-colors",
-                "hover:bg-accent",
+                "text-white/70 hover:bg-white/10",
               )}
               aria-label={isFullScreen ? t("embeddedView") : t("fullScreen")}
             >

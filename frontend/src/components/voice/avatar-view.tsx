@@ -28,6 +28,9 @@ interface AvatarViewProps {
  *
  * When avatar is connected, the video layer is visible and overlays the orb.
  * When voice-only, AudioOrb renders as the pulsating sphere fallback.
+ *
+ * The center area is styled to match AI Foundry's dark background with
+ * gradient effects for a premium feel.
  */
 export function AvatarView({
   videoRef,
@@ -44,8 +47,8 @@ export function AvatarView({
   return (
     <div
       className={cn(
-        "relative flex flex-col items-center justify-center overflow-hidden rounded-lg bg-slate-900",
-        isFullScreen ? "h-[calc(100vh-64px-80px)]" : "h-[280px]",
+        "relative flex flex-col items-center justify-center overflow-hidden bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950",
+        isFullScreen ? "h-[calc(100vh-64px-80px)]" : "min-h-[360px]",
         className,
       )}
       role="region"
@@ -71,7 +74,7 @@ export function AvatarView({
       {/* Loading state: skeleton while WebRTC is negotiating */}
       {isConnecting && (
         <div className="z-20 flex flex-col items-center gap-3">
-          <Skeleton className="h-20 w-20 rounded-full" />
+          <Skeleton className="h-24 w-24 rounded-full" />
           <p className="text-sm text-white/70">{t("connectingAvatar")}</p>
         </div>
       )}
@@ -83,7 +86,7 @@ export function AvatarView({
 
       {/* HCP name badge at bottom */}
       {hcpName && (
-        <div className="absolute bottom-0 left-0 right-0 z-20 bg-gradient-to-t from-black/60 to-transparent px-4 py-2">
+        <div className="absolute bottom-0 left-0 right-0 z-20 bg-gradient-to-t from-black/60 to-transparent px-4 py-3">
           <p className="text-center text-sm font-medium text-white">
             {hcpName}
           </p>

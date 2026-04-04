@@ -2,7 +2,7 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { UseFormReturn } from "react-hook-form";
 import { toast } from "sonner";
-import { Mic, MicOff, Send, Phone, PhoneOff, User } from "lucide-react";
+import { Mic, MicOff, Send, Phone, PhoneOff, User, Check } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -85,6 +85,16 @@ const RECOGNITION_LANGUAGES = [
   { value: "ja-JP", label: "Japanese (ja-JP)" },
   { value: "ko-KR", label: "Korean (ko-KR)" },
 ] as const;
+
+/** Color palette for avatar character thumbnails (consistent per character) */
+const AVATAR_COLORS: Record<string, string> = {
+  harry: "from-blue-500 to-blue-700",
+  jeff: "from-emerald-500 to-emerald-700",
+  lisa: "from-purple-500 to-purple-700",
+  lori: "from-rose-500 to-rose-700",
+  max: "from-amber-500 to-amber-700",
+  meg: "from-cyan-500 to-cyan-700",
+};
 
 function buildPreviewInstructions(values: HcpFormValues): string {
   const name = values.name || "[Name]";
@@ -278,6 +288,20 @@ export function VoiceAvatarTab({ form, profile, isNew }: VoiceAvatarTabProps) {
     void voiceLive.sendTextMessage(text);
   }, [textInput, voiceLive]);
 
+  /** Handle avatar character selection from the visual grid */
+  const handleAvatarGridSelect = useCallback(
+    (character: string) => {
+      form.setValue("avatar_character", character);
+      const charDef = AVATAR_VIDEO_CHARACTERS.find(
+        (c) => c.character === character,
+      );
+      if (charDef && charDef.styles.length > 0) {
+        form.setValue("avatar_style", charDef.styles[0] as string);
+      }
+    },
+    [form],
+  );
+
   return (
     <div className="flex gap-6 h-[calc(100vh-280px)] min-h-[500px]">
       {/* Left: Settings (scrollable) */}
@@ -412,7 +436,7 @@ export function VoiceAvatarTab({ form, profile, isNew }: VoiceAvatarTabProps) {
           </CardContent>
         </Card>
 
-        {/* Avatar Settings Card */}
+        {/* Avatar Settings Card — with visual grid matching AI Foundry */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-semibold">
@@ -458,48 +482,51 @@ export function VoiceAvatarTab({ form, profile, isNew }: VoiceAvatarTabProps) {
                 )}
               />
             ) : (
-              <div className="grid grid-cols-2 gap-2">
-                <FormField
-                  control={form.control}
-                  name="avatar_character"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-xs">
-                        {t("admin:hcp.avatarCharacter")}
-                      </FormLabel>
-                      <Select
-                        value={field.value}
-                        onValueChange={(val) => {
-                          field.onChange(val);
-                          const charDef = AVATAR_VIDEO_CHARACTERS.find(
-                            (c) => c.character === val,
-                          );
-                          if (charDef && charDef.styles.length > 0) {
-                            form.setValue(
-                              "avatar_style",
-                              charDef.styles[0] as string,
-                            );
-                          }
-                        }}
+              <>
+                {/* Visual avatar character grid — AI Foundry style */}
+                <div className="grid grid-cols-3 gap-2" data-testid="avatar-character-grid">
+                  {AVATAR_VIDEO_CHARACTERS.map((c) => {
+                    const isSelected = watchCharacter === c.character;
+                    const gradient = AVATAR_COLORS[c.character] ?? "from-gray-500 to-gray-700";
+                    return (
+                      <button
+                        key={c.character}
+                        type="button"
+                        onClick={() => handleAvatarGridSelect(c.character)}
+                        className={cn(
+                          "relative flex flex-col items-center gap-1 rounded-lg border-2 p-2 transition-all",
+                          "hover:border-primary/50 hover:shadow-sm",
+                          isSelected
+                            ? "border-primary bg-primary/5 shadow-sm"
+                            : "border-transparent bg-muted/30",
+                        )}
+                        data-testid={`avatar-grid-${c.character}`}
                       >
-                        <FormControl>
-                          <SelectTrigger className="h-8 text-xs">
-                            <SelectValue />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {AVATAR_VIDEO_CHARACTERS.map((c) => (
-                            <SelectItem key={c.character} value={c.character}>
-                              {c.character.charAt(0).toUpperCase() +
-                                c.character.slice(1)}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                        {/* Avatar thumbnail placeholder */}
+                        <div
+                          className={cn(
+                            "flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br text-white",
+                            gradient,
+                          )}
+                        >
+                          <User className="h-6 w-6" />
+                        </div>
+                        {/* Character name */}
+                        <span className="text-[10px] font-medium capitalize leading-tight">
+                          {c.character}
+                        </span>
+                        {/* Selection indicator */}
+                        {isSelected && (
+                          <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                            <Check className="h-2.5 w-2.5" />
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Style selector for selected character */}
                 <FormField
                   control={form.control}
                   name="avatar_style"
@@ -529,7 +556,7 @@ export function VoiceAvatarTab({ form, profile, isNew }: VoiceAvatarTabProps) {
                     </FormItem>
                   )}
                 />
-              </div>
+              </>
             )}
           </CardContent>
         </Card>
@@ -722,7 +749,7 @@ export function VoiceAvatarTab({ form, profile, isNew }: VoiceAvatarTabProps) {
       {/* Right: Avatar + Conversation Test */}
       <div className="flex-1 flex flex-col min-w-0 border rounded-lg overflow-hidden">
         {/* Avatar area */}
-        <div className="flex-1 relative bg-muted/30 overflow-hidden">
+        <div className="flex-1 relative bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 overflow-hidden">
           {/* Pre-rendered video element - always in DOM for WebRTC ontrack */}
           <video
             ref={videoRef}
@@ -736,10 +763,10 @@ export function VoiceAvatarTab({ form, profile, isNew }: VoiceAvatarTabProps) {
             null
           ) : isConnected ? (
             <div className="w-full h-full flex flex-col items-center justify-center gap-4">
-              <div className="size-24 rounded-full bg-primary/10 flex items-center justify-center">
-                <User className="size-12 text-primary" />
+              <div className="size-24 rounded-full bg-gradient-to-br from-[#A855F7] via-[#7C3AED] to-[#6D28D9] flex items-center justify-center shadow-[0_0_40px_rgba(168,85,247,0.3)]">
+                <User className="size-12 text-white" />
               </div>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-white/70">
                 {t("admin:hcp.voiceOnlyMode", "Voice-only mode")}
               </p>
               {audioHandler.isRecording && (
@@ -747,7 +774,7 @@ export function VoiceAvatarTab({ form, profile, isNew }: VoiceAvatarTabProps) {
                   {[...Array(5)].map((_, i) => (
                     <div
                       key={i}
-                      className="w-1 bg-primary rounded-full animate-pulse"
+                      className="w-1 bg-[#A855F7] rounded-full animate-pulse"
                       style={{
                         height: `${12 + Math.random() * 20}px`,
                         animationDelay: `${i * 0.1}s`,
@@ -759,17 +786,23 @@ export function VoiceAvatarTab({ form, profile, isNew }: VoiceAvatarTabProps) {
             </div>
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center gap-4">
-              <div className="size-24 rounded-full bg-muted flex items-center justify-center">
-                <User className="size-12 text-muted-foreground" />
+              {/* Avatar preview with gradient matching selected character */}
+              <div
+                className={cn(
+                  "size-24 rounded-full flex items-center justify-center bg-gradient-to-br text-white shadow-lg",
+                  AVATAR_COLORS[watchCharacter] ?? "from-gray-500 to-gray-700",
+                )}
+              >
+                <User className="size-12" />
               </div>
-              <p className="text-base font-medium capitalize">
+              <p className="text-base font-medium capitalize text-white">
                 {watchCharacter}
               </p>
-              <span className="text-xs px-2 py-0.5 bg-muted rounded-full">
+              <span className="text-xs px-3 py-1 bg-white/10 text-white/70 rounded-full">
                 {form.watch("avatar_style")}
               </span>
               {isNew ? (
-                <p className="text-xs text-muted-foreground text-center px-8">
+                <p className="text-xs text-white/50 text-center px-8">
                   {t(
                     "admin:hcp.saveFirstForVoice",
                     "Save profile first to enable voice test",
@@ -780,6 +813,7 @@ export function VoiceAvatarTab({ form, profile, isNew }: VoiceAvatarTabProps) {
                   onClick={handleConnect}
                   disabled={isConnecting || !profile?.id}
                   size="sm"
+                  className="bg-primary hover:bg-primary/90"
                 >
                   <Phone className="size-4 mr-2" />
                   {isConnecting

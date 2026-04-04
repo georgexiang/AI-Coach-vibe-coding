@@ -29,6 +29,16 @@ describe("VoiceControls", () => {
     expect(screen.getByTestId("mic-button")).toBeInTheDocument();
   });
 
+  it("renders camera off button", () => {
+    render(<VoiceControls {...defaultProps} />);
+    expect(screen.getByTestId("camera-off-btn")).toBeInTheDocument();
+  });
+
+  it("camera off button is always disabled", () => {
+    render(<VoiceControls {...defaultProps} />);
+    expect(screen.getByTestId("camera-off-btn")).toBeDisabled();
+  });
+
   it("calls onToggleMute when mute button is clicked", () => {
     const onToggleMute = vi.fn();
     render(
@@ -249,5 +259,39 @@ describe("VoiceControls", () => {
     const micBtn = screen.getByTestId("mic-button");
     fireEvent.click(micBtn);
     expect(onToggleMute).toHaveBeenCalled();
+  });
+
+  // End call button tests
+
+  it("renders end-call button when onEndSession is provided", () => {
+    const onEndSession = vi.fn();
+    render(
+      <VoiceControls {...defaultProps} onEndSession={onEndSession} />,
+    );
+    expect(screen.getByTestId("end-call-btn")).toBeInTheDocument();
+  });
+
+  it("does not render end-call button when onEndSession is not provided", () => {
+    render(<VoiceControls {...defaultProps} />);
+    expect(screen.queryByTestId("end-call-btn")).not.toBeInTheDocument();
+  });
+
+  it("calls onEndSession when end-call button is clicked", () => {
+    const onEndSession = vi.fn();
+    render(
+      <VoiceControls {...defaultProps} onEndSession={onEndSession} />,
+    );
+    const endBtn = screen.getByTestId("end-call-btn");
+    fireEvent.click(endBtn);
+    expect(onEndSession).toHaveBeenCalled();
+  });
+
+  it("end-call button has correct aria-label", () => {
+    const onEndSession = vi.fn();
+    render(
+      <VoiceControls {...defaultProps} onEndSession={onEndSession} />,
+    );
+    const endBtn = screen.getByTestId("end-call-btn");
+    expect(endBtn).toHaveAttribute("aria-label", "endSession");
   });
 });

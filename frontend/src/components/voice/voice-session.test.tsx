@@ -18,9 +18,11 @@ vi.mock("react-i18next", () => ({
 }));
 
 const mockToastError = vi.fn();
+const mockToastWarning = vi.fn();
 vi.mock("sonner", () => ({
   toast: {
     error: (...args: unknown[]) => mockToastError(...args),
+    warning: (...args: unknown[]) => mockToastWarning(...args),
     success: vi.fn(),
     info: vi.fn(),
   },
@@ -31,7 +33,7 @@ vi.mock("./voice-session-header", () => ({
   VoiceSessionHeader: (props: Record<string, unknown>) => (
     <div data-testid="voice-session-header">
       <span data-testid="header-title">{String(props.scenarioTitle)}</span>
-      <span data-testid="header-mode">{String(props.mode)}</span>
+      <span data-testid="header-mode">{String(props.currentMode)}</span>
       <span data-testid="header-connection">{String(props.connectionState)}</span>
       <button data-testid="end-session-btn" onClick={props.onEndSession as () => void}>
         End
@@ -79,6 +81,14 @@ vi.mock("./voice-controls", () => ({
       >
         View
       </button>
+      {props.onEndSession != null && (
+        <button
+          data-testid="controls-end-session-btn"
+          onClick={props.onEndSession as () => void}
+        >
+          EndCall
+        </button>
+      )}
     </div>
   ),
 }));
@@ -150,11 +160,18 @@ vi.mock("@/components/ui", () => ({
 }));
 
 // ---- Hook mocks ----
-const mockConnect = vi.fn().mockResolvedValue(undefined);
+// connect() returns { avatarEnabled, model, iceServers } via backend WebSocket proxy
+const mockSendAudio = vi.fn();
+const mockSend = vi.fn();
+const mockConnect = vi.fn().mockResolvedValue({
+  avatarEnabled: false,
+  model: "gpt-4o",
+  iceServers: [],
+});
 const mockDisconnect = vi.fn().mockResolvedValue(undefined);
 const mockToggleMute = vi.fn();
 const mockSendTextMessage = vi.fn().mockResolvedValue(undefined);
-const mockClientRef = { current: null };
+const mockAvatarSdpCallbackRef = { current: null as ((sdp: string) => void) | null };
 let mockVoiceConnectionState = "disconnected";
 
 let capturedOnTranscript: ((segment: TranscriptSegment) => void) | undefined;
@@ -171,10 +188,12 @@ vi.mock("@/hooks/use-voice-live", () => ({
       disconnect: mockDisconnect,
       toggleMute: mockToggleMute,
       sendTextMessage: mockSendTextMessage,
+      sendAudio: mockSendAudio,
+      send: mockSend,
       isMuted: false,
       connectionState: mockVoiceConnectionState,
       audioState: "idle",
-      clientRef: mockClientRef,
+      avatarSdpCallbackRef: mockAvatarSdpCallbackRef,
     };
   },
 }));
@@ -182,10 +201,13 @@ vi.mock("@/hooks/use-voice-live", () => ({
 const mockAvatarConnect = vi.fn().mockResolvedValue(undefined);
 const mockAvatarDisconnect = vi.fn();
 
+const mockHandleServerSdp = vi.fn().mockResolvedValue(undefined);
+
 vi.mock("@/hooks/use-avatar-stream", () => ({
   useAvatarStream: () => ({
     connect: mockAvatarConnect,
     disconnect: mockAvatarDisconnect,
+    handleServerSdp: mockHandleServerSdp,
     isConnected: false,
   }),
 }));
@@ -206,22 +228,7 @@ vi.mock("@/hooks/use-audio-handler", () => ({
   }),
 }));
 
-const mockTokenMutateAsync = vi.fn().mockResolvedValue({
-  endpoint: "https://test.endpoint",
-  token: "test-token",
-  region: "eastus",
-  model: "gpt-4o",
-  avatar_enabled: false,
-  avatar_character: "lisa",
-  voice_name: "en-US-JennyNeural",
-});
-
-vi.mock("@/hooks/use-voice-token", () => ({
-  useVoiceToken: () => ({
-    mutateAsync: mockTokenMutateAsync,
-    isLoading: false,
-  }),
-}));
+// useVoiceToken no longer needed — backend proxy handles token/credentials
 
 const mockEndSessionMutateAsync = vi.fn().mockResolvedValue(undefined);
 
@@ -323,7 +330,8 @@ describe("VoiceSession", () => {
 
     it("passes mode to header", () => {
       renderSession();
-      expect(screen.getByTestId("header-mode")).toHaveTextContent("text");
+      // Default mode is digital_human_realtime_model (no text fallback)
+      expect(screen.getByTestId("header-mode")).toHaveTextContent("digital_human_realtime_model");
     });
 
     it("passes hcpName to avatar view", () => {
@@ -740,25 +748,15 @@ describe("VoiceSession", () => {
   // ======== Connection state change callback ========
 
   describe("connection state change callback", () => {
-    it("falls back to text mode on error state when not in text mode", async () => {
+    it("shows error toast on connection error (no fallback)", async () => {
       renderSession();
 
       await act(async () => {
         capturedOnConnectionStateChange?.("error");
       });
 
-      // Should show toast and update mode
-      expect(mockToastError).toHaveBeenCalledWith("voice.error.connectionFailed");
-    });
-
-    it("does not fall back when already in text mode", async () => {
-      renderSession();
-
-      await act(async () => {
-        capturedOnConnectionStateChange?.("error");
-      });
-
-      expect(mockToastError).not.toHaveBeenCalled();
+      // No fallback — shows error toast
+      expect(mockToastError).toHaveBeenCalledWith("voice.error.voiceConnectionFailed");
     });
   });
 
@@ -781,85 +779,76 @@ describe("VoiceSession", () => {
   // ======== Voice initialization on mount ========
 
   describe("voice initialization on mount", () => {
-    it("does not initialize voice when mode is text", () => {
-      renderSession();
-
-      expect(mockTokenMutateAsync).not.toHaveBeenCalled();
-      expect(mockAudioInitialize).not.toHaveBeenCalled();
-      expect(mockConnect).not.toHaveBeenCalled();
-    });
-
-    it("initializes voice when mode is voice_pipeline", async () => {
+    it("always attempts voice initialization on mount (connects via proxy)", async () => {
       renderSession();
 
       await waitFor(() => {
-        expect(mockTokenMutateAsync).toHaveBeenCalled();
+        // Component connects to backend WebSocket proxy
+        expect(mockAudioInitialize).toHaveBeenCalled();
+        expect(mockConnect).toHaveBeenCalled();
+      });
+    });
+
+    it("initializes voice and starts recording on mount", async () => {
+      renderSession();
+
+      await waitFor(() => {
         expect(mockAudioInitialize).toHaveBeenCalled();
         expect(mockConnect).toHaveBeenCalled();
         expect(mockStartRecording).toHaveBeenCalled();
       });
     });
 
-    it("initializes voice and tries avatar when mode is digital_human_pipeline with avatar_enabled", async () => {
-      mockTokenMutateAsync.mockResolvedValueOnce({
-        endpoint: "https://test.endpoint",
-        token: "test-token",
-        region: "eastus",
+    it("initializes voice and tries avatar when proxy reports avatar_enabled", async () => {
+      const mockIceServers = [
+        { urls: "turn:relay.azure.com:3478", username: "u", credential: "c" },
+      ];
+      mockConnect.mockResolvedValueOnce({
         model: "gpt-4o",
-        avatar_enabled: true,
-        avatar_character: "lisa",
-        voice_name: "en-US-JennyNeural",
+        avatarEnabled: true,
+        iceServers: mockIceServers,
       });
 
       renderSession();
 
       await waitFor(() => {
-        expect(mockTokenMutateAsync).toHaveBeenCalled();
         expect(mockAudioInitialize).toHaveBeenCalled();
         expect(mockConnect).toHaveBeenCalled();
+        // CRITICAL: avatarConnect receives ICE servers from session.updated
         expect(mockAvatarConnect).toHaveBeenCalled();
+        const avatarCallArgs = mockAvatarConnect.mock.calls[0]!;
+        expect(avatarCallArgs[0]).toEqual(mockIceServers);
         expect(mockStartRecording).toHaveBeenCalled();
       });
+
+      // Verify avatar SDP offer is sent with correct field name (client_sdp, not clientSdp)
+      const sendSdpCallback = mockAvatarConnect.mock.calls[0]![1] as (sdp: string) => Promise<void>;
+      await act(async () => {
+        await sendSdpCallback("v=0\r\ntest-sdp");
+      });
+      expect(mockSend).toHaveBeenCalledWith({
+        type: "session.avatar.connect",
+        client_sdp: "v=0\r\ntest-sdp",
+      });
     });
 
-    it("falls back to voice_pipeline mode when avatar connection fails", async () => {
-      mockTokenMutateAsync.mockResolvedValueOnce({
-        endpoint: "https://test.endpoint",
-        token: "test-token",
-        region: "eastus",
-        model: "gpt-4o",
-        avatar_enabled: true,
-        avatar_character: "lisa",
-        voice_name: "en-US-JennyNeural",
-      });
-      mockAvatarConnect.mockRejectedValueOnce(new Error("Avatar failed"));
+    it("shows error toast when connection fails (no fallback)", async () => {
+      mockConnect.mockRejectedValueOnce(new Error("WebSocket connection failed"));
 
+      const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
       renderSession();
 
       await waitFor(() => {
-        expect(mockToastError).toHaveBeenCalledWith("voice.error.avatarFailed");
+        expect(mockToastError).toHaveBeenCalledWith("voice.error.voiceConnectionFailed");
       });
+      consoleSpy.mockRestore();
     });
 
-    it("falls back to text mode when voice connection fails", async () => {
-      mockTokenMutateAsync.mockRejectedValueOnce(new Error("Token fetch failed"));
-
-      renderSession();
-
-      await waitFor(() => {
-        expect(mockToastError).toHaveBeenCalledWith("voice.error.connectionFailed");
-      });
-    });
-
-    it("does not attempt avatar when avatar_enabled is false in digital_human_pipeline mode", async () => {
-      mockTokenMutateAsync.mockResolvedValueOnce({
-        endpoint: "https://test.endpoint",
-        token: "test-token",
-        region: "eastus",
+    it("does not attempt avatar when avatarEnabled is false", async () => {
+      mockConnect.mockResolvedValueOnce({
         model: "gpt-4o",
-        avatar_enabled: false,
-        avatar_character: "lisa",
-        voice_name: "en-US-JennyNeural",
+        avatarEnabled: false,
+        iceServers: [],
       });
 
       renderSession();
@@ -868,16 +857,16 @@ describe("VoiceSession", () => {
         expect(mockConnect).toHaveBeenCalled();
       });
 
-      // Avatar not attempted since avatar_enabled is false
+      // Avatar not attempted since avatarEnabled is false
       expect(mockAvatarConnect).not.toHaveBeenCalled();
     });
 
     it("sets isConnecting during initialization", async () => {
-      let resolveToken: ((val: unknown) => void) | undefined;
-      mockTokenMutateAsync.mockImplementationOnce(
+      let resolveConnect: ((val: unknown) => void) | undefined;
+      mockConnect.mockImplementationOnce(
         () =>
           new Promise((resolve) => {
-            resolveToken = resolve;
+            resolveConnect = resolve;
           }),
       );
 
@@ -888,16 +877,12 @@ describe("VoiceSession", () => {
         expect(screen.getByTestId("avatar-connecting")).toHaveTextContent("true");
       });
 
-      // Resolve token
+      // Resolve connect
       await act(async () => {
-        resolveToken?.({
-          endpoint: "https://test.endpoint",
-          token: "test-token",
-          region: "eastus",
+        resolveConnect?.({
           model: "gpt-4o",
-          avatar_enabled: false,
-          avatar_character: "lisa",
-          voice_name: "en-US-JennyNeural",
+          avatarEnabled: false,
+          iceServers: [],
         });
       });
 
@@ -1050,7 +1035,7 @@ describe("VoiceSession", () => {
   // ======== startRecording sends audio to client ========
 
   describe("startRecording callback", () => {
-    it("starts recording with callback that sends audio to client", async () => {
+    it("starts recording with callback that sends audio to session", async () => {
       renderSession();
 
       await waitFor(() => {
@@ -1062,20 +1047,14 @@ describe("VoiceSession", () => {
         | ((data: Float32Array) => void)
         | undefined;
 
-      // When clientRef.current is null, should not throw
-      expect(() => recordingCallback?.(new Float32Array([0.1, 0.2]))).not.toThrow();
-
-      // Set up a client with sendAudio
-      const mockSendAudio = vi.fn();
-      mockClientRef.current = { sendAudio: mockSendAudio } as unknown as null;
-
+      // The callback converts audio to base64 and sends via voiceLive.sendAudio
       const data = new Float32Array([0.3, 0.4]);
       recordingCallback?.(data);
 
-      expect(mockSendAudio).toHaveBeenCalledWith(data);
-
-      // Cleanup
-      mockClientRef.current = null;
+      // Audio is converted from Float32 → Int16 PCM → base64 string via sendAudio
+      expect(mockSendAudio).toHaveBeenCalled();
+      const sentData = mockSendAudio.mock.calls[0]![0] as string;
+      expect(typeof sentData).toBe("string"); // base64 encoded
     });
   });
 

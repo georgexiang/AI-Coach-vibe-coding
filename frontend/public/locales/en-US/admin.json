@@ -245,6 +245,7 @@
     "agentIdRequired": "Agent ID is required for Agent mode",
     "projectNameRequired": "Project Name is required for Agent mode",
     "title": "Voice Live Management",
+    "pageDescription": "Manage Voice Live configurations across all HCP profiles. View the full chain from profile to agent to voice settings.",
     "batchResync": "Batch Re-sync",
     "batchResyncSuccess": "Re-synced {{synced}} agents ({{failed}} failed)",
     "batchResyncError": "Failed to batch re-sync agents. Please try again.",
@@ -264,6 +265,9 @@
     "emptyTitle": "No Voice Live Configurations",
     "emptyBody": "Create HCP profiles and enable Voice Live to see configurations here.",
     "loadError": "Failed to load Voice Live configurations. Click retry to try again.",
-    "nav": "Voice Live"
+    "nav": "Voice Live",
+    "retrySync": "Re-sync",
+    "retrySyncSuccess": "Agent re-synced successfully",
+    "retrySyncError": "Agent re-sync failed"
   }
 }

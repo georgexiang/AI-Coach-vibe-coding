@@ -410,7 +410,7 @@ export function VoiceSession({
             </div>
           )}
 
-          {/* Voice controls */}
+          {/* Voice controls — AI Foundry-style bottom bar */}
           <VoiceControls
             audioState={voiceLive.audioState}
             connectionState={voiceLive.connectionState}
@@ -418,8 +418,8 @@ export function VoiceSession({
             onToggleMute={voiceLive.toggleMute}
             onToggleKeyboard={() => setShowKeyboard((prev) => !prev)}
             onToggleView={() => setIsFullScreen((prev) => !prev)}
+            onEndSession={handleEndSession}
             isFullScreen={isFullScreen}
-            className="border-t border-border"
           />
         </div>
 

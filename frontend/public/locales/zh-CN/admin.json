@@ -245,6 +245,7 @@
     "agentIdRequired": "Agent 模式需要 Agent ID",
     "projectNameRequired": "Agent 模式需要项目名称",
     "title": "Voice Live 管理",
+    "pageDescription": "管理所有 HCP 配置的 Voice Live 设置。查看从配置到代理到语音设置的完整链路。",
     "batchResync": "批量同步",
     "batchResyncSuccess": "已同步 {{synced}} 个代理（{{failed}} 个失败）",
     "batchResyncError": "批量同步代理失败，请重试。",
@@ -264,6 +265,9 @@
     "emptyTitle": "暂无 Voice Live 配置",
     "emptyBody": "创建 HCP 配置并启用 Voice Live 以在此处查看配置。",
     "loadError": "加载 Voice Live 配置失败。点击重试。",
-    "nav": "Voice Live"
+    "nav": "Voice Live",
+    "retrySync": "重新同步",
+    "retrySyncSuccess": "代理重新同步成功",
+    "retrySyncError": "代理重新同步失败"
   }
 }
