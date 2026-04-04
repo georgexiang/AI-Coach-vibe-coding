@@ -13,14 +13,14 @@ describe("ConnectionStatus", () => {
     const { container } = render(<ConnectionStatus state="connected" />);
     expect(screen.getByText("status.connected")).toBeInTheDocument();
     const dot = container.querySelector('[data-testid="status-dot"]');
-    expect(dot).toHaveClass("bg-[#22C55E]");
+    expect(dot).toHaveClass("bg-voice-speaking");
   });
 
   it("renders orange dot and status.connecting text for connecting state", () => {
     const { container } = render(<ConnectionStatus state="connecting" />);
     expect(screen.getByText("status.connecting")).toBeInTheDocument();
     const dot = container.querySelector('[data-testid="status-dot"]');
-    expect(dot).toHaveClass("bg-[#F97316]");
+    expect(dot).toHaveClass("bg-voice-warning");
   });
 
   it("renders red dot and status.disconnected text for disconnected state", () => {
@@ -41,7 +41,7 @@ describe("ConnectionStatus", () => {
     const { container } = render(<ConnectionStatus state="reconnecting" />);
     expect(screen.getByText("status.reconnecting")).toBeInTheDocument();
     const dot = container.querySelector('[data-testid="status-dot"]');
-    expect(dot).toHaveClass("bg-[#F97316]");
+    expect(dot).toHaveClass("bg-voice-warning");
   });
 
   it("has aria-live assertive attribute on the container", () => {

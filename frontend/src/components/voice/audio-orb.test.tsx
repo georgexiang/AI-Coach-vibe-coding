@@ -74,19 +74,19 @@ describe("AudioOrb", () => {
   it("applies purple gradient classes when listening", () => {
     render(<AudioOrb audioState="listening" />);
     const sphere = screen.getByTestId("orb-sphere");
-    expect(sphere.className).toContain("from-[#A855F7]");
+    expect(sphere.className).toContain("from-voice-listening");
   });
 
   it("applies green gradient classes when speaking", () => {
     render(<AudioOrb audioState="speaking" />);
     const sphere = screen.getByTestId("orb-sphere");
-    expect(sphere.className).toContain("from-[#22C55E]");
+    expect(sphere.className).toContain("from-voice-speaking");
   });
 
   it("applies muted gray gradient classes when muted", () => {
     render(<AudioOrb audioState="muted" />);
     const sphere = screen.getByTestId("orb-sphere");
-    expect(sphere.className).toContain("from-[#64748B]");
+    expect(sphere.className).toContain("from-voice-muted");
   });
 
   it("applies pulse animation class when listening", () => {
@@ -122,12 +122,12 @@ describe("AudioOrb", () => {
   it("label has purple color when listening", () => {
     render(<AudioOrb audioState="listening" />);
     const label = screen.getByText("listening");
-    expect(label.className).toContain("text-[#A855F7]");
+    expect(label.className).toContain("text-voice-listening");
   });
 
   it("label has green color when speaking", () => {
     render(<AudioOrb audioState="speaking" />);
     const label = screen.getByText("speaking");
-    expect(label.className).toContain("text-[#22C55E]");
+    expect(label.className).toContain("text-voice-speaking");
   });
 });

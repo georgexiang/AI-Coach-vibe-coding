@@ -67,6 +67,6 @@ describe("FloatingTranscript", () => {
     };
     render(<FloatingTranscript lastTranscript={segment} hcpName="Dr. Chen" />);
     const label = screen.getByText("transcript.hcp:Dr. Chen");
-    expect(label.className).toContain("text-[#22C55E]");
+    expect(label.className).toContain("text-voice-speaking");
   });
 });

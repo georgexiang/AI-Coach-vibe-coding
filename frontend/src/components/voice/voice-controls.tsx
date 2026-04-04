@@ -68,7 +68,7 @@ function getMicButtonConfig(
     case "listening":
       return {
         icon: Mic,
-        colorClass: "bg-[#22C55E] text-white",
+        colorClass: "bg-voice-speaking text-white",
         animateClass: "",
         ariaKey: "micButton.listening" as const,
         disabled: false,
@@ -77,7 +77,7 @@ function getMicButtonConfig(
     case "speaking":
       return {
         icon: Volume2,
-        colorClass: "bg-[#F97316] text-white",
+        colorClass: "bg-voice-warning text-white",
         animateClass: "",
         ariaKey: "micButton.speaking" as const,
         disabled: false,
@@ -145,7 +145,7 @@ export function VoiceControls({
       <div className="relative">
         {config.pulse && (
           <span
-            className="absolute inset-0 rounded-full bg-[#22C55E] animate-ping opacity-30"
+            className="absolute inset-0 rounded-full bg-voice-speaking animate-ping opacity-30"
             style={{ animationDuration: "1.5s" }}
           />
         )}

@@ -78,7 +78,7 @@ export function VoiceTranscript({
                   <span
                     className={cn(
                       "font-medium",
-                      isUser ? "text-primary" : "text-[#22C55E]",
+                      isUser ? "text-primary" : "text-voice-speaking",
                     )}
                   >
                     {speakerLabel}

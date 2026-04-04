@@ -24,6 +24,12 @@
   --weakness: #F97316;
   --improvement: #A855F7;
 
+  /* Voice audio state colors (aliased from scoring palette) */
+  --voice-listening: #A855F7;
+  --voice-speaking: #22C55E;
+  --voice-warning: #F97316;
+  --voice-muted: #64748B;
+
   --muted: #ececf0;
   --muted-foreground: #717182;
   --accent: #e9ebef;
@@ -193,6 +199,10 @@
   --color-strength: var(--strength);
   --color-weakness: var(--weakness);
   --color-improvement: var(--improvement);
+  --color-voice-listening: var(--voice-listening);
+  --color-voice-speaking: var(--voice-speaking);
+  --color-voice-warning: var(--voice-warning);
+  --color-voice-muted: var(--voice-muted);
 
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);

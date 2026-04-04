@@ -64,8 +64,8 @@ export function AudioOrb({ audioState, className }: AudioOrbProps) {
               className={cn(
                 "audio-orb-ripple absolute rounded-full",
                 audioState === "listening"
-                  ? "bg-[#A855F7]/20"
-                  : "bg-[#22C55E]/20",
+                  ? "bg-voice-listening/20"
+                  : "bg-voice-speaking/20",
               )}
               data-testid="orb-ripple"
               style={{
@@ -78,8 +78,8 @@ export function AudioOrb({ audioState, className }: AudioOrbProps) {
               className={cn(
                 "audio-orb-ripple absolute rounded-full",
                 audioState === "listening"
-                  ? "bg-[#A855F7]/15"
-                  : "bg-[#22C55E]/15",
+                  ? "bg-voice-listening/15"
+                  : "bg-voice-speaking/15",
               )}
               style={{
                 width: 220,
@@ -91,8 +91,8 @@ export function AudioOrb({ audioState, className }: AudioOrbProps) {
               className={cn(
                 "audio-orb-ripple absolute rounded-full",
                 audioState === "listening"
-                  ? "bg-[#A855F7]/10"
-                  : "bg-[#22C55E]/10",
+                  ? "bg-voice-listening/10"
+                  : "bg-voice-speaking/10",
               )}
               style={{
                 width: 260,
@@ -107,10 +107,10 @@ export function AudioOrb({ audioState, className }: AudioOrbProps) {
         <span
           className={cn(
             "absolute rounded-full blur-xl transition-all duration-500",
-            audioState === "listening" && "audio-orb-glow bg-[#A855F7]/30",
-            audioState === "speaking" && "audio-orb-glow bg-[#22C55E]/30",
-            audioState === "idle" && "audio-orb-breathe bg-[#A855F7]/15",
-            isMuted && "bg-[#64748B]/10",
+            audioState === "listening" && "audio-orb-glow bg-voice-listening/30",
+            audioState === "speaking" && "audio-orb-glow bg-voice-speaking/30",
+            audioState === "idle" && "audio-orb-breathe bg-voice-listening/15",
+            isMuted && "bg-voice-muted/10",
           )}
           style={{ width: 140, height: 140 }}
         />
@@ -120,13 +120,13 @@ export function AudioOrb({ audioState, className }: AudioOrbProps) {
           className={cn(
             "relative z-10 flex items-center justify-center rounded-full transition-all duration-500",
             audioState === "listening" &&
-              "audio-orb-pulse bg-gradient-to-br from-[#A855F7] via-[#7C3AED] to-[#6D28D9] shadow-[0_0_60px_rgba(168,85,247,0.5)]",
+              "audio-orb-pulse bg-gradient-to-br from-voice-listening via-[#7C3AED] to-[#6D28D9] shadow-[0_0_60px_rgba(168,85,247,0.5)]",
             audioState === "speaking" &&
-              "audio-orb-pulse bg-gradient-to-br from-[#22C55E] via-[#16A34A] to-[#15803D] shadow-[0_0_60px_rgba(34,197,94,0.5)]",
+              "audio-orb-pulse bg-gradient-to-br from-voice-speaking via-[#16A34A] to-[#15803D] shadow-[0_0_60px_rgba(34,197,94,0.5)]",
             audioState === "idle" &&
-              "audio-orb-breathe bg-gradient-to-br from-[#A855F7]/80 via-[#7C3AED]/70 to-[#6D28D9]/60 shadow-[0_0_30px_rgba(168,85,247,0.25)]",
+              "audio-orb-breathe bg-gradient-to-br from-voice-listening/80 via-[#7C3AED]/70 to-[#6D28D9]/60 shadow-[0_0_30px_rgba(168,85,247,0.25)]",
             isMuted &&
-              "bg-gradient-to-br from-[#64748B] via-[#475569] to-[#334155] shadow-none",
+              "bg-gradient-to-br from-voice-muted via-[#475569] to-[#334155] shadow-none",
           )}
           data-testid="orb-sphere"
           style={{ width: 120, height: 120 }}
@@ -156,8 +156,8 @@ export function AudioOrb({ audioState, className }: AudioOrbProps) {
       <p
         className={cn(
           "text-base font-medium tracking-wide transition-colors duration-300",
-          audioState === "listening" && "text-[#A855F7]",
-          audioState === "speaking" && "text-[#22C55E]",
+          audioState === "listening" && "text-voice-listening",
+          audioState === "speaking" && "text-voice-speaking",
           audioState === "idle" && "text-white/50",
           isMuted && "text-white/30",
         )}

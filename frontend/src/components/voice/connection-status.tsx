@@ -11,9 +11,9 @@ function getDotColor(state: VoiceConnectionState): string {
   switch (state) {
     case "connecting":
     case "reconnecting":
-      return "bg-[#F97316]";
+      return "bg-voice-warning";
     case "connected":
-      return "bg-[#22C55E]";
+      return "bg-voice-speaking";
     case "disconnected":
     case "error":
       return "bg-destructive";
@@ -26,9 +26,9 @@ function getTextColor(state: VoiceConnectionState): string {
   switch (state) {
     case "connecting":
     case "reconnecting":
-      return "text-[#F97316]";
+      return "text-voice-warning";
     case "connected":
-      return "text-[#22C55E]";
+      return "text-voice-speaking";
     case "disconnected":
     case "error":
       return "text-destructive";

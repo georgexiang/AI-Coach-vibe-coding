@@ -76,7 +76,7 @@ describe("WaveformViz", () => {
       <WaveformViz audioState="speaking" analyserData={new Uint8Array(128)} />,
     );
     const bars = screen.getAllByTestId("waveform-bar");
-    expect(bars[0]).toHaveClass("bg-[#22C55E]");
+    expect(bars[0]).toHaveClass("bg-voice-speaking");
   });
 
   // NEW TESTS for uncovered branches

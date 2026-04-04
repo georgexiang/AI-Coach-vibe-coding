@@ -39,7 +39,7 @@ export function FloatingTranscript({
         <p
           className={cn(
             "text-sm font-medium",
-            isUser ? "text-primary" : "text-[#22C55E]",
+            isUser ? "text-primary" : "text-voice-speaking",
           )}
         >
           {speakerLabel}

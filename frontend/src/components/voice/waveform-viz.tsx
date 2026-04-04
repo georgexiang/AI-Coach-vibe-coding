@@ -17,7 +17,7 @@ function getBarColor(audioState: AudioState): string {
     case "listening":
       return "bg-primary";
     case "speaking":
-      return "bg-[#22C55E]";
+      return "bg-voice-speaking";
     case "idle":
       return "bg-primary opacity-30";
     case "muted":
