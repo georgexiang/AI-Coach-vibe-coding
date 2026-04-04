@@ -16,7 +16,6 @@ import { HintsPanel } from "@/components/coach/hints-panel";
 import { useVoiceLive } from "@/hooks/use-voice-live";
 import { useAvatarStream } from "@/hooks/use-avatar-stream";
 import { useAudioHandler } from "@/hooks/use-audio-handler";
-import { useVoiceToken } from "@/hooks/use-voice-token";
 import { useEndSession } from "@/hooks/use-session";
 import { useScenario } from "@/hooks/use-scenarios";
 import { persistTranscriptMessage } from "@/api/voice-live";
@@ -25,7 +24,6 @@ import { AvatarView } from "./avatar-view";
 import { VoiceTranscript } from "./voice-transcript";
 import { VoiceControls } from "./voice-controls";
 import { FloatingTranscript } from "./floating-transcript";
-import { resolveMode } from "@/lib/voice-utils";
 import type {
   SessionMode,
   TranscriptSegment,
@@ -43,9 +41,9 @@ interface VoiceSessionProps {
 }
 
 /**
- * Main voice session container orchestrating all hooks and leaf components.
- * Auto-resolves mode from token broker (D-10), implements 3-level fallback chain (D-11, D-12).
- * Handles transcript persistence and flush-before-end-session (D-09, Pitfall 5).
+ * Main voice session container — digital human + voice is the primary flow.
+ * No fallback to text mode. Avatar must appear.
+ * Supports both realtime model and LLM model scenarios via Voice Live API.
  */
 export function VoiceSession({
   sessionId,
@@ -59,9 +57,9 @@ export function VoiceSession({
   const { t: tc } = useTranslation("common");
   const navigate = useNavigate();
 
-  // State -- mode starts as "text", resolved dynamically after token fetch (D-10)
-  const [currentMode, setCurrentMode] = useState<SessionMode>("text");
-  const initialModeRef = useRef<SessionMode>("text");
+  // State
+  const [currentMode, setCurrentMode] = useState<SessionMode>("digital_human_realtime_model");
+  const initialModeRef = useRef<SessionMode>("digital_human_realtime_model");
   const [transcripts, setTranscripts] = useState<TranscriptSegment[]>([]);
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [showKeyboard, setShowKeyboard] = useState(false);
@@ -76,22 +74,30 @@ export function VoiceSession({
   const [startedAt] = useState<string>(new Date().toISOString());
   const videoContainerRef = useRef<HTMLDivElement>(null);
 
-  // CRITICAL (D-09): Track pending transcript flush promises
+  // Track pending transcript flush promises (D-09)
   const pendingFlushesRef = useRef<Promise<void>[]>([]);
 
   // Hooks
-  const tokenMutation = useVoiceToken();
   const endSessionMutation = useEndSession();
   const { data: scenario } = useScenario(scenarioId || undefined);
 
   const handleTranscript = useCallback(
     (segment: TranscriptSegment) => {
       setTranscripts((prev) => {
-        // Update existing segment or add new
         const existing = prev.findIndex((s) => s.id === segment.id);
         if (existing >= 0) {
           const updated = [...prev];
-          updated[existing] = segment;
+          const existingSegment = updated[existing]!;
+          if (!segment.isFinal && !existingSegment.isFinal) {
+            // Streaming delta: accumulate content instead of replacing
+            updated[existing] = {
+              ...segment,
+              content: existingSegment.content + segment.content,
+            };
+          } else {
+            // Final event: replace with complete content
+            updated[existing] = segment;
+          }
           return updated;
         }
         return [...prev, segment];
@@ -120,10 +126,8 @@ export function VoiceSession({
     systemPrompt,
     onTranscript: handleTranscript,
     onConnectionStateChange: (state) => {
-      // Voice connection error -> text fallback (D-11)
-      if (state === "error" && currentMode !== "text") {
-        toast.warning(t("error.voiceFallback"));
-        setCurrentMode("text");
+      if (state === "error") {
+        toast.error(t("error.voiceConnectionFailed"));
       }
     },
     onError: (error) => {
@@ -147,63 +151,84 @@ export function VoiceSession({
     }
   }, [scenario, keyMessagesStatus.length]);
 
-  // Connect voice on mount -- always try (mode resolved dynamically from token)
+  // Connect voice + digital human on mount (via backend WebSocket proxy)
   useEffect(() => {
     const initVoice = async () => {
       setIsConnecting(true);
       try {
-        // Fetch token with per-HCP settings (D-08)
-        const tokenData = await tokenMutation.mutateAsync(hcpProfileId);
+        // Initialize audio
+        await audioHandler.initialize();
 
-        // Auto-resolve best mode (D-10)
-        const resolvedMode = resolveMode(tokenData);
+        // Wire up avatar SDP callback BEFORE connecting
+        // When server sends session.avatar.connecting event, this callback
+        // forwards the SDP answer to the avatar WebRTC hook
+        voiceLive.avatarSdpCallbackRef.current = (serverSdp: string) => {
+          void avatarStream.handleServerSdp(serverSdp);
+        };
+
+        // Connect via backend WebSocket proxy — returns { avatarEnabled, model, iceServers }
+        const result = await voiceLive.connect(hcpProfileId, systemPrompt);
+
+        // Resolve mode from proxy response (always model mode via backend proxy)
+        const resolvedMode: SessionMode = result.avatarEnabled
+          ? "digital_human_realtime_model"
+          : "voice_realtime_model";
         setCurrentMode(resolvedMode);
         initialModeRef.current = resolvedMode;
 
-        // Initialize audio first
-        await audioHandler.initialize();
-
-        // Connect voice with per-HCP settings
-        const session = await voiceLive.connect(tokenData);
-
-        // If digital human mode, try connecting avatar (D-11 fallback)
-        const isDigitalHumanMode = resolvedMode.startsWith("digital_human");
-        if (isDigitalHumanMode && tokenData.avatar_enabled) {
-          try {
-            // ICE servers come from session.avatar after configure()
-            const iceServers = session?.avatar?.ice_servers ?? [];
-            await avatarStream.connect(iceServers, voiceLive.clientRef.current);
-          } catch {
-            // Avatar failed -> voice-only fallback (D-11)
-            toast.warning(t("error.avatarFallback"));
-            const fallbackMode = tokenData.agent_id
-              ? "voice_realtime_agent"
-              : "voice_realtime_model";
-            setCurrentMode(fallbackMode);
-          }
+        // Connect avatar WebRTC using ICE servers from session
+        if (result.avatarEnabled) {
+          await avatarStream.connect(
+            result.iceServers,
+            async (clientSdp: string) => {
+              // Send SDP offer via backend proxy → Azure
+              voiceLive.send({
+                type: "session.avatar.connect",
+                client_sdp: clientSdp,
+              });
+            },
+          );
+          console.info("[VoiceSession] Avatar WebRTC connected");
         }
 
-        // Start recording for voice input
+        // Start recording — send audio via backend WebSocket proxy
         audioHandler.startRecording((audioData: Float32Array) => {
-          const client = voiceLive.clientRef.current as {
-            sendAudio?: (data: Float32Array) => void;
-          } | null;
-          client?.sendAudio?.(audioData);
+          if (voiceLive.isMuted) return; // Skip sending when muted
+          // Convert Float32Array → Int16 PCM → base64
+          const int16 = new Int16Array(audioData.length);
+          for (let i = 0; i < audioData.length; i++) {
+            const s = Math.max(-1, Math.min(1, audioData[i] ?? 0));
+            int16[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+          }
+          const bytes = new Uint8Array(int16.buffer);
+          // Encode to base64 for JSON transport through proxy
+          let binary = "";
+          for (let i = 0; i < bytes.length; i++) {
+            binary += String.fromCharCode(bytes[i]!);
+          }
+          const base64 = btoa(binary);
+          voiceLive.sendAudio(base64);
         });
-      } catch {
-        // Voice connection failed -> text fallback (D-11)
-        toast.warning(t("error.voiceFallback"));
-        setCurrentMode("text");
+      } catch (error) {
+        console.error("[VoiceSession] Connection failed:", error);
+        toast.error(t("error.voiceConnectionFailed"));
       } finally {
         setIsConnecting(false);
       }
     };
 
     void initVoice();
+
+    // Cleanup on unmount — prevent dangling WebSocket connections
+    return () => {
+      void voiceLive.disconnect();
+      avatarStream.disconnect();
+      audioHandler.cleanup();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // End session handler with transcript flush (D-09, Pitfall 5)
+  // End session handler with transcript flush (D-09)
   const handleEndSession = useCallback(() => {
     setShowEndDialog(true);
   }, []);
@@ -211,7 +236,7 @@ export function VoiceSession({
   const confirmEndSession = useCallback(async () => {
     setShowEndDialog(false);
 
-    // CRITICAL: Flush all pending transcript writes first (D-09)
+    // Flush all pending transcript writes first (D-09)
     await Promise.all(pendingFlushesRef.current);
 
     // Disconnect voice and avatar
@@ -238,7 +263,6 @@ export function VoiceSession({
   // Text message handler (keyboard input within voice session)
   const handleSendText = useCallback(
     async (text: string) => {
-      // Add user message to transcript
       const userSegment: TranscriptSegment = {
         id: `user-text-${Date.now()}`,
         role: "user",
@@ -248,7 +272,6 @@ export function VoiceSession({
       };
       handleTranscript(userSegment);
 
-      // Send via voice live if connected, otherwise just persist
       if (voiceLive.connectionState === "connected") {
         await voiceLive.sendTextMessage(text);
       }
@@ -256,7 +279,6 @@ export function VoiceSession({
     [voiceLive, handleTranscript],
   );
 
-  // Keyboard input ref for text entry
   const [inputText, setInputText] = useState("");
 
   const handleKeyboardSubmit = useCallback(() => {
@@ -291,7 +313,6 @@ export function VoiceSession({
 
   const currentScenario = scenario ?? defaultScenario;
 
-  // Session stats for hints panel
   const sessionStats = {
     duration: Math.floor(
       (Date.now() - new Date(startedAt).getTime()) / 1000,
@@ -302,7 +323,6 @@ export function VoiceSession({
     messageCount: transcripts.filter((s) => s.isFinal).length,
   };
 
-  // Last transcript for floating overlay
   const lastTranscript =
     transcripts.length > 0
       ? (transcripts[transcripts.length - 1] ?? null)
@@ -322,7 +342,7 @@ export function VoiceSession({
         onToggleView={() => setIsFullScreen((prev) => !prev)}
       />
 
-      {/* Main content: 3-panel layout -- stacks vertically on mobile */}
+      {/* Main content: 3-panel layout */}
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
         {/* Left panel: Scenario */}
         {!isFullScreen && (

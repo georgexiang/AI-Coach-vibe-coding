@@ -90,4 +90,39 @@ describe("VoiceTranscript", () => {
     const pulseEl = container.querySelector(".animate-pulse");
     expect(pulseEl).toBeInTheDocument();
   });
+
+  it("renders timestamps for each transcript segment", () => {
+    const timestamp = new Date("2026-04-04T10:30:45").getTime();
+    const segments = [
+      makeSegment({ id: "s1", content: "Hello", timestamp }),
+      makeSegment({ id: "s2", role: "assistant", content: "Hi", timestamp }),
+    ];
+    render(<VoiceTranscript transcripts={segments} hcpName="Dr. Wang" />);
+    const timestampElements = screen.getAllByTestId("transcript-timestamp");
+    expect(timestampElements).toHaveLength(2);
+    // Each timestamp should have non-empty text content
+    for (const el of timestampElements) {
+      expect(el.textContent).toBeTruthy();
+    }
+  });
+
+  it("user message timestamps are right-aligned", () => {
+    const segments = [makeSegment({ id: "s1", role: "user" })];
+    const { container } = render(
+      <VoiceTranscript transcripts={segments} hcpName="Dr. Wang" />,
+    );
+    const headerRow = container.querySelector(".justify-end.flex.items-center");
+    expect(headerRow).toBeInTheDocument();
+  });
+
+  it("assistant message timestamps are left-aligned", () => {
+    const segments = [
+      makeSegment({ id: "s1", role: "assistant", content: "Reply" }),
+    ];
+    const { container } = render(
+      <VoiceTranscript transcripts={segments} hcpName="Dr. Wang" />,
+    );
+    const headerRow = container.querySelector(".justify-start.flex.items-center");
+    expect(headerRow).toBeInTheDocument();
+  });
 });

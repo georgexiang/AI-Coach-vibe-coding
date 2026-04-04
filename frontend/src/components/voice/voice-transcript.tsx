@@ -55,6 +55,10 @@ export function VoiceTranscript({
           const speakerLabel = isUser
             ? t("transcript.user")
             : t("transcript.hcp", { name: hcpName });
+          const timeStr = new Date(segment.timestamp).toLocaleTimeString(
+            [],
+            { hour: "2-digit", minute: "2-digit", second: "2-digit" },
+          );
 
           return (
             <div
@@ -65,14 +69,24 @@ export function VoiceTranscript({
               )}
             >
               <div className="max-w-[75%]">
-                <p
+                <div
                   className={cn(
-                    "mb-1 text-xs font-medium",
-                    isUser ? "text-right text-primary" : "text-[#22C55E]",
+                    "mb-1 flex items-center gap-2 text-xs",
+                    isUser ? "justify-end" : "justify-start",
                   )}
                 >
-                  {speakerLabel}
-                </p>
+                  <span
+                    className={cn(
+                      "font-medium",
+                      isUser ? "text-primary" : "text-[#22C55E]",
+                    )}
+                  >
+                    {speakerLabel}
+                  </span>
+                  <span className="text-muted-foreground" data-testid="transcript-timestamp">
+                    {timeStr}
+                  </span>
+                </div>
                 <div
                   className={cn(
                     "rounded-2xl px-4 py-2",
