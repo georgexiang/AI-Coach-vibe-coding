@@ -28,6 +28,8 @@
   "disconnect": "Disconnect",
   "mute": "Mute",
   "unmute": "Unmute",
+  "cameraOff": "Camera Off",
+  "muted": "Muted",
   "keyboardInput": "Type a message",
   "fullScreen": "Full Screen",
   "embeddedView": "Embedded View",
@@ -81,6 +83,7 @@
   "endSessionTitle": "End Voice Session",
   "endSessionConfirm": "Are you sure you want to end this voice coaching session? Your conversation will be scored and cannot be resumed.",
   "continueSession": "Continue Session",
+  "startButton": "Start",
   "connectingAvatar": "Connecting avatar...",
   "micButton": {
     "idle": "Start speaking",

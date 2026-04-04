@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
+import { AudioLines } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -11,6 +12,7 @@ import {
   DialogTitle,
   Button,
 } from "@/components/ui";
+import { cn } from "@/lib/utils";
 import { ScenarioPanel } from "@/components/coach/scenario-panel";
 import { HintsPanel } from "@/components/coach/hints-panel";
 import { useVoiceLive } from "@/hooks/use-voice-live";
@@ -67,6 +69,7 @@ export function VoiceSession({
   const [leftCollapsed, setLeftCollapsed] = useState(false);
   const [rightCollapsed, setRightCollapsed] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [sessionStarted, setSessionStarted] = useState(false);
   const [hints] = useState<CoachingHint[]>([]);
   const [keyMessagesStatus, setKeyMessagesStatus] = useState<
     KeyMessageStatus[]
@@ -151,71 +154,80 @@ export function VoiceSession({
     }
   }, [scenario, keyMessagesStatus.length]);
 
-  // Connect voice + digital human on mount (via backend WebSocket proxy)
-  useEffect(() => {
-    const initVoice = async () => {
-      setIsConnecting(true);
-      try {
-        // Initialize audio
-        await audioHandler.initialize();
+  // Voice initialization logic — extracted to reusable callback
+  const initVoice = useCallback(async () => {
+    setIsConnecting(true);
+    try {
+      // Initialize audio
+      await audioHandler.initialize();
 
-        // Wire up avatar SDP callback BEFORE connecting
-        // When server sends session.avatar.connecting event, this callback
-        // forwards the SDP answer to the avatar WebRTC hook
-        voiceLive.avatarSdpCallbackRef.current = (serverSdp: string) => {
-          void avatarStream.handleServerSdp(serverSdp);
-        };
+      // Wire up avatar SDP callback BEFORE connecting
+      // When server sends session.avatar.connecting event, this callback
+      // forwards the SDP answer to the avatar WebRTC hook
+      voiceLive.avatarSdpCallbackRef.current = (serverSdp: string) => {
+        void avatarStream.handleServerSdp(serverSdp);
+      };
 
-        // Connect via backend WebSocket proxy — returns { avatarEnabled, model, iceServers }
-        const result = await voiceLive.connect(hcpProfileId, systemPrompt);
+      // Connect via backend WebSocket proxy — returns { avatarEnabled, model, iceServers }
+      const result = await voiceLive.connect(hcpProfileId, systemPrompt);
 
-        // Resolve mode from proxy response (always model mode via backend proxy)
-        const resolvedMode: SessionMode = result.avatarEnabled
-          ? "digital_human_realtime_model"
-          : "voice_realtime_model";
-        setCurrentMode(resolvedMode);
-        initialModeRef.current = resolvedMode;
+      // Resolve mode from proxy response (always model mode via backend proxy)
+      const resolvedMode: SessionMode = result.avatarEnabled
+        ? "digital_human_realtime_model"
+        : "voice_realtime_model";
+      setCurrentMode(resolvedMode);
+      initialModeRef.current = resolvedMode;
 
-        // Connect avatar WebRTC using ICE servers from session
-        if (result.avatarEnabled) {
-          await avatarStream.connect(
-            result.iceServers,
-            async (clientSdp: string) => {
-              // Send SDP offer via backend proxy → Azure
-              voiceLive.send({
-                type: "session.avatar.connect",
-                client_sdp: clientSdp,
-              });
-            },
-          );
-          console.info("[VoiceSession] Avatar WebRTC connected");
-        }
-
-        // Start recording — send audio via backend WebSocket proxy
-        audioHandler.startRecording((audioData: Float32Array) => {
-          if (voiceLive.isMuted) return; // Skip sending when muted
-          // Convert Float32Array → Int16 PCM → base64
-          const int16 = new Int16Array(audioData.length);
-          for (let i = 0; i < audioData.length; i++) {
-            const s = Math.max(-1, Math.min(1, audioData[i] ?? 0));
-            int16[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
-          }
-          const bytes = new Uint8Array(int16.buffer);
-          // Encode to base64 for JSON transport through proxy
-          let binary = "";
-          for (let i = 0; i < bytes.length; i++) {
-            binary += String.fromCharCode(bytes[i]!);
-          }
-          const base64 = btoa(binary);
-          voiceLive.sendAudio(base64);
-        });
-      } catch (error) {
-        console.error("[VoiceSession] Connection failed:", error);
-        toast.error(t("error.voiceConnectionFailed"));
-      } finally {
-        setIsConnecting(false);
+      // Connect avatar WebRTC using ICE servers from session
+      if (result.avatarEnabled) {
+        await avatarStream.connect(
+          result.iceServers,
+          async (clientSdp: string) => {
+            // Send SDP offer via backend proxy → Azure
+            voiceLive.send({
+              type: "session.avatar.connect",
+              client_sdp: clientSdp,
+            });
+          },
+        );
+        console.info("[VoiceSession] Avatar WebRTC connected");
       }
-    };
+
+      // Start recording — send audio via backend WebSocket proxy
+      audioHandler.startRecording((audioData: Float32Array) => {
+        if (voiceLive.isMuted) return; // Skip sending when muted
+        // Convert Float32Array → Int16 PCM → base64
+        const int16 = new Int16Array(audioData.length);
+        for (let i = 0; i < audioData.length; i++) {
+          const s = Math.max(-1, Math.min(1, audioData[i] ?? 0));
+          int16[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+        }
+        const bytes = new Uint8Array(int16.buffer);
+        // Encode to base64 for JSON transport through proxy
+        let binary = "";
+        for (let i = 0; i < bytes.length; i++) {
+          binary += String.fromCharCode(bytes[i]!);
+        }
+        const base64 = btoa(binary);
+        voiceLive.sendAudio(base64);
+      });
+    } catch (error) {
+      console.error("[VoiceSession] Connection failed:", error);
+      toast.error(t("error.voiceConnectionFailed"));
+    } finally {
+      setIsConnecting(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hcpProfileId, systemPrompt]);
+
+  // Start session handler — user clicks Start button
+  const handleStartSession = useCallback(() => {
+    setSessionStarted(true);
+  }, []);
+
+  // Connect voice + digital human when session is started
+  useEffect(() => {
+    if (!sessionStarted) return;
 
     void initVoice();
 
@@ -226,7 +238,7 @@ export function VoiceSession({
       audioHandler.cleanup();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [sessionStarted]);
 
   // End session handler with transcript flush (D-09)
   const handleEndSession = useCallback(() => {
@@ -368,6 +380,31 @@ export function VoiceSession({
               isFullScreen={isFullScreen}
               className="h-full"
             />
+
+            {/* Start button overlay — shown before session begins */}
+            {!sessionStarted && !isConnecting && (
+              <div
+                className="absolute inset-0 z-30 flex flex-col items-center justify-center"
+                data-testid="start-overlay"
+              >
+                <button
+                  type="button"
+                  onClick={handleStartSession}
+                  className={cn(
+                    "group flex items-center gap-3 rounded-full px-8 py-4",
+                    "bg-slate-800/90 text-white shadow-lg backdrop-blur-sm",
+                    "transition-all duration-200",
+                    "hover:scale-105 hover:bg-slate-700/90 hover:shadow-xl",
+                    "focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-slate-900",
+                  )}
+                  aria-label={t("startButton")}
+                  data-testid="start-session-btn"
+                >
+                  <AudioLines className="h-6 w-6 text-white transition-transform group-hover:scale-110" />
+                  <span className="text-lg font-semibold">{t("startButton")}</span>
+                </button>
+              </div>
+            )}
 
             {/* Floating transcript overlay in full-screen mode */}
             {isFullScreen && (

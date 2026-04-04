@@ -28,6 +28,8 @@
   "disconnect": "断开连接",
   "mute": "静音",
   "unmute": "取消静音",
+  "cameraOff": "摄像头已关闭",
+  "muted": "已静音",
   "keyboardInput": "键入消息",
   "fullScreen": "全屏模式",
   "embeddedView": "嵌入视图",
@@ -81,6 +83,7 @@
   "endSessionTitle": "结束语音对话",
   "endSessionConfirm": "确定要结束此次语音训练对话吗？您的对话将被评分，且无法恢复。",
   "continueSession": "继续对话",
+  "startButton": "开始",
   "connectingAvatar": "正在连接数字人...",
   "micButton": {
     "idle": "开始说话",

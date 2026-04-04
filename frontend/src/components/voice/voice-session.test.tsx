@@ -28,6 +28,13 @@ vi.mock("sonner", () => ({
   },
 }));
 
+// Mock lucide-react icons
+vi.mock("lucide-react", () => ({
+  AudioLines: (props: Record<string, unknown>) => (
+    <svg data-testid="audio-lines-icon" {...props} />
+  ),
+}));
+
 // Mock child components to simplify rendering
 vi.mock("./voice-session-header", () => ({
   VoiceSessionHeader: (props: Record<string, unknown>) => (
@@ -315,6 +322,15 @@ describe("VoiceSession", () => {
       expect(screen.getByTestId("voice-controls")).toBeInTheDocument();
       expect(screen.getByTestId("scenario-panel")).toBeInTheDocument();
       expect(screen.getByTestId("hints-panel")).toBeInTheDocument();
+    });
+
+    it("shows start overlay with start button before session begins", () => {
+      renderSession();
+
+      expect(screen.getByTestId("start-overlay")).toBeInTheDocument();
+      expect(screen.getByTestId("start-session-btn")).toBeInTheDocument();
+      expect(screen.getByTestId("audio-lines-icon")).toBeInTheDocument();
+      expect(screen.getByText("voice.startButton")).toBeInTheDocument();
     });
 
     it("passes scenario name to header when scenario is loaded", () => {
@@ -776,21 +792,58 @@ describe("VoiceSession", () => {
     });
   });
 
-  // ======== Voice initialization on mount ========
+  // ======== Start button behavior ========
 
-  describe("voice initialization on mount", () => {
-    it("always attempts voice initialization on mount (connects via proxy)", async () => {
+  describe("start button", () => {
+    it("does not initialize voice connection before start button is clicked", () => {
       renderSession();
 
+      // Voice should NOT auto-connect on mount
+      expect(mockAudioInitialize).not.toHaveBeenCalled();
+      expect(mockConnect).not.toHaveBeenCalled();
+    });
+
+    it("hides start overlay after clicking start button", async () => {
+      const user = userEvent.setup();
+      renderSession();
+
+      expect(screen.getByTestId("start-overlay")).toBeInTheDocument();
+
+      await user.click(screen.getByTestId("start-session-btn"));
+
+      // Start overlay should disappear (sessionStarted = true)
+      expect(screen.queryByTestId("start-overlay")).not.toBeInTheDocument();
+    });
+
+    it("initiates voice connection when start button is clicked", async () => {
+      const user = userEvent.setup();
+      renderSession();
+
+      await user.click(screen.getByTestId("start-session-btn"));
+
       await waitFor(() => {
-        // Component connects to backend WebSocket proxy
         expect(mockAudioInitialize).toHaveBeenCalled();
         expect(mockConnect).toHaveBeenCalled();
       });
     });
 
-    it("initializes voice and starts recording on mount", async () => {
+    it("has correct aria-label on start button", () => {
       renderSession();
+      expect(screen.getByTestId("start-session-btn")).toHaveAttribute(
+        "aria-label",
+        "voice.startButton",
+      );
+    });
+  });
+
+  // ======== Voice initialization after start ========
+
+  describe("voice initialization after start", () => {
+    it("initializes voice and starts recording after start button click", async () => {
+      const user = userEvent.setup();
+      renderSession();
+
+      await user.click(screen.getByTestId("start-session-btn"));
 
       await waitFor(() => {
         expect(mockAudioInitialize).toHaveBeenCalled();
@@ -809,7 +862,10 @@ describe("VoiceSession", () => {
         iceServers: mockIceServers,
       });
 
+      const user = userEvent.setup();
       renderSession();
+
+      await user.click(screen.getByTestId("start-session-btn"));
 
       await waitFor(() => {
         expect(mockAudioInitialize).toHaveBeenCalled();
@@ -836,7 +892,10 @@ describe("VoiceSession", () => {
       mockConnect.mockRejectedValueOnce(new Error("WebSocket connection failed"));
 
       const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const user = userEvent.setup();
       renderSession();
+
+      await user.click(screen.getByTestId("start-session-btn"));
 
       await waitFor(() => {
         expect(mockToastError).toHaveBeenCalledWith("voice.error.voiceConnectionFailed");
@@ -851,7 +910,10 @@ describe("VoiceSession", () => {
         iceServers: [],
       });
 
+      const user = userEvent.setup();
       renderSession();
+
+      await user.click(screen.getByTestId("start-session-btn"));
 
       await waitFor(() => {
         expect(mockConnect).toHaveBeenCalled();
@@ -870,12 +932,18 @@ describe("VoiceSession", () => {
           }),
       );
 
+      const user = userEvent.setup();
       renderSession();
+
+      await user.click(screen.getByTestId("start-session-btn"));
 
       // Should be connecting
       await waitFor(() => {
         expect(screen.getByTestId("avatar-connecting")).toHaveTextContent("true");
       });
+
+      // Start overlay should be hidden (sessionStarted = true, even though isConnecting)
+      expect(screen.queryByTestId("start-overlay")).not.toBeInTheDocument();
 
       // Resolve connect
       await act(async () => {
@@ -1036,7 +1104,11 @@ describe("VoiceSession", () => {
 
   describe("startRecording callback", () => {
     it("starts recording with callback that sends audio to session", async () => {
+      const user = userEvent.setup();
       renderSession();
+
+      // Click start button to trigger voice initialization
+      await user.click(screen.getByTestId("start-session-btn"));
 
       await waitFor(() => {
         expect(mockStartRecording).toHaveBeenCalled();
