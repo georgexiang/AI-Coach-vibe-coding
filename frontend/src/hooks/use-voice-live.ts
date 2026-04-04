@@ -28,6 +28,10 @@ export function useVoiceLive(options: VoiceLiveOptions) {
   const connectionStateRef = useRef<VoiceConnectionState>("disconnected");
   const optionsRef = useRef(options);
   optionsRef.current = options;
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reconnectAttemptRef = useRef(0);
+  const intentionalCloseRef = useRef(false);
+  const lastConnectArgsRef = useRef<{ hcpProfileId: string; systemPrompt?: string } | null>(null);
 
   /** Ref for external avatar SDP answer callback (set by voice-session.tsx). */
   const avatarSdpCallbackRef = useRef<((serverSdp: string) => void) | null>(
@@ -40,6 +44,9 @@ export function useVoiceLive(options: VoiceLiveOptions) {
    */
   const connect = useCallback(
     async (hcpProfileId: string, systemPrompt?: string) => {
+      lastConnectArgsRef.current = { hcpProfileId, systemPrompt };
+      reconnectAttemptRef.current = 0;
+      intentionalCloseRef.current = false;
       setConnectionState("connecting");
       connectionStateRef.current = "connecting";
       optionsRef.current.onConnectionStateChange?.("connecting");
@@ -78,7 +85,14 @@ export function useVoiceLive(options: VoiceLiveOptions) {
           };
 
           ws.onmessage = (event: MessageEvent) => {
-            const msg = JSON.parse(event.data as string);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            let msg: any;
+            try {
+              msg = JSON.parse(event.data as string);
+            } catch {
+              console.warn("[VoiceLive] Non-JSON message received, ignoring");
+              return;
+            }
 
             // Check for avatar SDP answer by field presence (Azure may use
             // various event types — reference impl matches by field, not type)
@@ -268,6 +282,7 @@ export function useVoiceLive(options: VoiceLiveOptions) {
           };
 
           ws.onclose = () => {
+            const wasConnected = connectionStateRef.current === "connected";
             if (connectionStateRef.current !== "disconnected") {
               setConnectionState("disconnected");
               connectionStateRef.current = "disconnected";
@@ -276,6 +291,35 @@ export function useVoiceLive(options: VoiceLiveOptions) {
             if (!resolved) {
               resolved = true;
               reject(new Error("WebSocket closed before connected"));
+            }
+
+            // Auto-reconnect on unexpected disconnect (max 3 attempts)
+            const MAX_RECONNECT = 3;
+            if (
+              wasConnected &&
+              !intentionalCloseRef.current &&
+              reconnectAttemptRef.current < MAX_RECONNECT &&
+              lastConnectArgsRef.current
+            ) {
+              reconnectAttemptRef.current++;
+              const delay = Math.min(1000 * 2 ** (reconnectAttemptRef.current - 1), 8000);
+              console.info(
+                "[VoiceLive] Unexpected disconnect, reconnecting in %dms (attempt %d/%d)",
+                delay,
+                reconnectAttemptRef.current,
+                MAX_RECONNECT,
+              );
+              setConnectionState("connecting");
+              connectionStateRef.current = "connecting";
+              optionsRef.current.onConnectionStateChange?.("connecting");
+              reconnectTimerRef.current = setTimeout(() => {
+                const args = lastConnectArgsRef.current;
+                if (args) {
+                  void connect(args.hcpProfileId, args.systemPrompt).catch(() => {
+                    // Reconnect failed — will be retried by the next onclose
+                  });
+                }
+              }, delay);
             }
           };
 
@@ -318,6 +362,11 @@ export function useVoiceLive(options: VoiceLiveOptions) {
   );
 
   const disconnect = useCallback(async () => {
+    intentionalCloseRef.current = true;
+    if (reconnectTimerRef.current) {
+      clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
+    }
     if (wsRef.current) {
       wsRef.current.close();
       wsRef.current = null;

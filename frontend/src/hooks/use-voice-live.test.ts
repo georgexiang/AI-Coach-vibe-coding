@@ -561,4 +561,92 @@ describe("useVoiceLive (backend WebSocket proxy)", () => {
     expect(msg.type).toBe("session.avatar.connect");
     expect(msg.client_sdp).toBe("offer-sdp");
   });
+
+  // ---- JSON parse protection ----
+
+  it("ignores non-JSON WebSocket messages without crashing", async () => {
+    const onError = vi.fn();
+    const { result } = renderHook(() =>
+      useVoiceLive({ ...defaultOptions, onError }),
+    );
+
+    await act(async () => {
+      const promise = result.current.connect("hcp-1");
+      await vi.waitFor(() => expect(MockWebSocket.instances.length).toBe(1));
+      const ws = getLastWs();
+      await vi.waitFor(() => expect(ws.sentMessages.length).toBe(1));
+      ws.simulateMessage({ type: "proxy.connected", model: "gpt-4o", avatar_enabled: false });
+      ws.simulateMessage({ type: "session.updated", session: {} });
+      return promise;
+    });
+
+    const ws = getLastWs();
+    // Send raw non-JSON text — should not throw
+    act(() => {
+      ws.onmessage?.({ data: "not valid json {{{" });
+    });
+
+    // Connection should still be fine
+    expect(result.current.connectionState).toBe("connected");
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  // ---- Reconnection ----
+
+  it("attempts auto-reconnect on unexpected disconnect", async () => {
+    const onConnectionStateChange = vi.fn();
+    const { result } = renderHook(() =>
+      useVoiceLive({ ...defaultOptions, onConnectionStateChange }),
+    );
+
+    await act(async () => {
+      const promise = result.current.connect("hcp-reconnect");
+      await vi.waitFor(() => expect(MockWebSocket.instances.length).toBe(1));
+      const ws = getLastWs();
+      await vi.waitFor(() => expect(ws.sentMessages.length).toBe(1));
+      ws.simulateMessage({ type: "proxy.connected", model: "gpt-4o", avatar_enabled: false });
+      ws.simulateMessage({ type: "session.updated", session: {} });
+      return promise;
+    });
+
+    expect(result.current.connectionState).toBe("connected");
+    const ws = getLastWs();
+
+    // Simulate unexpected close (server-side)
+    act(() => {
+      ws.readyState = MockWebSocket.CLOSED;
+      ws.onclose?.();
+    });
+
+    // Should transition to "connecting" for reconnect
+    expect(onConnectionStateChange).toHaveBeenCalledWith("connecting");
+  });
+
+  it("does not auto-reconnect after intentional disconnect()", async () => {
+    const onConnectionStateChange = vi.fn();
+    const { result } = renderHook(() =>
+      useVoiceLive({ ...defaultOptions, onConnectionStateChange }),
+    );
+
+    await act(async () => {
+      const promise = result.current.connect("hcp-no-reconnect");
+      await vi.waitFor(() => expect(MockWebSocket.instances.length).toBe(1));
+      const ws = getLastWs();
+      await vi.waitFor(() => expect(ws.sentMessages.length).toBe(1));
+      ws.simulateMessage({ type: "proxy.connected", model: "gpt-4o", avatar_enabled: false });
+      ws.simulateMessage({ type: "session.updated", session: {} });
+      return promise;
+    });
+
+    // Intentional disconnect
+    await act(async () => {
+      await result.current.disconnect();
+    });
+
+    onConnectionStateChange.mockClear();
+
+    // Should NOT see "connecting" after intentional disconnect
+    expect(result.current.connectionState).toBe("disconnected");
+    expect(onConnectionStateChange).not.toHaveBeenCalledWith("connecting");
+  });
 });
