@@ -115,6 +115,10 @@
     "avatarEnabled": "Enabled",
     "avatarDisabled": "Disabled",
     "avatarDesc": "Digital avatar status for this session",
+    "advancedSettings": "Advanced settings",
+    "speechRecognitionManaged": "Speech recognition settings are managed by the server.",
+    "voiceSynthesisManaged": "Voice synthesis settings are managed by the server.",
+    "defaultVoice": "Default",
     "languages": {
       "auto": "Auto-detect",
       "zh-CN": "Chinese (Simplified)",

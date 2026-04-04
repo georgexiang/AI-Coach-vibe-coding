@@ -203,9 +203,9 @@ describe("VoiceConfigPanel", () => {
       expect(screen.getByTestId("voice-name-display")).toHaveTextContent("Ava Dragon HD");
     });
 
-    it("displays 'Default' when voice name is empty", () => {
+    it("displays default label when voice name is empty", () => {
       renderPanel({ voiceName: "" });
-      expect(screen.getByTestId("voice-name-display")).toHaveTextContent("Default");
+      expect(screen.getByTestId("voice-name-display")).toHaveTextContent("voice.config.defaultVoice");
     });
 
     it("shows avatar enabled badge when avatar is enabled", () => {

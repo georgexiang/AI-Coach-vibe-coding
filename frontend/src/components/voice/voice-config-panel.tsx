@@ -150,11 +150,11 @@ export function VoiceConfigPanel({
             ) : (
               <ChevronDown className="h-3 w-3" />
             )}
-            <span>Advanced settings</span>
+            <span>{t("config.advancedSettings")}</span>
           </button>
           {inputExpanded && (
             <div className="mb-2 rounded-md bg-muted/50 p-3 text-xs text-muted-foreground" data-testid="input-advanced-content">
-              Speech recognition settings are managed by the server.
+              {t("config.speechRecognitionManaged")}
             </div>
           )}
         </section>
@@ -181,7 +181,7 @@ export function VoiceConfigPanel({
             >
               <Volume2 className="h-4 w-4 text-primary" />
               <span className="flex-1 text-sm text-foreground">
-                {voiceName || "Default"}
+                {voiceName || t("config.defaultVoice")}
               </span>
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
@@ -201,11 +201,11 @@ export function VoiceConfigPanel({
             ) : (
               <ChevronDown className="h-3 w-3" />
             )}
-            <span>Advanced settings</span>
+            <span>{t("config.advancedSettings")}</span>
           </button>
           {outputExpanded && (
             <div className="mb-2 rounded-md bg-muted/50 p-3 text-xs text-muted-foreground" data-testid="output-advanced-content">
-              Voice synthesis settings are managed by the server.
+              {t("config.voiceSynthesisManaged")}
             </div>
           )}
         </section>

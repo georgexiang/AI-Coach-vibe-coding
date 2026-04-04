@@ -115,6 +115,10 @@
     "avatarEnabled": "已启用",
     "avatarDisabled": "已禁用",
     "avatarDesc": "当前会话数字人状态",
+    "advancedSettings": "高级设置",
+    "speechRecognitionManaged": "语音识别设置由服务器管理。",
+    "voiceSynthesisManaged": "语音合成设置由服务器管理。",
+    "defaultVoice": "默认",
     "languages": {
       "auto": "自动检测",
       "zh-CN": "中文(简体)",
