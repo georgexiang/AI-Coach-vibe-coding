@@ -16,7 +16,6 @@ Agent mode resolution:
 """
 
 import logging
-import re
 
 import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -25,28 +24,15 @@ from app.schemas.voice_live import VoiceLiveConfigStatus, VoiceLiveTokenResponse
 from app.services import config_service
 from app.services.agents.adapters.azure_voice_live import parse_voice_live_mode
 from app.services.region_capabilities import VOICE_LIVE_REGIONS
+from app.utils.azure_endpoints import to_cognitive_services_endpoint
 
 logger = logging.getLogger(__name__)
 
 SUPPORTED_REGIONS = VOICE_LIVE_REGIONS
 
 
-def _to_cognitive_services_endpoint(endpoint: str) -> str:
-    """Transform AI Foundry endpoint to Cognitive Services endpoint for Voice Live.
-
-    Voice Live WebSocket (/voice-agent/realtime) requires the cognitiveservices
-    domain. The AI Foundry services.ai.azure.com endpoint returns 404 for this path.
-
-    Examples:
-        https://foo.services.ai.azure.com/ → https://foo.cognitiveservices.azure.com/
-        https://foo.cognitiveservices.azure.com/ → unchanged
-        https://foo.openai.azure.com/ → unchanged
-    """
-    return re.sub(
-        r"\.services\.ai\.azure\.com",
-        ".cognitiveservices.azure.com",
-        endpoint,
-    )
+# Keep module-level alias for backward compatibility (used by tests)
+_to_cognitive_services_endpoint = to_cognitive_services_endpoint
 
 
 async def _exchange_api_key_for_bearer_token(endpoint: str, api_key: str) -> str:
@@ -102,7 +88,7 @@ async def get_voice_live_token(
         raise ValueError("Voice Live endpoint not configured")
 
     # Voice Live WebSocket requires cognitiveservices.azure.com, not services.ai.azure.com
-    effective_endpoint = _to_cognitive_services_endpoint(raw_endpoint)
+    effective_endpoint = to_cognitive_services_endpoint(raw_endpoint)
 
     # Derive effective region
     master = await config_service.get_master_config(db)

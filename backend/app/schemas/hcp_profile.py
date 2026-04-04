@@ -2,7 +2,9 @@
 
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from typing import Literal
+
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class HcpProfileCreate(BaseModel):
@@ -14,24 +16,27 @@ class HcpProfileCreate(BaseModel):
     hospital: str = ""
     title: str = ""
     avatar_url: str = ""
-    personality_type: str = "friendly"
-    emotional_state: int = 50
-    communication_style: int = 50
+    personality_type: Literal[
+        "friendly", "skeptical", "busy", "analytical", "reserved"
+    ] = "friendly"
+    emotional_state: int = Field(default=50, ge=0, le=100)
+    communication_style: int = Field(default=50, ge=0, le=100)
     expertise_areas: list[str] = []
     prescribing_habits: str = ""
     concerns: str = ""
     objections: list[str] = []
     probe_topics: list[str] = []
-    difficulty: str = "medium"
+    difficulty: Literal["easy", "medium", "hard"] = "medium"
     is_active: bool = True
 
-    # Voice Live model selection (Phase 13)
+    # Voice Live enable + model selection (Phase 13)
+    voice_live_enabled: bool = True
     voice_live_model: str = "gpt-4o"
 
     # Voice/Avatar settings (D-01, D-04 defaults)
     voice_name: str = "en-US-AvaNeural"
     voice_type: str = "azure-standard"
-    voice_temperature: float = 0.9
+    voice_temperature: float = Field(default=0.9, ge=0.0, le=2.0)
     voice_custom: bool = False
     avatar_character: str = "lori"
     avatar_style: str = "casual"
@@ -52,24 +57,27 @@ class HcpProfileUpdate(BaseModel):
     hospital: str | None = None
     title: str | None = None
     avatar_url: str | None = None
-    personality_type: str | None = None
-    emotional_state: int | None = None
-    communication_style: int | None = None
+    personality_type: Literal[
+        "friendly", "skeptical", "busy", "analytical", "reserved"
+    ] | None = None
+    emotional_state: int | None = Field(default=None, ge=0, le=100)
+    communication_style: int | None = Field(default=None, ge=0, le=100)
     expertise_areas: list[str] | None = None
     prescribing_habits: str | None = None
     concerns: str | None = None
     objections: list[str] | None = None
     probe_topics: list[str] | None = None
-    difficulty: str | None = None
+    difficulty: Literal["easy", "medium", "hard"] | None = None
     is_active: bool | None = None
 
-    # Voice Live model selection (Phase 13)
+    # Voice Live enable + model selection (Phase 13)
+    voice_live_enabled: bool | None = None
     voice_live_model: str | None = None
 
     # Voice/Avatar settings (all optional for partial updates)
     voice_name: str | None = None
     voice_type: str | None = None
-    voice_temperature: float | None = None
+    voice_temperature: float | None = Field(default=None, ge=0.0, le=2.0)
     voice_custom: bool | None = None
     avatar_character: str | None = None
     avatar_style: str | None = None
@@ -105,7 +113,8 @@ class HcpProfileResponse(BaseModel):
     agent_sync_status: str = "none"
     agent_sync_error: str = ""
 
-    # Voice Live model selection (Phase 13)
+    # Voice Live enable + model selection (Phase 13)
+    voice_live_enabled: bool = True
     voice_live_model: str = "gpt-4o"
 
     # Voice/Avatar settings

@@ -38,8 +38,7 @@ import type { HcpFormValues } from "@/pages/admin/hcp-profile-editor";
 import type { HcpProfile } from "@/types/hcp";
 import type { TranscriptSegment } from "@/types/voice-live";
 
-/** Set of character IDs whose thumbnail failed to load — triggers initials fallback. */
-const failedThumbnails = new Set<string>();
+/** Moved to useRef inside component to avoid module-level state leak. */
 
 const VOICE_NAME_OPTIONS = [
   { value: "en-US-AvaNeural", labelKey: "voiceAva" },
@@ -132,11 +131,12 @@ export function VoiceAvatarTab({ form, profile, isNew }: VoiceAvatarTabProps) {
   }, [watchCharacter]);
 
   /** Track which thumbnails failed to load so we show initials fallback. */
+  const failedThumbnailsRef = useRef(new Set<string>());
   const [, setThumbnailRerender] = useState(0);
   const handleThumbnailError = useCallback(
     (characterId: string) => {
-      if (!failedThumbnails.has(characterId)) {
-        failedThumbnails.add(characterId);
+      if (!failedThumbnailsRef.current.has(characterId)) {
+        failedThumbnailsRef.current.add(characterId);
         setThumbnailRerender((n) => n + 1);
       }
     },
@@ -471,7 +471,7 @@ export function VoiceAvatarTab({ form, profile, isNew }: VoiceAvatarTabProps) {
                 <div className="grid grid-cols-3 gap-2" data-testid="avatar-character-grid">
                   {AVATAR_CHARACTERS.map((c) => {
                     const isSelected = watchCharacter === c.id;
-                    const showFallback = failedThumbnails.has(c.id);
+                    const showFallback = failedThumbnailsRef.current.has(c.id);
                     return (
                       <button
                         key={c.id}
@@ -802,7 +802,7 @@ export function VoiceAvatarTab({ form, profile, isNew }: VoiceAvatarTabProps) {
               {/* Avatar preview with image or gradient fallback */}
               {(() => {
                 const charMeta = AVATAR_CHARACTER_MAP.get(watchCharacter);
-                const showFallback = !charMeta || failedThumbnails.has(watchCharacter);
+                const showFallback = !charMeta || failedThumbnailsRef.current.has(watchCharacter);
                 return (
                   <div className="relative size-24 overflow-hidden rounded-full shadow-lg">
                     {!showFallback ? (

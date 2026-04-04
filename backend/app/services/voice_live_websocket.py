@@ -20,13 +20,13 @@ Flow:
 import asyncio
 import json
 import logging
-import re
 from typing import Any
 
 from fastapi import WebSocket, WebSocketDisconnect
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.services import config_service
+from app.utils.azure_endpoints import to_cognitive_services_endpoint
 
 logger = logging.getLogger(__name__)
 
@@ -39,13 +39,8 @@ PROXY_CONNECTED_TYPE = "proxy.connected"
 ERROR_TYPE = "error"
 
 
-def _to_cognitive_services_endpoint(endpoint: str) -> str:
-    """Transform AI Foundry endpoint to Cognitive Services endpoint."""
-    return re.sub(
-        r"\.services\.ai\.azure\.com",
-        ".cognitiveservices.azure.com",
-        endpoint,
-    )
+# Keep module-level alias for backward compatibility (used by tests)
+_to_cognitive_services_endpoint = to_cognitive_services_endpoint
 
 
 async def _load_connection_config(
@@ -72,7 +67,7 @@ async def _load_connection_config(
     if not raw_endpoint:
         raise ValueError("Voice Live endpoint not configured")
 
-    effective_endpoint = _to_cognitive_services_endpoint(raw_endpoint)
+    effective_endpoint = to_cognitive_services_endpoint(raw_endpoint)
 
     # Defaults
     result: dict[str, Any] = {
@@ -121,9 +116,7 @@ async def _load_connection_config(
             else:
                 from app.services.agent_sync_service import build_agent_instructions
 
-                result["instructions"] = build_agent_instructions(
-                    profile.to_prompt_dict()
-                )
+                result["instructions"] = build_agent_instructions(profile.to_prompt_dict())
         except Exception:
             logger.warning("Failed to load HCP profile %s, using defaults", hcp_profile_id)
 
@@ -152,7 +145,20 @@ async def handle_voice_live_websocket(ws: WebSocket, db: AsyncSession) -> None:
 
         logger.info("Voice Live WS: hcp_profile_id=%s", hcp_profile_id)
 
-        # Step 2: Load config from DB
+        # Step 2a: Check voice_live_enabled on the HCP profile (if provided)
+        if hcp_profile_id:
+            from app.services import hcp_profile_service
+
+            try:
+                profile = await hcp_profile_service.get_hcp_profile(db, hcp_profile_id)
+                if not getattr(profile, "voice_live_enabled", True):
+                    await _send_error(ws, "Voice Live is not enabled for this HCP profile")
+                    return
+            except Exception:
+                # Profile not found — _load_connection_config will handle gracefully
+                pass
+
+        # Step 2b: Load config from DB
         try:
             cfg = await _load_connection_config(db, hcp_profile_id, system_prompt)
         except ValueError as e:
@@ -197,12 +203,8 @@ async def handle_voice_live_websocket(ws: WebSocket, db: AsyncSession) -> None:
         session_config = RequestSession(
             modalities=modalities,
             turn_detection=AzureSemanticVad(type="azure_semantic_vad"),
-            input_audio_noise_reduction=AudioNoiseReduction(
-                type="azure_deep_noise_suppression"
-            ),
-            input_audio_echo_cancellation=AudioEchoCancellation(
-                type="server_echo_cancellation"
-            ),
+            input_audio_noise_reduction=AudioNoiseReduction(type="azure_deep_noise_suppression"),
+            input_audio_echo_cancellation=AudioEchoCancellation(type="server_echo_cancellation"),
             input_audio_transcription=AudioInputTranscriptionOptions(
                 model="azure-fast-transcription",
             ),
@@ -298,13 +300,14 @@ async def _forward_client_to_azure(
             message = await ws.receive_text()
             parsed = json.loads(message)
             msg_type = parsed.get("type", "unknown") if isinstance(parsed, dict) else "non-dict"
-            logger.info(
+            logger.debug(
                 "Client→Azure: type=%s, keys=%s",
                 msg_type,
                 list(parsed.keys()) if isinstance(parsed, dict) else "N/A",
             )
             if msg_type == "session.avatar.connect":
-                logger.info("Avatar SDP offer: has client_sdp=%s, len=%s",
+                logger.debug(
+                    "Avatar SDP offer: has client_sdp=%s, len=%s",
                     "client_sdp" in parsed,
                     len(parsed.get("client_sdp", "")) if isinstance(parsed, dict) else 0,
                 )
