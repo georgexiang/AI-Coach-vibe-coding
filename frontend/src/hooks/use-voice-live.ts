@@ -1,20 +1,25 @@
 import { useCallback, useRef, useState } from "react";
 import type {
-  VoiceLiveToken,
   VoiceLiveOptions,
   VoiceConnectionState,
   AudioState,
-  TranscriptSegment,
 } from "@/types/voice-live";
 
 /**
- * RTClient lifecycle management hook.
- * Wraps the rt-client SDK, managing WebSocket connection to Azure Voice Live API.
- * Uses dynamic import for rt-client to gracefully handle missing SDK.
- * Session config built from per-HCP settings in tokenData (D-08).
+ * Voice Live session hook using backend WebSocket proxy.
+ *
+ * The backend connects to Azure Voice Live via Python SDK (azure-ai-voicelive).
+ * The frontend connects to the backend WebSocket and exchanges Azure RT protocol messages.
+ *
+ * Flow:
+ *   1. Open WebSocket to /api/v1/voice-live/ws
+ *   2. Send: {"type": "session.update", "session": {"hcp_profile_id": "...", "system_prompt": "..."}}
+ *   3. Backend connects to Azure, sends back {"type": "proxy.connected", ...}
+ *   4. Backend proxies Azure session config -> client receives session.created, session.updated
+ *   5. Bidirectional: client sends audio/events -> backend -> Azure -> backend -> client
  */
 export function useVoiceLive(options: VoiceLiveOptions) {
-  const clientRef = useRef<unknown>(null);
+  const wsRef = useRef<WebSocket | null>(null);
   const [connectionState, setConnectionState] =
     useState<VoiceConnectionState>("disconnected");
   const [audioState, setAudioState] = useState<AudioState>("idle");
@@ -24,247 +29,298 @@ export function useVoiceLive(options: VoiceLiveOptions) {
   const optionsRef = useRef(options);
   optionsRef.current = options;
 
-  const processResponse = useCallback(async (response: unknown) => {
-    const resp = response as {
-      textChunks?: () => AsyncIterable<string>;
-      audioChunks?: () => AsyncIterable<Uint8Array>;
-      transcriptChunks?: () => AsyncIterable<string>;
-    };
-
-    setAudioState("speaking");
-    optionsRef.current.onAudioStateChange?.("speaking");
-
-    let fullTranscript = "";
-
-    // Process transcript chunks for display
-    if (resp.transcriptChunks) {
-      for await (const chunk of resp.transcriptChunks()) {
-        fullTranscript += chunk;
-        const segment: TranscriptSegment = {
-          id: `assistant-${++transcriptIdCounter.current}`,
-          role: "assistant",
-          content: fullTranscript,
-          isFinal: false,
-          timestamp: Date.now(),
-        };
-        optionsRef.current.onTranscript?.(segment);
-      }
-    }
-
-    // Mark final transcript
-    if (fullTranscript) {
-      optionsRef.current.onTranscript?.({
-        id: `assistant-${transcriptIdCounter.current}`,
-        role: "assistant",
-        content: fullTranscript,
-        isFinal: true,
-        timestamp: Date.now(),
-      });
-    }
-
-    setAudioState("idle");
-    optionsRef.current.onAudioStateChange?.("idle");
-  }, []);
-
-  const startResponseListener = useCallback(
-    async (client: unknown) => {
-      try {
-        const rtClient = client as {
-          events: () => AsyncIterable<{ type: string } & Record<string, unknown>>;
-        };
-        for await (const serverEvent of rtClient.events()) {
-          if (serverEvent.type === "response") {
-            await processResponse(serverEvent);
-          } else if (serverEvent.type === "input_audio") {
-            // User speech detected
-            setAudioState("listening");
-            optionsRef.current.onAudioStateChange?.("listening");
-          }
-        }
-      } catch (error) {
-        if (connectionStateRef.current !== "disconnected") {
-          optionsRef.current.onError?.(
-            error instanceof Error ? error : new Error(String(error)),
-          );
-        }
-      }
-    },
-    [processResponse],
+  /** Ref for external avatar SDP answer callback (set by voice-session.tsx). */
+  const avatarSdpCallbackRef = useRef<((serverSdp: string) => void) | null>(
+    null,
   );
 
+  /**
+   * Connect to Azure Voice Live via backend WebSocket proxy.
+   * @returns avatarEnabled, model name, and ICE servers for avatar WebRTC.
+   */
   const connect = useCallback(
-    async (tokenData: VoiceLiveToken) => {
+    async (hcpProfileId: string, systemPrompt?: string) => {
       setConnectionState("connecting");
       connectionStateRef.current = "connecting";
       optionsRef.current.onConnectionStateChange?.("connecting");
 
-      try {
-        // Dynamic import rt-client to handle case where SDK not yet installed
-        const { RTClient } = await import("rt-client");
+      return new Promise<{
+        avatarEnabled: boolean;
+        model: string;
+        iceServers: RTCIceServer[];
+      }>((resolve, reject) => {
+        try {
+          const protocol = location.protocol === "https:" ? "wss:" : "ws:";
+          const token = localStorage.getItem("access_token") ?? "";
+          const wsUrl = `${protocol}//${location.host}/api/v1/voice-live/ws?token=${encodeURIComponent(token)}`;
+          const ws = new WebSocket(wsUrl);
 
-        // Pass https:// endpoint URL directly — SDK internally sets pathname
-        // to voice-agent/realtime and WebSocket auto-converts https→wss (WHATWG spec).
-        // Reference: Voice-Live-Agent-With-Avadar/src/app/chat-interface.tsx line 521
-        const endpointUrl = tokenData.endpoint;
-
-        if (tokenData.agent_id) {
-          console.info("[VoiceLive] Connecting in agent mode", {
-            agent_id: tokenData.agent_id,
-            project_name: tokenData.project_name,
+          let resolved = false;
+          let sessionResult = { avatarEnabled: false, model: "gpt-4o" };
+          let iceServersResolve: ((servers: RTCIceServer[]) => void) | null =
+            null;
+          const iceServersPromise = new Promise<RTCIceServer[]>((res) => {
+            iceServersResolve = res;
           });
-        } else {
-          console.info("[VoiceLive] Connecting in model mode", {
-            model: tokenData.model,
-          });
-        }
 
-        // Auth: Agent mode requires bearer token (API key auth is rejected).
-        // Backend returns auth_type="bearer" with an STS token for agent mode.
-        // Reference: chat-interface.tsx line 501-509
-        //
-        // rt-client SDK accepts KeyCredential ({key}) or TokenCredential ({getToken}).
-        // TypeScript types may be narrow, so we cast to the union the SDK actually handles.
-        const clientAuth: { key: string } | { getToken: (scope: string) => Promise<{ token: string; expiresOnTimestamp: number }> } =
-          tokenData.auth_type === "bearer"
-            ? {
-                getToken: async (_scope: string) => ({
-                  token: tokenData.token,
-                  expiresOnTimestamp: Date.now() + 600_000, // 10 min STS token
-                }),
-              }
-            : { key: tokenData.token };
-
-        // Both modes use RTVoiceAgentOptions with modelOrAgent
-        // Agent mode: { agentId, projectName, agentAccessToken } — reference line 524-529
-        // Model mode: model string — reference line 533
-        const client = new RTClient(
-          new URL(endpointUrl),
-          clientAuth as { key: string },
-          tokenData.agent_id
-            ? {
-                modelOrAgent: {
-                  agentId: tokenData.agent_id,
-                  projectName: tokenData.project_name || "",
-                  agentAccessToken:
-                    tokenData.auth_type === "bearer"
-                      ? tokenData.token
-                      : undefined,
+          ws.onopen = () => {
+            console.info("[VoiceLive] WebSocket open, sending session.update");
+            ws.send(
+              JSON.stringify({
+                type: "session.update",
+                session: {
+                  hcp_profile_id: hcpProfileId,
+                  system_prompt:
+                    systemPrompt || optionsRef.current.systemPrompt,
                 },
-                apiVersion: "2025-05-01-preview",
-              }
-            : {
-                modelOrAgent: tokenData.model,
-                apiVersion: "2025-05-01-preview",
-              },
-        );
-
-        // Build session config following reference repo pattern
-        // Reference: chat-interface.tsx lines 577-601
-        const instructions =
-          tokenData.agent_instructions_override ||
-          optionsRef.current.systemPrompt;
-
-        // Voice config: reference lines 552-569
-        const voice = {
-          type: tokenData.voice_type || "azure-standard",
-          name: tokenData.voice_name,
-          temperature: tokenData.voice_temperature ?? 0.9,
-        };
-
-        // Turn detection config
-        const turnDetection: Record<string, unknown> = {
-          type: tokenData.turn_detection_type || "server_vad",
-        };
-        // Add EOU detection if enabled (reference lines 540-548)
-        if (tokenData.eou_detection) {
-          turnDetection["end_of_utterance_detection"] = {
-            model: "semantic_detection_v1",
+              }),
+            );
           };
-        }
 
-        // Avatar config: reference lines 682-714
-        const avatarConfig = tokenData.avatar_enabled
-          ? {
-              character: tokenData.avatar_character,
-              style: tokenData.avatar_style || "casual",
-              customized: tokenData.avatar_customized || false,
-              video: {
-                codec: "h264",
-                crop: { top_left: [560, 0], bottom_right: [1360, 1080] },
-              },
+          ws.onmessage = (event: MessageEvent) => {
+            const msg = JSON.parse(event.data as string);
+
+            // Check for avatar SDP answer by field presence (Azure may use
+            // various event types — reference impl matches by field, not type)
+            if (
+              (msg.server_sdp || msg.sdp || msg.answer) &&
+              msg.type !== "session.update"
+            ) {
+              const sdpValue = msg.server_sdp || msg.sdp || msg.answer;
+              console.info(
+                "[VoiceLive] Avatar SDP answer received, type=%s",
+                msg.type,
+              );
+              avatarSdpCallbackRef.current?.(sdpValue);
             }
-          : undefined;
 
-        // Session configure — matches reference structure exactly
-        const sessionConfig: Record<string, unknown> = {
-          instructions: instructions?.length > 0 ? instructions : undefined,
-          input_audio_transcription: {
-            model: "azure-fast-transcription",
-            language:
-              tokenData.recognition_language === "auto"
-                ? undefined
-                : tokenData.recognition_language || undefined,
-          },
-          turn_detection: turnDetection,
-          voice,
-          avatar: avatarConfig,
-          modalities: ["text", "audio"],
-          // Noise suppression: pass null when disabled (reference line 592-596)
-          input_audio_noise_reduction: tokenData.noise_suppression
-            ? { type: "azure_deep_noise_suppression" }
-            : null,
-          // Echo cancellation: pass null when disabled (reference line 597-601)
-          input_audio_echo_cancellation: tokenData.echo_cancellation
-            ? { type: "server_echo_cancellation" }
-            : null,
-        };
+            switch (msg.type) {
+              case "proxy.connected":
+                sessionResult = {
+                  avatarEnabled: msg.avatar_enabled ?? false,
+                  model: msg.model ?? "gpt-4o",
+                };
+                console.info(
+                  "[VoiceLive] Proxy connected, model=%s, avatar=%s",
+                  sessionResult.model,
+                  sessionResult.avatarEnabled,
+                );
+                break;
 
-        const session = await (
-          client as {
-            configure: (
-              cfg: Record<string, unknown>,
-            ) => Promise<Record<string, unknown>>;
-          }
-        ).configure(sessionConfig);
+              case "session.created":
+                console.info(
+                  "[VoiceLive] Session created:",
+                  msg.session?.id,
+                );
+                break;
 
-        clientRef.current = client;
-        setConnectionState("connected");
-        connectionStateRef.current = "connected";
-        setAudioState("idle");
-        optionsRef.current.onConnectionStateChange?.("connected");
+              case "session.updated": {
+                console.info("[VoiceLive] Session updated");
+                // Extract ICE servers from avatar config
+                const avatarResp = msg.session?.avatar;
+                const servers: RTCIceServer[] = (
+                  avatarResp?.ice_servers || []
+                ).map(
+                  (s: {
+                    urls?: string[];
+                    username?: string;
+                    credential?: string;
+                  }) => ({
+                    urls: s.urls || [],
+                    username: s.username,
+                    credential: s.credential,
+                  }),
+                );
+                if (servers.length > 0) {
+                  console.info(
+                    "[VoiceLive] ICE servers received:",
+                    servers.length,
+                  );
+                }
+                iceServersResolve?.(servers);
 
-        // Start response listener in background
-        void startResponseListener(client);
+                // Mark as connected
+                setConnectionState("connected");
+                connectionStateRef.current = "connected";
+                setAudioState("idle");
+                optionsRef.current.onConnectionStateChange?.("connected");
 
-        // Return session so caller can access avatar.ice_servers
-        return session as {
-          avatar?: { ice_servers?: RTCIceServer[] };
-          [key: string]: unknown;
-        };
-      } catch (error) {
-        setConnectionState("error");
-        connectionStateRef.current = "error";
-        optionsRef.current.onConnectionStateChange?.("error");
-        optionsRef.current.onError?.(
-          error instanceof Error ? error : new Error(String(error)),
-        );
-        throw error;
-      }
+                // Resolve connect promise
+                if (!resolved) {
+                  resolved = true;
+                  void iceServersPromise.then((iceServers) => {
+                    resolve({ ...sessionResult, iceServers });
+                  });
+                }
+                break;
+              }
+
+              // Avatar SDP answer from server
+              case "session.avatar.connecting":
+                if (msg.server_sdp || msg.serverSdp) {
+                  console.info("[VoiceLive] Avatar SDP answer received");
+                  avatarSdpCallbackRef.current?.(
+                    msg.server_sdp || msg.serverSdp,
+                  );
+                }
+                break;
+
+              // Audio state: user speaking
+              case "input_audio_buffer.speech_started":
+                setAudioState("listening");
+                optionsRef.current.onAudioStateChange?.("listening");
+                break;
+
+              case "input_audio_buffer.speech_stopped":
+                setAudioState("idle");
+                optionsRef.current.onAudioStateChange?.("idle");
+                break;
+
+              // User transcript completed
+              case "conversation.item.input_audio_transcription.completed":
+                if (msg.transcript) {
+                  optionsRef.current.onTranscript?.({
+                    id: `user-${++transcriptIdCounter.current}`,
+                    role: "user",
+                    content: msg.transcript,
+                    isFinal: true,
+                    timestamp: Date.now(),
+                  });
+                }
+                break;
+
+              // Assistant audio generation started
+              case "response.created":
+                setAudioState("speaking");
+                optionsRef.current.onAudioStateChange?.("speaking");
+                break;
+
+              // Streaming assistant audio transcript
+              case "response.audio_transcript.delta":
+                if (msg.delta) {
+                  optionsRef.current.onTranscript?.({
+                    id: `assistant-${msg.response_id}-${msg.item_id}`,
+                    role: "assistant",
+                    content: msg.delta,
+                    isFinal: false,
+                    timestamp: Date.now(),
+                  });
+                }
+                break;
+
+              // Final assistant audio transcript
+              case "response.audio_transcript.done":
+                if (msg.transcript) {
+                  optionsRef.current.onTranscript?.({
+                    id: `assistant-${msg.response_id}-${msg.item_id}`,
+                    role: "assistant",
+                    content: msg.transcript,
+                    isFinal: true,
+                    timestamp: Date.now(),
+                  });
+                }
+                break;
+
+              // Streaming text response
+              case "response.text.delta":
+                if (msg.delta) {
+                  optionsRef.current.onTranscript?.({
+                    id: `assistant-text-${msg.response_id}-${msg.item_id}`,
+                    role: "assistant",
+                    content: msg.delta,
+                    isFinal: false,
+                    timestamp: Date.now(),
+                  });
+                }
+                break;
+
+              case "response.text.done":
+                if (msg.text) {
+                  optionsRef.current.onTranscript?.({
+                    id: `assistant-text-${msg.response_id}-${msg.item_id}`,
+                    role: "assistant",
+                    content: msg.text,
+                    isFinal: true,
+                    timestamp: Date.now(),
+                  });
+                }
+                break;
+
+              case "response.done":
+                setAudioState("idle");
+                optionsRef.current.onAudioStateChange?.("idle");
+                break;
+
+              case "error":
+                console.error("[VoiceLive] Error:", msg.error);
+                setConnectionState("error");
+                connectionStateRef.current = "error";
+                optionsRef.current.onConnectionStateChange?.("error");
+                optionsRef.current.onError?.(
+                  new Error(msg.error?.message || "Unknown error"),
+                );
+                if (!resolved) {
+                  resolved = true;
+                  reject(new Error(msg.error?.message || "Connection error"));
+                }
+                break;
+            }
+          };
+
+          ws.onclose = () => {
+            if (connectionStateRef.current !== "disconnected") {
+              setConnectionState("disconnected");
+              connectionStateRef.current = "disconnected";
+              optionsRef.current.onConnectionStateChange?.("disconnected");
+            }
+            if (!resolved) {
+              resolved = true;
+              reject(new Error("WebSocket closed before connected"));
+            }
+          };
+
+          ws.onerror = () => {
+            console.error("[VoiceLive] WebSocket error");
+            setConnectionState("error");
+            connectionStateRef.current = "error";
+            optionsRef.current.onConnectionStateChange?.("error");
+            optionsRef.current.onError?.(
+              new Error("WebSocket connection failed"),
+            );
+            if (!resolved) {
+              resolved = true;
+              reject(new Error("WebSocket connection failed"));
+            }
+          };
+
+          wsRef.current = ws;
+
+          // Timeout
+          setTimeout(() => {
+            if (!resolved) {
+              resolved = true;
+              ws.close();
+              reject(new Error("Connection timeout (30s)"));
+            }
+          }, 30_000);
+        } catch (error) {
+          setConnectionState("error");
+          connectionStateRef.current = "error";
+          optionsRef.current.onConnectionStateChange?.("error");
+          optionsRef.current.onError?.(
+            error instanceof Error ? error : new Error(String(error)),
+          );
+          reject(error);
+        }
+      });
     },
-    [startResponseListener],
+    [],
   );
 
   const disconnect = useCallback(async () => {
-    if (clientRef.current) {
-      try {
-        const client = clientRef.current as {
-          close?: () => Promise<void>;
-        };
-        await client.close?.();
-      } catch {
-        // Ignore close errors
-      }
-      clientRef.current = null;
+    if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
     }
     setConnectionState("disconnected");
     connectionStateRef.current = "disconnected";
@@ -282,28 +338,52 @@ export function useVoiceLive(options: VoiceLiveOptions) {
     });
   }, []);
 
-  const sendTextMessage = useCallback(async (text: string) => {
-    if (!clientRef.current) return;
-    const client = clientRef.current as {
-      sendItem?: (item: unknown) => void;
-      generateResponse?: () => void;
-    };
-    client.sendItem?.({
-      type: "message",
-      role: "user",
-      content: [{ type: "input_text", text }],
-    });
-    client.generateResponse?.();
+  /** Send a raw message to Azure via the backend WebSocket proxy. */
+  const send = useCallback((data: unknown) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(
+        typeof data === "string" ? data : JSON.stringify(data),
+      );
+    }
   }, []);
+
+  /** Send text message to the conversation. */
+  const sendTextMessage = useCallback(
+    async (text: string) => {
+      send({
+        type: "conversation.item.create",
+        item: {
+          type: "message",
+          role: "user",
+          content: [{ type: "input_text", text }],
+        },
+      });
+      send({ type: "response.create" });
+    },
+    [send],
+  );
+
+  /** Send audio data (PCM16 base64-encoded) to Azure via backend proxy. */
+  const sendAudio = useCallback(
+    (base64Audio: string) => {
+      send({
+        type: "input_audio_buffer.append",
+        audio: base64Audio,
+      });
+    },
+    [send],
+  );
 
   return {
     connect,
     disconnect,
     toggleMute,
     sendTextMessage,
+    sendAudio,
+    send,
     isMuted,
     connectionState,
     audioState,
-    clientRef,
+    avatarSdpCallbackRef,
   };
 }
