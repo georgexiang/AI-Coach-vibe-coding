@@ -77,7 +77,8 @@
     "voiceLiveModelDesc": "Voice Live 会话的生成式 AI 模型（仅模型模式）",
     "modelTierPro": "专业版",
     "modelTierStandard": "标准版",
-    "modelTierLite": "轻量版"
+    "modelTierLite": "轻量版",
+    "moreAvatars": "更多数字人"
   },
   "scenarios": {
     "title": "培训场景",

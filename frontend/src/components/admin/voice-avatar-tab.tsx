@@ -2,7 +2,7 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { UseFormReturn } from "react-hook-form";
 import { toast } from "sonner";
-import { Mic, MicOff, Send, Phone, PhoneOff, User, Check } from "lucide-react";
+import { Mic, MicOff, Send, Phone, PhoneOff, User, Check, MoreHorizontal } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -29,27 +29,17 @@ import { useVoiceLive } from "@/hooks/use-voice-live";
 import { useAvatarStream } from "@/hooks/use-avatar-stream";
 import { useAudioHandler } from "@/hooks/use-audio-handler";
 import { cn } from "@/lib/utils";
+import {
+  AVATAR_CHARACTERS,
+  AVATAR_CHARACTER_MAP,
+  getAvatarInitials,
+} from "@/data/avatar-characters";
 import type { HcpFormValues } from "@/pages/admin/hcp-profile-editor";
 import type { HcpProfile } from "@/types/hcp";
 import type { TranscriptSegment } from "@/types/voice-live";
 
-const AVATAR_VIDEO_CHARACTERS = [
-  { character: "harry", styles: ["business", "casual", "youthful"] },
-  { character: "jeff", styles: ["business", "formal"] },
-  {
-    character: "lisa",
-    styles: [
-      "casual-sitting",
-      "graceful-sitting",
-      "graceful-standing",
-      "technical-sitting",
-      "technical-standing",
-    ],
-  },
-  { character: "lori", styles: ["casual", "graceful", "formal"] },
-  { character: "max", styles: ["business", "casual", "formal"] },
-  { character: "meg", styles: ["formal", "casual", "business"] },
-] as const;
+/** Set of character IDs whose thumbnail failed to load — triggers initials fallback. */
+const failedThumbnails = new Set<string>();
 
 const VOICE_NAME_OPTIONS = [
   { value: "en-US-AvaNeural", label: "Ava (EN-US)" },
@@ -86,15 +76,10 @@ const RECOGNITION_LANGUAGES = [
   { value: "ko-KR", label: "Korean (ko-KR)" },
 ] as const;
 
-/** Color palette for avatar character thumbnails (consistent per character) */
-const AVATAR_COLORS: Record<string, string> = {
-  harry: "from-blue-500 to-blue-700",
-  jeff: "from-emerald-500 to-emerald-700",
-  lisa: "from-purple-500 to-purple-700",
-  lori: "from-rose-500 to-rose-700",
-  max: "from-amber-500 to-amber-700",
-  meg: "from-cyan-500 to-cyan-700",
-};
+/** Resolve gradient classes for a character (from metadata or a default). */
+function getCharacterGradient(characterId: string): string {
+  return AVATAR_CHARACTER_MAP.get(characterId)?.gradientClasses ?? "from-gray-500 to-gray-700";
+}
 
 function buildPreviewInstructions(values: HcpFormValues): string {
   const name = values.name || "[Name]";
@@ -151,11 +136,21 @@ export function VoiceAvatarTab({ form, profile, isNew }: VoiceAvatarTabProps) {
   const watchTemperature = form.watch("voice_temperature");
 
   const availableStyles = useMemo(() => {
-    const found = AVATAR_VIDEO_CHARACTERS.find(
-      (c) => c.character === watchCharacter,
-    );
+    const found = AVATAR_CHARACTER_MAP.get(watchCharacter);
     return found ? [...found.styles] : [];
   }, [watchCharacter]);
+
+  /** Track which thumbnails failed to load so we show initials fallback. */
+  const [, setThumbnailRerender] = useState(0);
+  const handleThumbnailError = useCallback(
+    (characterId: string) => {
+      if (!failedThumbnails.has(characterId)) {
+        failedThumbnails.add(characterId);
+        setThumbnailRerender((n) => n + 1);
+      }
+    },
+    [],
+  );
 
   // Agent instructions preview
   const formValues = form.watch();
@@ -292,11 +287,9 @@ export function VoiceAvatarTab({ form, profile, isNew }: VoiceAvatarTabProps) {
   const handleAvatarGridSelect = useCallback(
     (character: string) => {
       form.setValue("avatar_character", character);
-      const charDef = AVATAR_VIDEO_CHARACTERS.find(
-        (c) => c.character === character,
-      );
-      if (charDef && charDef.styles.length > 0) {
-        form.setValue("avatar_style", charDef.styles[0] as string);
+      const charDef = AVATAR_CHARACTER_MAP.get(character);
+      if (charDef) {
+        form.setValue("avatar_style", charDef.defaultStyle);
       }
     },
     [form],
@@ -485,35 +478,53 @@ export function VoiceAvatarTab({ form, profile, isNew }: VoiceAvatarTabProps) {
               <>
                 {/* Visual avatar character grid — AI Foundry style */}
                 <div className="grid grid-cols-3 gap-2" data-testid="avatar-character-grid">
-                  {AVATAR_VIDEO_CHARACTERS.map((c) => {
-                    const isSelected = watchCharacter === c.character;
-                    const gradient = AVATAR_COLORS[c.character] ?? "from-gray-500 to-gray-700";
+                  {AVATAR_CHARACTERS.map((c) => {
+                    const isSelected = watchCharacter === c.id;
+                    const showFallback = failedThumbnails.has(c.id);
                     return (
                       <button
-                        key={c.character}
+                        key={c.id}
                         type="button"
-                        onClick={() => handleAvatarGridSelect(c.character)}
+                        onClick={() => handleAvatarGridSelect(c.id)}
                         className={cn(
-                          "relative flex flex-col items-center gap-1 rounded-lg border-2 p-2 transition-all",
+                          "relative flex flex-col items-center gap-1.5 rounded-lg border-2 p-2 transition-all",
                           "hover:border-primary/50 hover:shadow-sm",
                           isSelected
                             ? "border-primary bg-primary/5 shadow-sm"
                             : "border-transparent bg-muted/30",
                         )}
-                        data-testid={`avatar-grid-${c.character}`}
+                        data-testid={`avatar-grid-${c.id}`}
                       >
-                        {/* Avatar thumbnail placeholder */}
-                        <div
-                          className={cn(
-                            "flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br text-white",
-                            gradient,
+                        {/* Avatar thumbnail with graceful fallback */}
+                        <div className="relative h-14 w-14 overflow-hidden rounded-full">
+                          {!showFallback ? (
+                            <img
+                              src={c.thumbnailUrl}
+                              alt={c.displayName}
+                              className="h-full w-full object-cover"
+                              onError={() => handleThumbnailError(c.id)}
+                              loading="lazy"
+                              data-testid={`avatar-img-${c.id}`}
+                            />
+                          ) : (
+                            <div
+                              className={cn(
+                                "flex h-full w-full items-center justify-center bg-gradient-to-br text-white text-lg font-bold",
+                                c.gradientClasses,
+                              )}
+                              data-testid={`avatar-fallback-${c.id}`}
+                            >
+                              {getAvatarInitials(c.displayName)}
+                            </div>
                           )}
-                        >
-                          <User className="h-6 w-6" />
                         </div>
                         {/* Character name */}
-                        <span className="text-[10px] font-medium capitalize leading-tight">
-                          {c.character}
+                        <span className="text-[10px] font-medium leading-tight">
+                          {c.displayName}
+                        </span>
+                        {/* Style label */}
+                        <span className="text-[9px] text-muted-foreground leading-tight capitalize">
+                          {c.defaultStyle.replace(/-/g, " ")}
                         </span>
                         {/* Selection indicator */}
                         {isSelected && (
@@ -525,6 +536,19 @@ export function VoiceAvatarTab({ form, profile, isNew }: VoiceAvatarTabProps) {
                     );
                   })}
                 </div>
+
+                {/* More avatars button */}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="w-full text-xs"
+                  onClick={() => form.setValue("avatar_customized", true)}
+                  data-testid="more-avatars-btn"
+                >
+                  <MoreHorizontal className="h-3.5 w-3.5 mr-1.5" />
+                  {t("admin:hcp.moreAvatars", "More avatars")}
+                </Button>
 
                 {/* Style selector for selected character */}
                 <FormField
@@ -786,17 +810,34 @@ export function VoiceAvatarTab({ form, profile, isNew }: VoiceAvatarTabProps) {
             </div>
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center gap-4">
-              {/* Avatar preview with gradient matching selected character */}
-              <div
-                className={cn(
-                  "size-24 rounded-full flex items-center justify-center bg-gradient-to-br text-white shadow-lg",
-                  AVATAR_COLORS[watchCharacter] ?? "from-gray-500 to-gray-700",
-                )}
-              >
-                <User className="size-12" />
-              </div>
-              <p className="text-base font-medium capitalize text-white">
-                {watchCharacter}
+              {/* Avatar preview with image or gradient fallback */}
+              {(() => {
+                const charMeta = AVATAR_CHARACTER_MAP.get(watchCharacter);
+                const showFallback = !charMeta || failedThumbnails.has(watchCharacter);
+                return (
+                  <div className="relative size-24 overflow-hidden rounded-full shadow-lg">
+                    {!showFallback ? (
+                      <img
+                        src={charMeta.thumbnailUrl}
+                        alt={charMeta.displayName}
+                        className="h-full w-full object-cover"
+                        onError={() => handleThumbnailError(watchCharacter)}
+                      />
+                    ) : (
+                      <div
+                        className={cn(
+                          "flex h-full w-full items-center justify-center bg-gradient-to-br text-white text-3xl font-bold",
+                          getCharacterGradient(watchCharacter),
+                        )}
+                      >
+                        {charMeta ? getAvatarInitials(charMeta.displayName) : <User className="size-12" />}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+              <p className="text-base font-medium text-white">
+                {AVATAR_CHARACTER_MAP.get(watchCharacter)?.displayName ?? watchCharacter}
               </p>
               <span className="text-xs px-3 py-1 bg-white/10 text-white/70 rounded-full">
                 {form.watch("avatar_style")}

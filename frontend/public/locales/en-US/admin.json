@@ -77,7 +77,8 @@
     "voiceLiveModelDesc": "Generative AI model for Voice Live sessions (model mode only)",
     "modelTierPro": "Pro",
     "modelTierStandard": "Standard",
-    "modelTierLite": "Lite"
+    "modelTierLite": "Lite",
+    "moreAvatars": "More avatars"
   },
   "scenarios": {
     "title": "Training Scenarios",
