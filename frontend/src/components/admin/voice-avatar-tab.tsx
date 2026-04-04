@@ -42,38 +42,29 @@ import type { TranscriptSegment } from "@/types/voice-live";
 const failedThumbnails = new Set<string>();
 
 const VOICE_NAME_OPTIONS = [
-  { value: "en-US-AvaNeural", label: "Ava (EN-US)" },
-  { value: "en-US-Ava:DragonHDLatestNeural", label: "Ava HD (EN-US)" },
-  { value: "en-US-AndrewNeural", label: "Andrew (EN-US)" },
-  { value: "en-US-JennyNeural", label: "Jenny (EN-US)" },
-  {
-    value: "zh-CN-XiaoxiaoMultilingualNeural",
-    label: "Xiaoxiao Multilingual (ZH-CN)",
-  },
-  { value: "zh-CN-XiaoxiaoNeural", label: "Xiaoxiao (ZH-CN)" },
-  { value: "zh-CN-YunxiNeural", label: "Yunxi (ZH-CN)" },
-  { value: "zh-CN-YunjianNeural", label: "Yunjian (ZH-CN)" },
+  { value: "en-US-AvaNeural", labelKey: "voiceAva" },
+  { value: "en-US-Ava:DragonHDLatestNeural", labelKey: "voiceAvaHd" },
+  { value: "en-US-AndrewNeural", labelKey: "voiceAndrew" },
+  { value: "en-US-JennyNeural", labelKey: "voiceJenny" },
+  { value: "zh-CN-XiaoxiaoMultilingualNeural", labelKey: "voiceXiaoxiaoMultilingual" },
+  { value: "zh-CN-XiaoxiaoNeural", labelKey: "voiceXiaoxiao" },
+  { value: "zh-CN-YunxiNeural", labelKey: "voiceYunxi" },
+  { value: "zh-CN-YunjianNeural", labelKey: "voiceYunjian" },
 ] as const;
 
 const TURN_DETECTION_TYPES = [
-  { value: "server_vad", label: "Server VAD" },
-  { value: "semantic_vad", label: "Semantic VAD (gpt-realtime only)" },
-  {
-    value: "azure_semantic_vad",
-    label: "Azure Semantic VAD (all models)",
-  },
-  {
-    value: "azure_semantic_vad_multilingual",
-    label: "Azure Semantic VAD Multilingual",
-  },
+  { value: "server_vad", labelKey: "turnServerVad" },
+  { value: "semantic_vad", labelKey: "turnSemanticVad" },
+  { value: "azure_semantic_vad", labelKey: "turnAzureSemanticVad" },
+  { value: "azure_semantic_vad_multilingual", labelKey: "turnAzureSemanticVadMultilingual" },
 ] as const;
 
 const RECOGNITION_LANGUAGES = [
-  { value: "auto", labelKey: "autoDetect" as const },
-  { value: "zh-CN", label: "Chinese (zh-CN)" },
-  { value: "en-US", label: "English (en-US)" },
-  { value: "ja-JP", label: "Japanese (ja-JP)" },
-  { value: "ko-KR", label: "Korean (ko-KR)" },
+  { value: "auto", labelKey: "autoDetect" },
+  { value: "zh-CN", labelKey: "langChinese" },
+  { value: "en-US", labelKey: "langEnglish" },
+  { value: "ja-JP", labelKey: "langJapanese" },
+  { value: "ko-KR", labelKey: "langKorean" },
 ] as const;
 
 /** Resolve gradient classes for a character (from metadata or a default). */
@@ -390,7 +381,7 @@ export function VoiceAvatarTab({ form, profile, isNew }: VoiceAvatarTabProps) {
                     <FormControl>
                       <Input
                         {...field}
-                        placeholder="e.g., en-US-Ava:DragonHDLatestNeural"
+                        placeholder={t("admin:hcp.voiceNameCustomPlaceholder")}
                         className="h-8 text-xs"
                       />
                     </FormControl>
@@ -416,7 +407,7 @@ export function VoiceAvatarTab({ form, profile, isNew }: VoiceAvatarTabProps) {
                       <SelectContent>
                         {VOICE_NAME_OPTIONS.map((opt) => (
                           <SelectItem key={opt.value} value={opt.value}>
-                            {opt.label}
+                            {t(`admin:hcp.${opt.labelKey}`)}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -466,7 +457,7 @@ export function VoiceAvatarTab({ form, profile, isNew }: VoiceAvatarTabProps) {
                     <FormControl>
                       <Input
                         {...field}
-                        placeholder="e.g., custom-character-name"
+                        placeholder={t("admin:hcp.avatarCharacterCustomPlaceholder")}
                         className="h-8 text-xs"
                       />
                     </FormControl>
@@ -637,7 +628,7 @@ export function VoiceAvatarTab({ form, profile, isNew }: VoiceAvatarTabProps) {
                     <SelectContent>
                       {TURN_DETECTION_TYPES.map((opt) => (
                         <SelectItem key={opt.value} value={opt.value}>
-                          {opt.label}
+                          {t(`admin:hcp.${opt.labelKey}`)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -719,9 +710,7 @@ export function VoiceAvatarTab({ form, profile, isNew }: VoiceAvatarTabProps) {
                     <SelectContent>
                       {RECOGNITION_LANGUAGES.map((lang) => (
                         <SelectItem key={lang.value} value={lang.value}>
-                          {"labelKey" in lang
-                            ? t(`admin:hcp.${lang.labelKey}`)
-                            : lang.label}
+                          {t(`admin:hcp.${lang.labelKey}`)}
                         </SelectItem>
                       ))}
                     </SelectContent>
