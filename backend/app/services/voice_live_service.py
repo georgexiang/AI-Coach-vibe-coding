@@ -74,7 +74,11 @@ async def get_voice_live_token(
     db: AsyncSession,
     hcp_profile_id: str | None = None,
 ) -> VoiceLiveTokenResponse:
-    """Generate a token response for the frontend to connect directly to Azure Voice Live API.
+    """Return Voice Live configuration metadata for the frontend.
+
+    SECURITY: This endpoint never returns the raw API key or bearer token.
+    All Voice Live connections go through the backend WebSocket proxy which
+    reads credentials from DB directly. The token field is always masked.
 
     Uses unified AI Foundry config as fallback for endpoint and API key.
     Parses agent/model mode to include agent_id and project_name when applicable.
@@ -137,7 +141,6 @@ async def get_voice_live_token(
     echo_cancellation = False
     eou_detection = False
     recognition_language = "auto"
-    agent_instructions_override = ""
 
     # If hcp_profile_id provided, source ALL settings from HCP profile (D-08, D-12, D-14)
     if hcp_profile_id:
@@ -168,7 +171,6 @@ async def get_voice_live_token(
             echo_cancellation = profile.echo_cancellation
             eou_detection = profile.eou_detection
             recognition_language = profile.recognition_language or "auto"
-            agent_instructions_override = profile.agent_instructions_override or ""
 
             # Per-HCP Voice Live model selection (Phase 13)
             voice_live_model = profile.voice_live_model or "gpt-4o"
@@ -178,18 +180,14 @@ async def get_voice_live_token(
     # Determine final mode: agent if agent_id is set (from config or HCP profile)
     is_agent = bool(agent_id)
 
-    # Agent mode requires bearer token auth — API key auth is rejected.
-    # Exchange API key for a short-lived STS bearer token when in agent mode.
+    # SECURITY: Never expose the raw API key to the frontend.
+    # All Voice Live connections go through the backend WebSocket proxy which
+    # reads credentials from DB directly. The token broker only returns metadata.
     auth_type = "key"
-    token_value = api_key
+    token_value = "***configured***"
     if is_agent:
-        try:
-            bearer_token = await _exchange_api_key_for_bearer_token(effective_endpoint, api_key)
-            token_value = bearer_token
-            auth_type = "bearer"
-            logger.info("STS bearer token obtained for agent mode")
-        except Exception as exc:
-            logger.warning("STS token exchange failed, falling back to API key: %s", exc)
+        auth_type = "bearer"
+        token_value = "***configured***"
 
     return VoiceLiveTokenResponse(
         endpoint=effective_endpoint,
@@ -213,7 +211,6 @@ async def get_voice_live_token(
         echo_cancellation=echo_cancellation,
         eou_detection=eou_detection,
         recognition_language=recognition_language,
-        agent_instructions_override=agent_instructions_override,
     )
 
 

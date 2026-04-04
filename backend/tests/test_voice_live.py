@@ -287,12 +287,87 @@ class TestVoiceLiveAPI:
         assert response.status_code == 200
         data = response.json()
         assert data["endpoint"] == "https://test.openai.azure.com"
-        assert data["token"] == "test-api-key"
+        assert data["token"] == "***configured***"
         assert data["region"] == "eastus2"
         assert data["avatar_enabled"] is False
         assert data["voice_name"] == "zh-CN-XiaoxiaoMultilingualNeural"
         assert data["agent_id"] is None
         assert data["project_name"] is None
+
+
+# === Security: API Key Not Exposed ===
+
+
+class TestTokenBrokerSecurity:
+    """Security tests: token broker must never expose raw API keys or internal prompts."""
+
+    @patch("app.services.voice_live_service.config_service")
+    async def test_token_never_contains_api_key(self, mock_config_svc, client):
+        """POST /api/v1/voice-live/token must return masked token, never the raw API key."""
+        real_api_key = "sk-super-secret-azure-key-12345"
+        mock_vl_config = MagicMock()
+        mock_vl_config.is_active = True
+        mock_vl_config.endpoint = "https://test.openai.azure.com"
+        mock_vl_config.region = "eastus2"
+        mock_vl_config.model_or_deployment = "gpt-4o-realtime-preview"
+        mock_vl_config.api_key_encrypted = ""
+
+        mock_config_svc.get_config = AsyncMock(
+            side_effect=lambda db, name: mock_vl_config if name == "azure_voice_live" else None
+        )
+        mock_config_svc.get_effective_key = AsyncMock(
+            side_effect=lambda db, name: real_api_key if name == "azure_voice_live" else ""
+        )
+        mock_config_svc.get_effective_endpoint = AsyncMock(
+            side_effect=lambda db, name: (
+                "https://test.openai.azure.com" if name == "azure_voice_live" else ""
+            )
+        )
+        mock_config_svc.get_master_config = AsyncMock(return_value=None)
+
+        _, token = await _create_user_and_token("vl_security_test")
+        response = await client.post(
+            "/api/v1/voice-live/token",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        # The raw API key must NEVER appear in the response
+        raw_response = response.text
+        assert real_api_key not in raw_response
+        assert data["token"] == "***configured***"
+
+    @patch("app.services.voice_live_service.config_service")
+    async def test_response_does_not_contain_agent_instructions(self, mock_config_svc, client):
+        """POST /api/v1/voice-live/token must not expose agent_instructions_override."""
+        mock_vl_config = MagicMock()
+        mock_vl_config.is_active = True
+        mock_vl_config.endpoint = "https://test.openai.azure.com"
+        mock_vl_config.region = "eastus2"
+        mock_vl_config.model_or_deployment = "gpt-4o-realtime-preview"
+        mock_vl_config.api_key_encrypted = ""
+
+        mock_config_svc.get_config = AsyncMock(
+            side_effect=lambda db, name: mock_vl_config if name == "azure_voice_live" else None
+        )
+        mock_config_svc.get_effective_key = AsyncMock(
+            side_effect=lambda db, name: "test-key" if name == "azure_voice_live" else ""
+        )
+        mock_config_svc.get_effective_endpoint = AsyncMock(
+            side_effect=lambda db, name: (
+                "https://test.openai.azure.com" if name == "azure_voice_live" else ""
+            )
+        )
+        mock_config_svc.get_master_config = AsyncMock(return_value=None)
+
+        _, token = await _create_user_and_token("vl_no_instructions")
+        response = await client.post(
+            "/api/v1/voice-live/token",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "agent_instructions_override" not in data
 
 
 # === Feature Flags Voice Live Tests ===

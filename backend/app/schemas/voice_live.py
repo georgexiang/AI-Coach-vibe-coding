@@ -4,7 +4,7 @@ from pydantic import BaseModel
 
 
 class VoiceLiveTokenResponse(BaseModel):
-    """Token broker response for direct browser-to-Azure Voice Live connection."""
+    """Voice Live configuration metadata. Token is always masked (auth handled server-side)."""
 
     endpoint: str
     token: str
@@ -15,6 +15,7 @@ class VoiceLiveTokenResponse(BaseModel):
     voice_name: str
     auth_type: str = "key"  # "key" for API key, "bearer" for STS bearer token
     agent_id: str | None = None
+    agent_version: str | None = None
     project_name: str | None = None
 
     # Per-HCP fields (D-08)
@@ -28,7 +29,6 @@ class VoiceLiveTokenResponse(BaseModel):
     echo_cancellation: bool = False
     eou_detection: bool = False
     recognition_language: str = "auto"
-    agent_instructions_override: str = ""
 
 
 class VoiceLiveModelInfo(BaseModel):
