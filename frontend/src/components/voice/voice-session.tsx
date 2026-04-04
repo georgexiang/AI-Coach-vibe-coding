@@ -154,6 +154,22 @@ export function VoiceSession({
   const avatarStream = useAvatarStream(videoRef);
   const audioHandler = useAudioHandler();
 
+  // Send config changes to backend via WebSocket session.update
+  const handleConfigChange = useCallback(
+    (newConfig: VoiceConfigSettings) => {
+      setVoiceConfig(newConfig);
+      if (voiceLive.connectionState === "connected") {
+        voiceLive.send({
+          type: "session.update",
+          session: {
+            input_audio_transcription: { language: newConfig.language === "auto" ? undefined : newConfig.language },
+          },
+        });
+      }
+    },
+    [voiceLive],
+  );
+
   // Initialize key messages from scenario
   useEffect(() => {
     if (scenario && keyMessagesStatus.length === 0) {
@@ -460,7 +476,7 @@ export function VoiceSession({
                 <TabsContent value="config" className="min-h-0 flex-1">
                   <VoiceConfigPanel
                     config={voiceConfig}
-                    onConfigChange={setVoiceConfig}
+                    onConfigChange={handleConfigChange}
                     voiceName={hcpName}
                     avatarEnabled={currentMode.startsWith("digital_human")}
                   />
