@@ -120,6 +120,44 @@
 .theme-amber { --primary: #B45309; --primary-foreground: #FFFFFF; --sidebar-primary: #B45309; --sidebar-primary-foreground: #FFFFFF; --chart-1: #B45309; --ring: #B45309; }
 .dark.theme-amber, .dark .theme-amber { --primary: #FBBF24; --primary-foreground: #451A03; --sidebar-primary: #FBBF24; --sidebar-primary-foreground: #451A03; --chart-1: #FBBF24; --ring: #FBBF24; }
 
+/* Audio orb animations for voice session visualization */
+@keyframes audio-orb-ripple {
+  0% { transform: scale(0.8); opacity: 1; }
+  100% { transform: scale(1.4); opacity: 0; }
+}
+@keyframes audio-orb-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+}
+@keyframes audio-orb-breathe {
+  0%, 100% { transform: scale(1); opacity: 0.7; }
+  50% { transform: scale(1.04); opacity: 1; }
+}
+@keyframes audio-orb-glow {
+  0%, 100% { opacity: 0.6; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.15); }
+}
+@keyframes audio-orb-center-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.8; }
+  50% { transform: scale(1.4); opacity: 1; }
+}
+
+.audio-orb-ripple {
+  animation: audio-orb-ripple 2s ease-out infinite;
+}
+.audio-orb-pulse {
+  animation: audio-orb-pulse 1.5s ease-in-out infinite;
+}
+.audio-orb-breathe {
+  animation: audio-orb-breathe 3s ease-in-out infinite;
+}
+.audio-orb-glow {
+  animation: audio-orb-glow 2s ease-in-out infinite;
+}
+.audio-orb-center-pulse {
+  animation: audio-orb-center-pulse 1.2s ease-in-out infinite;
+}
+
 /* Page transition animation (D-14) */
 @keyframes page-fade-in {
   from { opacity: 0; transform: translateY(4px); }

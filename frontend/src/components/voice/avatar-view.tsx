@@ -2,7 +2,7 @@ import type { Ref } from "react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui";
-import { WaveformViz } from "./waveform-viz";
+import { AudioOrb } from "./audio-orb";
 import type { AudioState } from "@/types/voice-live";
 
 interface AvatarViewProps {
@@ -17,15 +17,16 @@ interface AvatarViewProps {
 }
 
 /**
- * Avatar video container with waveform fallback.
+ * Avatar video container with audio orb fallback.
  * When avatar is connected, renders the WebRTC video container.
- * When voice-only, renders WaveformViz as fallback (D-06).
+ * When voice-only, renders AudioOrb as fallback — a pulsating sphere
+ * with ripple effects similar to AI Foundry's listening animation.
  */
 export function AvatarView({
   videoContainerRef,
   isAvatarConnected,
   audioState,
-  analyserData,
+  analyserData: _analyserData,
   isConnecting,
   hcpName,
   isFullScreen,
@@ -61,11 +62,7 @@ export function AvatarView({
       )}
 
       {!isConnecting && !isAvatarConnected && (
-        <WaveformViz
-          audioState={audioState}
-          analyserData={analyserData}
-          className="w-full rounded-none"
-        />
+        <AudioOrb audioState={audioState} />
       )}
 
       {hcpName && (

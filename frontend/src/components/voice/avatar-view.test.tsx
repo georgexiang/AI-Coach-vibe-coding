@@ -14,9 +14,9 @@ vi.mock("@/components/ui", () => ({
   ),
 }));
 
-vi.mock("./waveform-viz", () => ({
-  WaveformViz: ({ audioState }: { audioState: string }) => (
-    <div data-testid="waveform-viz" data-audio-state={audioState} />
+vi.mock("./audio-orb", () => ({
+  AudioOrb: ({ audioState }: { audioState: string }) => (
+    <div data-testid="audio-orb" data-audio-state={audioState} />
   ),
 }));
 
@@ -44,9 +44,17 @@ describe("AvatarView", () => {
     expect(screen.getByTestId("avatar-video-container")).toBeInTheDocument();
   });
 
-  it("shows waveform fallback when not connected and not connecting", () => {
+  it("shows audio orb fallback when not connected and not connecting", () => {
     render(<AvatarView {...defaultProps} />);
-    expect(screen.getByTestId("waveform-viz")).toBeInTheDocument();
+    expect(screen.getByTestId("audio-orb")).toBeInTheDocument();
+  });
+
+  it("passes audioState to audio orb", () => {
+    render(<AvatarView {...defaultProps} audioState="listening" />);
+    expect(screen.getByTestId("audio-orb")).toHaveAttribute(
+      "data-audio-state",
+      "listening",
+    );
   });
 
   it("shows hcpName overlay", () => {
