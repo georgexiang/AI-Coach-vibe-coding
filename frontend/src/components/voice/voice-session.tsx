@@ -11,6 +11,10 @@ import {
   DialogHeader,
   DialogTitle,
   Button,
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
 } from "@/components/ui";
 import { cn } from "@/lib/utils";
 import { ScenarioPanel } from "@/components/coach/scenario-panel";
@@ -24,11 +28,13 @@ import { persistTranscriptMessage } from "@/api/voice-live";
 import { VoiceSessionHeader } from "./voice-session-header";
 import { AvatarView } from "./avatar-view";
 import { VoiceTranscript } from "./voice-transcript";
+import { VoiceConfigPanel } from "./voice-config-panel";
 import { VoiceControls } from "./voice-controls";
 import { FloatingTranscript } from "./floating-transcript";
 import type {
   SessionMode,
   TranscriptSegment,
+  VoiceConfigSettings,
 } from "@/types/voice-live";
 import type { KeyMessageStatus, CoachingHint } from "@/types/session";
 import type { Scenario } from "@/types/scenario";
@@ -75,6 +81,13 @@ export function VoiceSession({
     KeyMessageStatus[]
   >([]);
   const [startedAt] = useState<string>(new Date().toISOString());
+  const [voiceConfig, setVoiceConfig] = useState<VoiceConfigSettings>({
+    language: language || "auto",
+    autoDetect: !language || language === "auto",
+    interimResponse: true,
+    proactiveEngagement: false,
+  });
+  const [bottomTab, setBottomTab] = useState<string>("transcript");
   const videoRef = useRef<HTMLVideoElement>(null);
 
   // Track pending transcript flush promises (D-09)
@@ -417,13 +430,35 @@ export function VoiceSession({
             )}
           </div>
 
-          {/* Transcript area (non-full-screen) */}
+          {/* Transcript / Config tabbed area (non-full-screen) */}
           {!isFullScreen && (
-            <VoiceTranscript
-              transcripts={transcripts}
-              hcpName={hcpName}
-              className="h-[200px] border-t border-border"
-            />
+            <div className="h-[200px] border-t border-border" data-testid="bottom-tabbed-area">
+              <Tabs value={bottomTab} onValueChange={setBottomTab} className="flex h-full flex-col">
+                <TabsList className="mx-4 mt-1 w-fit shrink-0">
+                  <TabsTrigger value="transcript" data-testid="tab-transcript">
+                    {t("tabs.transcript")}
+                  </TabsTrigger>
+                  <TabsTrigger value="config" data-testid="tab-config">
+                    {t("tabs.config")}
+                  </TabsTrigger>
+                </TabsList>
+                <TabsContent value="transcript" className="min-h-0 flex-1">
+                  <VoiceTranscript
+                    transcripts={transcripts}
+                    hcpName={hcpName}
+                    className="h-full"
+                  />
+                </TabsContent>
+                <TabsContent value="config" className="min-h-0 flex-1">
+                  <VoiceConfigPanel
+                    config={voiceConfig}
+                    onConfigChange={setVoiceConfig}
+                    voiceName={hcpName}
+                    avatarEnabled={currentMode.startsWith("digital_human")}
+                  />
+                </TabsContent>
+              </Tabs>
+            </div>
           )}
 
           {/* Keyboard input area */}

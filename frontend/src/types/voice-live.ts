@@ -79,18 +79,38 @@ export interface VoiceLiveOptions {
 
 export interface VoiceLiveControls {
   connect: (
-    tokenData: VoiceLiveToken,
-  ) => Promise<{ session: unknown; iceServers: RTCIceServer[] }>;
+    hcpProfileId: string,
+    systemPrompt?: string,
+  ) => Promise<{
+    avatarEnabled: boolean;
+    model: string;
+    iceServers: RTCIceServer[];
+  }>;
   disconnect: () => Promise<void>;
   toggleMute: () => void;
   sendTextMessage: (text: string) => Promise<void>;
+  /** Send audio data (PCM16 base64-encoded) via backend proxy. */
+  sendAudio: (base64Audio: string) => void;
+  /** Send raw Azure RT protocol message via backend proxy. */
+  send: (data: unknown) => void;
   isMuted: boolean;
   connectionState: VoiceConnectionState;
   audioState: AudioState;
-  sessionRef: React.MutableRefObject<unknown>;
   avatarSdpCallbackRef: React.MutableRefObject<
     ((serverSdp: string) => void) | null
   >;
+}
+
+/** Runtime voice configuration settings for the config panel. */
+export interface VoiceConfigSettings {
+  /** Speech input language code (e.g. "zh-CN", "en-US") or "auto" for auto-detect. */
+  language: string;
+  /** Whether to auto-detect the spoken language. */
+  autoDetect: boolean;
+  /** Show partial AI responses while still generating. */
+  interimResponse: boolean;
+  /** AI initiates conversation proactively. */
+  proactiveEngagement: boolean;
 }
 
 export interface AvatarStreamControls {

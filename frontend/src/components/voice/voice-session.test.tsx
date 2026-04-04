@@ -1,3 +1,4 @@
+import React from "react";
 import { render, screen, waitFor, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { VoiceSession } from "./voice-session";
@@ -70,6 +71,21 @@ vi.mock("./voice-transcript", () => ({
   ),
 }));
 
+vi.mock("./voice-config-panel", () => ({
+  VoiceConfigPanel: (props: {
+    config: { language: string; autoDetect: boolean; interimResponse: boolean; proactiveEngagement: boolean };
+    onConfigChange: (c: unknown) => void;
+    voiceName: string;
+    avatarEnabled: boolean;
+  }) => (
+    <div data-testid="voice-config-panel">
+      <span data-testid="config-language">{props.config.language}</span>
+      <span data-testid="config-avatar-enabled">{String(props.avatarEnabled)}</span>
+      <span data-testid="config-voice-name">{props.voiceName}</span>
+    </div>
+  ),
+}));
+
 vi.mock("./voice-controls", () => ({
   VoiceControls: (props: Record<string, unknown>) => (
     <div data-testid="voice-controls">
@@ -130,6 +146,10 @@ vi.mock("@/components/coach/hints-panel", () => ({
   ),
 }));
 
+// Shared ref for controlled Tabs mock
+let mockTabsValue = "transcript";
+let mockTabsOnValueChange: ((v: string) => void) | undefined;
+
 // Mock UI components
 vi.mock("@/components/ui", () => ({
   Dialog: ({ children, open }: { children: React.ReactNode; open: boolean; onOpenChange: (v: boolean) => void }) =>
@@ -164,6 +184,47 @@ vi.mock("@/components/ui", () => ({
       {children}
     </button>
   ),
+  Tabs: ({
+    children,
+    value,
+    onValueChange,
+  }: {
+    children: React.ReactNode;
+    value?: string;
+    onValueChange?: (v: string) => void;
+    className?: string;
+  }) => {
+    mockTabsValue = value ?? "transcript";
+    mockTabsOnValueChange = onValueChange;
+    return <div data-testid="tabs">{children}</div>;
+  },
+  TabsList: ({ children }: { children: React.ReactNode; className?: string }) => (
+    <div data-testid="tabs-list">{children}</div>
+  ),
+  TabsTrigger: ({
+    children,
+    value,
+    ...rest
+  }: {
+    children: React.ReactNode;
+    value: string;
+    "data-testid"?: string;
+  }) => (
+    <button
+      data-testid={rest["data-testid"] ?? `tab-${value}`}
+      onClick={() => mockTabsOnValueChange?.(value)}
+    >
+      {children}
+    </button>
+  ),
+  TabsContent: ({
+    children,
+    value,
+  }: {
+    children: React.ReactNode;
+    value: string;
+    className?: string;
+  }) => (mockTabsValue === value ? <div data-testid={`tab-content-${value}`}>{children}</div> : null),
 }));
 
 // ---- Hook mocks ----
@@ -305,6 +366,8 @@ describe("VoiceSession", () => {
     vi.clearAllMocks();
     mockScenarioReturn = { data: mockScenarioData };
     mockVoiceConnectionState = "disconnected";
+    mockTabsValue = "transcript";
+    mockTabsOnValueChange = undefined;
     capturedOnTranscript = undefined;
     capturedOnConnectionStateChange = undefined;
     capturedOnError = undefined;
@@ -1177,6 +1240,73 @@ describe("VoiceSession", () => {
     it("passes connection state to header", () => {
       renderSession();
       expect(screen.getByTestId("header-connection")).toHaveTextContent("disconnected");
+    });
+  });
+
+  // ======== Bottom panel tabs (Transcript / Configuration) ========
+
+  describe("bottom panel tabs", () => {
+    it("renders tabbed area with transcript and config tabs", () => {
+      renderSession();
+
+      expect(screen.getByTestId("bottom-tabbed-area")).toBeInTheDocument();
+      expect(screen.getByTestId("tab-transcript")).toBeInTheDocument();
+      expect(screen.getByTestId("tab-config")).toBeInTheDocument();
+    });
+
+    it("shows transcript tab content by default", () => {
+      renderSession();
+
+      expect(screen.getByTestId("voice-transcript")).toBeInTheDocument();
+      expect(screen.queryByTestId("voice-config-panel")).not.toBeInTheDocument();
+    });
+
+    it("shows config panel tab labels with i18n keys", () => {
+      renderSession();
+
+      expect(screen.getByText("voice.tabs.transcript")).toBeInTheDocument();
+      expect(screen.getByText("voice.tabs.config")).toBeInTheDocument();
+    });
+
+    it("switches to config tab when config tab is clicked", async () => {
+      const user = userEvent.setup();
+      renderSession();
+
+      await user.click(screen.getByTestId("tab-config"));
+
+      expect(screen.getByTestId("voice-config-panel")).toBeInTheDocument();
+      expect(screen.queryByTestId("voice-transcript")).not.toBeInTheDocument();
+    });
+
+    it("passes correct props to config panel", async () => {
+      const user = userEvent.setup();
+      renderSession();
+
+      await user.click(screen.getByTestId("tab-config"));
+
+      expect(screen.getByTestId("config-language")).toHaveTextContent("en-US");
+      expect(screen.getByTestId("config-avatar-enabled")).toHaveTextContent("true");
+      expect(screen.getByTestId("config-voice-name")).toHaveTextContent("Dr. Smith");
+    });
+
+    it("hides tabbed area in full-screen mode", async () => {
+      const user = userEvent.setup();
+      renderSession();
+
+      await user.click(screen.getByTestId("toggle-view-btn"));
+
+      expect(screen.queryByTestId("bottom-tabbed-area")).not.toBeInTheDocument();
+    });
+
+    it("restores tabbed area when returning from full-screen", async () => {
+      const user = userEvent.setup();
+      renderSession();
+
+      await user.click(screen.getByTestId("toggle-view-btn"));
+      expect(screen.queryByTestId("bottom-tabbed-area")).not.toBeInTheDocument();
+
+      await user.click(screen.getByTestId("toggle-view-btn"));
+      expect(screen.getByTestId("bottom-tabbed-area")).toBeInTheDocument();
     });
   });
 });

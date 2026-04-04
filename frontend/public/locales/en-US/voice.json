@@ -92,5 +92,41 @@
     "muted": "Microphone muted - tap to unmute",
     "connecting": "Connecting...",
     "disabled": "Microphone unavailable"
+  },
+  "tabs": {
+    "transcript": "Transcript",
+    "config": "Configuration"
+  },
+  "config": {
+    "title": "Configuration",
+    "speechInput": "Speech input",
+    "language": "Language",
+    "selectLanguage": "Select language",
+    "autoDetect": "Auto-detect",
+    "autoDetectDesc": "Automatically detect spoken language",
+    "speechOutput": "Speech output",
+    "voice": "Voice",
+    "voiceReadOnly": "Voice is configured per HCP profile",
+    "interimResponse": "Interim response",
+    "interimResponseDesc": "Show partial AI responses while generating",
+    "proactiveEngagement": "Proactive engagement",
+    "proactiveEngagementDesc": "AI initiates conversation proactively",
+    "avatarStatus": "Avatar",
+    "avatarEnabled": "Enabled",
+    "avatarDisabled": "Disabled",
+    "avatarDesc": "Digital avatar status for this session",
+    "languages": {
+      "auto": "Auto-detect",
+      "zh-CN": "Chinese (Simplified)",
+      "en-US": "English (US)",
+      "en-GB": "English (UK)",
+      "ja-JP": "Japanese",
+      "ko-KR": "Korean",
+      "de-DE": "German",
+      "fr-FR": "French",
+      "es-ES": "Spanish",
+      "it-IT": "Italian",
+      "pt-BR": "Portuguese (Brazil)"
+    }
   }
 }

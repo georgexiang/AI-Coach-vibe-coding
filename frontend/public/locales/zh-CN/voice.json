@@ -92,5 +92,41 @@
     "muted": "已静音 - 点击取消静音",
     "connecting": "连接中...",
     "disabled": "麦克风不可用"
+  },
+  "tabs": {
+    "transcript": "对话记录",
+    "config": "配置"
+  },
+  "config": {
+    "title": "配置",
+    "speechInput": "语音输入",
+    "language": "语言",
+    "selectLanguage": "选择语言",
+    "autoDetect": "自动检测",
+    "autoDetectDesc": "自动检测所说语言",
+    "speechOutput": "语音输出",
+    "voice": "语音",
+    "voiceReadOnly": "语音按 HCP 配置文件设置",
+    "interimResponse": "临时响应",
+    "interimResponseDesc": "在生成完整回复时显示部分 AI 回复",
+    "proactiveEngagement": "主动交互",
+    "proactiveEngagementDesc": "AI 主动发起对话",
+    "avatarStatus": "数字人",
+    "avatarEnabled": "已启用",
+    "avatarDisabled": "已禁用",
+    "avatarDesc": "当前会话数字人状态",
+    "languages": {
+      "auto": "自动检测",
+      "zh-CN": "中文(简体)",
+      "en-US": "英语(美国)",
+      "en-GB": "英语(英国)",
+      "ja-JP": "日语",
+      "ko-KR": "韩语",
+      "de-DE": "德语",
+      "fr-FR": "法语",
+      "es-ES": "西班牙语",
+      "it-IT": "意大利语",
+      "pt-BR": "葡萄牙语(巴西)"
+    }
   }
 }
