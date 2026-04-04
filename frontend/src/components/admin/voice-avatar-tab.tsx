@@ -25,11 +25,9 @@ import {
 } from "@/components/ui/form";
 import { Label } from "@/components/ui/label";
 import { VoiceLiveModelSelect } from "@/components/admin/voice-live-model-select";
-import { useVoiceToken } from "@/hooks/use-voice-token";
 import { useVoiceLive } from "@/hooks/use-voice-live";
 import { useAvatarStream } from "@/hooks/use-avatar-stream";
 import { useAudioHandler } from "@/hooks/use-audio-handler";
-import { resolveMode } from "@/lib/voice-utils";
 import { cn } from "@/lib/utils";
 import type { HcpFormValues } from "@/pages/admin/hcp-profile-editor";
 import type { HcpProfile } from "@/types/hcp";
@@ -161,11 +159,10 @@ export function VoiceAvatarTab({ form, profile, isNew }: VoiceAvatarTabProps) {
   const [isConnecting, setIsConnecting] = useState(false);
   const [transcripts, setTranscripts] = useState<TranscriptSegment[]>([]);
   const [textInput, setTextInput] = useState("");
-  const videoContainerRef = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
-  const tokenMutation = useVoiceToken();
   const audioHandler = useAudioHandler();
-  const avatarStream = useAvatarStream(videoContainerRef);
+  const avatarStream = useAvatarStream(videoRef);
 
   const handleTranscript = useCallback((segment: TranscriptSegment) => {
     setTranscripts((prev) => {
@@ -203,30 +200,25 @@ export function VoiceAvatarTab({ form, profile, isNew }: VoiceAvatarTabProps) {
     setIsConnecting(true);
     setTranscripts([]);
     try {
-      const tokenData = await tokenMutation.mutateAsync(profile.id);
-      const mode = resolveMode(tokenData);
       await audioHandler.initialize();
+
       // Wire up avatar SDP callback before connecting
-      if (mode.startsWith("digital_human") && tokenData.avatar_enabled) {
-        voiceLive.avatarSdpCallbackRef.current = (serverSdp: string) => {
-          void avatarStream.handleServerSdp(serverSdp);
-        };
-      }
-
-      const result = await voiceLive.connect(tokenData);
-      const vlSession = result.session as {
-        sendEvent?: (event: unknown) => Promise<void>;
+      voiceLive.avatarSdpCallbackRef.current = (serverSdp: string) => {
+        void avatarStream.handleServerSdp(serverSdp);
       };
-      const iceServers = result.iceServers;
 
-      if (mode.startsWith("digital_human") && tokenData.avatar_enabled) {
+      // Connect via backend WebSocket proxy
+      const result = await voiceLive.connect(profile.id);
+
+      // Connect avatar if enabled
+      if (result.avatarEnabled) {
         try {
           await avatarStream.connect(
-            iceServers,
+            result.iceServers,
             async (clientSdp: string) => {
-              await vlSession.sendEvent?.({
+              voiceLive.send({
                 type: "session.avatar.connect",
-                clientSdp,
+                client_sdp: clientSdp,
               });
             },
           );
@@ -235,18 +227,19 @@ export function VoiceAvatarTab({ form, profile, isNew }: VoiceAvatarTabProps) {
         }
       }
 
+      // Start recording — send audio via backend proxy
       audioHandler.startRecording((audioData: Float32Array) => {
-        const vlSession = voiceLive.sessionRef.current as {
-          sendAudio?: (data: Uint8Array) => Promise<void>;
-        } | null;
-        if (vlSession?.sendAudio) {
-          const int16 = new Int16Array(audioData.length);
-          for (let i = 0; i < audioData.length; i++) {
-            const s = Math.max(-1, Math.min(1, audioData[i] ?? 0));
-            int16[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
-          }
-          void vlSession.sendAudio(new Uint8Array(int16.buffer));
+        const int16 = new Int16Array(audioData.length);
+        for (let i = 0; i < audioData.length; i++) {
+          const s = Math.max(-1, Math.min(1, audioData[i] ?? 0));
+          int16[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
         }
+        const bytes = new Uint8Array(int16.buffer);
+        let binary = "";
+        for (let i = 0; i < bytes.length; i++) {
+          binary += String.fromCharCode(bytes[i]!);
+        }
+        voiceLive.sendAudio(btoa(binary));
       });
 
       setIsConnected(true);
@@ -258,7 +251,7 @@ export function VoiceAvatarTab({ form, profile, isNew }: VoiceAvatarTabProps) {
     } finally {
       setIsConnecting(false);
     }
-  }, [profile?.id, tokenMutation, audioHandler, voiceLive, avatarStream, t]);
+  }, [profile?.id, audioHandler, voiceLive, avatarStream, t]);
 
   const handleDisconnect = useCallback(async () => {
     audioHandler.stopRecording();
@@ -730,11 +723,17 @@ export function VoiceAvatarTab({ form, profile, isNew }: VoiceAvatarTabProps) {
       <div className="flex-1 flex flex-col min-w-0 border rounded-lg overflow-hidden">
         {/* Avatar area */}
         <div className="flex-1 relative bg-muted/30 overflow-hidden">
+          {/* Pre-rendered video element - always in DOM for WebRTC ontrack */}
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            className={isConnected && avatarStream.isConnected
+              ? "absolute inset-0 w-full h-full object-cover z-10"
+              : "absolute inset-0 w-full h-full object-cover opacity-0 -z-10"}
+          />
           {isConnected && avatarStream.isConnected ? (
-            <div
-              ref={videoContainerRef}
-              className="w-full h-full"
-            />
+            null
           ) : isConnected ? (
             <div className="w-full h-full flex flex-col items-center justify-center gap-4">
               <div className="size-24 rounded-full bg-primary/10 flex items-center justify-center">
@@ -760,10 +759,6 @@ export function VoiceAvatarTab({ form, profile, isNew }: VoiceAvatarTabProps) {
             </div>
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center gap-4">
-              <div
-                ref={videoContainerRef}
-                className="hidden"
-              />
               <div className="size-24 rounded-full bg-muted flex items-center justify-center">
                 <User className="size-12 text-muted-foreground" />
               </div>

@@ -21,7 +21,7 @@ vi.mock("./audio-orb", () => ({
 }));
 
 const defaultProps: React.ComponentProps<typeof AvatarView> = {
-  videoContainerRef: { current: null },
+  videoRef: { current: null },
   isAvatarConnected: false,
   audioState: "idle",
   analyserData: null,
@@ -37,11 +37,29 @@ describe("AvatarView", () => {
     expect(screen.getByText("connectingAvatar")).toBeInTheDocument();
   });
 
-  it("shows video container when avatar connected", () => {
+  it("shows video element when avatar connected", () => {
     render(
       <AvatarView {...defaultProps} isAvatarConnected={true} />,
     );
-    expect(screen.getByTestId("avatar-video-container")).toBeInTheDocument();
+    const video = screen.getByTestId("avatar-video");
+    expect(video).toBeInTheDocument();
+    expect(video.tagName).toBe("VIDEO");
+    // When connected, video should be visible (opacity-100)
+    expect(video.className).toContain("opacity-100");
+  });
+
+  it("always renders the video element in DOM", () => {
+    render(<AvatarView {...defaultProps} />);
+    // Video element should always be in the DOM (pre-rendered for WebRTC)
+    expect(screen.getByTestId("avatar-video")).toBeInTheDocument();
+  });
+
+  it("hides video element when not connected (opacity-0, not display:none)", () => {
+    render(<AvatarView {...defaultProps} />);
+    const video = screen.getByTestId("avatar-video");
+    // Should use opacity-0 NOT hidden/display:none — to keep it in the render tree
+    expect(video.className).toContain("opacity-0");
+    expect(video.className).not.toContain("hidden");
   });
 
   it("shows audio orb fallback when not connected and not connecting", () => {
@@ -70,5 +88,22 @@ describe("AvatarView", () => {
   it("has role region with aria-label", () => {
     render(<AvatarView {...defaultProps} />);
     expect(screen.getByRole("region")).toHaveAttribute("aria-label", "title");
+  });
+
+  it("video element has autoPlay and playsInline attributes", () => {
+    render(<AvatarView {...defaultProps} />);
+    const video = screen.getByTestId("avatar-video") as HTMLVideoElement;
+    expect(video.autoplay).toBe(true);
+    expect(video.playsInline).toBe(true);
+  });
+
+  it("does not show audio orb when avatar is connected", () => {
+    render(<AvatarView {...defaultProps} isAvatarConnected={true} />);
+    expect(screen.queryByTestId("audio-orb")).not.toBeInTheDocument();
+  });
+
+  it("does not show audio orb when connecting", () => {
+    render(<AvatarView {...defaultProps} isConnecting={true} />);
+    expect(screen.queryByTestId("audio-orb")).not.toBeInTheDocument();
   });
 });

@@ -72,7 +72,7 @@ export function VoiceSession({
     KeyMessageStatus[]
   >([]);
   const [startedAt] = useState<string>(new Date().toISOString());
-  const videoContainerRef = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   // Track pending transcript flush promises (D-09)
   const pendingFlushesRef = useRef<Promise<void>[]>([]);
@@ -135,7 +135,7 @@ export function VoiceSession({
     },
   });
 
-  const avatarStream = useAvatarStream(videoContainerRef);
+  const avatarStream = useAvatarStream(videoRef);
   const audioHandler = useAudioHandler();
 
   // Initialize key messages from scenario
@@ -359,7 +359,7 @@ export function VoiceSession({
           {/* Avatar/Waveform area */}
           <div className="relative flex-1">
             <AvatarView
-              videoContainerRef={videoContainerRef}
+              videoRef={videoRef}
               isAvatarConnected={avatarStream.isConnected}
               audioState={voiceLive.audioState}
               analyserData={audioHandler.analyserData}
