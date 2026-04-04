@@ -170,6 +170,17 @@ export function VoiceSession({
     [voiceLive],
   );
 
+  // Escape key exits fullscreen mode
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isFullScreen) {
+        setIsFullScreen(false);
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isFullScreen]);
+
   // Initialize key messages from scenario
   useEffect(() => {
     if (scenario && keyMessagesStatus.length === 0) {
@@ -308,7 +319,8 @@ export function VoiceSession({
       await endSessionMutation.mutateAsync(sessionId);
       navigate(`/user/scoring/${sessionId}`);
     } catch {
-      // Error handled by mutation
+      toast.error(t("error.connectionFailed"));
+      navigate("/user/scenarios");
     }
   }, [
     sessionId,

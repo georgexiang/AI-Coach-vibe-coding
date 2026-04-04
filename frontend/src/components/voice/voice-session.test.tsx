@@ -689,8 +689,8 @@ describe("VoiceSession", () => {
         expect(mockEndSessionMutateAsync).toHaveBeenCalledWith("session-123");
       });
 
-      // Should not navigate on failure
-      expect(mockNavigate).not.toHaveBeenCalled();
+      // Should navigate to scenarios page as fallback on failure
+      expect(mockNavigate).toHaveBeenCalledWith("/user/scenarios");
     });
 
     it("closes dialog immediately when confirm is clicked", async () => {
