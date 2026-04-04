@@ -24,7 +24,6 @@ const defaultProps: React.ComponentProps<typeof AvatarView> = {
   videoRef: { current: null },
   isAvatarConnected: false,
   audioState: "idle",
-  analyserData: null,
   isConnecting: false,
   hcpName: "Dr. Smith",
   isFullScreen: false,

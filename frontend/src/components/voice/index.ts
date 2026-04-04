@@ -1,4 +1,3 @@
-export { WaveformViz } from "./waveform-viz";
 export { AvatarView } from "./avatar-view";
 export { VoiceControls } from "./voice-controls";
 export { VoiceTranscript } from "./voice-transcript";

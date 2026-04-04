@@ -76,7 +76,9 @@ export function VoiceSession({
   const [rightCollapsed, setRightCollapsed] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [sessionStarted, setSessionStarted] = useState(false);
+  // TODO: Wire up coaching hints from Voice Live events (text training has this via coaching callback)
   const [hints] = useState<CoachingHint[]>([]);
+  // TODO: Wire up key message delivery detection from transcript analysis
   const [keyMessagesStatus, setKeyMessagesStatus] = useState<
     KeyMessageStatus[]
   >([]);
@@ -433,7 +435,6 @@ export function VoiceSession({
               videoRef={videoRef}
               isAvatarConnected={avatarStream.isConnected}
               audioState={voiceLive.audioState}
-              analyserData={audioHandler.analyserData}
               isConnecting={isConnecting}
               hcpName={hcpName}
               isFullScreen={isFullScreen}

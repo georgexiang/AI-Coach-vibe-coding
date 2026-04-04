@@ -9,7 +9,6 @@ interface AvatarViewProps {
   videoRef: Ref<HTMLVideoElement>;
   isAvatarConnected: boolean;
   audioState: AudioState;
-  analyserData: Uint8Array | null;
   isConnecting: boolean;
   hcpName: string;
   isFullScreen: boolean;
@@ -36,7 +35,6 @@ export function AvatarView({
   videoRef,
   isAvatarConnected,
   audioState,
-  analyserData: _analyserData,
   isConnecting,
   hcpName,
   isFullScreen,
