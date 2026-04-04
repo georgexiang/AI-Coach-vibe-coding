@@ -187,8 +187,18 @@ export function VoiceSession({
   const initVoice = useCallback(async () => {
     setIsConnecting(true);
     try {
-      // Initialize audio
-      await audioHandler.initialize();
+      // Initialize audio (mic permission + AudioWorklet)
+      try {
+        await audioHandler.initialize();
+      } catch (audioError) {
+        if (audioError instanceof DOMException && audioError.name === "NotAllowedError") {
+          toast.error(t("error.micDenied"));
+        } else {
+          toast.error(t("error.audioWorkletFailed"));
+        }
+        setIsConnecting(false);
+        return;
+      }
 
       // Wire up avatar SDP callback BEFORE connecting
       // When server sends session.avatar.connecting event, this callback
