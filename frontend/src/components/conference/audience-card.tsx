@@ -42,7 +42,7 @@ export function AudienceCard({ hcp }: AudienceCardProps) {
           hcp.status === "listening" && "bg-green-500",
           hcp.status === "hand-raised" && "bg-orange-500 animate-pulse",
           hcp.status === "speaking" && "bg-primary",
-          hcp.status === "idle" && "bg-gray-400 opacity-60",
+          hcp.status === "idle" && "bg-muted-foreground opacity-60",
         )}
       />
     </div>

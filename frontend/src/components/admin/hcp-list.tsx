@@ -36,7 +36,7 @@ export function HcpList({
       .slice(0, 2);
 
   return (
-    <div className="w-[300px] border-r border-slate-200 flex flex-col h-full">
+    <div className="w-[300px] border-r border-border flex flex-col h-full">
       <div className="p-4">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
@@ -63,7 +63,7 @@ export function HcpList({
                 type="button"
                 onClick={() => onSelect(profile.id)}
                 className={cn(
-                  "flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left transition-colors hover:bg-slate-100",
+                  "flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left transition-colors hover:bg-muted",
                   selectedId === profile.id &&
                     "bg-blue-50 border-l-2 border-blue-600",
                 )}
@@ -86,7 +86,7 @@ export function HcpList({
         )}
       </ScrollArea>
 
-      <div className="p-4 border-t border-slate-200">
+      <div className="p-4 border-t border-border">
         <Button
           variant="outline"
           className="w-full"

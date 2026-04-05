@@ -25,7 +25,7 @@ export function ScenarioCard({ scenario, onStart }: ScenarioCardProps) {
     .slice(0, 2) ?? "HC";
 
   return (
-    <div className="relative overflow-hidden rounded-xl border border-gray-200 bg-white p-6 shadow-sm transition-shadow hover:shadow-md">
+    <div className="relative overflow-hidden rounded-xl border border-border bg-card p-6 shadow-sm transition-shadow hover:shadow-md">
       {/* Difficulty badge — upper right */}
       <span
         className={cn(
@@ -46,11 +46,11 @@ export function ScenarioCard({ scenario, onStart }: ScenarioCardProps) {
         </Avatar>
 
         {/* HCP Name (bilingual) */}
-        <h3 className="mt-3 text-lg font-semibold text-gray-900">
+        <h3 className="mt-3 text-lg font-semibold text-foreground">
           {scenario.hcp_profile?.name ?? scenario.name}
         </h3>
         {scenario.hcp_profile?.specialty && (
-          <p className="text-sm text-gray-500">{scenario.hcp_profile.specialty}</p>
+          <p className="text-sm text-muted-foreground">{scenario.hcp_profile.specialty}</p>
         )}
       </div>
 
@@ -69,7 +69,7 @@ export function ScenarioCard({ scenario, onStart }: ScenarioCardProps) {
       </div>
 
       {/* Description */}
-      <p className="mt-3 line-clamp-2 text-center text-sm text-gray-600">
+      <p className="mt-3 line-clamp-2 text-center text-sm text-muted-foreground">
         {scenario.description}
       </p>
 

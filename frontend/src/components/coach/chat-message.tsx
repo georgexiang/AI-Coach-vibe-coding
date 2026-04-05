@@ -20,7 +20,7 @@ export function ChatMessage({ message, isStreaming }: ChatMessageProps) {
           "max-w-[70%] rounded-lg px-4 py-2.5",
           isAssistant
             ? "bg-primary/10 text-foreground"
-            : "bg-slate-200 text-slate-900"
+            : "bg-muted text-foreground"
         )}
       >
         <p className="text-sm leading-relaxed">

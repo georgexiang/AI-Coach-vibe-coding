@@ -22,7 +22,7 @@ describe("KeyMessages", () => {
     render(<KeyMessages messages={messages} />);
     const text = screen.getByText("Safety profile");
     expect(text).not.toHaveClass("line-through");
-    expect(text).toHaveClass("text-slate-700");
+    expect(text).toHaveClass("text-foreground");
   });
 
   it("renders empty list without crashing", () => {

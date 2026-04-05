@@ -34,7 +34,7 @@ interface ServiceConfigCardProps {
 
 const STATUS_DOT: Record<ServiceStatus, string> = {
   active: "bg-green-500",
-  inactive: "bg-gray-400",
+  inactive: "bg-muted-foreground",
   error: "bg-red-500",
   testing: "bg-yellow-500 animate-pulse",
   unavailable: "bg-purple-600",
@@ -169,7 +169,7 @@ export function ServiceConfigCard({
                 {regionStatus === "unknown" && (
                   <span
                     role="status"
-                    className="inline-flex items-center gap-1 rounded-sm border border-gray-200 bg-gray-50 px-2 py-0.5 text-xs font-medium text-gray-600"
+                    className="inline-flex items-center gap-1 rounded-sm border border-border bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground"
                   >
                     <Info className="size-3" aria-hidden="true" />
                     {t("azureConfig.regionUnknown")}

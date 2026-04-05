@@ -53,10 +53,10 @@ export function FeedbackCard({ detail }: FeedbackCardProps) {
             </h4>
             <ul className="space-y-2">
               {strengths.map((s, idx) => (
-                <li key={idx} className="text-sm text-slate-700">
+                <li key={idx} className="text-sm text-foreground">
                   {s.text}
                   {s.quote && (
-                    <p className="mt-1 text-sm italic text-slate-500">
+                    <p className="mt-1 text-sm italic text-muted-foreground">
                       &ldquo;{s.quote}&rdquo;
                     </p>
                   )}
@@ -75,10 +75,10 @@ export function FeedbackCard({ detail }: FeedbackCardProps) {
             </h4>
             <ul className="space-y-2">
               {weaknesses.map((w, idx) => (
-                <li key={idx} className="text-sm text-slate-700">
+                <li key={idx} className="text-sm text-foreground">
                   {w.text}
                   {w.quote && (
-                    <p className="mt-1 text-sm italic text-slate-500">
+                    <p className="mt-1 text-sm italic text-muted-foreground">
                       &ldquo;{w.quote}&rdquo;
                     </p>
                   )}
@@ -97,7 +97,7 @@ export function FeedbackCard({ detail }: FeedbackCardProps) {
             </h4>
             <ul className="list-disc space-y-1 pl-5">
               {suggestions.map((s, idx) => (
-                <li key={idx} className="text-sm text-slate-700">
+                <li key={idx} className="text-sm text-foreground">
                   {s}
                 </li>
               ))}

@@ -14,14 +14,14 @@ export function KeyMessages({ messages }: KeyMessagesProps) {
           {msg.delivered ? (
             <Check className="mt-0.5 h-4 w-4 shrink-0 text-green-600" />
           ) : (
-            <Circle className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
+            <Circle className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
           )}
           <span
             className={cn(
               "cursor-pointer text-sm leading-relaxed",
               msg.delivered
                 ? "text-green-700 line-through"
-                : "text-slate-700"
+                : "text-foreground"
             )}
           >
             {msg.message}

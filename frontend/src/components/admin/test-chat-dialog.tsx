@@ -137,7 +137,7 @@ export function TestChatDialog({
                 <div
                   className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${
                     msg.role === "user"
-                      ? "bg-slate-200 text-slate-900"
+                      ? "bg-muted text-foreground"
                       : msg.content.startsWith("[Error]")
                         ? "bg-red-100 text-red-800"
                         : "bg-blue-500 text-white"

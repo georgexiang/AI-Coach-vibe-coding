@@ -41,7 +41,7 @@ export function VoiceSessionHeader({
         "flex h-16 shrink-0 items-center justify-between border-b px-4",
         isFullScreen
           ? "border-white/10 bg-black/50 text-white"
-          : "border-slate-200 bg-white",
+          : "border-border bg-card",
       )}
     >
       {/* Left: Timer + Title */}

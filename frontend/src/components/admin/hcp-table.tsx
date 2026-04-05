@@ -34,9 +34,9 @@ function getVoiceLabel(voiceName: string): string {
   return cleaned || voiceName;
 }
 
-function getModelLabel(modelId: string): string {
+function getModelLabel(modelId: string, t: (key: string) => string): string {
   const found = VOICE_LIVE_MODEL_OPTIONS.find((m) => m.value === modelId);
-  return found?.label ?? modelId;
+  return found ? t(`hcp.${found.i18nKey}`) : modelId;
 }
 
 interface HcpTableProps {
@@ -153,7 +153,7 @@ export function HcpTable({
       <div className="rounded-md border">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b bg-slate-50/50">
+            <tr className="border-b bg-muted/50">
               <th className="px-4 py-3 text-left font-medium">
                 <button
                   type="button"
@@ -234,7 +234,7 @@ export function HcpTable({
               paged.map((profile) => (
                 <tr
                   key={profile.id}
-                  className="border-b hover:bg-slate-50/50 transition-colors cursor-pointer"
+                  className="border-b hover:bg-muted/50 transition-colors cursor-pointer"
                   onDoubleClick={() => onEdit(profile)}
                 >
                   <td className="px-4 py-3">
@@ -255,7 +255,7 @@ export function HcpTable({
                     {profile.specialty}
                   </td>
                   <td className="px-4 py-3">
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700 capitalize">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-muted text-foreground capitalize">
                       {profile.personality_type}
                     </span>
                   </td>
@@ -282,7 +282,7 @@ export function HcpTable({
                         </Badge>
                         {profile.voice_live_enabled && profile.voice_live_model && (
                           <Badge variant="outline" className="text-xs">
-                            {getModelLabel(profile.voice_live_model)}
+                            {getModelLabel(profile.voice_live_model, t)}
                           </Badge>
                         )}
                       </span>

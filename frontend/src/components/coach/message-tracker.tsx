@@ -16,12 +16,12 @@ export function MessageTracker({ messages }: MessageTrackerProps) {
             {isDelivered ? (
               <Check className="h-4 w-4 text-green-600" />
             ) : (
-              <Circle className="h-4 w-4 text-slate-400" />
+              <Circle className="h-4 w-4 text-muted-foreground" />
             )}
             <span
               className={cn(
                 "text-sm",
-                isDelivered ? "text-green-700" : "text-slate-500"
+                isDelivered ? "text-green-700" : "text-muted-foreground"
               )}
             >
               {msg.message}

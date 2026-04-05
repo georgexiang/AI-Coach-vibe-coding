@@ -84,7 +84,7 @@ export function ScenarioTable({
       <div className="rounded-md border">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b bg-slate-50/50">
+            <tr className="border-b bg-muted/50">
               <th className="px-4 py-3 text-left font-medium">
                 <button
                   type="button"
@@ -132,7 +132,7 @@ export function ScenarioTable({
               paged.map((scenario) => (
                 <tr
                   key={scenario.id}
-                  className="border-b hover:bg-slate-50/50 transition-colors"
+                  className="border-b hover:bg-muted/50 transition-colors"
                 >
                   <td className="px-4 py-3 font-medium">{scenario.name}</td>
                   <td className="px-4 py-3 text-muted-foreground">

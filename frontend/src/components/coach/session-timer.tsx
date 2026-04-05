@@ -31,7 +31,7 @@ export function SessionTimer({ startedAt }: SessionTimerProps) {
   }, [startedAt]);
 
   return (
-    <div className="flex items-center gap-2 text-slate-600">
+    <div className="flex items-center gap-2 text-muted-foreground">
       <Clock className="h-4 w-4" />
       <span className="font-mono text-sm">{formatElapsed(elapsed)}</span>
     </div>

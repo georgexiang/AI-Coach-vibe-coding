@@ -19,7 +19,7 @@ describe("MessageTracker", () => {
     ];
     render(<MessageTracker messages={messages} />);
     const text = screen.getByText("Safety profile");
-    expect(text).toHaveClass("text-slate-500");
+    expect(text).toHaveClass("text-muted-foreground");
   });
 
   it("renders empty list without crashing", () => {
@@ -34,6 +34,6 @@ describe("MessageTracker", () => {
     ];
     render(<MessageTracker messages={messages} />);
     expect(screen.getByText("Message A")).toHaveClass("text-green-700");
-    expect(screen.getByText("Message B")).toHaveClass("text-slate-500");
+    expect(screen.getByText("Message B")).toHaveClass("text-muted-foreground");
   });
 });
