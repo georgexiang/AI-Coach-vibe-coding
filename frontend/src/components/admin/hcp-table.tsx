@@ -154,7 +154,7 @@ export function HcpTable({
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b bg-muted/50">
-              <th className="px-4 py-3 text-left font-medium">
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 <button
                   type="button"
                   className="flex items-center gap-1"
@@ -164,7 +164,7 @@ export function HcpTable({
                   <ArrowUpDown className="size-3.5" />
                 </button>
               </th>
-              <th className="px-4 py-3 text-left font-medium">
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 <button
                   type="button"
                   className="flex items-center gap-1"
@@ -174,19 +174,19 @@ export function HcpTable({
                   <ArrowUpDown className="size-3.5" />
                 </button>
               </th>
-              <th className="px-4 py-3 text-left font-medium">
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 {t("hcp.personalityType")}
               </th>
-              <th className="px-4 py-3 text-left font-medium">
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 {t("hcp.communicationStyleCol")}
               </th>
-              <th className="px-4 py-3 text-left font-medium">
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 {t("hcp.agentStatus")}
               </th>
-              <th className="px-4 py-3 text-left font-medium">
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 {t("hcp.voiceAvatarCol")}
               </th>
-              <th className="px-4 py-3 text-right font-medium">
+              <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 {t("hcp.actions")}
               </th>
             </tr>

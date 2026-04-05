@@ -41,7 +41,7 @@ export default function LoginPage() {
   };
 
   return (
-    <Card className="w-full max-w-[480px] rounded-lg bg-card shadow-lg">
+    <Card className="w-full max-w-[480px] rounded-2xl bg-card shadow-xl">
       <CardHeader className="items-center space-y-2 p-8 pb-4">
         <div className="flex size-16 items-center justify-center rounded-2xl bg-primary text-primary-foreground transition-colors duration-150">
           <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg>

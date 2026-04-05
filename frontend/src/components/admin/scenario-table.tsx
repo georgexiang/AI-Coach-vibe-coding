@@ -85,7 +85,7 @@ export function ScenarioTable({
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b bg-muted/50">
-              <th className="px-4 py-3 text-left font-medium">
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 <button
                   type="button"
                   className="flex items-center gap-1"
@@ -95,7 +95,7 @@ export function ScenarioTable({
                   <ArrowUpDown className="size-3.5" />
                 </button>
               </th>
-              <th className="px-4 py-3 text-left font-medium">
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 <button
                   type="button"
                   className="flex items-center gap-1"
@@ -105,9 +105,9 @@ export function ScenarioTable({
                   <ArrowUpDown className="size-3.5" />
                 </button>
               </th>
-              <th className="px-4 py-3 text-left font-medium">HCP</th>
-              <th className="px-4 py-3 text-left font-medium">Mode</th>
-              <th className="px-4 py-3 text-left font-medium">
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">HCP</th>
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Mode</th>
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 <button
                   type="button"
                   className="flex items-center gap-1"
@@ -117,8 +117,8 @@ export function ScenarioTable({
                   <ArrowUpDown className="size-3.5" />
                 </button>
               </th>
-              <th className="px-4 py-3 text-left font-medium">Status</th>
-              <th className="px-4 py-3 text-right font-medium">Actions</th>
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Status</th>
+              <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">Actions</th>
             </tr>
           </thead>
           <tbody>
