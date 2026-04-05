@@ -30,8 +30,8 @@
   --voice-warning: #F97316;
   --voice-muted: #64748B;
 
-  --muted: #ececf0;
-  --muted-foreground: #717182;
+  --muted: #F9FAFB;
+  --muted-foreground: #6B7280;
   --accent: #e9ebef;
   --accent-foreground: #030213;
   --destructive: #EF4444;
@@ -53,15 +53,15 @@
 
   --radius: 0.625rem;
 
-  /* Sidebar (D-05, UI-SPEC) */
-  --sidebar: #1E293B;
-  --sidebar-foreground: oklch(0.985 0 0);
+  /* Sidebar — light theme matching Figma design system */
+  --sidebar: #FFFFFF;
+  --sidebar-foreground: #1E293B;
   --sidebar-primary: #1E40AF;
   --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --sidebar-accent: #F1F5F9;
+  --sidebar-accent-foreground: #1E293B;
+  --sidebar-border: #E2E8F0;
+  --sidebar-ring: #1E40AF;
 }
 
 .dark {

@@ -11,6 +11,7 @@ import {
   FileText,
   BarChart,
   Cloud,
+  Radio,
   Settings,
   ChevronLeft,
   ChevronRight,
@@ -54,6 +55,7 @@ const sidebarGroups: SidebarGroup[] = [
     labelKey: "configuration",
     items: [
       { path: "/admin/azure-config", labelKey: "azureServices", icon: Cloud },
+      { path: "/admin/voice-live", labelKey: "voiceLive", icon: Radio },
       { path: "/admin/settings", labelKey: "settings", icon: Settings },
     ],
   },
@@ -97,8 +99,8 @@ function SidebarNavItem({
       className={cn(
         "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors duration-150",
         isActive
-          ? "bg-sidebar-primary/15 text-sidebar-primary-foreground border-l-[3px] border-sidebar-primary font-medium"
-          : "text-sidebar-foreground/70 hover:bg-sidebar-primary/10 hover:text-sidebar-foreground border-l-[3px] border-transparent"
+          ? "bg-sidebar-primary/10 text-sidebar-primary border-l-[3px] border-sidebar-primary font-medium"
+          : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground border-l-[3px] border-transparent"
       )}
     >
       <Icon className="size-5 shrink-0" />
