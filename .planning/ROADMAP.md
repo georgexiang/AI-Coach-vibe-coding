@@ -25,6 +25,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 11: HCP Profile Agent Integration** - Auto-create AI Foundry agent when adding HCP profiles, bidirectional sync, table UI redesign (completed 2026-03-31)
 - [x] **Phase 12: Voice Realtime API & Agent Mode Integration** - Per-HCP digital persona (voice/avatar/conversation config), auto-mode selection, fallback chain, tabbed HCP editor (completed 2026-04-02)
 - [ ] **Phase 13: Voice Live Instance & Agent Voice Management** - Create/manage Voice Live instances, bind to HCP Agents, enable Voice mode, configure speech/avatar — matching AI Foundry portal workflow
+- [ ] **Phase 14: HCP Agent Refactor** - VL Instance read-only reference in HCP editor, VL Management rewrite with rich CRUD, Knowledge/Tools placeholder tabs
 
 ## Phase Details
 
@@ -194,7 +195,7 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 01 -> 01.1 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07 -> 08 -> 09 -> 10 -> 11 -> 12 -> 13
+Phases execute in numeric order: 01 -> 01.1 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07 -> 08 -> 09 -> 10 -> 11 -> 12 -> 13 -> 14
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -212,6 +213,7 @@ Phases execute in numeric order: 01 -> 01.1 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07 
 | 11. HCP Profile Agent Integration | 3/3 | Complete    | 2026-03-31 |
 | 12. Voice Realtime API & Agent Mode Integration | 4/4 | Complete    | 2026-04-02 |
 | 13. Voice Live Instance & Agent Voice Management | 1/3 | In Progress|  |
+| 14. HCP Agent Refactor | 0/4 | Planned |  |
 
 ### Phase 07: Azure Service Integration
 
@@ -352,3 +354,26 @@ Plans:
 - [ ] 13-01-PLAN.md -- Backend foundation: Alembic migration (voice_live_model), ORM/schema extension, VOICE_LIVE_MODELS constant, token broker per-HCP model, GET /models endpoint, tests
 - [x] 13-02-PLAN.md -- Frontend types, VoiceLiveModelSelect component, VoiceAvatarTab model select, HCP editor schema, HCP table model badge, i18n keys
 - [ ] 13-03-PLAN.md -- VoiceLiveChainCard, Voice Live Management page, route + sidebar nav, batch re-sync, build verification
+
+### Phase 14: HCP Agent Refactor — VL Instance Read-Only Reference + Knowledge/Tools Config
+
+**Goal:** 重构 HCP 编辑器对齐 AI Foundry Agent 页面设计。Voice Live 配置从 HCP 编辑器移至只读引用（来自 VL Instance），HCP 编辑器新增 Knowledge（课程/产品知识库）和 Tools（Function Call）配置区域。VL Management 页成为语音/数字人配置的唯一编辑入口，HCP 编辑器聚焦 Agent 属性（Instructions/Prompt、Knowledge、Tools）。
+**Requirements**: HCP-14-01, HCP-14-02, HCP-14-03, HCP-14-04, HCP-14-05, HCP-14-06
+**Depends on:** Phase 13
+**Plans:** 4 plans
+
+**Success Criteria** (what must be TRUE):
+  1. HCP Voice Tab 改为只读预览 + VL Instance 下拉选择器（不可在 HCP 中编辑 VL 配置）
+  2. HCP 编辑器新增 Knowledge 区域（添加/移除知识库，对齐 AI Foundry Knowledge section）
+  3. HCP 编辑器新增 Tools 区域（Function Call 配置，对齐 AI Foundry Tools section）
+  4. Avatar 缩略图使用真人面部插画替代字母圆圈
+  5. VL Management 页完善为 VL Instance CRUD + 在线测试 + HCP 分配
+  6. 前后端测试覆盖 + i18n（en-US + zh-CN）
+
+**UI hint**: yes
+
+Plans:
+- [ ] 14-01-PLAN.md -- Backend unassign endpoint, frontend API/hook extension, i18n keys for Phase 14
+- [ ] 14-02-PLAN.md -- VL Management page rewrite with rich CRUD dialog (VlInstanceDialog), enhanced instance card
+- [ ] 14-03-PLAN.md -- HCP Voice Tab simplification (read-only preview + instance selector), Knowledge/Tools placeholder tabs
+- [ ] 14-04-PLAN.md -- Backend + frontend tests, build verification, human visual checkpoint
