@@ -213,7 +213,7 @@ Phases execute in numeric order: 01 -> 01.1 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07 
 | 11. HCP Profile Agent Integration | 3/3 | Complete    | 2026-03-31 |
 | 12. Voice Realtime API & Agent Mode Integration | 4/4 | Complete    | 2026-04-02 |
 | 13. Voice Live Instance & Agent Voice Management | 1/3 | In Progress|  |
-| 14. HCP Agent Refactor | 2/4 | In Progress|  |
+| 14. HCP Agent Refactor | 3/4 | In Progress|  |
 
 ### Phase 07: Azure Service Integration
 
@@ -360,7 +360,7 @@ Plans:
 **Goal:** 重构 HCP 编辑器对齐 AI Foundry Agent 页面设计。Voice Live 配置从 HCP 编辑器移至只读引用（来自 VL Instance），HCP 编辑器新增 Knowledge（课程/产品知识库）和 Tools（Function Call）配置区域。VL Management 页成为语音/数字人配置的唯一编辑入口，HCP 编辑器聚焦 Agent 属性（Instructions/Prompt、Knowledge、Tools）。
 **Requirements**: HCP-14-01, HCP-14-02, HCP-14-03, HCP-14-04, HCP-14-05, HCP-14-06
 **Depends on:** Phase 13
-**Plans:** 2/4 plans executed
+**Plans:** 3/4 plans executed
 
 **Success Criteria** (what must be TRUE):
   1. HCP Voice Tab 改为只读预览 + VL Instance 下拉选择器（不可在 HCP 中编辑 VL 配置）
@@ -375,5 +375,5 @@ Plans:
 Plans:
 - [x] 14-01-PLAN.md -- Backend unassign endpoint, frontend API/hook extension, i18n keys for Phase 14
 - [x] 14-02-PLAN.md -- VL Management page rewrite with rich CRUD dialog (VlInstanceDialog), enhanced instance card
-- [ ] 14-03-PLAN.md -- HCP Voice Tab simplification (read-only preview + instance selector), Knowledge/Tools placeholder tabs
+- [x] 14-03-PLAN.md -- HCP Voice Tab simplification (read-only preview + instance selector), Knowledge/Tools placeholder tabs
 - [ ] 14-04-PLAN.md -- Backend + frontend tests, build verification, human visual checkpoint

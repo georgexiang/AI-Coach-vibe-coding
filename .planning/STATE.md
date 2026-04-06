@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Ready to execute
-stopped_at: Completed 14-02-PLAN.md
-last_updated: "2026-04-06T00:11:24.259Z"
+stopped_at: Completed 14-03-PLAN.md
+last_updated: "2026-04-06T00:21:56.975Z"
 last_activity: 2026-04-06
 progress:
   total_phases: 15
   completed_phases: 14
   total_plans: 73
-  completed_plans: 71
+  completed_plans: 72
 ---
 
 # Project State
@@ -25,7 +25,7 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 ## Current Position
 
 Phase: 14 (hcp-agent-refactor-vl-instance-read-only-reference-knowledge-tools-config) — EXECUTING
-Plan: 3 of 4
+Plan: 4 of 4
 
 ## Performance Metrics
 
@@ -103,6 +103,7 @@ Plan: 3 of 4
 | Phase 13 P01 | 3min | 2 tasks | 9 files |
 | Phase 14 P01 | 3min | 2 tasks | 7 files |
 | Phase 14 P02 | 5min | 2 tasks | 5 files |
+| Phase 14 P03 | 7min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -229,6 +230,7 @@ Recent decisions affecting current work:
 - [Phase 13]: voice_live_model defaults to gpt-4o; agent-mode returns empty model; model list is static constant
 - [Phase 14]: Placed /instances/unassign route before /{instance_id} per CLAUDE.md Gotcha #3
 - [Phase 14]: VlInstanceDialog uses useState form state for simplicity; avatar grid expands styles to flat cards; assign dialog filters already-assigned HCPs
+- [Phase 14]: VoiceAvatarTab rewritten from 1076 to 303 lines as read-only VL preview; voice/avatar editing moved to VL Management
 
 ### Pending Todos
 
@@ -252,6 +254,6 @@ None yet.
 ## Session Continuity
 
 Last activity: 2026-04-06
-Last session: 2026-04-06T00:11:24.255Z
-Stopped at: Completed 14-02-PLAN.md
+Last session: 2026-04-06T00:21:56.972Z
+Stopped at: Completed 14-03-PLAN.md
 Resume file: None
