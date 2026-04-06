@@ -216,6 +216,7 @@ async def handle_voice_live_websocket(ws: WebSocket, db: AsyncSession) -> None:
             )
             from azure.ai.voicelive.models import (
                 AudioEchoCancellation,
+                AudioInputTranscriptionOptions,
                 AudioNoiseReduction,
                 AvatarConfig,
                 AzureSemanticVad,
@@ -286,14 +287,17 @@ async def handle_voice_live_websocket(ws: WebSocket, db: AsyncSession) -> None:
                     style,
                 )
 
-        # Note: input_audio_transcription is intentionally NOT set here.
-        # The reference implementation does not set it, and setting it may
-        # interfere with avatar audio routing in Azure Voice Live.
+        # Enable input_audio_transcription so Azure sends
+        # conversation.item.input_audio_transcription.completed events,
+        # which provide user speech-to-text for the transcript display.
         session_config = RequestSession(
             modalities=modalities,
             turn_detection=AzureSemanticVad(type="azure_semantic_vad"),
             input_audio_noise_reduction=AudioNoiseReduction(type="azure_deep_noise_suppression"),
             input_audio_echo_cancellation=AudioEchoCancellation(type="server_echo_cancellation"),
+            input_audio_transcription=AudioInputTranscriptionOptions(
+                model="azure-fast-transcription",
+            ),
             voice=AzureStandardVoice(name=cfg["voice_name"], type=cfg["voice_type"]),
             avatar=avatar_config_value,  # type: ignore[arg-type] — dict for photo avatars
         )

@@ -247,6 +247,7 @@ export default function VlInstanceEditorPage() {
   /* ── Voice test session hooks ──────────────────────────────────────── */
 
   const videoRef = useRef<HTMLVideoElement>(null);
+  const transcriptPanelRef = useRef<HTMLDivElement>(null);
   const [transcripts, setTranscripts] = useState<TranscriptSegment[]>([]);
   const [isTestConnecting, setIsTestConnecting] = useState(false);
   const [isTestActive, setIsTestActive] = useState(false);
@@ -265,7 +266,14 @@ export default function VlInstanceEditorPage() {
         const idx = prev.findIndex((s) => s.id === seg.id);
         if (idx >= 0) {
           const next = [...prev];
-          next[idx] = seg;
+          const existing = next[idx]!;
+          if (!seg.isFinal && !existing.isFinal) {
+            // Streaming delta: accumulate content instead of replacing
+            next[idx] = { ...seg, content: existing.content + seg.content };
+          } else {
+            // Final event: replace with complete content
+            next[idx] = seg;
+          }
           return next;
         }
         return [...prev, seg];
@@ -347,6 +355,14 @@ export default function VlInstanceEditorPage() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Auto-scroll transcript panel to bottom on new content
+  useEffect(() => {
+    if (transcriptPanelRef.current) {
+      transcriptPanelRef.current.scrollTop =
+        transcriptPanelRef.current.scrollHeight;
+    }
+  }, [transcripts]);
 
   /* ── Avatar grid ────────────────────────────────────────────────────── */
 
@@ -925,7 +941,10 @@ export default function VlInstanceEditorPage() {
 
           {/* Transcript panel — shows text alongside voice output */}
           {isTestActive && transcripts.length > 0 && (
-            <div className="shrink-0 max-h-32 overflow-y-auto border-t bg-background/90 backdrop-blur-sm px-4 py-2 space-y-1">
+            <div
+              ref={transcriptPanelRef}
+              className="shrink-0 max-h-32 overflow-y-auto border-t bg-background/90 backdrop-blur-sm px-4 py-2 space-y-1"
+            >
               {transcripts.map((seg) => (
                 <div
                   key={seg.id}

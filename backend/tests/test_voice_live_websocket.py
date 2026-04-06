@@ -360,6 +360,7 @@ def _install_mock_sdk() -> tuple[MagicMock, MagicMock, MagicMock]:
     models_mod.AvatarConfig = MagicMock(name="AvatarConfig")
     models_mod.AzureSemanticVad = MagicMock(name="AzureSemanticVad")
     models_mod.AzureStandardVoice = MagicMock(name="AzureStandardVoice")
+    models_mod.VideoParams = MagicMock(name="VideoParams")
 
     # Modality needs attribute-style access
     modality = MagicMock(name="Modality")
