@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: Milestone complete
-stopped_at: Completed 13-01-PLAN.md
-last_updated: "2026-04-03T08:48:15.351Z"
-last_activity: 2026-04-02
+status: Ready to execute
+stopped_at: Completed 14-01-PLAN.md
+last_updated: "2026-04-06T00:09:27.547Z"
+last_activity: 2026-04-06
 progress:
-  total_phases: 13
-  completed_phases: 13
-  total_plans: 66
-  completed_plans: 66
+  total_phases: 15
+  completed_phases: 14
+  total_plans: 73
+  completed_plans: 70
 ---
 
 # Project State
@@ -20,12 +20,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-24)
 
 **Core value:** MRs can practice realistic conversations with AI-powered digital HCPs and receive immediate, multi-dimensional feedback to improve their communication skills -- anytime, without needing a real HCP or trainer.
-**Current focus:** Phase 12 — voice-realtime-api-agent
+**Current focus:** Phase 14 — hcp-agent-refactor-vl-instance-read-only-reference-knowledge-tools-config
 
 ## Current Position
 
-Phase: 13 (voice-live-instance-agent-voice-management) -- EXECUTING
-Plan: 2 of 3
+Phase: 14 (hcp-agent-refactor-vl-instance-read-only-reference-knowledge-tools-config) — EXECUTING
+Plan: 2 of 4
 
 ## Performance Metrics
 
@@ -101,6 +101,7 @@ Plan: 2 of 3
 | Phase 12 P03 | 5min | 2 tasks | 9 files |
 | Phase 12 P04 | 10min | 2 tasks | 5 files |
 | Phase 13 P01 | 3min | 2 tasks | 9 files |
+| Phase 14 P01 | 3min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -225,6 +226,7 @@ Recent decisions affecting current work:
 - [Phase 12]: Per-HCP noise_suppression/echo_cancellation conditionally added to session config, not always-on
 - [Phase 12]: HcpProfileOut in API router was missing 13 voice/avatar fields — added as Rule 1 bug fix
 - [Phase 13]: voice_live_model defaults to gpt-4o; agent-mode returns empty model; model list is static constant
+- [Phase 14]: Placed /instances/unassign route before /{instance_id} per CLAUDE.md Gotcha #3
 
 ### Pending Todos
 
@@ -237,6 +239,7 @@ None yet.
 - Phase 10 added: UI Polish & Professional Unification — comprehensive UI overhaul for professional appearance, unified design language, polished visuals for BeiGene demo
 - Phase 11 added: HCP Profile Agent Integration — Auto-create AI Foundry agent when adding HCP profiles
 - Phase 12 added: voice realtime api & agent模式联调
+- Phase 14 added: HCP Agent Refactor — VL Instance Read-Only Reference + Knowledge/Tools Config
 
 ### Quick Tasks Completed
 
@@ -246,7 +249,7 @@ None yet.
 
 ## Session Continuity
 
-Last activity: 2026-04-02
-Last session: 2026-04-03T08:48:15.347Z
-Stopped at: Completed 13-01-PLAN.md
+Last activity: 2026-04-06
+Last session: 2026-04-06T00:09:27.543Z
+Stopped at: Completed 14-01-PLAN.md
 Resume file: None
