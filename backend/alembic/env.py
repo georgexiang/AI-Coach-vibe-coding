@@ -23,6 +23,7 @@ from app.models import (  # noqa: F401
     SessionScore,
     TrainingMaterial,
     User,
+    VoiceLiveInstance,
 )
 
 settings = get_settings()
