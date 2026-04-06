@@ -1,100 +1,103 @@
-import { render, screen, fireEvent } from "@testing-library/react";
-import { AVATAR_CHARACTERS, AVATAR_CHARACTER_MAP, getAvatarInitials } from "@/data/avatar-characters";
+import { describe, it, expect, vi } from "vitest";
+import { render, screen } from "@testing-library/react";
+import type { VoiceLiveInstance } from "@/types/voice-live";
 
 // ---- Mocks ----
 
+const mockNavigate = vi.fn();
+
+vi.mock("react-router-dom", () => ({
+  useNavigate: () => mockNavigate,
+}));
+
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
-    t: (key: string, fallback?: string) => fallback ?? key,
+    t: (key: string, fallbackOrParams?: string | Record<string, unknown>) => {
+      if (typeof fallbackOrParams === "string") return fallbackOrParams;
+      return key;
+    },
     i18n: { language: "en-US" },
   }),
 }));
 
-vi.mock("@/hooks/use-voice-live", () => ({
-  useVoiceLive: () => ({
-    connect: vi.fn(),
-    disconnect: vi.fn(),
-    toggleMute: vi.fn(),
-    sendTextMessage: vi.fn(),
-    sendAudio: vi.fn(),
-    send: vi.fn(),
-    isMuted: false,
-    connectionState: "disconnected",
-    audioState: "idle",
-    avatarSdpCallbackRef: { current: null },
-  }),
-}));
-
-vi.mock("@/hooks/use-avatar-stream", () => ({
-  useAvatarStream: () => ({
-    connect: vi.fn(),
-    handleServerSdp: vi.fn(),
-    disconnect: vi.fn(),
-    isConnected: false,
-  }),
-}));
-
-vi.mock("@/hooks/use-audio-handler", () => ({
-  useAudioHandler: () => ({
-    initialize: vi.fn(),
-    startRecording: vi.fn(),
-    stopRecording: vi.fn(),
-    cleanup: vi.fn(),
-    isRecording: false,
-  }),
-}));
-
 vi.mock("sonner", () => ({
-  toast: { error: vi.fn(), warning: vi.fn(), success: vi.fn() },
+  toast: { error: vi.fn(), warning: vi.fn(), success: vi.fn(), info: vi.fn() },
 }));
 
-// ---- Tests for avatar-characters data module ----
+const MOCK_INSTANCE: VoiceLiveInstance = {
+  id: "inst-001",
+  name: "Test Voice Config",
+  description: "A test instance",
+  voice_live_model: "gpt-4o",
+  enabled: true,
+  voice_name: "en-US-AvaNeural",
+  voice_type: "azure-standard",
+  voice_temperature: 0.9,
+  voice_custom: false,
+  avatar_character: "lisa",
+  avatar_style: "casual",
+  avatar_customized: false,
+  turn_detection_type: "server_vad",
+  noise_suppression: false,
+  echo_cancellation: false,
+  eou_detection: false,
+  recognition_language: "auto",
+  agent_instructions_override: "",
+  hcp_count: 2,
+  created_by: "admin-001",
+  created_at: "2026-04-01T00:00:00Z",
+  updated_at: "2026-04-01T00:00:00Z",
+};
 
-describe("avatar-characters data module", () => {
-  it("contains at least 6 characters", () => {
-    expect(AVATAR_CHARACTERS.length).toBeGreaterThanOrEqual(6);
-  });
+let mockInstances: VoiceLiveInstance[] = [];
 
-  it("each character has required fields", () => {
-    for (const c of AVATAR_CHARACTERS) {
-      expect(c.id).toBeTruthy();
-      expect(c.displayName).toBeTruthy();
-      expect(c.styles.length).toBeGreaterThan(0);
-      expect(c.defaultStyle).toBeTruthy();
-      expect(c.styles).toContain(c.defaultStyle);
-      expect(c.gender).toMatch(/^(female|male)$/);
-      expect(c.gradientClasses).toBeTruthy();
-      expect(c.thumbnailUrl).toMatch(/^https?:\/\//);
-    }
-  });
+vi.mock("@/hooks/use-voice-live-instances", () => ({
+  useVoiceLiveInstances: () => ({
+    data: { items: mockInstances, total: mockInstances.length },
+    isLoading: false,
+  }),
+  useAssignVoiceLiveInstance: () => ({ mutate: vi.fn(), isPending: false }),
+  useUnassignVoiceLiveInstance: () => ({ mutate: vi.fn(), isPending: false }),
+}));
 
-  it("AVATAR_CHARACTER_MAP provides lookup by id", () => {
-    expect(AVATAR_CHARACTER_MAP.get("lisa")?.displayName).toBe("Lisa");
-    expect(AVATAR_CHARACTER_MAP.get("harry")?.displayName).toBe("Harry");
-    expect(AVATAR_CHARACTER_MAP.get("nonexistent")).toBeUndefined();
-  });
+vi.mock("@/components/admin/voice-live-model-select", () => ({
+  VOICE_LIVE_MODEL_OPTIONS: [
+    { value: "gpt-4o", i18nKey: "modelGpt4o", tier: "pro" },
+  ],
+}));
 
-  it("getAvatarInitials returns uppercase first letter", () => {
-    expect(getAvatarInitials("Lisa")).toBe("L");
-    expect(getAvatarInitials("harry")).toBe("H");
-    expect(getAvatarInitials("Meg")).toBe("M");
-  });
+vi.mock("@/data/avatar-characters", () => ({
+  AVATAR_CHARACTER_MAP: new Map([
+    [
+      "lisa",
+      {
+        id: "lisa",
+        displayName: "Lisa",
+        gender: "female",
+        isPhotoAvatar: false,
+        styles: ["casual"],
+        defaultStyle: "casual",
+        thumbnailUrl: "https://example.com/lisa.png",
+        gradientClasses: "from-blue-500 to-purple-600",
+      },
+    ],
+  ]),
+  getAvatarInitials: (name: string) => name.charAt(0).toUpperCase(),
+}));
 
-  it("all character IDs are unique", () => {
-    const ids = AVATAR_CHARACTERS.map((c) => c.id);
-    expect(new Set(ids).size).toBe(ids.length);
-  });
-});
-
-// ---- Tests for VoiceAvatarTab component (avatar grid section) ----
-
-// Import after mocks are set up
+// Import after mocks
 import { VoiceAvatarTab } from "./voice-avatar-tab";
 import { useForm, FormProvider } from "react-hook-form";
 import type { HcpFormValues } from "@/pages/admin/hcp-profile-editor";
 
-/** Wrapper that provides a react-hook-form context */
-function TestWrapper({ defaultCharacter = "lisa" }: { defaultCharacter?: string }) {
+/** Wrapper providing react-hook-form context */
+function TestWrapper({
+  instanceId = null,
+  isNew = false,
+}: {
+  instanceId?: string | null;
+  isNew?: boolean;
+}) {
   const form = useForm<HcpFormValues>({
     defaultValues: {
       name: "Test HCP",
@@ -110,14 +113,15 @@ function TestWrapper({ defaultCharacter = "lisa" }: { defaultCharacter?: string 
       objections: [],
       probe_topics: [],
       difficulty: "medium",
+      voice_live_instance_id: instanceId,
       voice_live_enabled: true,
       voice_live_model: "gpt-4o",
       voice_name: "en-US-AvaNeural",
       voice_type: "azure-standard",
       voice_temperature: 0.9,
       voice_custom: false,
-      avatar_character: defaultCharacter,
-      avatar_style: "casual-sitting",
+      avatar_character: "lisa",
+      avatar_style: "casual",
       avatar_customized: false,
       turn_detection_type: "server_vad",
       noise_suppression: false,
@@ -130,77 +134,78 @@ function TestWrapper({ defaultCharacter = "lisa" }: { defaultCharacter?: string 
 
   return (
     <FormProvider {...form}>
-      <VoiceAvatarTab form={form} isNew={true} />
+      <VoiceAvatarTab form={form} isNew={isNew} />
     </FormProvider>
   );
 }
 
-describe("VoiceAvatarTab avatar grid", () => {
-  it("renders avatar grid with all characters", () => {
-    render(<TestWrapper />);
-    const grid = screen.getByTestId("avatar-character-grid");
-    expect(grid).toBeInTheDocument();
+describe("VoiceAvatarTab (Phase 14 read-only)", () => {
+  it("shows read-only preview when instance is assigned", () => {
+    // Set up mock instances list to include our instance
+    mockInstances = [MOCK_INSTANCE];
 
-    // Should have a button for each character
-    for (const c of AVATAR_CHARACTERS) {
-      expect(screen.getByTestId(`avatar-grid-${c.id}`)).toBeInTheDocument();
-    }
+    render(<TestWrapper instanceId="inst-001" />);
+
+    // Config preview section should be visible
+    expect(screen.getByText("admin:voiceLive.configPreview")).toBeInTheDocument();
+
+    // Instance model should appear in the preview (may appear multiple times: selector + preview)
+    const modelTexts = screen.getAllByText("gpt-4o");
+    expect(modelTexts.length).toBeGreaterThanOrEqual(1);
+
+    // Voice name should appear
+    expect(screen.getByText("en-US-AvaNeural")).toBeInTheDocument();
   });
 
-  it("displays character display names", () => {
-    render(<TestWrapper />);
-    for (const c of AVATAR_CHARACTERS) {
-      // Some names may appear twice (grid + preview), so use getAllByText
-      const elements = screen.getAllByText(c.displayName);
-      expect(elements.length).toBeGreaterThanOrEqual(1);
-    }
+  it("shows empty state when no instance assigned", () => {
+    mockInstances = [MOCK_INSTANCE];
+
+    render(<TestWrapper instanceId={null} isNew={false} />);
+
+    // Empty state text should be visible
+    expect(
+      screen.getByText("admin:voiceLive.noInstanceAssigned"),
+    ).toBeInTheDocument();
+
+    // Management link should be visible (appears in selector card + empty state)
+    const links = screen.getAllByText("admin:voiceLive.goToVlManagement");
+    expect(links.length).toBeGreaterThanOrEqual(1);
   });
 
-  it("renders img elements for avatar thumbnails", () => {
-    render(<TestWrapper />);
-    // Each character should have an img (or fallback if error already fired).
-    // At least the first character should have an img initially.
-    const imgs = screen.getAllByRole("img");
-    expect(imgs.length).toBeGreaterThan(0);
+  it("does not render voice editing controls", () => {
+    mockInstances = [MOCK_INSTANCE];
+
+    render(<TestWrapper instanceId="inst-001" />);
+
+    // Should NOT find temperature slider elements
+    expect(screen.queryByRole("slider")).not.toBeInTheDocument();
+
+    // Should NOT find voice name dropdown with specific voice options
+    expect(screen.queryByText("hcp.voiceAva")).not.toBeInTheDocument();
+    expect(screen.queryByText("hcp.voiceAndrew")).not.toBeInTheDocument();
+
+    // Should NOT find avatar grid
+    expect(screen.queryByTestId("avatar-character-grid")).not.toBeInTheDocument();
   });
 
-  it("shows fallback initials when image fails to load", () => {
-    render(<TestWrapper />);
-    const lisaImg = screen.getByTestId("avatar-img-lisa");
-    expect(lisaImg).toBeInTheDocument();
+  it("renders instance selector dropdown", () => {
+    mockInstances = [MOCK_INSTANCE];
 
-    // Simulate image load error
-    fireEvent.error(lisaImg);
+    render(<TestWrapper instanceId={null} isNew={false} />);
 
-    // After error, should show fallback with initial "L"
-    const fallback = screen.getByTestId("avatar-fallback-lisa");
-    expect(fallback).toBeInTheDocument();
-    expect(fallback.textContent).toBe("L");
+    // Instance selector label should be visible
+    expect(
+      screen.getByText("admin:voiceLive.selectInstance"),
+    ).toBeInTheDocument();
   });
 
-  it("renders style label on each character card", () => {
-    render(<TestWrapper />);
-    // Check that at least one default style label is visible
-    expect(screen.getByText("casual sitting")).toBeInTheDocument(); // lisa's default
-  });
+  it("shows manage link to VL Management page", () => {
+    mockInstances = [];
 
-  it("renders more avatars button", () => {
-    render(<TestWrapper />);
-    const moreBtn = screen.getByTestId("more-avatars-btn");
-    expect(moreBtn).toBeInTheDocument();
-    expect(moreBtn).toHaveTextContent("More avatars");
-  });
+    render(<TestWrapper instanceId={null} isNew={false} />);
 
-  it("shows selection indicator on selected character", () => {
-    render(<TestWrapper defaultCharacter="lisa" />);
-    const lisaButton = screen.getByTestId("avatar-grid-lisa");
-    // Selected character should have border-primary class
-    expect(lisaButton.className).toMatch(/border-primary/);
-  });
-
-  it("grid has 3-column layout", () => {
-    render(<TestWrapper />);
-    const grid = screen.getByTestId("avatar-character-grid");
-    expect(grid.className).toMatch(/grid-cols-3/);
+    // "Go to VL Management" link should be present
+    const links = screen.getAllByText("admin:voiceLive.goToVlManagement");
+    expect(links.length).toBeGreaterThanOrEqual(1);
   });
 });
