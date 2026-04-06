@@ -52,6 +52,11 @@ export function useVoiceLive(options: VoiceLiveOptions) {
    */
   const connect = useCallback(
     async (hcpProfileId: string, systemPrompt?: string) => {
+      const sid = crypto.randomUUID().slice(0, 8);
+      setSessionCorrelationId(sid);
+      resetEventSummary();
+      log.info("connect() hcpProfileId=%s sid=%s", hcpProfileId, sid);
+
       lastConnectArgsRef.current = { hcpProfileId, systemPrompt };
       reconnectAttemptRef.current = 0;
       intentionalCloseRef.current = false;
@@ -67,7 +72,7 @@ export function useVoiceLive(options: VoiceLiveOptions) {
         try {
           const protocol = location.protocol === "https:" ? "wss:" : "ws:";
           const token = localStorage.getItem("access_token") ?? "";
-          const wsUrl = `${protocol}//${location.host}/api/v1/voice-live/ws?token=${encodeURIComponent(token)}`;
+          const wsUrl = `${protocol}//${location.host}/api/v1/voice-live/ws?token=${encodeURIComponent(token)}&sid=${sid}`;
           const ws = new WebSocket(wsUrl);
 
           let resolved = false;
@@ -79,7 +84,7 @@ export function useVoiceLive(options: VoiceLiveOptions) {
           });
 
           ws.onopen = () => {
-            console.info("[VoiceLive] WebSocket open, sending session.update");
+            log.info("WebSocket open, sending session.update");
             ws.send(
               JSON.stringify({
                 type: "session.update",
@@ -98,7 +103,7 @@ export function useVoiceLive(options: VoiceLiveOptions) {
             try {
               msg = JSON.parse(event.data as string);
             } catch {
-              console.warn("[VoiceLive] Non-JSON message received, ignoring");
+              log.warn("Non-JSON message received, ignoring");
               return;
             }
 
@@ -109,11 +114,16 @@ export function useVoiceLive(options: VoiceLiveOptions) {
               msg.type !== "session.update"
             ) {
               const sdpValue = msg.server_sdp || msg.sdp || msg.answer;
-              console.info(
-                "[VoiceLive] Avatar SDP answer received, type=%s",
+              log.info(
+                "Avatar SDP answer received, type=%s",
                 msg.type,
               );
               avatarSdpCallbackRef.current?.(sdpValue);
+            }
+
+            // Count every event type for session summary
+            if (msg.type) {
+              log.event(msg.type);
             }
 
             // Debug: log event types (except high-frequency audio deltas)
@@ -122,7 +132,7 @@ export function useVoiceLive(options: VoiceLiveOptions) {
               msg.type !== "response.audio.delta" &&
               msg.type !== "response.audio_transcript.delta"
             ) {
-              console.debug("[VoiceLive] Event: %s, keys=%s", msg.type, Object.keys(msg).join(","));
+              log.debug("Event: %s, keys=%s", msg.type, Object.keys(msg).join(","));
             }
 
             switch (msg.type) {
@@ -131,22 +141,22 @@ export function useVoiceLive(options: VoiceLiveOptions) {
                   avatarEnabled: msg.avatar_enabled ?? false,
                   model: msg.model ?? "gpt-4o",
                 };
-                console.info(
-                  "[VoiceLive] Proxy connected, model=%s, avatar=%s",
+                log.info(
+                  "Proxy connected, model=%s, avatar=%s",
                   sessionResult.model,
                   sessionResult.avatarEnabled,
                 );
                 break;
 
               case "session.created":
-                console.info(
-                  "[VoiceLive] Session created:",
+                log.info(
+                  "Session created: %s",
                   msg.session?.id,
                 );
                 break;
 
               case "session.updated": {
-                console.info("[VoiceLive] Session updated, avatar keys=%s",
+                log.info("Session updated, avatar keys=%s",
                   Object.keys(msg.session?.avatar || {}).join(","));
                 // Extract ICE servers from avatar config — matching reference
                 // implementation which uses session-level username/credential
@@ -185,8 +195,8 @@ export function useVoiceLive(options: VoiceLiveOptions) {
                   },
                 );
                 if (servers.length > 0) {
-                  console.info(
-                    "[VoiceLive] ICE servers received: count=%d, hasSessionCreds=%s",
+                  log.info(
+                    "ICE servers received: count=%d, hasSessionCreds=%s",
                     servers.length,
                     !!(sessionUsername && sessionCredential),
                   );
@@ -212,7 +222,7 @@ export function useVoiceLive(options: VoiceLiveOptions) {
               // Avatar SDP answer from server
               case "session.avatar.connecting":
                 if (msg.server_sdp || msg.serverSdp) {
-                  console.info("[VoiceLive] Avatar SDP answer received");
+                  log.info("Avatar SDP answer received (session.avatar.connecting)");
                   avatarSdpCallbackRef.current?.(
                     msg.server_sdp || msg.serverSdp,
                   );
@@ -254,8 +264,8 @@ export function useVoiceLive(options: VoiceLiveOptions) {
                 if (msg.delta) {
                   optionsRef.current.onAudioDelta?.(msg.delta);
                 } else {
-                  console.warn(
-                    "[VoiceLive] response.audio.delta without delta field, keys=%s",
+                  log.warn(
+                    "response.audio.delta without delta field, keys=%s",
                     Object.keys(msg).join(","),
                   );
                 }
@@ -318,7 +328,7 @@ export function useVoiceLive(options: VoiceLiveOptions) {
                 break;
 
               case "error":
-                console.error("[VoiceLive] Error:", msg.error);
+                log.error("Error: %o", msg.error);
                 setConnectionState("error");
                 connectionStateRef.current = "error";
                 optionsRef.current.onConnectionStateChange?.("error");
@@ -333,7 +343,15 @@ export function useVoiceLive(options: VoiceLiveOptions) {
             }
           };
 
-          ws.onclose = () => {
+          ws.onclose = (closeEvent: CloseEvent) => {
+            log.info(
+              "WebSocket closed: code=%d reason=%s wasClean=%s",
+              closeEvent.code,
+              closeEvent.reason || "(none)",
+              closeEvent.wasClean,
+            );
+            log.info("Event summary: %o", getEventSummary());
+
             const wasConnected = connectionStateRef.current === "connected";
             if (connectionStateRef.current !== "disconnected") {
               setConnectionState("disconnected");
@@ -355,8 +373,8 @@ export function useVoiceLive(options: VoiceLiveOptions) {
             ) {
               reconnectAttemptRef.current++;
               const delay = Math.min(1000 * 2 ** (reconnectAttemptRef.current - 1), 8000);
-              console.info(
-                "[VoiceLive] Unexpected disconnect, reconnecting in %dms (attempt %d/%d)",
+              log.info(
+                "Unexpected disconnect, reconnecting in %dms (attempt %d/%d)",
                 delay,
                 reconnectAttemptRef.current,
                 MAX_RECONNECT,
@@ -376,7 +394,7 @@ export function useVoiceLive(options: VoiceLiveOptions) {
           };
 
           ws.onerror = () => {
-            console.error("[VoiceLive] WebSocket error");
+            log.error("WebSocket error");
             setConnectionState("error");
             connectionStateRef.current = "error";
             optionsRef.current.onConnectionStateChange?.("error");
@@ -414,6 +432,7 @@ export function useVoiceLive(options: VoiceLiveOptions) {
   );
 
   const disconnect = useCallback(async () => {
+    log.info("disconnect() called, intentional close");
     intentionalCloseRef.current = true;
     if (reconnectTimerRef.current) {
       clearTimeout(reconnectTimerRef.current);
@@ -433,6 +452,7 @@ export function useVoiceLive(options: VoiceLiveOptions) {
   const toggleMute = useCallback(() => {
     setIsMuted((prev: boolean) => {
       const next = !prev;
+      log.info("toggleMute: muted=%s", next);
       setAudioState(next ? "muted" : "idle");
       optionsRef.current.onAudioStateChange?.(next ? "muted" : "idle");
       return next;
@@ -445,12 +465,18 @@ export function useVoiceLive(options: VoiceLiveOptions) {
       wsRef.current.send(
         typeof data === "string" ? data : JSON.stringify(data),
       );
+    } else {
+      log.warn(
+        "send() dropped: readyState=%s",
+        wsRef.current ? wsRef.current.readyState : "null",
+      );
     }
   }, []);
 
   /** Send text message to the conversation. */
   const sendTextMessage = useCallback(
     async (text: string) => {
+      log.info("sendTextMessage: len=%d", text.length);
       send({
         type: "conversation.item.create",
         item: {

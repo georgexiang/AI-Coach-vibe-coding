@@ -323,6 +323,8 @@ def _make_mock_ws(messages: list[str]) -> MagicMock:
     ws = AsyncMock(spec=WebSocket)
     ws.accept = AsyncMock()
     ws.send_text = AsyncMock()
+    # Provide query_params so session correlation ID extraction works
+    ws.query_params = {"sid": "test0000"}
 
     msg_iter = iter(messages)
 

@@ -20,6 +20,8 @@ Flow:
 import asyncio
 import json
 import logging
+import time
+import uuid
 from typing import Any
 
 from fastapi import WebSocket, WebSocketDisconnect
@@ -168,6 +170,12 @@ async def handle_voice_live_websocket(ws: WebSocket, db: AsyncSession) -> None:
 
     This is the main entry point called from the router.
     """
+    # Session correlation ID — from frontend query param or auto-generated
+    sid = ws.query_params.get("sid", "") or uuid.uuid4().hex[:8]
+    session_log = logging.LoggerAdapter(logger, {"sid": sid})
+    event_counts: dict[str, int] = {}
+    start_time = time.monotonic()
+
     await ws.accept()
 
     try:
@@ -183,7 +191,7 @@ async def handle_voice_live_websocket(ws: WebSocket, db: AsyncSession) -> None:
         hcp_profile_id = session_data.get("hcp_profile_id")
         system_prompt = session_data.get("system_prompt")
 
-        logger.info("Voice Live WS: hcp_profile_id=%s", hcp_profile_id)
+        session_log.info("Session started: sid=%s, hcp=%s", sid, hcp_profile_id)
 
         # Step 2a: Check voice_live_enabled on the HCP profile (if provided)
         if hcp_profile_id:
@@ -195,7 +203,7 @@ async def handle_voice_live_websocket(ws: WebSocket, db: AsyncSession) -> None:
                     await _send_error(ws, "Voice Live is not enabled for this HCP profile")
                     return
             except Exception:
-                logger.warning(
+                session_log.warning(
                     "Failed to check voice_live_enabled for %s, proceeding",
                     hcp_profile_id,
                     exc_info=True,
@@ -258,12 +266,12 @@ async def handle_voice_live_websocket(ws: WebSocket, db: AsyncSession) -> None:
                     "character": char_id,
                     "customized": False,
                 }
-                logger.info("Using photo avatar (VASA-1): character=%s", char_id)
+                session_log.info("Using photo avatar (VASA-1): character=%s", char_id)
             else:
                 # Video avatar: validate style, fallback to default if invalid
                 validated_style = validate_avatar_style(char_id, style)
                 if validated_style is not None and validated_style != style:
-                    logger.warning(
+                    session_log.warning(
                         "Avatar style %r not valid for %s, falling back to %r",
                         style,
                         char_id,
@@ -281,7 +289,7 @@ async def handle_voice_live_websocket(ws: WebSocket, db: AsyncSession) -> None:
                 # Without this, Azure renders lip-sync but does NOT send
                 # TTS audio on the WebRTC audio track (output_audit_audio=false).
                 avatar_config_value["output_audit_audio"] = True
-                logger.info(
+                session_log.info(
                     "Using video avatar: character=%s, style=%s, output_audit_audio=True",
                     char_id,
                     style,
@@ -314,11 +322,9 @@ async def handle_voice_live_websocket(ws: WebSocket, db: AsyncSession) -> None:
         # HCP personality is conveyed via the instructions field.
         # Log the full session config for debugging
         session_dict = (
-            session_config.as_dict()
-            if hasattr(session_config, "as_dict")
-            else dict(session_config)
+            session_config.as_dict() if hasattr(session_config, "as_dict") else dict(session_config)
         )
-        logger.info(
+        session_log.info(
             "Voice Live connecting (model mode): endpoint=%s, "
             "model=%s, avatar=%s, has_instructions=%s, "
             "session_modalities=%s, session_voice=%s, "
@@ -341,7 +347,7 @@ async def handle_voice_live_websocket(ws: WebSocket, db: AsyncSession) -> None:
             api_version=AZURE_VOICE_API_VERSION,
         ) as azure_conn:
             await azure_conn.session.update(session=session_config)
-            logger.info("Connected to Azure Voice Live, session config sent")
+            session_log.info("Connected to Azure Voice Live, session config sent")
 
             await ws.send_text(
                 json.dumps(
@@ -350,26 +356,41 @@ async def handle_voice_live_websocket(ws: WebSocket, db: AsyncSession) -> None:
                         "message": "Connected to Azure Voice Live",
                         "avatar_enabled": cfg["avatar_enabled"],
                         "model": model,
+                        "session_id": sid,
                     }
                 )
             )
 
-            await _handle_message_forwarding(ws, azure_conn, ConnectionClosed, ServerEventType)
+            await _handle_message_forwarding(
+                ws,
+                azure_conn,
+                ConnectionClosed,
+                ServerEventType,
+                session_log,
+                event_counts,
+            )
 
     except WebSocketDisconnect:
-        logger.info("Client WebSocket disconnected")
+        session_log.info("Client WebSocket disconnected")
     except TimeoutError:
-        logger.warning("Timeout waiting for initial session.update")
+        session_log.warning("Timeout waiting for initial session.update")
         try:
             await _send_error(ws, "Timeout waiting for session.update")
         except Exception:
             pass
     except Exception as e:
-        logger.error("Voice Live proxy error: %s", e, exc_info=True)
+        session_log.error("Voice Live proxy error: %s", e, exc_info=True)
         try:
             await _send_error(ws, str(e))
         except Exception:
             pass
+    finally:
+        session_log.info(
+            "Session ended: sid=%s, duration=%.1fs, events=%s",
+            sid,
+            round(time.monotonic() - start_time, 1),
+            json.dumps(event_counts, separators=(",", ":")),
+        )
 
 
 async def _handle_message_forwarding(
@@ -377,12 +398,29 @@ async def _handle_message_forwarding(
     azure_conn: Any,
     ConnectionClosed: type,
     ServerEventType: Any,
+    session_log: logging.LoggerAdapter,
+    event_counts: dict[str, int],
 ) -> None:
     """Bidirectional message forwarding between client and Azure."""
     tasks = [
-        asyncio.create_task(_forward_client_to_azure(ws, azure_conn, ConnectionClosed)),
         asyncio.create_task(
-            _forward_azure_to_client(azure_conn, ws, ConnectionClosed, ServerEventType)
+            _forward_client_to_azure(
+                ws,
+                azure_conn,
+                ConnectionClosed,
+                session_log,
+                event_counts,
+            )
+        ),
+        asyncio.create_task(
+            _forward_azure_to_client(
+                azure_conn,
+                ws,
+                ConnectionClosed,
+                ServerEventType,
+                session_log,
+                event_counts,
+            )
         ),
     ]
 
@@ -399,6 +437,8 @@ async def _forward_client_to_azure(
     ws: WebSocket,
     azure_conn: Any,
     ConnectionClosed: type,
+    session_log: logging.LoggerAdapter,
+    event_counts: dict[str, int],
 ) -> None:
     """Forward messages from client WebSocket to Azure Voice Live SDK."""
     try:
@@ -406,22 +446,23 @@ async def _forward_client_to_azure(
             message = await ws.receive_text()
             parsed = json.loads(message)
             msg_type = parsed.get("type", "unknown") if isinstance(parsed, dict) else "non-dict"
-            logger.debug(
+            event_counts[f"c2a:{msg_type}"] = event_counts.get(f"c2a:{msg_type}", 0) + 1
+            session_log.debug(
                 "Client→Azure: type=%s, keys=%s",
                 msg_type,
                 list(parsed.keys()) if isinstance(parsed, dict) else "N/A",
             )
             if msg_type == "session.avatar.connect":
-                logger.debug(
+                session_log.info(
                     "Avatar SDP offer: has client_sdp=%s, len=%s",
                     "client_sdp" in parsed,
                     len(parsed.get("client_sdp", "")) if isinstance(parsed, dict) else 0,
                 )
             await azure_conn.send(parsed)
     except (WebSocketDisconnect, ConnectionClosed):
-        logger.debug("Client→Azure forwarding stopped")
+        session_log.debug("Client→Azure forwarding stopped")
     except Exception as e:
-        logger.warning("Client→Azure forwarding error: %s", e)
+        session_log.warning("Client→Azure forwarding error: %s", e)
 
 
 async def _forward_azure_to_client(
@@ -429,26 +470,37 @@ async def _forward_azure_to_client(
     ws: WebSocket,
     ConnectionClosed: type,
     ServerEventType: Any,
+    session_log: logging.LoggerAdapter,
+    event_counts: dict[str, int],
 ) -> None:
     """Forward events from Azure Voice Live SDK to client WebSocket."""
     try:
         async for event in azure_conn:
             event_dict = event.as_dict() if hasattr(event, "as_dict") else dict(event)
             event_type = event_dict.get("type", "unknown")
+            event_counts[f"a2c:{event_type}"] = event_counts.get(f"a2c:{event_type}", 0) + 1
 
             # Debug: log audio delta events to verify serialization
             if event_type == "response.audio.delta":
                 has_delta = "delta" in event_dict
                 delta_len = len(event_dict.get("delta", "")) if has_delta else 0
-                logger.debug(
+                session_log.debug(
                     "Audio delta: has_delta=%s, delta_len=%d, keys=%s",
                     has_delta,
                     delta_len,
                     list(event_dict.keys()),
                 )
-            # Debug: log avatar-related events
+            # Avatar SDP answer — promote to INFO for observability
+            elif event_type == "session.avatar.connecting":
+                session_log.info(
+                    "Avatar SDP answer: type=%s, has_server_sdp=%s, keys=%s",
+                    event_type,
+                    "server_sdp" in event_dict,
+                    list(event_dict.keys()),
+                )
+            # Other avatar-related events
             elif "avatar" in event_type or "sdp" in str(event_dict.get("server_sdp", "")):
-                logger.info(
+                session_log.info(
                     "Avatar event: type=%s, has_server_sdp=%s, keys=%s",
                     event_type,
                     "server_sdp" in event_dict,
@@ -460,9 +512,9 @@ async def _forward_azure_to_client(
 
             # Log key events
             if event.type == ServerEventType.ERROR:
-                logger.warning("Azure error: %s", event_dict)
+                session_log.warning("Azure error: %s", event_dict)
             elif event.type == ServerEventType.SESSION_CREATED:
-                logger.info("Session created: %s", event_dict.get("session", {}).get("id"))
+                session_log.info("Session created: %s", event_dict.get("session", {}).get("id"))
             elif event.type == ServerEventType.SESSION_UPDATED:
                 # Detailed logging for avatar debugging
                 sess = event_dict.get("session", {})
@@ -470,7 +522,7 @@ async def _forward_azure_to_client(
                 modalities = sess.get("modalities", [])
                 voice_cfg = sess.get("voice", {})
                 ice_servers = avatar_cfg.get("ice_servers", [])
-                logger.info(
+                session_log.info(
                     "Session updated: modalities=%s, voice=%s, "
                     "avatar_keys=%s, ice_servers=%d, "
                     "has_avatar_username=%s, has_avatar_credential=%s, "
@@ -487,10 +539,12 @@ async def _forward_azure_to_client(
                     avatar_cfg.get("video"),
                     avatar_cfg.get("scene"),
                 )
+            else:
+                session_log.debug("Azure event: type=%s", event_type)
     except (WebSocketDisconnect, ConnectionClosed):
-        logger.debug("Azure→Client forwarding stopped")
+        session_log.debug("Azure→Client forwarding stopped")
     except Exception as e:
-        logger.warning("Azure→Client forwarding error: %s", e)
+        session_log.warning("Azure→Client forwarding error: %s", e)
 
 
 async def _send_error(ws: WebSocket, error_message: str) -> None:

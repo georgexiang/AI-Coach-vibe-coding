@@ -11,8 +11,6 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
     stream=sys.stderr,
 )
-# Defer log-level override until settings are available (after imports).
-# Avoids circular import: config.py → logging not yet configured.
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 

@@ -2,6 +2,7 @@
 
 import json
 import logging
+import time
 
 from fastapi import APIRouter, Depends, Query, WebSocket
 from fastapi.responses import Response
@@ -325,5 +326,16 @@ async def voice_live_websocket(
     if user is None:
         return  # Authentication failed, connection already closed
 
-    logger.info("Voice Live WS authenticated: user=%s", user.id)
-    await handle_voice_live_websocket(ws, db)
+    sid = ws.query_params.get("sid", "")
+    logger.info("WS connect: user=%s, sid=%s", user.id, sid)
+    ws_start = time.monotonic()
+    try:
+        await handle_voice_live_websocket(ws, db)
+    finally:
+        duration = round(time.monotonic() - ws_start, 1)
+        logger.info(
+            "WS disconnect: user=%s, sid=%s, duration=%.1fs",
+            user.id,
+            sid,
+            duration,
+        )

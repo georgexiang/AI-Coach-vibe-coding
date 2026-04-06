@@ -1,4 +1,7 @@
 import { useCallback, useRef, useState, useEffect } from "react";
+import { createVoiceLogger } from "@/lib/voice-logger";
+
+const log = createVoiceLogger("AudioHandler");
 
 interface AudioHandlerState {
   isRecording: boolean;
@@ -22,6 +25,7 @@ export function useAudioHandler() {
   const animationFrameRef = useRef<number | null>(null);
 
   const initialize = useCallback(async () => {
+    log.info("initialize: requesting mic permission");
     const stream = await navigator.mediaDevices.getUserMedia({
       audio: {
         sampleRate: 24000,
@@ -30,10 +34,12 @@ export function useAudioHandler() {
         noiseSuppression: true,
       },
     });
+    log.info("initialize: mic permission acquired, tracks=%d", stream.getTracks().length);
     streamRef.current = stream;
 
     const ctx = new AudioContext({ sampleRate: 24000 });
     await ctx.audioWorklet.addModule("/audio-processor.js");
+    log.info("initialize: AudioWorklet loaded, sampleRate=%d", ctx.sampleRate);
     audioContextRef.current = ctx;
 
     const source = ctx.createMediaStreamSource(stream);
@@ -52,7 +58,11 @@ export function useAudioHandler() {
 
   const startRecording = useCallback(
     (onAudioData: (data: Float32Array) => void) => {
-      if (!workletNodeRef.current) return;
+      if (!workletNodeRef.current) {
+        log.warn("startRecording: workletNode not initialized");
+        return;
+      }
+      log.info("startRecording");
       workletNodeRef.current.port.postMessage({ command: "START_RECORDING" });
       workletNodeRef.current.port.onmessage = (e: MessageEvent) => {
         const msg = e.data as { eventType?: string; audioData?: Float32Array };
@@ -79,6 +89,7 @@ export function useAudioHandler() {
   );
 
   const stopRecording = useCallback(() => {
+    log.info("stopRecording");
     if (workletNodeRef.current) {
       workletNodeRef.current.port.postMessage({ command: "STOP_RECORDING" });
     }
@@ -90,6 +101,7 @@ export function useAudioHandler() {
   }, []);
 
   const cleanup = useCallback(() => {
+    log.info("cleanup");
     stopRecording();
     streamRef.current?.getTracks().forEach((track: MediaStreamTrack) => track.stop());
     void audioContextRef.current?.close();

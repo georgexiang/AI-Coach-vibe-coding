@@ -1,4 +1,7 @@
 import { useCallback, useRef } from "react";
+import { createVoiceLogger } from "@/lib/voice-logger";
+
+const log = createVoiceLogger("AudioPlayer");
 
 /**
  * Audio playback hook for Azure Voice Live response audio.
@@ -19,11 +22,13 @@ export function useAudioPlayer() {
     // Lazily create AudioContext at 24kHz (matching Azure Voice Live sample rate)
     if (!audioCtxRef.current) {
       audioCtxRef.current = new AudioContext({ sampleRate: 24000 });
+      log.info("AudioContext created, sampleRate=%d", audioCtxRef.current.sampleRate);
     }
     const audioCtx = audioCtxRef.current;
 
     // Resume if suspended (browser autoplay policy)
     if (audioCtx.state === "suspended") {
+      log.info("AudioContext suspended, resuming");
       void audioCtx.resume();
     }
 
@@ -57,6 +62,7 @@ export function useAudioPlayer() {
 
   /** Stop all pending audio and reset the schedule. */
   const stopAudio = useCallback(() => {
+    log.info("stopAudio");
     if (audioCtxRef.current) {
       void audioCtxRef.current.close();
       audioCtxRef.current = null;

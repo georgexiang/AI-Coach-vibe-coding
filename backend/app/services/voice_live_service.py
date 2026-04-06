@@ -46,6 +46,7 @@ async def _exchange_api_key_for_bearer_token(endpoint: str, api_key: str) -> str
     """
     # STS endpoint: https://{resource}.cognitiveservices.azure.com/sts/v1.0/issueToken
     sts_url = f"{endpoint.rstrip('/')}/sts/v1.0/issueToken"
+    logger.info("STS token exchange: endpoint=%s...", sts_url[:60])
     async with httpx.AsyncClient(timeout=10.0) as client:
         resp = await client.post(
             sts_url,
@@ -53,6 +54,7 @@ async def _exchange_api_key_for_bearer_token(endpoint: str, api_key: str) -> str
             content=b"",
         )
         resp.raise_for_status()
+        logger.info("STS token exchange succeeded: status=%d", resp.status_code)
         return resp.text
 
 
@@ -103,6 +105,13 @@ async def get_voice_live_token(
     # Parse config-level agent/model mode from model_or_deployment
     mode_info = parse_voice_live_mode(vl_config.model_or_deployment)
     config_is_agent = mode_info.get("mode") == "agent"
+
+    logger.info(
+        "get_voice_live_token: hcp=%s, vl_status=%s, mode=%s",
+        hcp_profile_id,
+        "active" if vl_config.is_active else "inactive",
+        mode_info.get("mode", "model"),
+    )
 
     # Default voice_live_model from config (overridden by per-HCP profile if available)
     from app.config import get_settings
@@ -173,6 +182,17 @@ async def get_voice_live_token(
 
     # Determine final mode: agent if agent_id is set (from config or HCP profile)
     is_agent = bool(agent_id)
+
+    logger.info(
+        "get_voice_live_token resolved: final_mode=%s, model=%s, voice=%s, "
+        "avatar=%s/%s, agent_id=%s",
+        "agent" if is_agent else "model",
+        voice_live_model,
+        voice_name,
+        avatar_character_val,
+        avatar_style_val,
+        agent_id or "none",
+    )
 
     # SECURITY: Never expose the raw API key to the frontend.
     # All Voice Live connections go through the backend WebSocket proxy which

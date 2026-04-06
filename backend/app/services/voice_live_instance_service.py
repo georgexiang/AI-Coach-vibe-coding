@@ -34,6 +34,7 @@ async def create_instance(
     db.add(instance)
     await db.commit()
     await db.refresh(instance)
+    logger.info("VL instance created: id=%s, name=%s", instance.id, instance.name)
     # Re-query with selectinload so hcp_profiles is available in async context
     return await get_instance(db, instance.id)
 
@@ -87,6 +88,11 @@ async def update_instance(
         setattr(instance, key, value)
     await db.commit()
     await db.refresh(instance)
+    logger.info(
+        "VL instance updated: id=%s, fields=%s",
+        instance_id,
+        list(update_data.keys()),
+    )
     # Re-query with selectinload so hcp_profiles is available in async context
     return await get_instance(db, instance.id)
 
@@ -103,6 +109,7 @@ async def delete_instance(db: AsyncSession, instance_id: str) -> None:
 
     await db.delete(instance)
     await db.commit()
+    logger.info("VL instance deleted: id=%s", instance_id)
 
 
 async def assign_to_hcp(
@@ -123,6 +130,7 @@ async def assign_to_hcp(
     profile.voice_live_instance_id = instance_id
     await db.commit()
     await db.refresh(profile)
+    logger.info("VL instance assigned: instance=%s, hcp=%s", instance_id, hcp_profile_id)
     # Expire cached instance so subsequent get_instance fetches fresh hcp_profiles
     db.expire_all()
     return profile
@@ -138,6 +146,7 @@ async def unassign_from_hcp(db: AsyncSession, hcp_profile_id: str) -> HcpProfile
     profile.voice_live_instance_id = None
     await db.commit()
     await db.refresh(profile)
+    logger.info("VL instance unassigned: hcp=%s", hcp_profile_id)
     return profile
 
 
@@ -149,6 +158,11 @@ def resolve_voice_config(profile: HcpProfile) -> dict:
     """
     inst = profile.voice_live_instance
     if inst:
+        logger.debug(
+            "resolve_voice_config: hcp=%s source=VoiceLiveInstance id=%s",
+            profile.id,
+            inst.id,
+        )
         return {
             "voice_live_enabled": inst.enabled,
             "voice_live_model": inst.voice_live_model,
@@ -176,6 +190,10 @@ def resolve_voice_config(profile: HcpProfile) -> dict:
         }
 
     # Fallback: deprecated inline fields (no Foundry-specific fields on HcpProfile)
+    logger.debug(
+        "resolve_voice_config: hcp=%s source=inline (no VoiceLiveInstance)",
+        profile.id,
+    )
     return {
         "voice_live_enabled": profile.voice_live_enabled,
         "voice_live_model": profile.voice_live_model,

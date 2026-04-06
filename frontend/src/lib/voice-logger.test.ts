@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterAll } from "vitest";
 import {
   createVoiceLogger,
   setSessionCorrelationId,
@@ -8,11 +8,40 @@ import {
   refreshLogLevel,
 } from "./voice-logger";
 
+// Provide a functional localStorage mock for this test file.
+// jsdom's localStorage may not work reliably in all vitest setups.
+const store: Record<string, string> = {};
+const storageMock: Storage = {
+  getItem: vi.fn((key: string) => store[key] ?? null),
+  setItem: vi.fn((key: string, value: string) => {
+    store[key] = value;
+  }),
+  removeItem: vi.fn((key: string) => {
+    delete store[key];
+  }),
+  clear: vi.fn(() => {
+    for (const k of Object.keys(store)) delete store[k];
+  }),
+  get length() {
+    return Object.keys(store).length;
+  },
+  key: vi.fn((index: number) => Object.keys(store)[index] ?? null),
+};
+
+// Save original and stub for this file only
+const originalLocalStorage = globalThis.localStorage;
+vi.stubGlobal("localStorage", storageMock);
+
+afterAll(() => {
+  // Restore original localStorage so other test files are unaffected
+  vi.stubGlobal("localStorage", originalLocalStorage);
+});
+
 describe("voice-logger", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     resetEventSummary();
-    localStorage.removeItem("VOICE_LOG_LEVEL");
+    storageMock.clear();
     refreshLogLevel();
   });
 
@@ -59,7 +88,7 @@ describe("voice-logger", () => {
   });
 
   it("emits debug messages when level set to debug", () => {
-    localStorage.setItem("VOICE_LOG_LEVEL", "debug");
+    storageMock.setItem("VOICE_LOG_LEVEL", "debug");
     refreshLogLevel();
     const spy = vi.spyOn(console, "debug").mockImplementation(() => {});
     const log = createVoiceLogger("Level");
@@ -78,7 +107,7 @@ describe("voice-logger", () => {
   });
 
   it("delegates to correct console methods", () => {
-    localStorage.setItem("VOICE_LOG_LEVEL", "debug");
+    storageMock.setItem("VOICE_LOG_LEVEL", "debug");
     refreshLogLevel();
     const debugSpy = vi.spyOn(console, "debug").mockImplementation(() => {});
     const infoSpy = vi.spyOn(console, "info").mockImplementation(() => {});

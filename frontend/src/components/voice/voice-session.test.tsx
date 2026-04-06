@@ -758,7 +758,11 @@ describe("VoiceSession", () => {
         capturedOnError?.(new Error("test voice error"));
       });
 
-      expect(consoleSpy).toHaveBeenCalledWith("Voice Live error:", expect.any(Error));
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining("[VoiceSession]"),
+        expect.stringContaining("Voice Live error"),
+        expect.any(Error),
+      );
       consoleSpy.mockRestore();
     });
   });

@@ -17,6 +17,7 @@ import {
   TabsTrigger,
 } from "@/components/ui";
 import { cn } from "@/lib/utils";
+import { createVoiceLogger, getEventSummary } from "@/lib/voice-logger";
 import { useVoiceLive } from "@/hooks/use-voice-live";
 import { useAvatarStream } from "@/hooks/use-avatar-stream";
 import { useAudioHandler } from "@/hooks/use-audio-handler";
@@ -71,6 +72,7 @@ export function VoiceSession({
   avatarStyle,
   voiceName = "",
 }: VoiceSessionProps) {
+  const log = createVoiceLogger("VoiceSession");
   const { t } = useTranslation("voice");
   const { t: tc } = useTranslation("common");
   const navigate = useNavigate();
@@ -160,7 +162,7 @@ export function VoiceSession({
       }
     },
     onError: (error) => {
-      console.error("Voice Live error:", error);
+      log.error("Voice Live error: %o", error);
     },
   });
 
@@ -190,6 +192,7 @@ export function VoiceSession({
 
   // Voice initialization logic — extracted to reusable callback
   const initVoice = useCallback(async () => {
+    log.info("initVoice: hcpProfileId=%s avatarCharacter=%s", hcpProfileId, avatarCharacter ?? "(none)");
     setIsConnecting(true);
     try {
       // Initialize audio (mic permission + AudioWorklet)
@@ -232,9 +235,9 @@ export function VoiceSession({
               });
             },
           );
-          console.info("[VoiceSession] Avatar WebRTC connected");
+          log.info("Avatar WebRTC connected");
         } catch (avatarError) {
-          console.error("[VoiceSession] Avatar WebRTC failed:", avatarError);
+          log.error("Avatar WebRTC failed: %o", avatarError);
           toast.error(t("error.avatarFailed"));
           setCurrentMode("voice_realtime_model");
         }
@@ -257,7 +260,7 @@ export function VoiceSession({
         voiceLive.sendAudio(base64);
       });
     } catch (error) {
-      console.error("[VoiceSession] Connection failed:", error);
+      log.error("Connection failed: %o", error);
       toast.error(t("error.connectionFailed"));
     } finally {
       setIsConnecting(false);
@@ -292,6 +295,7 @@ export function VoiceSession({
   }, []);
 
   const confirmEndSession = useCallback(async () => {
+    log.info("confirmEndSession: transcripts=%d eventSummary=%o", transcripts.length, getEventSummary());
     setShowEndDialog(false);
 
     // Flush all pending transcript writes first (D-09)

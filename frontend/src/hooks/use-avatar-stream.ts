@@ -1,5 +1,8 @@
 import { useCallback, useRef, useState } from "react";
 import type { RefObject } from "react";
+import { createVoiceLogger } from "@/lib/voice-logger";
+
+const log = createVoiceLogger("AvatarStream");
 
 /**
  * WebRTC avatar video stream hook for Azure Voice Live.
@@ -22,6 +25,7 @@ export function useAvatarStream(
   const [isConnected, setIsConnected] = useState(false);
   const sdpResolverRef = useRef<((sdp: string) => void) | null>(null);
   const audioElRef = useRef<HTMLAudioElement | null>(null);
+  const statsIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   /**
    * Start avatar WebRTC connection.
@@ -33,6 +37,8 @@ export function useAvatarStream(
       iceServers: RTCIceServer[],
       sendSdpOffer: (sdp: string) => Promise<void>,
     ) => {
+      log.info("connect() entry, iceServers=%d", iceServers.length);
+
       // Reset video element
       if (videoRef.current) {
         videoRef.current.srcObject = null;
@@ -43,15 +49,40 @@ export function useAvatarStream(
         bundlePolicy: "max-bundle",
       });
 
+      // WebRTC connection state handlers
+      pc.onconnectionstatechange = () => {
+        const state = pc.connectionState;
+        if (state === "failed") {
+          log.error("connectionState: %s", state);
+        } else {
+          log.info("connectionState: %s", state);
+        }
+      };
+
+      pc.oniceconnectionstatechange = () => {
+        const state = pc.iceConnectionState;
+        if (state === "failed") {
+          log.error("iceConnectionState: %s", state);
+        } else if (state === "disconnected") {
+          log.warn("iceConnectionState: %s", state);
+        } else {
+          log.info("iceConnectionState: %s", state);
+        }
+      };
+
+      pc.onsignalingstatechange = () => {
+        log.debug("signalingState: %s", pc.signalingState);
+      };
+
       // Receive avatar video and audio tracks — matches reference useWebRTC.ts pattern
       pc.ontrack = (event) => {
         if (event.track.kind === "video" && videoRef.current) {
           videoRef.current.srcObject = event.streams[0] ?? null;
-          videoRef.current.play().catch((err) => {
-            console.warn("[AvatarStream] Video play() failed:", err);
+          videoRef.current.play().catch((err: unknown) => {
+            log.warn("Video play() failed: %o", err);
           });
-          console.info(
-            "[AvatarStream] Video track received, streams=%d, track.readyState=%s",
+          log.info(
+            "Video track received, streams=%d, track.readyState=%s",
             event.streams.length,
             event.track.readyState,
           );
@@ -63,12 +94,12 @@ export function useAvatarStream(
           audio.autoplay = true;
           audio.style.display = "none";
           document.body.appendChild(audio);
-          audio.play().catch((err) => {
-            console.warn("[AvatarStream] Audio play() failed:", err);
+          audio.play().catch((err: unknown) => {
+            log.warn("Audio play() failed: %o", err);
           });
           audioElRef.current = audio;
-          console.info(
-            "[AvatarStream] Audio track received, streams=%d, track.readyState=%s",
+          log.info(
+            "Audio track received, streams=%d, track.readyState=%s",
             event.streams.length,
             event.track.readyState,
           );
@@ -87,8 +118,8 @@ export function useAvatarStream(
 
         pc.onicecandidate = (e) => {
           if (e.candidate) {
-            console.debug(
-              "[AvatarStream] ICE candidate: %s %s",
+            log.debug(
+              "ICE candidate: %s %s",
               e.candidate.type,
               e.candidate.protocol,
             );
@@ -101,8 +132,8 @@ export function useAvatarStream(
                 sdp: pc.localDescription.sdp,
               }),
             );
-            console.info(
-              "[AvatarStream] ICE gathering complete, sending SDP offer (len=%d)",
+            log.info(
+              "ICE gathering complete, sending SDP offer (len=%d)",
               encodedSdp.length,
             );
             resolve(encodedSdp);
@@ -118,8 +149,8 @@ export function useAvatarStream(
                 sdp: pc.localDescription.sdp,
               }),
             );
-            console.info(
-              "[AvatarStream] ICE gathering complete (statechange), sending SDP offer (len=%d)",
+            log.info(
+              "ICE gathering complete (statechange), sending SDP offer (len=%d)",
               encodedSdp.length,
             );
             resolve(encodedSdp);
@@ -137,8 +168,8 @@ export function useAvatarStream(
               const encodedSdp = btoa(
                 JSON.stringify({ type: "offer", sdp }),
               );
-              console.warn(
-                "[AvatarStream] ICE gathering timeout (8s), sending SDP offer. gatheringState=%s",
+              log.warn(
+                "ICE gathering timeout (8s), sending SDP offer. gatheringState=%s",
                 pc.iceGatheringState,
               );
               resolve(encodedSdp);
@@ -149,7 +180,9 @@ export function useAvatarStream(
 
       // Create and set local offer — this triggers ICE gathering
       const offer = await pc.createOffer();
+      log.info("createOffer success");
       await pc.setLocalDescription(offer);
+      log.info("setLocalDescription success");
 
       // Create a promise for the server SDP answer
       const serverSdpPromise = new Promise<string>((resolve, reject) => {
@@ -172,13 +205,85 @@ export function useAvatarStream(
         type: "answer",
         sdp: serverSdp,
       });
+      log.info("setRemoteDescription success");
 
       pcRef.current = pc;
       // Expose for debugging — check stats via: window.__avatarPC.getStats()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (window as any).__avatarPC = pc;
       setIsConnected(true);
-      console.info("[AvatarStream] WebRTC connected");
+      log.info("WebRTC connected");
+
+      // Start periodic getStats collection (every 5 seconds)
+      if (statsIntervalRef.current) {
+        clearInterval(statsIntervalRef.current);
+      }
+      statsIntervalRef.current = setInterval(() => {
+        if (!pcRef.current) return;
+        void pcRef.current.getStats().then((stats: RTCStatsReport) => {
+          let videoFps = 0;
+          let videoPacketsLost = 0;
+          let videoPacketsReceived = 0;
+          let videoJitter = 0;
+          let videoBytesReceived = 0;
+          let audioPacketsLost = 0;
+          let audioPacketsReceived = 0;
+          let audioJitter = 0;
+          let rtt = 0;
+
+          stats.forEach((report) => {
+            if (report.type === "inbound-rtp") {
+              const rtp = report as RTCInboundRtpStreamStats;
+              if (rtp.kind === "video") {
+                videoFps = rtp.framesPerSecond ?? 0;
+                videoPacketsLost = rtp.packetsLost ?? 0;
+                videoPacketsReceived = rtp.packetsReceived ?? 0;
+                videoJitter = rtp.jitter ?? 0;
+                videoBytesReceived = rtp.bytesReceived ?? 0;
+              } else if (rtp.kind === "audio") {
+                audioPacketsLost = rtp.packetsLost ?? 0;
+                audioPacketsReceived = rtp.packetsReceived ?? 0;
+                audioJitter = rtp.jitter ?? 0;
+              }
+            } else if (report.type === "candidate-pair") {
+              const pair = report as RTCIceCandidatePairStats;
+              if (pair.state === "succeeded" && pair.currentRoundTripTime !== undefined) {
+                rtt = pair.currentRoundTripTime;
+              }
+            }
+          });
+
+          // Anomaly detection
+          const totalVideoPackets = videoPacketsReceived + videoPacketsLost;
+          if (totalVideoPackets > 0) {
+            const lossPercent = (videoPacketsLost / totalVideoPackets) * 100;
+            if (lossPercent > 5) {
+              log.warn("ANOMALY: video packet loss %.1f%%", lossPercent);
+            }
+          }
+          const totalAudioPackets = audioPacketsReceived + audioPacketsLost;
+          if (totalAudioPackets > 0) {
+            const lossPercent = (audioPacketsLost / totalAudioPackets) * 100;
+            if (lossPercent > 5) {
+              log.warn("ANOMALY: audio packet loss %.1f%%", lossPercent);
+            }
+          }
+          if (videoFps > 0 && videoFps < 10) {
+            log.warn("ANOMALY: video fps=%d (<10)", videoFps);
+          }
+
+          log.debug(
+            "stats: videoFps=%d vLost=%d vJitter=%.4f vBytes=%d aLost=%d aJitter=%.4f rtt=%.3f",
+            videoFps,
+            videoPacketsLost,
+            videoJitter,
+            videoBytesReceived,
+            audioPacketsLost,
+            audioJitter,
+            rtt,
+          );
+        });
+      }, 5000);
     },
     [videoRef],
   );
@@ -201,13 +306,18 @@ export function useAvatarStream(
       }
     } catch {
       // Not base64-encoded JSON — use raw value as SDP
-      console.warn("[AvatarStream] server_sdp not base64 JSON, using raw");
+      log.warn("server_sdp not base64 JSON, using raw");
     }
-    console.info("[AvatarStream] Server SDP answer received (len=%d)", sdp.length);
+    log.info("Server SDP answer received (len=%d)", sdp.length);
     sdpResolverRef.current?.(sdp);
   }, []);
 
   const disconnect = useCallback(() => {
+    log.info("disconnect() called");
+    if (statsIntervalRef.current) {
+      clearInterval(statsIntervalRef.current);
+      statsIntervalRef.current = null;
+    }
     if (pcRef.current) {
       pcRef.current.close();
       pcRef.current = null;
