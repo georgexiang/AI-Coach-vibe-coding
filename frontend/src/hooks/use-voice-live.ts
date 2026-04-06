@@ -4,6 +4,14 @@ import type {
   VoiceConnectionState,
   AudioState,
 } from "@/types/voice-live";
+import {
+  createVoiceLogger,
+  setSessionCorrelationId,
+  getEventSummary,
+  resetEventSummary,
+} from "@/lib/voice-logger";
+
+const log = createVoiceLogger("VoiceLive");
 
 /**
  * Voice Live session hook using backend WebSocket proxy.

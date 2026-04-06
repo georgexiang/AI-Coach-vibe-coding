@@ -1,16 +1,16 @@
 ---
-status: awaiting_human_verify
+status: resolved
 trigger: "Edit Voice Live Instance playground: 1) user voice input text not displayed, 2) content does not auto-scroll"
 created: 2026-04-06T12:00:00Z
-updated: 2026-04-06T12:10:00Z
+updated: 2026-04-06T18:30:00Z
 ---
 
 ## Current Focus
 
 hypothesis: CONFIRMED and FIXED - Three root causes addressed
-test: TypeScript build, npm build, backend lint, 26 backend tests pass, 30 frontend tests pass
-expecting: User speech and AI response both display in transcript with auto-scroll
-next_action: Awaiting human verification in live voice session
+test: Live session verified — user speech ("你好", "多说几句", "欢迎你的专业", etc.) displayed with "You:" prefix, AI responses displayed with "AI:" prefix, auto-scroll working on long AI responses
+expecting: N/A — resolved
+next_action: None — all fixes verified and pushed to GitHub (commit e4c43b2)
 
 ## Symptoms
 

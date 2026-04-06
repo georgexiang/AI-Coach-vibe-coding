@@ -71,6 +71,9 @@ class Settings(BaseSettings):
     # Default Voice Live model (when creating new instances/profiles; override via .env)
     voice_live_default_model: str = "gpt-4o"
 
+    # Logging
+    log_level: str = "INFO"  # DEBUG, INFO, WARNING, ERROR
+
     # Default AI provider per category
     default_llm_provider: str = "mock"
     default_stt_provider: str = "mock"
