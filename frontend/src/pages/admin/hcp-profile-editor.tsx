@@ -5,7 +5,7 @@ import { useForm, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { ArrowLeft, Save, MessageSquare, RefreshCw } from "lucide-react";
+import { ArrowLeft, Save, MessageSquare, RefreshCw, BookOpen, Wrench } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -75,6 +75,8 @@ const hcpSchema = z.object({
   objections: z.array(z.string()),
   probe_topics: z.array(z.string()),
   difficulty: z.enum(["easy", "medium", "hard"]),
+  // Voice Live Instance reference
+  voice_live_instance_id: z.string().nullable().default(null),
   // Voice Live agent metadata toggle
   voice_live_enabled: z.boolean().default(true),
   voice_live_model: z.string().default("gpt-4o"),
@@ -125,6 +127,7 @@ export default function HcpProfileEditorPage() {
       objections: [],
       probe_topics: [],
       difficulty: "medium",
+      voice_live_instance_id: null,
       voice_live_enabled: true,
       voice_live_model: "gpt-4o",
       voice_name: "en-US-AvaNeural",
@@ -159,6 +162,7 @@ export default function HcpProfileEditorPage() {
         objections: profile.objections,
         probe_topics: profile.probe_topics,
         difficulty: profile.difficulty,
+        voice_live_instance_id: profile.voice_live_instance_id ?? null,
         voice_live_enabled: profile.voice_live_enabled ?? true,
         voice_live_model: profile.voice_live_model ?? "gpt-4o",
         voice_name: profile.voice_name ?? "en-US-AvaNeural",
@@ -277,6 +281,12 @@ export default function HcpProfileEditorPage() {
             </TabsTrigger>
             <TabsTrigger value="voice-avatar" className="flex-1">
               {t("admin:hcp.tabVoiceAvatar")}
+            </TabsTrigger>
+            <TabsTrigger value="knowledge" className="flex-1">
+              {t("admin:voiceLive.tabKnowledge")}
+            </TabsTrigger>
+            <TabsTrigger value="tools" className="flex-1">
+              {t("admin:voiceLive.tabTools")}
             </TabsTrigger>
           </TabsList>
 
@@ -511,6 +521,36 @@ export default function HcpProfileEditorPage() {
           {/* Voice & Avatar Tab */}
           <TabsContent value="voice-avatar" className="mt-4">
             <VoiceAvatarTab form={form} profile={profile} isNew={isNew} />
+          </TabsContent>
+
+          {/* Knowledge Tab (placeholder) */}
+          <TabsContent value="knowledge" className="mt-4">
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center py-16">
+                <BookOpen className="size-12 text-muted-foreground/50 mb-4" />
+                <h3 className="text-lg font-semibold mb-2">
+                  {t("admin:voiceLive.knowledgePlaceholderTitle")}
+                </h3>
+                <p className="text-sm text-muted-foreground text-center max-w-md">
+                  {t("admin:voiceLive.knowledgePlaceholderBody")}
+                </p>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Tools Tab (placeholder) */}
+          <TabsContent value="tools" className="mt-4">
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center py-16">
+                <Wrench className="size-12 text-muted-foreground/50 mb-4" />
+                <h3 className="text-lg font-semibold mb-2">
+                  {t("admin:voiceLive.toolsPlaceholderTitle")}
+                </h3>
+                <p className="text-sm text-muted-foreground text-center max-w-md">
+                  {t("admin:voiceLive.toolsPlaceholderBody")}
+                </p>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </Form>
