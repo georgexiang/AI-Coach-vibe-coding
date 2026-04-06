@@ -4,12 +4,12 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 
-# Configure root logger so all app.* loggers output to stderr.
+# Configure root logger so all app.* loggers produce output.
 # Without this, only uvicorn's own logger produces output.
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
-    stream=sys.stderr,
+    stream=sys.stdout,
 )
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
