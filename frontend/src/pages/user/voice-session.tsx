@@ -59,6 +59,9 @@ export default function VoiceSessionPage() {
   const hcpName = scenario?.hcp_profile?.name ?? "HCP";
   const systemPrompt = scenario?.description ?? "";
   const language = i18n.language || "zh-CN";
+  const avatarCharacter = scenario?.hcp_profile?.avatar_character ?? "lisa";
+  const avatarStyle = scenario?.hcp_profile?.avatar_style ?? "";
+  const voiceName = scenario?.hcp_profile?.voice_name ?? "";
 
   return (
     <VoiceSession
@@ -68,6 +71,9 @@ export default function VoiceSessionPage() {
       hcpName={hcpName}
       systemPrompt={systemPrompt}
       language={language}
+      avatarCharacter={avatarCharacter}
+      avatarStyle={avatarStyle}
+      voiceName={voiceName}
     />
   );
 }

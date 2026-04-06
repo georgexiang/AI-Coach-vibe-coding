@@ -4,6 +4,7 @@ Tests that creating/updating/deleting HCP profiles triggers agent sync,
 retry-sync endpoint works, and token broker sources agent_id from HCP profiles.
 """
 
+import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -14,6 +15,10 @@ from app.dependencies import get_current_user
 from app.main import app
 from app.models.hcp_profile import HcpProfile
 from app.models.user import User
+from app.services.agent_sync_service import (
+    _chunk_metadata_value,
+    build_voice_live_metadata,
+)
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -80,10 +85,9 @@ PROFILE_DATA = {
 # ---------------------------------------------------------------------------
 
 
-@patch("app.services.voice_live_service._exchange_api_key_for_bearer_token", new_callable=AsyncMock, return_value="sts-bearer-token")
 @patch("app.services.voice_live_service.config_service")
 @patch("app.services.voice_live_service.parse_voice_live_mode")
-async def test_voice_live_token_with_hcp_profile_id(mock_parse, mock_cfg, mock_sts, db_session):
+async def test_voice_live_token_with_hcp_profile_id(mock_parse, mock_cfg, db_session):
     """Token broker returns agent_id from HCP profile when hcp_profile_id provided."""
     # Create a profile with agent_id
     profile = HcpProfile(
@@ -125,10 +129,9 @@ async def test_voice_live_token_with_hcp_profile_id(mock_parse, mock_cfg, mock_s
     assert result.agent_id == "asst_from_profile"
     # When HCP profile overrides agent, project_name comes from master default_project
     assert result.project_name == "master-default-project"
-    # Agent mode should use bearer token, not API key
+    # Agent mode: token masked for security, auth_type = bearer
     assert result.auth_type == "bearer"
-    assert result.token == "sts-bearer-token"
-    mock_sts.assert_called_once()
+    assert result.token == "***configured***"
 
 
 # ---------------------------------------------------------------------------
@@ -136,10 +139,9 @@ async def test_voice_live_token_with_hcp_profile_id(mock_parse, mock_cfg, mock_s
 # ---------------------------------------------------------------------------
 
 
-@patch("app.services.voice_live_service._exchange_api_key_for_bearer_token", new_callable=AsyncMock, return_value="sts-bearer-token")
 @patch("app.services.voice_live_service.config_service")
 @patch("app.services.voice_live_service.parse_voice_live_mode")
-async def test_voice_live_token_fallback_to_config(mock_parse, mock_cfg, mock_sts, db_session):
+async def test_voice_live_token_fallback_to_config(mock_parse, mock_cfg, db_session):
     """Token broker falls back to config-level agent_id when profile has none."""
     profile = HcpProfile(
         name="Dr. No Agent",
@@ -183,10 +185,9 @@ async def test_voice_live_token_fallback_to_config(mock_parse, mock_cfg, mock_st
 # ---------------------------------------------------------------------------
 
 
-@patch("app.services.voice_live_service._exchange_api_key_for_bearer_token", new_callable=AsyncMock, return_value="sts-bearer-token")
 @patch("app.services.voice_live_service.config_service")
 @patch("app.services.voice_live_service.parse_voice_live_mode")
-async def test_voice_live_token_backward_compatible(mock_parse, mock_cfg, mock_sts, db_session):
+async def test_voice_live_token_backward_compatible(mock_parse, mock_cfg, db_session):
     """Token broker behaves as before when no hcp_profile_id provided."""
     vl_config = MagicMock()
     vl_config.is_active = True
@@ -351,3 +352,136 @@ async def test_create_profile_sync_failure(mock_sync, aclient):
     assert data["agent_sync_status"] == "failed"
     assert "AI Foundry API unavailable" in data["agent_sync_error"]
     assert data["agent_id"] == ""  # No agent_id since sync failed
+
+
+# ---------------------------------------------------------------------------
+# Test 9: build_voice_live_metadata — basic config
+# ---------------------------------------------------------------------------
+
+
+def test_build_voice_live_metadata_basic():
+    """Standard profile produces correct Voice Live metadata JSON."""
+    profile = MagicMock()
+    profile.voice_live_enabled = True
+    profile.voice_name = "en-US-AvaNeural"
+    profile.voice_type = "azure-standard"
+    profile.voice_temperature = 0.9
+    profile.turn_detection_type = "server_vad"
+    profile.noise_suppression = False
+    profile.echo_cancellation = False
+    profile.eou_detection = False
+
+    result = build_voice_live_metadata(profile)
+
+    assert result is not None
+    # Should have exactly one key (config fits in 512 chars)
+    assert "microsoft.voice-live.configuration" in result
+    config = json.loads(result["microsoft.voice-live.configuration"])
+    assert config["voice"]["type"] == "azure-standard"
+    assert config["voice"]["name"] == "en-US-AvaNeural"
+    assert config["voice"]["temperature"] == 0.9
+    assert config["turn_detection"]["type"] == "server_vad"
+    # No noise/echo keys when disabled
+    assert "input_audio_noise_reduction" not in config
+    assert "input_audio_echo_cancellation" not in config
+
+
+# ---------------------------------------------------------------------------
+# Test 10: build_voice_live_metadata — with noise + echo
+# ---------------------------------------------------------------------------
+
+
+def test_build_voice_live_metadata_with_noise_echo():
+    """Noise suppression and echo cancellation flags appear in metadata."""
+    profile = MagicMock()
+    profile.voice_live_enabled = True
+    profile.voice_name = "en-US-JennyNeural"
+    profile.voice_type = "azure-standard"
+    profile.voice_temperature = 0.7
+    profile.turn_detection_type = "server_vad"
+    profile.noise_suppression = True
+    profile.echo_cancellation = True
+    profile.eou_detection = True
+
+    result = build_voice_live_metadata(profile)
+
+    assert result is not None
+    config = json.loads(result["microsoft.voice-live.configuration"])
+    assert config["input_audio_noise_reduction"]["type"] == "azure_deep_noise_suppression"
+    assert config["input_audio_echo_cancellation"]["type"] == "server_echo_cancellation"
+    eou = config["turn_detection"]["end_of_utterance_detection"]
+    assert eou["model"] == "semantic_detection_v1"
+
+
+# ---------------------------------------------------------------------------
+# Test 11: build_voice_live_metadata — disabled returns None
+# ---------------------------------------------------------------------------
+
+
+def test_build_voice_live_metadata_disabled():
+    """voice_live_enabled=False returns None (no metadata attached to agent)."""
+    profile = MagicMock()
+    profile.voice_live_enabled = False
+
+    result = build_voice_live_metadata(profile)
+
+    assert result is None
+
+
+# ---------------------------------------------------------------------------
+# Test 12: _chunk_metadata_value — short value stays single key
+# ---------------------------------------------------------------------------
+
+
+def test_chunk_metadata_value_short():
+    """Short value fits in one chunk."""
+    result = _chunk_metadata_value("key", "short value", max_len=512)
+    assert result == {"key": "short value"}
+
+
+# ---------------------------------------------------------------------------
+# Test 13: _chunk_metadata_value — long value splits correctly
+# ---------------------------------------------------------------------------
+
+
+def test_chunk_metadata_value_long():
+    """Long value is split at 512-char boundaries."""
+    long_value = "A" * 1200
+    result = _chunk_metadata_value("key", long_value, max_len=512)
+
+    assert len(result) == 3
+    assert "key" in result
+    assert "key.1" in result
+    assert "key.2" in result
+    assert len(result["key"]) == 512
+    assert len(result["key.1"]) == 512
+    assert len(result["key.2"]) == 176
+    # Reassembled value matches original
+    reassembled = result["key"] + result["key.1"] + result["key.2"]
+    assert reassembled == long_value
+
+
+# ---------------------------------------------------------------------------
+# Test 14: build_voice_live_metadata — non-azure-standard voice omits temperature
+# ---------------------------------------------------------------------------
+
+
+def test_build_voice_live_metadata_custom_voice():
+    """Custom voice type omits temperature field."""
+    profile = MagicMock()
+    profile.voice_live_enabled = True
+    profile.voice_name = "my-custom-voice"
+    profile.voice_type = "custom-neural"
+    profile.voice_temperature = 0.9
+    profile.turn_detection_type = "server_vad"
+    profile.noise_suppression = False
+    profile.echo_cancellation = False
+    profile.eou_detection = False
+
+    result = build_voice_live_metadata(profile)
+
+    assert result is not None
+    config = json.loads(result["microsoft.voice-live.configuration"])
+    assert config["voice"]["type"] == "custom-neural"
+    assert config["voice"]["name"] == "my-custom-voice"
+    assert "temperature" not in config["voice"]

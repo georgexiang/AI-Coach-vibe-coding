@@ -47,11 +47,14 @@ export function useAvatarStream(
       pc.ontrack = (event) => {
         if (event.track.kind === "video" && videoRef.current) {
           videoRef.current.srcObject = event.streams[0] ?? null;
-          // Explicit play() call — required for reliable autoplay across browsers,
-          // especially when video element was invisible during negotiation.
           videoRef.current.play().catch((err) => {
             console.warn("[AvatarStream] Video play() failed:", err);
           });
+          console.info(
+            "[AvatarStream] Video track received, streams=%d, track.readyState=%s",
+            event.streams.length,
+            event.track.readyState,
+          );
         } else if (event.track.kind === "audio") {
           // Audio element created dynamically and appended to body (hidden),
           // matching reference implementation pattern
@@ -60,7 +63,15 @@ export function useAvatarStream(
           audio.autoplay = true;
           audio.style.display = "none";
           document.body.appendChild(audio);
+          audio.play().catch((err) => {
+            console.warn("[AvatarStream] Audio play() failed:", err);
+          });
           audioElRef.current = audio;
+          console.info(
+            "[AvatarStream] Audio track received, streams=%d, track.readyState=%s",
+            event.streams.length,
+            event.track.readyState,
+          );
         }
       };
 
@@ -69,28 +80,21 @@ export function useAvatarStream(
       pc.addTransceiver("video", { direction: "recvonly" });
       pc.addTransceiver("audio", { direction: "recvonly" });
 
-      // Create SDP offer
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
-
-      // Create a promise that will be resolved when the server SDP answer arrives
-      const serverSdpPromise = new Promise<string>((resolve, reject) => {
-        sdpResolverRef.current = resolve;
-        // Timeout after 15s
-        setTimeout(() => {
-          sdpResolverRef.current = null;
-          reject(new Error("Avatar SDP answer timeout"));
-        }, 15000);
-      });
-
-      // Wait for ICE gathering complete (null candidate), then send
-      // base64-encoded SDP offer — matches Azure reference implementation.
-      await new Promise<void>((resolve) => {
+      // Register ICE candidate handler BEFORE createOffer (matches reference impl).
+      // This ensures no candidates are missed even if gathering starts immediately.
+      const offerReadyPromise = new Promise<string>((resolve) => {
         let offerSent = false;
+
         pc.onicecandidate = (e) => {
+          if (e.candidate) {
+            console.debug(
+              "[AvatarStream] ICE candidate: %s %s",
+              e.candidate.type,
+              e.candidate.protocol,
+            );
+          }
           if (!e.candidate && pc.localDescription && !offerSent) {
             offerSent = true;
-            // ICE gathering complete — encode as base64 JSON and send
             const encodedSdp = btoa(
               JSON.stringify({
                 type: "offer",
@@ -101,13 +105,12 @@ export function useAvatarStream(
               "[AvatarStream] ICE gathering complete, sending SDP offer (len=%d)",
               encodedSdp.length,
             );
-            void sendSdpOffer(encodedSdp);
-            resolve();
+            resolve(encodedSdp);
           }
         };
-        // Fallback timeout in case ICE gathering hangs
-        setTimeout(() => {
-          if (pc.localDescription?.sdp && !offerSent) {
+
+        pc.onicegatheringstatechange = () => {
+          if (pc.iceGatheringState === "complete" && pc.localDescription && !offerSent) {
             offerSent = true;
             const encodedSdp = btoa(
               JSON.stringify({
@@ -115,14 +118,51 @@ export function useAvatarStream(
                 sdp: pc.localDescription.sdp,
               }),
             );
-            console.warn(
-              "[AvatarStream] ICE gathering timeout, sending SDP offer anyway",
+            console.info(
+              "[AvatarStream] ICE gathering complete (statechange), sending SDP offer (len=%d)",
+              encodedSdp.length,
             );
-            void sendSdpOffer(encodedSdp);
+            resolve(encodedSdp);
           }
-          resolve();
-        }, 5000);
+        };
+
+        // Safety timeout — 8s. All candidates (host, srflx, relay) typically arrive
+        // within 2-3s. The null candidate event sometimes never fires in certain
+        // network environments, so this timeout is necessary to avoid hanging.
+        setTimeout(() => {
+          if (!offerSent) {
+            offerSent = true;
+            const sdp = pc.localDescription?.sdp;
+            if (sdp) {
+              const encodedSdp = btoa(
+                JSON.stringify({ type: "offer", sdp }),
+              );
+              console.warn(
+                "[AvatarStream] ICE gathering timeout (8s), sending SDP offer. gatheringState=%s",
+                pc.iceGatheringState,
+              );
+              resolve(encodedSdp);
+            }
+          }
+        }, 8000);
       });
+
+      // Create and set local offer — this triggers ICE gathering
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+
+      // Create a promise for the server SDP answer
+      const serverSdpPromise = new Promise<string>((resolve, reject) => {
+        sdpResolverRef.current = resolve;
+        setTimeout(() => {
+          sdpResolverRef.current = null;
+          reject(new Error("Avatar SDP answer timeout"));
+        }, 15000);
+      });
+
+      // Wait for ICE gathering (or timeout), then send SDP offer
+      const encodedSdp = await offerReadyPromise;
+      await sendSdpOffer(encodedSdp);
 
       // Wait for server SDP answer
       const serverSdp = await serverSdpPromise;
@@ -134,6 +174,9 @@ export function useAvatarStream(
       });
 
       pcRef.current = pc;
+      // Expose for debugging — check stats via: window.__avatarPC.getStats()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (window as any).__avatarPC = pc;
       setIsConnected(true);
       console.info("[AvatarStream] WebRTC connected");
     },

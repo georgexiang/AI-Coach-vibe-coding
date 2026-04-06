@@ -166,6 +166,14 @@ export interface VoiceLiveInstance {
   echo_cancellation: boolean;
   eou_detection: boolean;
   recognition_language: string;
+  // AI Foundry Playground fields (n17a)
+  response_temperature: number;
+  proactive_engagement: boolean;
+  auto_detect_language: boolean;
+  playback_speed: number;
+  custom_lexicon_enabled: boolean;
+  custom_lexicon_url: string;
+  avatar_enabled: boolean;
   agent_instructions_override: string;
   hcp_count: number;
   created_by: string;
@@ -199,6 +207,14 @@ export interface VoiceLiveInstanceCreate {
   echo_cancellation?: boolean;
   eou_detection?: boolean;
   recognition_language?: string;
+  // AI Foundry Playground fields
+  response_temperature?: number;
+  proactive_engagement?: boolean;
+  auto_detect_language?: boolean;
+  playback_speed?: number;
+  custom_lexicon_enabled?: boolean;
+  custom_lexicon_url?: string;
+  avatar_enabled?: boolean;
   agent_instructions_override?: string;
 }
 

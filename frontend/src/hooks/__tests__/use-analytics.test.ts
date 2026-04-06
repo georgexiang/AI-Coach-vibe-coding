@@ -90,6 +90,10 @@ const mockOrgAnalytics: OrgAnalytics = {
     { business_unit: "Oncology", dimension: "Knowledge", avg_score: 78 },
     { business_unit: "Hematology", dimension: "Knowledge", avg_score: 65 },
   ],
+  score_distribution: [{ range: "61-80", count: 10 }],
+  top_performers: [{ name: "Zhang Wei", score: 95, bu: "Oncology" }],
+  needs_attention: [{ name: "Li Hua", score: 42, sessions: 1, bu: "Hematology" }],
+  training_activity: [[1, 2, 0, 3, 1, 0, 0]],
 };
 
 const mockRecommendations: RecommendedScenarioItem[] = [

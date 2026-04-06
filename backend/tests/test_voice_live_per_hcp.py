@@ -56,13 +56,22 @@ def _make_mock_hcp_profile():
     profile = MagicMock()
     profile.agent_id = "asst_test123"
     profile.agent_sync_status = "synced"
+    # VoiceLiveInstance reference — None to use inline fields (fallback path)
+    profile.voice_live_instance_id = None
+    profile.voice_live_instance = None
+    # Voice Live flags
+    profile.voice_live_enabled = True
+    profile.voice_live_model = "gpt-4o-realtime-preview"
+    # Voice settings
     profile.voice_name = "zh-CN-YunxiNeural"
     profile.voice_type = "azure-standard"
     profile.voice_temperature = 0.7
     profile.voice_custom = False
+    # Avatar settings
     profile.avatar_character = "harry"
     profile.avatar_style = "business"
     profile.avatar_customized = False
+    # Conversation parameters
     profile.turn_detection_type = "azure_semantic_vad"
     profile.noise_suppression = True
     profile.echo_cancellation = False
@@ -89,11 +98,6 @@ class TestPerHcpTokenBroker:
         }
 
         with (
-            patch(
-                "app.services.voice_live_service._exchange_api_key_for_bearer_token",
-                new_callable=AsyncMock,
-                return_value="sts-bearer-token",
-            ),
             patch(
                 "app.services.voice_live_service.config_service.get_config",
                 new_callable=AsyncMock,
@@ -131,8 +135,9 @@ class TestPerHcpTokenBroker:
         assert result.turn_detection_type == "azure_semantic_vad"
         assert result.noise_suppression is True
         assert result.recognition_language == "zh-CN"
-        # Agent mode should return bearer auth
+        # Agent mode: token masked, auth_type = bearer
         assert result.auth_type == "bearer"
+        assert result.token == "***configured***"
 
     @pytest.mark.asyncio
     async def test_token_returns_defaults_when_no_hcp_profile_id(self):
@@ -240,11 +245,6 @@ class TestPerHcpTokenBroker:
 
         with (
             patch(
-                "app.services.voice_live_service._exchange_api_key_for_bearer_token",
-                new_callable=AsyncMock,
-                return_value="sts-bearer-token",
-            ),
-            patch(
                 "app.services.voice_live_service.config_service.get_config",
                 new_callable=AsyncMock,
                 side_effect=lambda db, name: (
@@ -280,9 +280,9 @@ class TestPerHcpTokenBroker:
         assert result.agent_id == "per-hcp-agent-id"
         # When HCP profile overrides agent, project_name comes from master default_project
         assert result.project_name == "master-default-project"
-        # Agent mode should return bearer auth
+        # Agent mode: token masked, auth_type = bearer
         assert result.auth_type == "bearer"
-        assert result.token == "sts-bearer-token"
+        assert result.token == "***configured***"
 
 
 class TestVoiceLiveTokenResponseSchema:
@@ -308,14 +308,12 @@ class TestVoiceLiveTokenResponseSchema:
             echo_cancellation=False,
             eou_detection=False,
             recognition_language="zh-CN",
-            agent_instructions_override="Custom instructions",
         )
         assert resp.avatar_style == "business"
         assert resp.voice_temperature == 0.7
         assert resp.turn_detection_type == "azure_semantic_vad"
         assert resp.noise_suppression is True
         assert resp.recognition_language == "zh-CN"
-        assert resp.agent_instructions_override == "Custom instructions"
 
     async def test_schema_defaults_for_per_hcp_fields(self):
         """VoiceLiveTokenResponse has correct defaults for per-HCP fields."""
@@ -337,7 +335,6 @@ class TestVoiceLiveTokenResponseSchema:
         assert resp.echo_cancellation is False
         assert resp.eou_detection is False
         assert resp.recognition_language == "auto"
-        assert resp.agent_instructions_override == ""
 
 
 class TestVoiceLiveAPIWithHcpProfileId:
@@ -359,9 +356,8 @@ class TestVoiceLiveAPIWithHcpProfileId:
         # 503 because no config exists, but the endpoint accepts the param
         assert response.status_code == 503
 
-    @patch("app.services.voice_live_service._exchange_api_key_for_bearer_token", new_callable=AsyncMock, return_value="sts-bearer-token")
     @patch("app.services.voice_live_service.config_service")
-    async def test_token_endpoint_with_hcp_and_config(self, mock_config_svc, _mock_sts, client):
+    async def test_token_endpoint_with_hcp_and_config(self, mock_config_svc, client):
         """POST /api/v1/voice-live/token?hcp_profile_id returns per-HCP settings."""
         mock_vl_config = _make_mock_vl_config()
         mock_profile = _make_mock_hcp_profile()
@@ -375,7 +371,9 @@ class TestVoiceLiveAPIWithHcpProfileId:
         mock_config_svc.get_effective_endpoint = AsyncMock(
             return_value="https://test.openai.azure.com"
         )
-        mock_config_svc.get_master_config = AsyncMock(return_value=MagicMock(region="eastus2", default_project="test-project"))
+        mock_config_svc.get_master_config = AsyncMock(
+            return_value=MagicMock(region="eastus2", default_project="test-project")
+        )
 
         _, token = await _create_user_and_token("vl_hcp_config")
         with patch(

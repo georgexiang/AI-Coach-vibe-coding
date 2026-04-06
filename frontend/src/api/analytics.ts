@@ -5,6 +5,7 @@ import type {
   DimensionTrendPoint,
   OrgAnalytics,
   RecommendedScenarioItem,
+  ScoreTrendPoint,
 } from "@/types/analytics";
 
 export async function getUserDashboardStats(): Promise<UserDashboardStats> {
@@ -33,6 +34,13 @@ export async function getRecommendedScenarios(
       params: limit ? { limit } : undefined,
     },
   );
+  return data;
+}
+
+export async function getScoreTrends(months?: number): Promise<ScoreTrendPoint[]> {
+  const { data } = await apiClient.get<ScoreTrendPoint[]>("/analytics/admin/score-trends", {
+    params: months ? { months } : undefined,
+  });
   return data;
 }
 

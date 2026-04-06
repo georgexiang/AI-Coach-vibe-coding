@@ -1,28 +1,40 @@
+import { lazy, Suspense } from "react";
 import { createBrowserRouter, Navigate } from "react-router-dom";
 import { ProtectedRoute, AdminRoute, GuestRoute } from "./auth-guard";
 import { UserLayout } from "@/components/layouts/user-layout";
 import { AdminLayout } from "@/components/layouts/admin-layout";
 import { AuthLayout } from "@/components/layouts/auth-layout";
-import LoginPage from "@/pages/login";
-import UserDashboard from "@/pages/user/dashboard";
-import ScenarioSelection from "@/pages/user/training";
-import AdminDashboard from "@/pages/admin/dashboard";
-import HcpProfilesPage from "@/pages/admin/hcp-profiles";
-import HcpProfileEditorPage from "@/pages/admin/hcp-profile-editor";
-import ScenariosPage from "@/pages/admin/scenarios";
-import AzureConfigPage from "@/pages/admin/azure-config";
-import ScoringFeedback from "@/pages/user/scoring-feedback";
-import SessionHistory from "@/pages/user/session-history";
-import TrainingSession from "@/pages/user/training-session";
-import ScoringRubricsPage from "@/pages/admin/scoring-rubrics";
-import TrainingMaterialsPage from "@/pages/admin/training-materials";
-import AdminReportsPage from "@/pages/admin/reports";
-import ConferenceSession from "@/pages/user/conference-session";
-import VoiceSession from "@/pages/user/voice-session";
-import UserReportsPage from "@/pages/user/reports";
-import UserManagementPage from "@/pages/admin/users";
-import AdminSettingsPage from "@/pages/admin/settings";
-import NotFound from "@/pages/not-found";
+import { LoadingFallback } from "@/components/shared/loading-fallback";
+
+// Lazy-loaded page components for code splitting
+const LoginPage = lazy(() => import("@/pages/login"));
+const UserDashboard = lazy(() => import("@/pages/user/dashboard"));
+const ScenarioSelection = lazy(() => import("@/pages/user/training"));
+const ScoringFeedback = lazy(() => import("@/pages/user/scoring-feedback"));
+const SessionHistory = lazy(() => import("@/pages/user/session-history"));
+const UserReportsPage = lazy(() => import("@/pages/user/reports"));
+const TrainingSession = lazy(() => import("@/pages/user/training-session"));
+const ConferenceSession = lazy(() => import("@/pages/user/conference-session"));
+const VoiceSession = lazy(() => import("@/pages/user/voice-session"));
+
+const AdminDashboard = lazy(() => import("@/pages/admin/dashboard"));
+const HcpProfilesPage = lazy(() => import("@/pages/admin/hcp-profiles"));
+const HcpProfileEditorPage = lazy(() => import("@/pages/admin/hcp-profile-editor"));
+const ScenariosPage = lazy(() => import("@/pages/admin/scenarios"));
+const AzureConfigPage = lazy(() => import("@/pages/admin/azure-config"));
+const VoiceLiveManagementPage = lazy(() => import("@/pages/admin/voice-live-management"));
+const VlInstanceEditorPage = lazy(() => import("@/pages/admin/vl-instance-editor"));
+const ScoringRubricsPage = lazy(() => import("@/pages/admin/scoring-rubrics"));
+const TrainingMaterialsPage = lazy(() => import("@/pages/admin/training-materials"));
+const AdminReportsPage = lazy(() => import("@/pages/admin/reports"));
+const UserManagementPage = lazy(() => import("@/pages/admin/users"));
+const AdminSettingsPage = lazy(() => import("@/pages/admin/settings"));
+
+const NotFound = lazy(() => import("@/pages/not-found"));
+
+function SuspensePage({ children }: { children: React.ReactNode }) {
+  return <Suspense fallback={<LoadingFallback />}>{children}</Suspense>;
+}
 
 export const router = createBrowserRouter([
   {
@@ -30,7 +42,7 @@ export const router = createBrowserRouter([
     children: [
       {
         element: <AuthLayout />,
-        children: [{ path: "/login", element: <LoginPage /> }],
+        children: [{ path: "/login", element: <SuspensePage><LoginPage /></SuspensePage> }],
       },
     ],
   },
@@ -41,24 +53,24 @@ export const router = createBrowserRouter([
         path: "/user",
         element: <UserLayout />,
         children: [
-          { path: "dashboard", element: <UserDashboard /> },
-          { path: "training", element: <ScenarioSelection /> },
-          { path: "scoring/:sessionId", element: <ScoringFeedback /> },
-          { path: "history", element: <SessionHistory /> },
-          { path: "reports", element: <UserReportsPage /> },
+          { path: "dashboard", element: <SuspensePage><UserDashboard /></SuspensePage> },
+          { path: "training", element: <SuspensePage><ScenarioSelection /></SuspensePage> },
+          { path: "scoring/:sessionId", element: <SuspensePage><ScoringFeedback /></SuspensePage> },
+          { path: "history", element: <SuspensePage><SessionHistory /></SuspensePage> },
+          { path: "reports", element: <SuspensePage><UserReportsPage /></SuspensePage> },
         ],
       },
       {
         path: "/user/training/session",
-        element: <TrainingSession />,
+        element: <SuspensePage><TrainingSession /></SuspensePage>,
       },
       {
         path: "/user/training/conference",
-        element: <ConferenceSession />,
+        element: <SuspensePage><ConferenceSession /></SuspensePage>,
       },
       {
         path: "/user/training/voice",
-        element: <VoiceSession />,
+        element: <SuspensePage><VoiceSession /></SuspensePage>,
       },
       {
         element: <AdminRoute />,
@@ -67,18 +79,21 @@ export const router = createBrowserRouter([
             path: "/admin",
             element: <AdminLayout />,
             children: [
-              { path: "dashboard", element: <AdminDashboard /> },
-              { path: "hcp-profiles", element: <HcpProfilesPage /> },
-              { path: "hcp-profiles/new", element: <HcpProfileEditorPage /> },
-              { path: "hcp-profiles/:id", element: <HcpProfileEditorPage /> },
-              { path: "hcp-profiles/:id/edit", element: <HcpProfileEditorPage /> },
-              { path: "scenarios", element: <ScenariosPage /> },
-              { path: "azure-config", element: <AzureConfigPage /> },
-              { path: "scoring-rubrics", element: <ScoringRubricsPage /> },
-              { path: "materials", element: <TrainingMaterialsPage /> },
-              { path: "reports", element: <AdminReportsPage /> },
-              { path: "users", element: <UserManagementPage /> },
-              { path: "settings", element: <AdminSettingsPage /> },
+              { path: "dashboard", element: <SuspensePage><AdminDashboard /></SuspensePage> },
+              { path: "hcp-profiles", element: <SuspensePage><HcpProfilesPage /></SuspensePage> },
+              { path: "hcp-profiles/new", element: <SuspensePage><HcpProfileEditorPage /></SuspensePage> },
+              { path: "hcp-profiles/:id", element: <SuspensePage><HcpProfileEditorPage /></SuspensePage> },
+              { path: "hcp-profiles/:id/edit", element: <SuspensePage><HcpProfileEditorPage /></SuspensePage> },
+              { path: "scenarios", element: <SuspensePage><ScenariosPage /></SuspensePage> },
+              { path: "azure-config", element: <SuspensePage><AzureConfigPage /></SuspensePage> },
+              { path: "voice-live", element: <SuspensePage><VoiceLiveManagementPage /></SuspensePage> },
+              { path: "voice-live/new", element: <SuspensePage><VlInstanceEditorPage /></SuspensePage> },
+              { path: "voice-live/:id/edit", element: <SuspensePage><VlInstanceEditorPage /></SuspensePage> },
+              { path: "scoring-rubrics", element: <SuspensePage><ScoringRubricsPage /></SuspensePage> },
+              { path: "materials", element: <SuspensePage><TrainingMaterialsPage /></SuspensePage> },
+              { path: "reports", element: <SuspensePage><AdminReportsPage /></SuspensePage> },
+              { path: "users", element: <SuspensePage><UserManagementPage /></SuspensePage> },
+              { path: "settings", element: <SuspensePage><AdminSettingsPage /></SuspensePage> },
             ],
           },
         ],
@@ -86,5 +101,5 @@ export const router = createBrowserRouter([
     ],
   },
   { path: "/", element: <Navigate to="/login" replace /> },
-  { path: "*", element: <NotFound /> },
+  { path: "*", element: <SuspensePage><NotFound /></SuspensePage> },
 ]);

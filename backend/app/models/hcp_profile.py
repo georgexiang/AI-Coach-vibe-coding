@@ -41,7 +41,15 @@ class HcpProfile(Base, TimestampMixin):
     )  # none|pending|synced|failed
     agent_sync_error: Mapped[str] = mapped_column(Text, default="")
 
-    # Voice Live generative AI model selection (Phase 13)
+    # Voice Live Instance FK — preferred config source (replaces inline voice fields)
+    voice_live_instance_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("voice_live_instances.id"), nullable=True, default=None, index=True
+    )
+
+    # --- Deprecated inline voice fields (kept for backward compat, prefer VoiceLiveInstance) ---
+
+    # Voice Live enable flag + model selection (Phase 13)
+    voice_live_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     voice_live_model: Mapped[str] = mapped_column(String(50), default="gpt-4o")
 
     # Voice settings (D-01, D-04)
@@ -65,10 +73,13 @@ class HcpProfile(Base, TimestampMixin):
     # Agent instruction override (D-02)
     agent_instructions_override: Mapped[str] = mapped_column(Text, default="")
 
-    created_by: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False)
+    created_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id"), nullable=False, index=True
+    )
 
     # Relationships
     scenarios = relationship("Scenario", back_populates="hcp_profile")
+    voice_live_instance = relationship("VoiceLiveInstance", back_populates="hcp_profiles")
 
     def to_prompt_dict(self) -> dict:
         """Return all personality/knowledge fields as a dict for system prompt construction."""

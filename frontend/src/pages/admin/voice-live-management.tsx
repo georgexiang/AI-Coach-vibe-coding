@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
 import {
   Plus,
   RefreshCw,
@@ -28,11 +29,12 @@ import {
 } from "@/components/ui";
 import { EmptyState } from "@/components/shared/empty-state";
 import { VoiceLiveInstanceCard } from "@/components/admin/voice-live-chain-card";
-import { VlInstanceDialog } from "@/components/admin/vl-instance-dialog";
+import type { AssignedHcp } from "@/components/admin/voice-live-chain-card";
 import {
   useVoiceLiveInstances,
   useDeleteVoiceLiveInstance,
   useAssignVoiceLiveInstance,
+  useUnassignVoiceLiveInstance,
 } from "@/hooks/use-voice-live-instances";
 import { useHcpProfiles } from "@/hooks/use-hcp-profiles";
 import type { LucideIcon } from "lucide-react";
@@ -67,15 +69,12 @@ function StatCard({ value, label, icon: Icon }: StatCardProps) {
 
 export default function VoiceLiveManagementPage() {
   const { t } = useTranslation("admin");
+  const navigate = useNavigate();
   const { data, isLoading, isError, refetch } = useVoiceLiveInstances();
   const deleteMutation = useDeleteVoiceLiveInstance();
   const assignMutation = useAssignVoiceLiveInstance();
+  const unassignMutation = useUnassignVoiceLiveInstance();
   const { data: hcpData } = useHcpProfiles();
-
-  // Create/Edit dialog state
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingInstance, setEditingInstance] =
-    useState<VoiceLiveInstance | null>(null);
 
   // Delete confirmation
   const [deleteTarget, setDeleteTarget] = useState<VoiceLiveInstance | null>(
@@ -91,22 +90,36 @@ export default function VoiceLiveManagementPage() {
   const items = data?.items ?? [];
   const hcpProfiles = hcpData?.items ?? [];
 
+  // Build a map: instanceId → list of assigned HCP {id, name}
+  const assignedHcpsMap = useMemo(() => {
+    const map = new Map<string, AssignedHcp[]>();
+    for (const p of hcpProfiles) {
+      if (p.voice_live_instance_id) {
+        const list = map.get(p.voice_live_instance_id) ?? [];
+        list.push({ id: p.id, name: p.name });
+        map.set(p.voice_live_instance_id, list);
+      }
+    }
+    return map;
+  }, [hcpProfiles]);
+
+  const handleUnassign = (hcpProfileId: string) => {
+    unassignMutation.mutate(hcpProfileId, {
+      onSuccess: () => {
+        toast.success(t("voiceLive.removeInstanceSuccess"));
+      },
+      onError: () => {
+        toast.error(t("voiceLive.assignError"));
+      },
+    });
+  };
+
   const stats = useMemo(() => {
     const totalInstances = items.length;
     const enabled = items.filter((i) => i.enabled).length;
     const assignedHcps = items.reduce((sum, i) => sum + i.hcp_count, 0);
     return { totalInstances, enabled, assignedHcps };
   }, [items]);
-
-  const openCreate = () => {
-    setEditingInstance(null);
-    setDialogOpen(true);
-  };
-
-  const openEdit = (instance: VoiceLiveInstance) => {
-    setEditingInstance(instance);
-    setDialogOpen(true);
-  };
 
   const handleDelete = () => {
     if (!deleteTarget) return;
@@ -165,7 +178,7 @@ export default function VoiceLiveManagementPage() {
             {t("voiceLive.pageDescription")}
           </p>
         </div>
-        <Button size="sm" onClick={openCreate}>
+        <Button size="sm" onClick={() => navigate("/admin/voice-live/new")}>
           <Plus className="mr-2 size-4" />
           {t("voiceLive.createInstance")}
         </Button>
@@ -224,20 +237,15 @@ export default function VoiceLiveManagementPage() {
             <VoiceLiveInstanceCard
               key={instance.id}
               instance={instance}
-              onEdit={openEdit}
+              assignedHcps={assignedHcpsMap.get(instance.id) ?? []}
+              onEdit={(inst) => navigate(`/admin/voice-live/${inst.id}/edit`)}
               onDelete={setDeleteTarget}
               onAssign={openAssign}
+              onUnassign={handleUnassign}
             />
           ))}
         </div>
       )}
-
-      {/* Create / Edit Dialog — uses rich VlInstanceDialog */}
-      <VlInstanceDialog
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-        instance={editingInstance}
-      />
 
       {/* Delete Confirmation Dialog */}
       <Dialog

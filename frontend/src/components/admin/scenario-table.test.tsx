@@ -60,6 +60,7 @@ const makeScenario = (overrides: Partial<Scenario> = {}): Scenario => ({
     agent_instructions_override: "",
     voice_live_enabled: true,
     voice_live_model: "gpt-4o",
+    voice_live_instance_id: null,
   },
   key_messages: [],
   weight_key_message: 20,

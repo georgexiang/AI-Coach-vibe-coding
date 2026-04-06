@@ -421,6 +421,7 @@ async def test_sync_agent_for_profile_creates_when_no_agent_id():
     mock_profile = MagicMock()
     mock_profile.agent_id = ""
     mock_profile.name = "Dr. New"
+    mock_profile.voice_live_enabled = False
     mock_profile.to_prompt_dict.return_value = {
         "name": "Dr. New",
         "specialty": "Oncology",
@@ -462,6 +463,7 @@ async def test_sync_agent_for_profile_updates_when_agent_id_exists():
     mock_profile = MagicMock()
     mock_profile.agent_id = "asst_existing"
     mock_profile.name = "Dr. Existing"
+    mock_profile.voice_live_enabled = False
     mock_profile.to_prompt_dict.return_value = {
         "name": "Dr. Existing",
         "specialty": "Cardiology",
@@ -500,13 +502,17 @@ async def test_sync_agent_for_profile_updates_when_agent_id_exists():
 # --- Test 15: sync_agent_for_profile with no master config ---
 @pytest.mark.asyncio
 async def test_sync_agent_for_profile_no_master_config():
-    """sync_agent_for_profile defaults to gpt-4o when no master config."""
+    """sync_agent_for_profile defaults to voice_live_default_model with no master config."""
+    from app.config import get_settings
     from app.services.agent_sync_service import sync_agent_for_profile
+
+    default_model = get_settings().voice_live_default_model
 
     mock_db = AsyncMock()
     mock_profile = MagicMock()
     mock_profile.agent_id = ""
     mock_profile.name = "Dr. Default"
+    mock_profile.voice_live_enabled = False
     mock_profile.to_prompt_dict.return_value = {"name": "Dr. Default", "specialty": "GP"}
 
     with (
@@ -518,15 +524,18 @@ async def test_sync_agent_for_profile_no_master_config():
         patch(
             "app.services.agent_sync_service.create_agent",
             new_callable=AsyncMock,
-            return_value={"id": "asst_default", "name": "Dr. Default", "model": "gpt-4o"},
+            return_value={"id": "asst_default", "name": "Dr. Default", "model": default_model},
         ) as mock_create,
     ):
         result = await sync_agent_for_profile(mock_db, mock_profile)
 
     assert result["id"] == "asst_default"
-    # Verify model defaults to gpt-4o
+    # Verify model defaults to settings value (not hardcoded)
     call_args = mock_create.call_args
-    assert call_args[1].get("model", call_args[0][3] if len(call_args[0]) > 3 else None) == "gpt-4o"
+    actual_model = call_args[1].get(
+        "model", call_args[0][3] if len(call_args[0]) > 3 else None
+    )
+    assert actual_model == default_model
 
 
 # --- Test 16: three HCP profiles sync to agents end-to-end ---
@@ -621,6 +630,7 @@ async def test_three_profiles_sync_to_agents():
         mock_profile = MagicMock()
         mock_profile.agent_id = profile_data["agent_id"]
         mock_profile.name = profile_data["name"]
+        mock_profile.voice_live_enabled = False  # skip VL metadata in sync test
         mock_profile.to_prompt_dict.return_value = profile_data["prompt_data"]
 
         with patch(
@@ -660,18 +670,21 @@ async def test_three_profiles_mixed_sync_scenarios():
     p1 = MagicMock()
     p1.agent_id = ""
     p1.name = "Dr. New"
+    p1.voice_live_enabled = False
     p1.to_prompt_dict.return_value = {"name": "Dr. New", "specialty": "GP"}
 
     # Profile 2: existing (has agent_id, should update)
     p2 = MagicMock()
     p2.agent_id = "existing-agent-002"
     p2.name = "Dr. Update"
+    p2.voice_live_enabled = False
     p2.to_prompt_dict.return_value = {"name": "Dr. Update", "specialty": "Dermatology"}
 
     # Profile 3: retry (had agent_id but sync_status was failed, treat as update)
     p3 = MagicMock()
     p3.agent_id = "failed-agent-003"
     p3.name = "Dr. Retry"
+    p3.voice_live_enabled = False
     p3.to_prompt_dict.return_value = {"name": "Dr. Retry", "specialty": "Pediatrics"}
 
     with (

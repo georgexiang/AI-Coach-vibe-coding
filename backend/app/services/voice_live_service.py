@@ -105,7 +105,10 @@ async def get_voice_live_token(
     config_is_agent = mode_info.get("mode") == "agent"
 
     # Default voice_live_model from config (overridden by per-HCP profile if available)
-    voice_live_model = mode_info.get("model", "gpt-4o")
+    from app.config import get_settings
+
+    _default_model = get_settings().voice_live_default_model
+    voice_live_model = mode_info.get("model", _default_model)
 
     # Config-level agent/project defaults
     agent_id = mode_info.get("agent_id") if config_is_agent else None
@@ -129,8 +132,10 @@ async def get_voice_live_token(
     recognition_language = "auto"
 
     # If hcp_profile_id provided, source ALL settings from HCP profile (D-08, D-12, D-14)
+    # Config resolution: VoiceLiveInstance > deprecated inline HcpProfile fields
     if hcp_profile_id:
         from app.services import hcp_profile_service
+        from app.services.voice_live_instance_service import resolve_voice_config
 
         try:
             profile = await hcp_profile_service.get_hcp_profile(db, hcp_profile_id)
@@ -142,26 +147,29 @@ async def get_voice_live_token(
                 agent_id = profile.agent_id
                 project_name_val = default_project
 
-            # Source voice/avatar settings from HCP profile
-            voice_name = profile.voice_name or "en-US-AvaNeural"
-            voice_type = profile.voice_type or "azure-standard"
+            # Resolve voice config from VoiceLiveInstance or fallback inline fields
+            vc = resolve_voice_config(profile)
+            voice_name = vc["voice_name"] or "en-US-AvaNeural"
+            voice_type = vc["voice_type"] or "azure-standard"
             voice_temperature = (
-                profile.voice_temperature if profile.voice_temperature is not None else 0.9
+                vc["voice_temperature"] if vc["voice_temperature"] is not None else 0.9
             )
-            voice_custom = profile.voice_custom
-            avatar_character_val = profile.avatar_character or "lori"
-            avatar_style_val = profile.avatar_style or "casual"
-            avatar_customized_val = profile.avatar_customized
-            turn_detection_type = profile.turn_detection_type or "server_vad"
-            noise_suppression = profile.noise_suppression
-            echo_cancellation = profile.echo_cancellation
-            eou_detection = profile.eou_detection
-            recognition_language = profile.recognition_language or "auto"
-
-            # Per-HCP Voice Live model selection (Phase 13)
-            voice_live_model = profile.voice_live_model or "gpt-4o"
+            voice_custom = vc["voice_custom"]
+            avatar_character_val = vc["avatar_character"] or "lori"
+            avatar_style_val = vc["avatar_style"] or "casual"
+            avatar_customized_val = vc["avatar_customized"]
+            turn_detection_type = vc["turn_detection_type"] or "server_vad"
+            noise_suppression = vc["noise_suppression"]
+            echo_cancellation = vc["echo_cancellation"]
+            eou_detection = vc["eou_detection"]
+            recognition_language = vc["recognition_language"] or "auto"
+            voice_live_model = vc["voice_live_model"] or _default_model
         except Exception:
-            pass  # Fall back to defaults
+            logger.warning(
+                "Failed to load HCP profile %s for Voice Live token, using defaults",
+                hcp_profile_id,
+                exc_info=True,
+            )
 
     # Determine final mode: agent if agent_id is set (from config or HCP profile)
     is_agent = bool(agent_id)

@@ -54,6 +54,42 @@ class SkillGapCell(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class ScoreDistributionBucket(BaseModel):
+    """One bucket in the score distribution histogram."""
+
+    range: str
+    count: int
+    model_config = ConfigDict(from_attributes=True)
+
+
+class TopPerformer(BaseModel):
+    """A top-performing user."""
+
+    name: str
+    score: float
+    bu: str
+    model_config = ConfigDict(from_attributes=True)
+
+
+class NeedsAttentionUser(BaseModel):
+    """A user who may need additional coaching."""
+
+    name: str
+    score: float
+    sessions: int
+    bu: str
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ScoreTrendPoint(BaseModel):
+    """Monthly score trend data point."""
+
+    month: str
+    overall: float
+    benchmark: float
+    model_config = ConfigDict(from_attributes=True)
+
+
 class OrgAnalytics(BaseModel):
     """Organization-level analytics for admin dashboard."""
 
@@ -64,6 +100,10 @@ class OrgAnalytics(BaseModel):
     avg_org_score: float
     bu_stats: list[BuStats]
     skill_gaps: list[SkillGapCell]
+    score_distribution: list[ScoreDistributionBucket]
+    top_performers: list[TopPerformer]
+    needs_attention: list[NeedsAttentionUser]
+    training_activity: list[list[int]]
     model_config = ConfigDict(from_attributes=True)
 
 

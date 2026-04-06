@@ -1,6 +1,7 @@
 """Post-session scoring service: multi-dimensional analysis and feedback."""
 
 import json
+import logging
 import random
 
 from sqlalchemy import select
@@ -12,7 +13,10 @@ from app.models.scenario import Scenario
 from app.models.score import ScoreDetail, SessionScore
 from app.models.session import CoachingSession
 from app.services.rubric_service import get_default_rubric
+from app.services.scoring_engine import score_with_llm
 from app.utils.exceptions import AppException, NotFoundException
+
+logger = logging.getLogger(__name__)
 
 
 async def score_session(db: AsyncSession, session_id: str) -> SessionScore:
@@ -67,23 +71,48 @@ async def score_session(db: AsyncSession, session_id: str) -> SessionScore:
     else:
         rubric_weights = None
 
-    # Generate scores (mock for now, real LLM scoring when adapter available)
-    mock_scores = _generate_mock_scores(
-        scenario, messages, key_messages_status, rubric_weights=rubric_weights
+    # Build data for scoring engine
+    weights = rubric_weights if rubric_weights else scenario.get_scoring_weights()
+    hcp_profile_data = {}
+    if scenario.hcp_profile:
+        hcp_profile_data = {
+            "name": scenario.hcp_profile.name,
+            "specialty": scenario.hcp_profile.specialty,
+            "personality_type": scenario.hcp_profile.personality_type,
+            "communication_style": scenario.hcp_profile.communication_style,
+        }
+    scenario_data = {
+        "product": scenario.product,
+        "therapeutic_area": scenario.therapeutic_area,
+        "difficulty": scenario.difficulty,
+        "key_messages": scenario.key_messages,
+        "hcp_profile": hcp_profile_data,
+    }
+    message_dicts = [{"role": m.role, "content": m.content} for m in messages]
+
+    # Try LLM scoring first, fall back to mock if unavailable
+    scores = await score_with_llm(
+        db, scenario_data, message_dicts, key_messages_status,
+        weights, scenario.pass_threshold,
     )
+    if scores is None:
+        logger.info("LLM scoring unavailable for session %s, using mock fallback", session_id)
+        scores = _generate_mock_scores(
+            scenario, messages, key_messages_status, rubric_weights=rubric_weights
+        )
 
     # Create SessionScore
     session_score = SessionScore(
         session_id=session_id,
-        overall_score=mock_scores["overall_score"],
-        passed=mock_scores["passed"],
-        feedback_summary=mock_scores["feedback_summary"],
+        overall_score=scores["overall_score"],
+        passed=scores["passed"],
+        feedback_summary=scores["feedback_summary"],
     )
     db.add(session_score)
     await db.flush()
 
     # Create ScoreDetail records
-    for dim_data in mock_scores["dimensions"]:
+    for dim_data in scores["dimensions"]:
         detail = ScoreDetail(
             score_id=session_score.id,
             dimension=dim_data["dimension"],
@@ -97,8 +126,8 @@ async def score_session(db: AsyncSession, session_id: str) -> SessionScore:
 
     # Update session status
     session.status = "scored"
-    session.overall_score = mock_scores["overall_score"]
-    session.passed = mock_scores["passed"]
+    session.overall_score = scores["overall_score"]
+    session.passed = scores["passed"]
 
     await db.flush()
 
@@ -130,10 +159,13 @@ async def get_score_history(db: AsyncSession, user_id: str, limit: int = 10) -> 
     For each session, computes improvement_pct per dimension by comparing
     with the previous (older) session's scores.
     """
-    # Load scored sessions ordered by completed_at desc
+    # Load scored sessions with score + details in a single query (fix N+1)
     result = await db.execute(
         select(CoachingSession)
-        .options(selectinload(CoachingSession.scenario))
+        .options(
+            selectinload(CoachingSession.scenario),
+            selectinload(CoachingSession.score).selectinload(SessionScore.details),
+        )
         .where(
             CoachingSession.user_id == user_id,
             CoachingSession.status == "scored",
@@ -149,13 +181,7 @@ async def get_score_history(db: AsyncSession, user_id: str, limit: int = 10) -> 
     # Build history entries with dimension details
     history: list[dict] = []
     for session in sessions:
-        # Load score with details
-        score_result = await db.execute(
-            select(SessionScore)
-            .options(selectinload(SessionScore.details))
-            .where(SessionScore.session_id == session.id)
-        )
-        score = score_result.scalar_one_or_none()
+        score = session.score
         if score is None:
             continue
 

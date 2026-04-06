@@ -1,9 +1,7 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  Plus,
   Search,
-  Upload,
   MoreHorizontal,
   Pencil,
   Trash2,
@@ -33,170 +31,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui";
 import { Skeleton } from "@/components/ui/skeleton";
-
-// ---------------------------------------------------------------------------
-// Mock data
-// ---------------------------------------------------------------------------
-
-interface User {
-  id: string;
-  name: string;
-  nameZh: string;
-  email: string;
-  role: "MR" | "DM" | "Admin";
-  bu: string;
-  region: string;
-  status: "active" | "inactive";
-  avatar: string | null;
-  joinDate: string;
-}
-
-const MOCK_USERS: User[] = [
-  {
-    id: "u-001",
-    name: "Alice Wang",
-    nameZh: "王爱丽",
-    email: "alice.wang@beigene.com",
-    role: "MR",
-    bu: "Oncology",
-    region: "East China",
-    status: "active",
-    avatar: null,
-    joinDate: "2024-01-15",
-  },
-  {
-    id: "u-002",
-    name: "Bob Zhang",
-    nameZh: "张博",
-    email: "bob.zhang@beigene.com",
-    role: "DM",
-    bu: "Hematology",
-    region: "North China",
-    status: "active",
-    avatar: null,
-    joinDate: "2024-02-20",
-  },
-  {
-    id: "u-003",
-    name: "Carol Li",
-    nameZh: "李卡罗",
-    email: "carol.li@beigene.com",
-    role: "Admin",
-    bu: "Oncology",
-    region: "Headquarters",
-    status: "active",
-    avatar: null,
-    joinDate: "2023-11-05",
-  },
-  {
-    id: "u-004",
-    name: "David Chen",
-    nameZh: "陈大卫",
-    email: "david.chen@beigene.com",
-    role: "MR",
-    bu: "Immunology",
-    region: "South China",
-    status: "inactive",
-    avatar: null,
-    joinDate: "2024-03-10",
-  },
-  {
-    id: "u-005",
-    name: "Eva Liu",
-    nameZh: "刘伊娃",
-    email: "eva.liu@beigene.com",
-    role: "MR",
-    bu: "Oncology",
-    region: "East China",
-    status: "active",
-    avatar: null,
-    joinDate: "2024-04-01",
-  },
-  {
-    id: "u-006",
-    name: "Frank Zhao",
-    nameZh: "赵弗兰克",
-    email: "frank.zhao@beigene.com",
-    role: "DM",
-    bu: "Oncology",
-    region: "West China",
-    status: "active",
-    avatar: null,
-    joinDate: "2024-01-28",
-  },
-  {
-    id: "u-007",
-    name: "Grace Sun",
-    nameZh: "孙格蕾丝",
-    email: "grace.sun@beigene.com",
-    role: "MR",
-    bu: "Hematology",
-    region: "Central China",
-    status: "active",
-    avatar: null,
-    joinDate: "2024-05-12",
-  },
-  {
-    id: "u-008",
-    name: "Henry Wu",
-    nameZh: "吴亨利",
-    email: "henry.wu@beigene.com",
-    role: "MR",
-    bu: "Immunology",
-    region: "North China",
-    status: "inactive",
-    avatar: null,
-    joinDate: "2024-02-14",
-  },
-  {
-    id: "u-009",
-    name: "Ivy Huang",
-    nameZh: "黄艾薇",
-    email: "ivy.huang@beigene.com",
-    role: "Admin",
-    bu: "Hematology",
-    region: "Headquarters",
-    status: "active",
-    avatar: null,
-    joinDate: "2023-09-20",
-  },
-  {
-    id: "u-010",
-    name: "Jack Yang",
-    nameZh: "杨杰克",
-    email: "jack.yang@beigene.com",
-    role: "MR",
-    bu: "Oncology",
-    region: "South China",
-    status: "active",
-    avatar: null,
-    joinDate: "2024-06-01",
-  },
-  {
-    id: "u-011",
-    name: "Karen Xu",
-    nameZh: "许凯伦",
-    email: "karen.xu@beigene.com",
-    role: "DM",
-    bu: "Immunology",
-    region: "East China",
-    status: "active",
-    avatar: null,
-    joinDate: "2024-03-25",
-  },
-  {
-    id: "u-012",
-    name: "Leo Ma",
-    nameZh: "马利奥",
-    email: "leo.ma@beigene.com",
-    role: "MR",
-    bu: "Hematology",
-    region: "West China",
-    status: "inactive",
-    avatar: null,
-    joinDate: "2024-07-08",
-  },
-];
+import { useUsers, useDeleteUser, useUpdateUser } from "@/hooks/use-users";
+import type { AdminUser } from "@/api/users";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -205,17 +41,17 @@ const MOCK_USERS: User[] = [
 const ALL_VALUE = "__all__";
 const PAGE_SIZE = 10;
 
-const ROLE_BADGE_VARIANT: Record<User["role"], "default" | "secondary" | "outline"> = {
-  Admin: "default",
-  DM: "secondary",
-  MR: "outline",
+const ROLE_BADGE_VARIANT: Record<string, "default" | "secondary" | "outline"> = {
+  admin: "default",
+  user: "outline",
 };
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function formatDate(dateStr: string): string {
+function formatDate(dateStr: string | null): string {
+  if (!dateStr) return "-";
   return new Date(dateStr).toLocaleDateString(undefined, {
     year: "numeric",
     month: "short",
@@ -224,6 +60,7 @@ function formatDate(dateStr: string): string {
 }
 
 function getInitials(name: string): string {
+  if (!name) return "?";
   return name
     .split(" ")
     .map((n) => n[0])
@@ -243,10 +80,6 @@ function UserTableSkeleton() {
         <div>
           <Skeleton className="h-7 w-48" />
           <Skeleton className="mt-2 h-4 w-64" />
-        </div>
-        <div className="flex gap-3">
-          <Skeleton className="h-9 w-28" />
-          <Skeleton className="h-9 w-24" />
         </div>
       </div>
       <Skeleton className="h-12 w-full rounded-lg" />
@@ -274,45 +107,31 @@ export default function UserManagementPage() {
   // Filter state
   const [searchQuery, setSearchQuery] = useState("");
   const [filterRole, setFilterRole] = useState(ALL_VALUE);
-  const [filterBU, setFilterBU] = useState(ALL_VALUE);
   const [filterStatus, setFilterStatus] = useState(ALL_VALUE);
 
   // Pagination
   const [page, setPage] = useState(1);
 
   // Delete dialog
-  const [deleteConfirmUser, setDeleteConfirmUser] = useState<User | null>(null);
+  const [deleteConfirmUser, setDeleteConfirmUser] = useState<AdminUser | null>(null);
 
-  // Filtered users
-  const filteredUsers = useMemo(() => {
-    return MOCK_USERS.filter((user) => {
-      // Search across name, nameZh, email
-      if (searchQuery) {
-        const q = searchQuery.toLowerCase();
-        const matchesSearch =
-          user.name.toLowerCase().includes(q) ||
-          user.nameZh.includes(q) ||
-          user.email.toLowerCase().includes(q);
-        if (!matchesSearch) return false;
-      }
+  // API hooks
+  const { data, isLoading } = useUsers({
+    page,
+    page_size: PAGE_SIZE,
+    search: searchQuery || undefined,
+    role: filterRole !== ALL_VALUE ? filterRole : undefined,
+    is_active: filterStatus === ALL_VALUE ? undefined : filterStatus === "active",
+  });
 
-      if (filterRole !== ALL_VALUE && user.role !== filterRole) return false;
-      if (filterBU !== ALL_VALUE && user.bu !== filterBU) return false;
-      if (filterStatus !== ALL_VALUE && user.status !== filterStatus)
-        return false;
+  const deleteMutation = useDeleteUser();
+  const updateMutation = useUpdateUser();
 
-      return true;
-    });
-  }, [searchQuery, filterRole, filterBU, filterStatus]);
+  const users = data?.items ?? [];
+  const total = data?.total ?? 0;
+  const totalPages = data?.total_pages ?? 1;
 
-  // Paginated users
-  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE));
-  const paginatedUsers = useMemo(() => {
-    const start = (page - 1) * PAGE_SIZE;
-    return filteredUsers.slice(start, start + PAGE_SIZE);
-  }, [filteredUsers, page]);
-
-  // Reset page when filters change
+  // Handlers
   const handleSearchChange = (value: string) => {
     setSearchQuery(value);
     setPage(1);
@@ -323,23 +142,23 @@ export default function UserManagementPage() {
     setPage(1);
   };
 
-  const handleBUChange = (value: string) => {
-    setFilterBU(value);
-    setPage(1);
-  };
-
   const handleStatusChange = (value: string) => {
     setFilterStatus(value);
     setPage(1);
   };
 
   const confirmDelete = () => {
-    // In a real app this would call a delete mutation
+    if (deleteConfirmUser) {
+      deleteMutation.mutate(deleteConfirmUser.id);
+    }
     setDeleteConfirmUser(null);
   };
 
-  // Suppress unused variable warning
-  void UserTableSkeleton;
+  const toggleActive = (user: AdminUser) => {
+    updateMutation.mutate({ id: user.id, data: { is_active: !user.is_active } });
+  };
+
+  if (isLoading) return <UserTableSkeleton />;
 
   return (
     <div className="space-y-6">
@@ -354,16 +173,6 @@ export default function UserManagementPage() {
               defaultValue: "Manage platform users, roles and permissions",
             })}
           </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <Button variant="outline" size="sm">
-            <Upload className="size-4" />
-            {t("users.importCsv", { defaultValue: "Import CSV" })}
-          </Button>
-          <Button size="sm">
-            <Plus className="size-4" />
-            {t("users.addUser", { defaultValue: "Add User" })}
-          </Button>
         </div>
       </div>
 
@@ -395,27 +204,8 @@ export default function UserManagementPage() {
                 <SelectItem value={ALL_VALUE}>
                   {t("users.allRoles", { defaultValue: "All Roles" })}
                 </SelectItem>
-                <SelectItem value="MR">MR</SelectItem>
-                <SelectItem value="DM">DM</SelectItem>
-                <SelectItem value="Admin">Admin</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select value={filterBU} onValueChange={handleBUChange}>
-              <SelectTrigger className="w-[160px]">
-                <SelectValue
-                  placeholder={t("users.filterBU", {
-                    defaultValue: "Business Unit",
-                  })}
-                />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL_VALUE}>
-                  {t("users.allBUs", { defaultValue: "All BUs" })}
-                </SelectItem>
-                <SelectItem value="Oncology">Oncology</SelectItem>
-                <SelectItem value="Hematology">Hematology</SelectItem>
-                <SelectItem value="Immunology">Immunology</SelectItem>
+                <SelectItem value="admin">Admin</SelectItem>
+                <SelectItem value="user">User</SelectItem>
               </SelectContent>
             </Select>
 
@@ -461,9 +251,6 @@ export default function UserManagementPage() {
                 <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">
                   {t("users.columnBU", { defaultValue: "BU" })}
                 </th>
-                <th className="hidden px-4 py-3 text-left text-sm font-medium text-muted-foreground md:table-cell">
-                  {t("users.columnRegion", { defaultValue: "Region" })}
-                </th>
                 <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">
                   {t("users.columnStatus", { defaultValue: "Status" })}
                 </th>
@@ -476,17 +263,17 @@ export default function UserManagementPage() {
               </tr>
             </thead>
             <tbody>
-              {paginatedUsers.length === 0 ? (
+              {users.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={8}
+                    colSpan={7}
                     className="px-4 py-12 text-center text-sm text-muted-foreground"
                   >
                     {t("users.noUsers", { defaultValue: "No users found" })}
                   </td>
                 </tr>
               ) : (
-                paginatedUsers.map((user) => (
+                users.map((user) => (
                   <tr
                     key={user.id}
                     className="border-b last:border-b-0 transition-colors duration-150 hover:bg-muted/50"
@@ -496,15 +283,15 @@ export default function UserManagementPage() {
                       <div className="flex items-center gap-3">
                         <Avatar className="size-8">
                           <AvatarFallback className="text-xs bg-primary/10 text-primary">
-                            {getInitials(user.name)}
+                            {getInitials(user.full_name || user.username)}
                           </AvatarFallback>
                         </Avatar>
                         <div className="min-w-0">
                           <p className="text-sm font-medium text-foreground truncate">
-                            {user.name}
+                            {user.full_name || user.username}
                           </p>
                           <p className="text-xs text-muted-foreground truncate">
-                            {user.nameZh}
+                            @{user.username}
                           </p>
                         </div>
                       </div>
@@ -517,19 +304,14 @@ export default function UserManagementPage() {
 
                     {/* Role */}
                     <td className="px-4 py-3">
-                      <Badge variant={ROLE_BADGE_VARIANT[user.role]}>
+                      <Badge variant={ROLE_BADGE_VARIANT[user.role] ?? "outline"}>
                         {user.role}
                       </Badge>
                     </td>
 
                     {/* BU */}
                     <td className="px-4 py-3 text-sm text-muted-foreground">
-                      {user.bu}
-                    </td>
-
-                    {/* Region */}
-                    <td className="hidden px-4 py-3 text-sm text-muted-foreground md:table-cell">
-                      {user.region}
+                      {user.business_unit || "-"}
                     </td>
 
                     {/* Status */}
@@ -537,13 +319,13 @@ export default function UserManagementPage() {
                       <div className="flex items-center gap-2">
                         <span
                           className={`inline-block size-2.5 rounded-full ${
-                            user.status === "active"
+                            user.is_active
                               ? "bg-strength"
                               : "bg-muted-foreground"
                           }`}
                         />
                         <span className="text-sm text-foreground capitalize">
-                          {user.status === "active"
+                          {user.is_active
                             ? t("users.active", { defaultValue: "Active" })
                             : t("users.inactive", {
                                 defaultValue: "Inactive",
@@ -554,7 +336,7 @@ export default function UserManagementPage() {
 
                     {/* Join Date */}
                     <td className="hidden px-4 py-3 text-sm text-muted-foreground lg:table-cell">
-                      {formatDate(user.joinDate)}
+                      {formatDate(user.created_at)}
                     </td>
 
                     {/* Actions */}
@@ -566,9 +348,11 @@ export default function UserManagementPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => toggleActive(user)}>
                             <Pencil className="size-4" />
-                            {t("users.edit", { defaultValue: "Edit" })}
+                            {user.is_active
+                              ? t("users.deactivate", { defaultValue: "Deactivate" })
+                              : t("users.activate", { defaultValue: "Activate" })}
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             className="text-destructive focus:text-destructive"
@@ -594,8 +378,8 @@ export default function UserManagementPage() {
               {t("users.showing", {
                 defaultValue: "Showing {{from}}-{{to}} of {{total}} users",
                 from: (page - 1) * PAGE_SIZE + 1,
-                to: Math.min(page * PAGE_SIZE, filteredUsers.length),
-                total: filteredUsers.length,
+                to: Math.min(page * PAGE_SIZE, total),
+                total,
               })}
             </span>
             <div className="flex items-center gap-2">
@@ -636,8 +420,8 @@ export default function UserManagementPage() {
             <DialogDescription>
               {t("users.deleteConfirm", {
                 defaultValue:
-                  'Are you sure you want to delete "{{name}}"? This action cannot be undone.',
-                name: deleteConfirmUser?.name ?? "",
+                  'Are you sure you want to deactivate "{{name}}"? They will no longer be able to access the platform.',
+                name: deleteConfirmUser?.full_name ?? deleteConfirmUser?.username ?? "",
               })}
             </DialogDescription>
           </DialogHeader>
@@ -649,7 +433,7 @@ export default function UserManagementPage() {
               {t("users.cancel", { defaultValue: "Cancel" })}
             </Button>
             <Button variant="destructive" onClick={confirmDelete}>
-              {t("users.confirmDelete", { defaultValue: "Delete" })}
+              {t("users.confirmDelete", { defaultValue: "Deactivate" })}
             </Button>
           </DialogFooter>
         </DialogContent>

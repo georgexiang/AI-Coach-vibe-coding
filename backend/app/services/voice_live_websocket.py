@@ -26,7 +26,6 @@ from fastapi import WebSocket, WebSocketDisconnect
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.services import config_service
-from app.utils.azure_endpoints import to_cognitive_services_endpoint
 
 logger = logging.getLogger(__name__)
 
@@ -37,10 +36,6 @@ AZURE_VOICE_API_VERSION = "2025-05-01-preview"
 SESSION_UPDATE_TYPE = "session.update"
 PROXY_CONNECTED_TYPE = "proxy.connected"
 ERROR_TYPE = "error"
-
-
-# Keep module-level alias for backward compatibility (used by tests)
-_to_cognitive_services_endpoint = to_cognitive_services_endpoint
 
 
 async def _load_connection_config(
@@ -67,17 +62,30 @@ async def _load_connection_config(
     if not raw_endpoint:
         raise ValueError("Voice Live endpoint not configured")
 
-    effective_endpoint = to_cognitive_services_endpoint(raw_endpoint)
+    # Use the endpoint as-is — azure-ai-voicelive SDK works directly with
+    # services.ai.azure.com endpoints. No domain conversion needed.
+    effective_endpoint = raw_endpoint.rstrip("/")
 
-    # Defaults
+    # Defaults — always MODEL MODE.
+    # Agent mode requires Azure AD/Entra ID auth which is not available in
+    # API-key-based deployments. Model mode is equivalent: the HCP personality
+    # is conveyed through the instructions field.
+    # The config-level model_or_deployment is an admin-configured Azure deployment
+    # name (e.g. "gpt-4o-realtime-preview") — pass it through without validation.
+    # VOICE_LIVE_MODELS is only for the HCP-level UI dropdown selection.
+    from app.config import get_settings
+
+    _default_model = get_settings().voice_live_default_model
+    vl_model = vl_config.model_or_deployment or _default_model
+
     result: dict[str, Any] = {
         "endpoint": effective_endpoint,
         "api_key": api_key,
-        "model": vl_config.model_or_deployment or "gpt-4o",
+        "model": vl_model,
         "voice_name": "zh-CN-XiaoxiaoMultilingualNeural",
         "voice_type": "azure-standard",
-        "avatar_character": "Lisa-casual-sitting",
-        "avatar_style": "casual",
+        "avatar_character": "lisa",
+        "avatar_style": "casual-sitting",
         "avatar_customized": False,
         "avatar_enabled": False,
         "system_prompt": system_prompt or "",
@@ -92,25 +100,53 @@ async def _load_connection_config(
         if avatar_config.model_or_deployment:
             result["avatar_character"] = avatar_config.model_or_deployment
 
-    # Per-HCP profile overrides
+    # Per-HCP profile overrides — config resolution: VoiceLiveInstance > inline fields
     if hcp_profile_id:
         from app.services import hcp_profile_service
+        from app.services.voice_live_instance_service import resolve_voice_config
 
         try:
             profile = await hcp_profile_service.get_hcp_profile(db, hcp_profile_id)
+            vc = resolve_voice_config(profile)
 
-            # Voice/avatar settings from HCP profile
-            result["voice_name"] = profile.voice_name or "en-US-AvaNeural"
-            result["voice_type"] = profile.voice_type or "azure-standard"
-            result["avatar_character"] = profile.avatar_character or "lisa"
-            result["avatar_style"] = profile.avatar_style or "casual"
-            result["avatar_customized"] = profile.avatar_customized
+            # Voice/avatar settings from resolved config
+            result["voice_name"] = vc["voice_name"] or "en-US-AvaNeural"
+            result["voice_type"] = vc["voice_type"] or "azure-standard"
 
-            # Per-HCP model (Phase 13)
-            result["model"] = getattr(profile, "voice_live_model", None) or "gpt-4o"
+            char_id = vc["avatar_character"] or "lisa"
+            raw_style = vc["avatar_style"] or "casual-sitting"
+            result["avatar_character"] = char_id
+            result["avatar_customized"] = vc["avatar_customized"]
+
+            # Validate avatar style against known characters; fallback to default
+            from app.services.avatar_characters import validate_avatar_style
+
+            validated = validate_avatar_style(char_id, raw_style)
+            if validated is not None and validated != raw_style:
+                logger.warning(
+                    "Avatar style %r invalid for %s, using %r",
+                    raw_style,
+                    char_id,
+                    validated,
+                )
+            result["avatar_style"] = validated if validated is not None else raw_style
+
+            # Per-HCP model — validate it's Voice Live compatible (UI selection list)
+            from app.services.voice_live_models import VOICE_LIVE_MODELS
+
+            hcp_model = vc["voice_live_model"] or _default_model
+            if hcp_model.lower() not in VOICE_LIVE_MODELS:
+                logger.warning(
+                    "HCP %s voice_live_model %r not supported, using %s",
+                    hcp_profile_id,
+                    hcp_model,
+                    _default_model,
+                )
+                hcp_model = _default_model
+            result["model"] = hcp_model
 
             # Instructions: use override if set, otherwise auto-generate from profile
-            override = profile.agent_instructions_override or ""
+            override = vc["agent_instructions_override"] or ""
             if override.strip():
                 result["instructions"] = override.strip()
             else:
@@ -118,7 +154,11 @@ async def _load_connection_config(
 
                 result["instructions"] = build_agent_instructions(profile.to_prompt_dict())
         except Exception:
-            logger.warning("Failed to load HCP profile %s, using defaults", hcp_profile_id)
+            logger.warning(
+                "Failed to load HCP profile %s, using defaults",
+                hcp_profile_id,
+                exc_info=True,
+            )
 
     return result
 
@@ -155,8 +195,11 @@ async def handle_voice_live_websocket(ws: WebSocket, db: AsyncSession) -> None:
                     await _send_error(ws, "Voice Live is not enabled for this HCP profile")
                     return
             except Exception:
-                # Profile not found — _load_connection_config will handle gracefully
-                pass
+                logger.warning(
+                    "Failed to check voice_live_enabled for %s, proceeding",
+                    hcp_profile_id,
+                    exc_info=True,
+                )
 
         # Step 2b: Load config from DB
         try:
@@ -173,7 +216,6 @@ async def handle_voice_live_websocket(ws: WebSocket, db: AsyncSession) -> None:
             )
             from azure.ai.voicelive.models import (
                 AudioEchoCancellation,
-                AudioInputTranscriptionOptions,
                 AudioNoiseReduction,
                 AvatarConfig,
                 AzureSemanticVad,
@@ -181,6 +223,7 @@ async def handle_voice_live_websocket(ws: WebSocket, db: AsyncSession) -> None:
                 Modality,
                 RequestSession,
                 ServerEventType,
+                VideoParams,
             )
             from azure.core.credentials import AzureKeyCredential
         except ImportError:
@@ -194,38 +237,97 @@ async def handle_voice_live_websocket(ws: WebSocket, db: AsyncSession) -> None:
         avatar_config_value = None
         if cfg["avatar_enabled"]:
             modalities.append(Modality.AVATAR)
-            avatar_config_value = AvatarConfig(
-                character=cfg["avatar_character"],
-                style=cfg["avatar_style"] if cfg["avatar_style"] else None,
-                customized=cfg["avatar_customized"],
+
+            # Distinguish photo avatars (VASA-1) vs video avatars
+            from app.services.avatar_characters import (
+                is_photo_avatar as _is_photo,
+            )
+            from app.services.avatar_characters import (
+                validate_avatar_style,
             )
 
+            char_id = cfg["avatar_character"]
+            style = cfg["avatar_style"]
+
+            if _is_photo(char_id):
+                # Photo avatar: use dict format with VASA-1 model, no style
+                avatar_config_value = {
+                    "type": "photo-avatar",
+                    "model": "vasa-1",
+                    "character": char_id,
+                    "customized": False,
+                }
+                logger.info("Using photo avatar (VASA-1): character=%s", char_id)
+            else:
+                # Video avatar: validate style, fallback to default if invalid
+                validated_style = validate_avatar_style(char_id, style)
+                if validated_style is not None and validated_style != style:
+                    logger.warning(
+                        "Avatar style %r not valid for %s, falling back to %r",
+                        style,
+                        char_id,
+                        validated_style,
+                    )
+                    style = validated_style
+
+                avatar_config_value = AvatarConfig(
+                    character=char_id,
+                    style=style if style else None,
+                    customized=cfg["avatar_customized"],
+                    video=VideoParams(codec="h264"),
+                )
+                # Enable audio output through WebRTC audio track.
+                # Without this, Azure renders lip-sync but does NOT send
+                # TTS audio on the WebRTC audio track (output_audit_audio=false).
+                avatar_config_value["output_audit_audio"] = True
+                logger.info(
+                    "Using video avatar: character=%s, style=%s, output_audit_audio=True",
+                    char_id,
+                    style,
+                )
+
+        # Note: input_audio_transcription is intentionally NOT set here.
+        # The reference implementation does not set it, and setting it may
+        # interfere with avatar audio routing in Azure Voice Live.
         session_config = RequestSession(
             modalities=modalities,
             turn_detection=AzureSemanticVad(type="azure_semantic_vad"),
             input_audio_noise_reduction=AudioNoiseReduction(type="azure_deep_noise_suppression"),
             input_audio_echo_cancellation=AudioEchoCancellation(type="server_echo_cancellation"),
-            input_audio_transcription=AudioInputTranscriptionOptions(
-                model="azure-fast-transcription",
-            ),
             voice=AzureStandardVoice(name=cfg["voice_name"], type=cfg["voice_type"]),
-            avatar=avatar_config_value,
+            avatar=avatar_config_value,  # type: ignore[arg-type] — dict for photo avatars
         )
 
-        # Voice Live uses model mode with the HCP profile's instructions.
-        # Agent mode (agent-id query param) requires Azure AD/Entra ID auth
-        # and is not available with API key — model mode gives equivalent results.
-        model = cfg["model"] or "gpt-4o"
+        from app.config import get_settings as _get_settings
+
+        model = cfg["model"] or _get_settings().voice_live_default_model
         instructions = cfg.get("instructions") or cfg.get("system_prompt")
         if instructions:
             session_config["instructions"] = instructions
 
+        # Always use MODEL MODE — agent mode requires Azure AD/Entra ID auth
+        # which is not available in API-key-based deployments.
+        # HCP personality is conveyed via the instructions field.
+        # Log the full session config for debugging
+        session_dict = (
+            session_config.as_dict()
+            if hasattr(session_config, "as_dict")
+            else dict(session_config)
+        )
         logger.info(
-            "Voice Live connecting: endpoint=%s, model=%s, avatar=%s, has_instructions=%s",
+            "Voice Live connecting (model mode): endpoint=%s, "
+            "model=%s, avatar=%s, has_instructions=%s, "
+            "session_modalities=%s, session_voice=%s, "
+            "session_avatar_type=%s",
             cfg["endpoint"],
             model,
             cfg["avatar_enabled"],
             bool(instructions),
+            session_dict.get("modalities"),
+            session_dict.get("voice"),
+            type(session_config.get("avatar")).__name__
+            if session_config.get("avatar") is not None
+            else "None",
         )
 
         async with connect(
@@ -235,7 +337,7 @@ async def handle_voice_live_websocket(ws: WebSocket, db: AsyncSession) -> None:
             api_version=AZURE_VOICE_API_VERSION,
         ) as azure_conn:
             await azure_conn.session.update(session=session_config)
-            logger.info("Connected to Azure Voice Live")
+            logger.info("Connected to Azure Voice Live, session config sent")
 
             await ws.send_text(
                 json.dumps(
@@ -315,7 +417,7 @@ async def _forward_client_to_azure(
     except (WebSocketDisconnect, ConnectionClosed):
         logger.debug("Client→Azure forwarding stopped")
     except Exception as e:
-        logger.debug("Client→Azure forwarding error: %s", e)
+        logger.warning("Client→Azure forwarding error: %s", e)
 
 
 async def _forward_azure_to_client(
@@ -328,6 +430,27 @@ async def _forward_azure_to_client(
     try:
         async for event in azure_conn:
             event_dict = event.as_dict() if hasattr(event, "as_dict") else dict(event)
+            event_type = event_dict.get("type", "unknown")
+
+            # Debug: log audio delta events to verify serialization
+            if event_type == "response.audio.delta":
+                has_delta = "delta" in event_dict
+                delta_len = len(event_dict.get("delta", "")) if has_delta else 0
+                logger.debug(
+                    "Audio delta: has_delta=%s, delta_len=%d, keys=%s",
+                    has_delta,
+                    delta_len,
+                    list(event_dict.keys()),
+                )
+            # Debug: log avatar-related events
+            elif "avatar" in event_type or "sdp" in str(event_dict.get("server_sdp", "")):
+                logger.info(
+                    "Avatar event: type=%s, has_server_sdp=%s, keys=%s",
+                    event_type,
+                    "server_sdp" in event_dict,
+                    list(event_dict.keys()),
+                )
+
             message = json.dumps(event_dict)
             await ws.send_text(message)
 
@@ -337,11 +460,33 @@ async def _forward_azure_to_client(
             elif event.type == ServerEventType.SESSION_CREATED:
                 logger.info("Session created: %s", event_dict.get("session", {}).get("id"))
             elif event.type == ServerEventType.SESSION_UPDATED:
-                logger.info("Session updated")
+                # Detailed logging for avatar debugging
+                sess = event_dict.get("session", {})
+                avatar_cfg = sess.get("avatar", {})
+                modalities = sess.get("modalities", [])
+                voice_cfg = sess.get("voice", {})
+                ice_servers = avatar_cfg.get("ice_servers", [])
+                logger.info(
+                    "Session updated: modalities=%s, voice=%s, "
+                    "avatar_keys=%s, ice_servers=%d, "
+                    "has_avatar_username=%s, has_avatar_credential=%s, "
+                    "avatar_output_protocol=%s, avatar_model=%s, "
+                    "avatar_video=%s, avatar_scene=%s",
+                    modalities,
+                    voice_cfg,
+                    list(avatar_cfg.keys()),
+                    len(ice_servers),
+                    "username" in avatar_cfg or "ice_username" in avatar_cfg,
+                    "credential" in avatar_cfg or "ice_credential" in avatar_cfg,
+                    avatar_cfg.get("output_protocol"),
+                    avatar_cfg.get("model"),
+                    avatar_cfg.get("video"),
+                    avatar_cfg.get("scene"),
+                )
     except (WebSocketDisconnect, ConnectionClosed):
         logger.debug("Azure→Client forwarding stopped")
     except Exception as e:
-        logger.debug("Azure→Client forwarding error: %s", e)
+        logger.warning("Azure→Client forwarding error: %s", e)
 
 
 async def _send_error(ws: WebSocket, error_message: str) -> None:

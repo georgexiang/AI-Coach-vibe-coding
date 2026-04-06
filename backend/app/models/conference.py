@@ -11,9 +11,11 @@ class ConferenceAudienceHcp(Base, TimestampMixin):
 
     __tablename__ = "conference_audience_hcps"
 
-    scenario_id: Mapped[str] = mapped_column(String(36), ForeignKey("scenarios.id"), nullable=False)
+    scenario_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("scenarios.id"), nullable=False, index=True
+    )
     hcp_profile_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("hcp_profiles.id"), nullable=False
+        String(36), ForeignKey("hcp_profiles.id"), nullable=False, index=True
     )
     role_in_conference: Mapped[str] = mapped_column(
         String(50), default="audience"

@@ -29,7 +29,7 @@ class ScoreDetail(Base, TimestampMixin):
     __tablename__ = "score_details"
 
     score_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("session_scores.id"), nullable=False
+        String(36), ForeignKey("session_scores.id"), nullable=False, index=True
     )
     dimension: Mapped[str] = mapped_column(String(50), nullable=False)
     score: Mapped[float] = mapped_column(nullable=False)

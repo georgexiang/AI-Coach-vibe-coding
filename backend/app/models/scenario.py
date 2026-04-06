@@ -19,7 +19,7 @@ class Scenario(Base, TimestampMixin):
     difficulty: Mapped[str] = mapped_column(String(20), default="medium")
     status: Mapped[str] = mapped_column(String(20), default="draft")  # draft / active
     hcp_profile_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("hcp_profiles.id"), nullable=False
+        String(36), ForeignKey("hcp_profiles.id"), nullable=False, index=True
     )
     key_messages: Mapped[str] = mapped_column(Text, default="[]")  # JSON array of strings
 

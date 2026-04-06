@@ -33,6 +33,21 @@ class VoiceLiveInstanceCreate(BaseModel):
     eou_detection: bool = False
     recognition_language: str = "auto"
 
+    # Response settings (AI Foundry Image #8)
+    response_temperature: float = Field(default=0.8, ge=0.0, le=2.0)
+    proactive_engagement: bool = True
+
+    # Speech input (AI Foundry Image #9)
+    auto_detect_language: bool = True
+
+    # Speech output (AI Foundry Image #10)
+    playback_speed: float = Field(default=1.0, ge=0.5, le=2.0)
+    custom_lexicon_enabled: bool = False
+    custom_lexicon_url: str = ""
+
+    # Avatar toggle (AI Foundry Image #11)
+    avatar_enabled: bool = True
+
     # Agent instruction override
     agent_instructions_override: str = ""
 
@@ -56,6 +71,13 @@ class VoiceLiveInstanceUpdate(BaseModel):
     echo_cancellation: bool | None = None
     eou_detection: bool | None = None
     recognition_language: str | None = None
+    response_temperature: float | None = Field(default=None, ge=0.0, le=2.0)
+    proactive_engagement: bool | None = None
+    auto_detect_language: bool | None = None
+    playback_speed: float | None = Field(default=None, ge=0.5, le=2.0)
+    custom_lexicon_enabled: bool | None = None
+    custom_lexicon_url: str | None = None
+    avatar_enabled: bool | None = None
     agent_instructions_override: str | None = None
 
 
@@ -79,6 +101,13 @@ class VoiceLiveInstanceResponse(BaseModel):
     echo_cancellation: bool
     eou_detection: bool
     recognition_language: str
+    response_temperature: float
+    proactive_engagement: bool
+    auto_detect_language: bool
+    playback_speed: float
+    custom_lexicon_enabled: bool
+    custom_lexicon_url: str
+    avatar_enabled: bool
     agent_instructions_override: str
     hcp_count: int = 0
     created_by: str

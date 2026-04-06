@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, String, Text
+from sqlalchemy import DateTime, ForeignKey, Index, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin
@@ -12,9 +12,17 @@ class CoachingSession(Base, TimestampMixin):
     """Training session tracking lifecycle: created -> in_progress -> completed -> scored."""
 
     __tablename__ = "coaching_sessions"
+    __table_args__ = (
+        Index("ix_sessions_user_status", "user_id", "status"),
+        Index("ix_sessions_status", "status"),
+    )
 
-    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False)
-    scenario_id: Mapped[str] = mapped_column(String(36), ForeignKey("scenarios.id"), nullable=False)
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id"), nullable=False, index=True
+    )
+    scenario_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("scenarios.id"), nullable=False, index=True
+    )
     status: Mapped[str] = mapped_column(
         String(20), default="created"
     )  # created/in_progress/completed/scored

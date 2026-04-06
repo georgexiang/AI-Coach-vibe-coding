@@ -4,6 +4,7 @@ import {
   getDimensionTrends,
   getOrgAnalytics,
   getRecommendedScenarios,
+  getScoreTrends,
   downloadSessionsExcel,
   downloadAdminReportExcel,
 } from "@/api/analytics";
@@ -33,6 +34,13 @@ export function useRecommendedScenarios(limit?: number) {
   return useQuery({
     queryKey: ["analytics", "recommendations", limit],
     queryFn: () => getRecommendedScenarios(limit),
+  });
+}
+
+export function useScoreTrends(months?: number) {
+  return useQuery({
+    queryKey: ["analytics", "admin", "score-trends", months],
+    queryFn: () => getScoreTrends(months),
   });
 }
 

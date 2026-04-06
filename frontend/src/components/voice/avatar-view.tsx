@@ -1,9 +1,13 @@
-import type { Ref } from "react";
+import { useState, type Ref } from "react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui";
 import { AudioOrb } from "./audio-orb";
+import { AVATAR_CHARACTER_MAP, getAvatarInitials } from "@/data/avatar-characters";
 import type { AudioState } from "@/types/voice-live";
+
+const CDN_BASE =
+  "https://learn.microsoft.com/en-us/azure/ai-services/speech-service/text-to-speech-avatar/media";
 
 interface AvatarViewProps {
   videoRef: Ref<HTMLVideoElement>;
@@ -12,24 +16,23 @@ interface AvatarViewProps {
   isConnecting: boolean;
   hcpName: string;
   isFullScreen: boolean;
+  /** Azure TTS Avatar character ID (e.g. "lisa", "lori"). */
+  avatarCharacter?: string;
+  /** Azure TTS Avatar style (e.g. "graceful-standing", "casual-sitting"). */
+  avatarStyle?: string;
   className?: string;
 }
 
 /**
- * Avatar video display with audio orb fallback.
+ * Avatar video display with static preview + audio orb fallback.
  *
- * Renders a pre-existing <video> element that is ALWAYS in the DOM so WebRTC
- * ontrack can assign srcObject regardless of visibility state. This matches the
- * Azure reference implementation (VideoPanel.tsx) pattern.
+ * Renders layers in order:
+ * 1. WebRTC <video> — always in DOM, visible when avatar stream is connected
+ * 2. Static avatar thumbnail — shown before session starts (from Azure CDN)
+ * 3. AudioOrb — shown during voice-only mode (no avatar)
+ * 4. Skeleton — shown while WebRTC is negotiating
  *
- * Uses absolute positioning layers instead of display:none (hidden) to avoid
- * browser autoplay restrictions on invisible video elements.
- *
- * When avatar is connected, the video layer is visible and overlays the orb.
- * When voice-only, AudioOrb renders as the pulsating sphere fallback.
- *
- * The center area is styled to match AI Foundry's dark background with
- * gradient effects for a premium feel.
+ * Matches AI Foundry's center-panel avatar display pattern.
  */
 export function AvatarView({
   videoRef,
@@ -38,14 +41,37 @@ export function AvatarView({
   isConnecting,
   hcpName,
   isFullScreen,
+  avatarCharacter,
+  avatarStyle,
   className,
 }: AvatarViewProps) {
   const { t } = useTranslation("voice");
+  const [imgError, setImgError] = useState(false);
+
+  // Lookup character metadata for thumbnail
+  const charMeta = avatarCharacter
+    ? AVATAR_CHARACTER_MAP.get(avatarCharacter)
+    : undefined;
+
+  // Build style-specific thumbnail URL for video avatars
+  const thumbnailUrl = charMeta
+    ? charMeta.isPhotoAvatar
+      ? charMeta.thumbnailUrl
+      : avatarStyle
+        ? `${CDN_BASE}/${charMeta.id}-${avatarStyle}.png`
+        : charMeta.thumbnailUrl
+    : undefined;
+
+  // Show static preview when: not connected, not connecting, and we have a thumbnail
+  const showStaticPreview = !isAvatarConnected && !isConnecting && charMeta && !imgError;
 
   return (
     <div
       className={cn(
-        "relative flex flex-col items-center justify-center overflow-hidden bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950",
+        "relative flex flex-col items-center justify-center overflow-hidden",
+        isAvatarConnected
+          ? "bg-gradient-to-b from-slate-100 to-slate-200"
+          : "bg-gradient-to-b from-slate-50 to-slate-100",
         isFullScreen ? "h-[calc(100vh-64px-80px)]" : "min-h-[360px]",
         className,
       )}
@@ -56,7 +82,6 @@ export function AvatarView({
        * Pre-rendered <video> element — always in DOM so WebRTC ontrack can
        * set srcObject at any time. Visibility controlled via opacity + z-index,
        * NOT display:none, to avoid browser autoplay restrictions.
-       * Matches Azure reference implementation VideoPanel.tsx pattern.
        */}
       <video
         ref={videoRef}
@@ -72,19 +97,56 @@ export function AvatarView({
       {/* Loading state: skeleton while WebRTC is negotiating */}
       {isConnecting && (
         <div className="z-20 flex flex-col items-center gap-3">
-          <Skeleton className="h-24 w-24 rounded-full" />
-          <p className="text-sm text-white/70">{t("connectingAvatar")}</p>
+          <Skeleton className="h-32 w-32 rounded-full" />
+          <p className="text-sm text-muted-foreground">{t("connectingAvatar")}</p>
         </div>
       )}
 
-      {/* Fallback: audio orb when avatar is not connected and not loading */}
-      {!isConnecting && !isAvatarConnected && (
+      {/* Static avatar preview — large image matching AI Foundry Playground */}
+      {showStaticPreview && (
+        <div
+          className="z-5 flex flex-col items-center justify-end absolute inset-0"
+          data-testid="avatar-static-preview"
+        >
+          <img
+            src={thumbnailUrl}
+            alt={charMeta.displayName}
+            className="max-h-[85%] w-auto object-contain drop-shadow-lg"
+            onError={() => setImgError(true)}
+          />
+          <p className="py-2 text-sm font-medium text-foreground/70">
+            {charMeta.displayName}
+          </p>
+        </div>
+      )}
+
+      {/* Fallback: gradient circle with initials if image fails */}
+      {!isAvatarConnected && !isConnecting && imgError && charMeta && (
+        <div className="z-5 flex flex-col items-center gap-3">
+          <div
+            className={cn(
+              "flex h-32 w-32 items-center justify-center rounded-full bg-gradient-to-br shadow-xl",
+              charMeta.gradientClasses,
+            )}
+          >
+            <span className="text-5xl font-bold text-white">
+              {getAvatarInitials(charMeta.displayName)}
+            </span>
+          </div>
+          <p className="text-sm font-medium text-foreground/70">
+            {charMeta.displayName}
+          </p>
+        </div>
+      )}
+
+      {/* Fallback: audio orb when no avatar character info and not loading */}
+      {!isConnecting && !isAvatarConnected && !charMeta && (
         <AudioOrb audioState={audioState} />
       )}
 
       {/* HCP name badge at bottom */}
-      {hcpName && (
-        <div className="absolute bottom-0 left-0 right-0 z-20 bg-gradient-to-t from-black/60 to-transparent px-4 py-3">
+      {hcpName && isAvatarConnected && (
+        <div className="absolute bottom-0 left-0 right-0 z-20 bg-gradient-to-t from-black/40 to-transparent px-4 py-3">
           <p className="text-center text-sm font-medium text-white">
             {hcpName}
           </p>

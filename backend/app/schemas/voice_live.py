@@ -53,3 +53,28 @@ class VoiceLiveConfigStatus(BaseModel):
     avatar_available: bool
     voice_name: str
     avatar_character: str
+
+
+class AvatarCharacterStyle(BaseModel):
+    """A single style variant of an avatar character."""
+
+    id: str
+    display_name: str
+
+
+class AvatarCharacterInfo(BaseModel):
+    """Metadata for one Azure TTS Avatar character."""
+
+    id: str
+    display_name: str
+    gender: str
+    is_photo_avatar: bool = False
+    styles: list[AvatarCharacterStyle]
+    default_style: str
+    thumbnail_url: str
+
+
+class AvatarCharactersResponse(BaseModel):
+    """List of available avatar characters with metadata."""
+
+    characters: list[AvatarCharacterInfo]

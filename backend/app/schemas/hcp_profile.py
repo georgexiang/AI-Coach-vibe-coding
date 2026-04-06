@@ -1,10 +1,11 @@
 """HCP Profile request/response schemas."""
 
 from datetime import datetime
-
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
+
+from app.schemas.voice_live_instance import VoiceLiveInstanceSummary
 
 
 class HcpProfileCreate(BaseModel):
@@ -16,9 +17,9 @@ class HcpProfileCreate(BaseModel):
     hospital: str = ""
     title: str = ""
     avatar_url: str = ""
-    personality_type: Literal[
-        "friendly", "skeptical", "busy", "analytical", "reserved"
-    ] = "friendly"
+    personality_type: Literal["friendly", "skeptical", "busy", "analytical", "reserved"] = (
+        "friendly"
+    )
     emotional_state: int = Field(default=50, ge=0, le=100)
     communication_style: int = Field(default=50, ge=0, le=100)
     expertise_areas: list[str] = []
@@ -29,11 +30,12 @@ class HcpProfileCreate(BaseModel):
     difficulty: Literal["easy", "medium", "hard"] = "medium"
     is_active: bool = True
 
-    # Voice Live enable + model selection (Phase 13)
+    # Voice Live Instance reference (preferred)
+    voice_live_instance_id: str | None = None
+
+    # Deprecated inline voice fields (kept for backward compat)
     voice_live_enabled: bool = True
     voice_live_model: str = "gpt-4o"
-
-    # Voice/Avatar settings (D-01, D-04 defaults)
     voice_name: str = "en-US-AvaNeural"
     voice_type: str = "azure-standard"
     voice_temperature: float = Field(default=0.9, ge=0.0, le=2.0)
@@ -57,9 +59,9 @@ class HcpProfileUpdate(BaseModel):
     hospital: str | None = None
     title: str | None = None
     avatar_url: str | None = None
-    personality_type: Literal[
-        "friendly", "skeptical", "busy", "analytical", "reserved"
-    ] | None = None
+    personality_type: Literal["friendly", "skeptical", "busy", "analytical", "reserved"] | None = (
+        None
+    )
     emotional_state: int | None = Field(default=None, ge=0, le=100)
     communication_style: int | None = Field(default=None, ge=0, le=100)
     expertise_areas: list[str] | None = None
@@ -70,11 +72,12 @@ class HcpProfileUpdate(BaseModel):
     difficulty: Literal["easy", "medium", "hard"] | None = None
     is_active: bool | None = None
 
-    # Voice Live enable + model selection (Phase 13)
+    # Voice Live Instance reference
+    voice_live_instance_id: str | None = None
+
+    # Deprecated inline voice fields
     voice_live_enabled: bool | None = None
     voice_live_model: str | None = None
-
-    # Voice/Avatar settings (all optional for partial updates)
     voice_name: str | None = None
     voice_type: str | None = None
     voice_temperature: float | None = Field(default=None, ge=0.0, le=2.0)
@@ -113,11 +116,13 @@ class HcpProfileResponse(BaseModel):
     agent_sync_status: str = "none"
     agent_sync_error: str = ""
 
-    # Voice Live enable + model selection (Phase 13)
+    # Voice Live Instance reference
+    voice_live_instance_id: str | None = None
+    voice_live_instance: VoiceLiveInstanceSummary | None = None
+
+    # Deprecated inline voice fields (kept for backward compat)
     voice_live_enabled: bool = True
     voice_live_model: str = "gpt-4o"
-
-    # Voice/Avatar settings
     voice_name: str = "en-US-AvaNeural"
     voice_type: str = "azure-standard"
     voice_temperature: float = 0.9

@@ -531,8 +531,11 @@ async def test_azure_voice_live(endpoint: str, api_key: str, region: str) -> tup
                 return (False, f"Authentication failed: HTTP {response.status_code}")
             else:
                 return (True, f"Endpoint reachable (HTTP {response.status_code})")
-    except Exception:
-        return (True, "Configuration valid (region supported, endpoint format correct)")
+    except Exception as e:
+        return (
+            True,
+            f"Configuration valid (endpoint format correct, connectivity check skipped: {e})",
+        )
 
 
 async def test_service_connection(

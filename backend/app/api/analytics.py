@@ -9,6 +9,7 @@ from app.models.user import User
 from app.schemas.analytics import (
     OrgAnalytics,
     RecommendedScenarioItem,
+    ScoreTrendPoint,
     UserDashboardStats,
 )
 from app.services import analytics_service, export_service
@@ -81,6 +82,16 @@ async def get_org_overview(
 ):
     """Get organization-level analytics (admin only)."""
     return await analytics_service.get_org_analytics(db, start_date=start_date, end_date=end_date)
+
+
+@router.get("/admin/score-trends", response_model=list[ScoreTrendPoint])
+async def get_score_trends(
+    months: int = Query(6, ge=1, le=24),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role("admin")),
+):
+    """Get monthly score trends for the last N months (admin only)."""
+    return await analytics_service.get_score_trends(db, months)
 
 
 @router.get("/admin/skill-gaps")

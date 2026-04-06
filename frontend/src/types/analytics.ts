@@ -32,6 +32,30 @@ export interface SkillGapCell {
   avg_score: number;
 }
 
+export interface ScoreDistributionBucket {
+  range: string;
+  count: number;
+}
+
+export interface TopPerformer {
+  name: string;
+  score: number;
+  bu: string;
+}
+
+export interface NeedsAttentionUser {
+  name: string;
+  score: number;
+  sessions: number;
+  bu: string;
+}
+
+export interface ScoreTrendPoint {
+  month: string;
+  overall: number;
+  benchmark: number;
+}
+
 export interface OrgAnalytics {
   total_users: number;
   active_users: number;
@@ -40,6 +64,10 @@ export interface OrgAnalytics {
   avg_org_score: number;
   bu_stats: BuStats[];
   skill_gaps: SkillGapCell[];
+  score_distribution: ScoreDistributionBucket[];
+  top_performers: TopPerformer[];
+  needs_attention: NeedsAttentionUser[];
+  training_activity: number[][];
 }
 
 export interface RecommendedScenarioItem {

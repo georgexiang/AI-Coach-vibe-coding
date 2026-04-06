@@ -40,7 +40,11 @@ class HcpProfileOut(BaseModel):
     agent_sync_status: str
     agent_sync_error: str
 
-    # Voice Live model selection (Phase 13)
+    # Voice Live Instance reference
+    voice_live_instance_id: str | None = None
+
+    # Voice Live enable + model selection (Phase 13)
+    voice_live_enabled: bool = True
     voice_live_model: str = "gpt-4o"
 
     # Voice/Avatar settings (Phase 12)

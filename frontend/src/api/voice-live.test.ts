@@ -36,7 +36,7 @@ describe("Voice Live API client", () => {
 
       const result = await fetchVoiceLiveToken();
 
-      expect(mockClient.post).toHaveBeenCalledWith("/voice-live/token");
+      expect(mockClient.post).toHaveBeenCalledWith("/voice-live/token", null, { params: {} });
       expect(result).toEqual(tokenData);
       expect(result.endpoint).toBe("wss://eastus2.api.cognitive.microsoft.com");
       expect(result.avatar_enabled).toBe(false);

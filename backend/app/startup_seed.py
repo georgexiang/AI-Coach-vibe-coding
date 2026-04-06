@@ -199,7 +199,9 @@ async def seed_all(session: AsyncSession) -> None:
 
             await seed_materials()
         except Exception:
-            pass  # Materials seed creates its own engine/session
+            import logging as _mat_logging
+
+            _mat_logging.getLogger(__name__).debug("Materials seed skipped", exc_info=True)
 
     # --- 6. Azure AI Foundry config from env vars ---
     try:
@@ -221,7 +223,10 @@ async def seed_all(session: AsyncSession) -> None:
                     if foundry_settings.azure_foundry_api_key
                     else ""
                 ),
-                model_or_deployment=foundry_settings.azure_openai_deployment or "gpt-4o",
+                model_or_deployment=(
+                    foundry_settings.azure_openai_deployment
+                    or foundry_settings.voice_live_default_model
+                ),
                 default_project=foundry_settings.azure_foundry_default_project,
                 region="swedencentral",
                 is_master=True,
@@ -255,4 +260,8 @@ async def seed_all(session: AsyncSession) -> None:
                 session.add(vl)
             await session.commit()
     except Exception:
-        pass
+        import logging as _logging
+
+        _logging.getLogger(__name__).warning(
+            "AI Foundry config seed failed (table may not exist yet)", exc_info=True
+        )

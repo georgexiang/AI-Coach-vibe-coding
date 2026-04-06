@@ -1,10 +1,17 @@
 """Agent sync service: bidirectional sync between HCP profiles and AI Foundry Agents.
 
-Creates, updates, and deletes AI Foundry Agents when HCP profiles change.
-Uses the official azure-ai-projects SDK with DefaultAzureCredential for Entra
-ID authentication (supports Azure CLI locally, Managed Identity in production).
+Creates, updates, and deletes AI Foundry Agents (via azure-ai-projects SDK)
+when HCP profiles change.  Uses the Agent Registry API
+(``client.agents.create_version()``) which stores agents as
+``name:version`` pairs (e.g. ``Dr-Li-Mei:2``).
+
+Authentication priority:
+  1. DefaultAzureCredential (Entra ID)
+  2. API key via ``api-key`` header (fallback)
 """
 
+import asyncio
+import json
 import logging
 from collections import defaultdict
 
@@ -15,7 +22,7 @@ from app.services.agents.adapters.azure_voice_live import parse_voice_live_mode
 
 logger = logging.getLogger(__name__)
 
-AI_FOUNDRY_API_VERSION = "2025-05-01"
+AGENT_REGISTRY_API_VERSION = "2025-01-01-preview"
 
 DEFAULT_AGENT_TEMPLATE = """You are {name}, a {specialty} specialist.
 
@@ -85,6 +92,70 @@ def build_agent_instructions(profile_data: dict, template: str | None = None) ->
     safe_data = defaultdict(lambda: "", data)
     use_template = template or DEFAULT_AGENT_TEMPLATE
     return use_template.format_map(safe_data)
+
+
+VOICE_LIVE_ENABLED_KEY = "microsoft.voice-live.enabled"
+VOICE_LIVE_CONFIG_KEY = "microsoft.voice-live.configuration"
+
+
+def _chunk_metadata_value(key: str, value: str, max_len: int = 512) -> dict[str, str]:
+    """Split a long metadata value into 512-char chunks.
+
+    Azure agent metadata values are limited to 512 characters.
+    Base key stores the first chunk; continuations use key.1, key.2, etc.
+    """
+    if len(value) <= max_len:
+        return {key: value}
+    result: dict[str, str] = {}
+    idx = 0
+    chunk_num = 0
+    while idx < len(value):
+        chunk = value[idx : idx + max_len]
+        chunk_key = key if chunk_num == 0 else f"{key}.{chunk_num}"
+        result[chunk_key] = chunk
+        idx += max_len
+        chunk_num += 1
+    return result
+
+
+def build_voice_live_metadata(profile: object) -> dict[str, str] | None:
+    """Build microsoft.voice-live.configuration metadata from HCP profile voice fields.
+
+    Returns dict[str, str] suitable for agent metadata, or None if voice_live_enabled is False.
+    The config JSON is chunked at 512-char boundaries per Azure metadata limits.
+    """
+    if not getattr(profile, "voice_live_enabled", True):
+        return None
+
+    config: dict = {}
+
+    # Voice settings
+    voice_name = getattr(profile, "voice_name", "en-US-AvaNeural")
+    voice_type = getattr(profile, "voice_type", "azure-standard")
+    voice: dict = {"type": voice_type, "name": voice_name}
+    if voice_type == "azure-standard":
+        voice["temperature"] = getattr(profile, "voice_temperature", 0.9)
+    config["voice"] = voice
+
+    # Turn detection
+    turn_detection_type = getattr(profile, "turn_detection_type", "server_vad")
+    turn_detection: dict = {"type": turn_detection_type}
+    if getattr(profile, "eou_detection", False):
+        turn_detection["end_of_utterance_detection"] = {"model": "semantic_detection_v1"}
+    config["turn_detection"] = turn_detection
+
+    # Noise suppression
+    if getattr(profile, "noise_suppression", False):
+        config["input_audio_noise_reduction"] = {"type": "azure_deep_noise_suppression"}
+
+    # Echo cancellation
+    if getattr(profile, "echo_cancellation", False):
+        config["input_audio_echo_cancellation"] = {"type": "server_echo_cancellation"}
+
+    config_json = json.dumps(config, separators=(",", ":"))
+    result = {VOICE_LIVE_ENABLED_KEY: "true"}
+    result.update(_chunk_metadata_value(VOICE_LIVE_CONFIG_KEY, config_json))
+    return result
 
 
 class _ApiKeyTokenCredential:
@@ -206,8 +277,9 @@ async def create_agent(
     db: AsyncSession,
     name: str,
     instructions: str,
-    model: str = "gpt-4o",
+    model: str | None = None,
     *,
+    metadata: dict[str, str] | None = None,
     endpoint_override: str = "",
     key_override: str = "",
 ) -> dict:
@@ -216,9 +288,15 @@ async def create_agent(
     Uses the Agent Registry API (client.agents.create_version) with
     PromptAgentDefinition. Returns dict with agent name, version, and id.
 
+    Pass metadata to attach Voice Live configuration or other key-value pairs.
     Pass endpoint_override/key_override to skip DB+env lookup (used by batch sync).
     """
     from azure.ai.projects.models import PromptAgentDefinition
+
+    if not model:
+        from app.config import get_settings
+
+        model = get_settings().voice_live_default_model
 
     if endpoint_override:
         project_endpoint, api_key = endpoint_override, key_override
@@ -231,10 +309,12 @@ async def create_agent(
     definition = PromptAgentDefinition(model=model, instructions=instructions)
 
     try:
-        result = client.agents.create_version(
+        result = await asyncio.to_thread(
+            client.agents.create_version,
             agent_name=agent_name,
             definition=definition,
             description=f"HCP Agent: {name}",
+            metadata=metadata,
         )
     except Exception as e:
         logger.error(
@@ -257,8 +337,9 @@ async def update_agent(
     agent_id: str,
     name: str,
     instructions: str,
-    model: str = "gpt-4o",
+    model: str | None = None,
     *,
+    metadata: dict[str, str] | None = None,
     endpoint_override: str = "",
     key_override: str = "",
 ) -> dict:
@@ -267,9 +348,15 @@ async def update_agent(
     AI Foundry agents are immutable — updates create new versions.
     Returns dict with updated agent metadata.
 
+    Pass metadata to attach Voice Live configuration or other key-value pairs.
     Pass endpoint_override/key_override to skip DB+env lookup (used by batch sync).
     """
     from azure.ai.projects.models import PromptAgentDefinition
+
+    if not model:
+        from app.config import get_settings
+
+        model = get_settings().voice_live_default_model
 
     if endpoint_override:
         project_endpoint, api_key = endpoint_override, key_override
@@ -281,10 +368,12 @@ async def update_agent(
     definition = PromptAgentDefinition(model=model, instructions=instructions)
 
     try:
-        result = client.agents.create_version(
+        result = await asyncio.to_thread(
+            client.agents.create_version,
             agent_name=agent_id,
             definition=definition,
             description=f"HCP Agent: {name}",
+            metadata=metadata,
         )
     except Exception as e:
         logger.error(
@@ -311,7 +400,7 @@ async def delete_agent(db: AsyncSession, agent_id: str) -> bool:
     client = _get_project_client(project_endpoint, api_key)
 
     try:
-        client.agents.delete(agent_name=agent_id)
+        await asyncio.to_thread(client.agents.delete, agent_name=agent_id)
         return True
     except Exception as e:
         logger.warning("Failed to delete agent %s: %s", agent_id, e)
@@ -329,7 +418,10 @@ async def prefetch_sync_config(db: AsyncSession) -> tuple[str, str, str]:
     """
     endpoint, api_key = await get_project_endpoint(db)
     master = await config_service.get_master_config(db)
-    model = master.model_or_deployment if master else "gpt-4o"
+    from app.config import get_settings
+
+    default_model = get_settings().voice_live_default_model
+    model = master.model_or_deployment if master else default_model
     return endpoint, api_key, model
 
 
@@ -355,8 +447,15 @@ async def sync_agent_for_profile(
 
     # Use prefetched values or fetch now (fallback for backward compat)
     if prefetched_model is None:
+        from app.config import get_settings
+
         master = await config_service.get_master_config(db)
-        prefetched_model = master.model_or_deployment if master else "gpt-4o"
+        prefetched_model = (
+            master.model_or_deployment if master else get_settings().voice_live_default_model
+        )
+
+    # Build Voice Live metadata if enabled on the profile
+    vl_metadata = build_voice_live_metadata(profile)
 
     if profile.agent_id:
         return await update_agent(
@@ -365,6 +464,7 @@ async def sync_agent_for_profile(
             profile.name,
             instructions,
             prefetched_model,
+            metadata=vl_metadata,
             endpoint_override=prefetched_endpoint or "",
             key_override=prefetched_key or "",
         )
@@ -374,6 +474,7 @@ async def sync_agent_for_profile(
             profile.name,
             instructions,
             prefetched_model,
+            metadata=vl_metadata,
             endpoint_override=prefetched_endpoint or "",
             key_override=prefetched_key or "",
         )
@@ -410,7 +511,7 @@ async def get_portal_url_components(db: AsyncSession) -> dict:
         client = _get_project_client(project_endpoint, api_key)
 
         # List connections — we only need one to extract the ARM resource ID
-        connections = client.connections.list()
+        connections = await asyncio.to_thread(client.connections.list)
         for conn in connections:
             conn_id = conn.get("id", "")
             # ARM ID format:
@@ -453,7 +554,7 @@ async def get_agent_latest_version(db: AsyncSession, agent_name: str) -> str:
         project_endpoint, api_key = await get_project_endpoint(db)
         client = _get_project_client(project_endpoint, api_key)
 
-        agent = client.agents.get(agent_name=agent_name)
+        agent = await asyncio.to_thread(client.agents.get, agent_name=agent_name)
         latest = agent.versions.get("latest", {})
         version = str(latest.get("version", "1"))
         logger.info("Agent %s latest version: %s", agent_name, version)

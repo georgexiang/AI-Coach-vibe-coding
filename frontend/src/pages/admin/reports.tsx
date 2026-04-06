@@ -31,42 +31,9 @@ import {
   useExportAdminReport,
   useExportSessionsExcel,
   useOrgAnalytics,
+  useScoreTrends,
 } from "@/hooks/use-analytics";
-
-// ---------------------------------------------------------------------------
-// Mock data for charts (charts will be wired to live data in future plans)
-// ---------------------------------------------------------------------------
-
-const groupPerformanceData = [
-  { name: "Oncology", score: 78 },
-  { name: "Hematology", score: 82 },
-  { name: "Immunology", score: 65 },
-  { name: "Neurology", score: 58 },
-];
-
-const scoreTrendData = [
-  { month: "Oct", overall: 68, benchmark: 75 },
-  { month: "Nov", overall: 70, benchmark: 75 },
-  { month: "Dec", overall: 72, benchmark: 75 },
-  { month: "Jan", overall: 71, benchmark: 75 },
-  { month: "Feb", overall: 74, benchmark: 75 },
-  { month: "Mar", overall: 76, benchmark: 75 },
-];
-
-const completionData = [
-  { team: "Team Alpha", completion: 92 },
-  { team: "Team Beta", completion: 85 },
-  { team: "Team Gamma", completion: 78 },
-  { team: "Team Delta", completion: 71 },
-  { team: "Team Epsilon", completion: 64 },
-];
-
-const skillGapData = [
-  { bu: "Oncology", productKnowledge: 82, communication: 76, objectionHandling: 68, closingSkills: 74, compliance: 88 },
-  { bu: "Hematology", productKnowledge: 85, communication: 80, objectionHandling: 72, closingSkills: 78, compliance: 90 },
-  { bu: "Immunology", productKnowledge: 70, communication: 65, objectionHandling: 58, closingSkills: 62, compliance: 75 },
-  { bu: "Neurology", productKnowledge: 64, communication: 60, objectionHandling: 55, closingSkills: 58, compliance: 70 },
-];
+import type { SkillGapCell } from "@/types/analytics";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -93,10 +60,45 @@ export default function AdminReportsPage() {
   const exportSessions = useExportSessionsExcel();
   const exportAdmin = useExportAdminReport();
   const { data: orgData } = useOrgAnalytics();
+  const { data: scoreTrendData } = useScoreTrends(6);
 
   const [buFilter, setBuFilter] = useState("all");
   const [regionFilter, setRegionFilter] = useState("all");
   const [productFilter, setProductFilter] = useState("all");
+
+  // Derive chart data from API responses
+  const groupPerformanceData = (orgData?.bu_stats ?? []).map((bu) => ({
+    name: bu.business_unit,
+    score: bu.avg_score,
+  }));
+
+  const completionData = (orgData?.bu_stats ?? []).map((bu) => ({
+    team: bu.business_unit,
+    completion: bu.user_count > 0
+      ? Math.round((bu.session_count / Math.max(bu.user_count, 1)) * 10)
+      : 0,
+  }));
+
+  // Pivot skill_gaps from flat list to per-BU row objects
+  const skillGapData = (() => {
+    const gaps = orgData?.skill_gaps ?? [];
+    const buMap = new Map<string, Record<string, number>>();
+    for (const cell of gaps) {
+      if (!buMap.has(cell.business_unit)) {
+        buMap.set(cell.business_unit, {});
+      }
+      buMap.get(cell.business_unit)![cell.dimension] = cell.avg_score;
+    }
+    return Array.from(buMap.entries()).map(([bu, dims]) => ({
+      bu,
+      ...dims,
+    }));
+  })();
+
+  // Extract unique dimensions for table headers
+  const skillDimensions = [
+    ...new Set((orgData?.skill_gaps ?? []).map((c: SkillGapCell) => c.dimension)),
+  ];
 
   const tooltipStyle = {
     backgroundColor: "var(--color-card)",
@@ -270,7 +272,7 @@ export default function AdminReportsPage() {
           </CardHeader>
           <CardContent className="p-4 pt-0">
             <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={scoreTrendData}>
+              <LineChart data={scoreTrendData ?? []}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                 <XAxis dataKey="month" tick={{ fill: "var(--color-muted-foreground)", fontSize: 12 }} />
                 <YAxis domain={[50, 100]} tick={{ fill: "var(--color-muted-foreground)", fontSize: 12 }} />
@@ -337,62 +339,47 @@ export default function AdminReportsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="overflow-x-auto p-4 pt-0">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b text-left">
-                  <th className="pb-2 pr-4 text-sm font-medium text-muted-foreground">
-                    {t("buColumn", { defaultValue: "BU" })}
-                  </th>
-                  <th className="pb-2 pr-4 text-sm font-medium text-muted-foreground">
-                    {t("productKnowledge", { defaultValue: "Product Knowledge" })}
-                  </th>
-                  <th className="pb-2 pr-4 text-sm font-medium text-muted-foreground">
-                    {t("communication", { defaultValue: "Communication" })}
-                  </th>
-                  <th className="pb-2 pr-4 text-sm font-medium text-muted-foreground">
-                    {t("objectionHandling", { defaultValue: "Objection Handling" })}
-                  </th>
-                  <th className="pb-2 pr-4 text-sm font-medium text-muted-foreground">
-                    {t("closingSkills", { defaultValue: "Closing Skills" })}
-                  </th>
-                  <th className="pb-2 text-sm font-medium text-muted-foreground">
-                    {t("compliance", { defaultValue: "Compliance" })}
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {skillGapData.map((row) => (
-                  <tr key={row.bu} className="border-b last:border-0">
-                    <td className="py-2 pr-4 font-medium text-foreground">{row.bu}</td>
-                    <td className="py-2 pr-4">
-                      <span className={`inline-block rounded px-2 py-0.5 text-xs font-semibold ${getScoreCellClass(row.productKnowledge)}`}>
-                        {row.productKnowledge}
-                      </span>
-                    </td>
-                    <td className="py-2 pr-4">
-                      <span className={`inline-block rounded px-2 py-0.5 text-xs font-semibold ${getScoreCellClass(row.communication)}`}>
-                        {row.communication}
-                      </span>
-                    </td>
-                    <td className="py-2 pr-4">
-                      <span className={`inline-block rounded px-2 py-0.5 text-xs font-semibold ${getScoreCellClass(row.objectionHandling)}`}>
-                        {row.objectionHandling}
-                      </span>
-                    </td>
-                    <td className="py-2 pr-4">
-                      <span className={`inline-block rounded px-2 py-0.5 text-xs font-semibold ${getScoreCellClass(row.closingSkills)}`}>
-                        {row.closingSkills}
-                      </span>
-                    </td>
-                    <td className="py-2">
-                      <span className={`inline-block rounded px-2 py-0.5 text-xs font-semibold ${getScoreCellClass(row.compliance)}`}>
-                        {row.compliance}
-                      </span>
-                    </td>
+            {skillDimensions.length > 0 ? (
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b text-left">
+                    <th className="pb-2 pr-4 text-sm font-medium text-muted-foreground">
+                      {t("buColumn", { defaultValue: "BU" })}
+                    </th>
+                    {skillDimensions.map((dim) => (
+                      <th key={dim} className="pb-2 pr-4 text-sm font-medium text-muted-foreground capitalize">
+                        {dim.replace(/_/g, " ")}
+                      </th>
+                    ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {skillGapData.map((row) => (
+                    <tr key={row.bu} className="border-b last:border-0">
+                      <td className="py-2 pr-4 font-medium text-foreground">{row.bu}</td>
+                      {skillDimensions.map((dim) => {
+                        const val = (row as Record<string, number | string>)[dim] as number | undefined;
+                        return (
+                          <td key={dim} className="py-2 pr-4">
+                            {val != null ? (
+                              <span className={`inline-block rounded px-2 py-0.5 text-xs font-semibold ${getScoreCellClass(val)}`}>
+                                {val}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">-</span>
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <p className="py-8 text-center text-sm text-muted-foreground">
+                {t("noData", { defaultValue: "No data available" })}
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>

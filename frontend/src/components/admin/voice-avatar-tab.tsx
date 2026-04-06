@@ -293,11 +293,15 @@ function AvatarThumbnail({ character, style }: { character: string; style: strin
   if (!charMeta || imgFailed) {
     const initials = charMeta ? getAvatarInitials(charMeta.displayName) : character.charAt(0).toUpperCase();
     return (
-      <div className={cn("size-8 rounded-full flex items-center justify-center text-white text-xs font-bold bg-gradient-to-br", charMeta?.gradientClasses ?? "from-gray-500 to-gray-700")}>
+      <div className={cn("w-8 aspect-[3/4] rounded-md flex items-center justify-center text-white text-xs font-bold bg-gradient-to-br", charMeta?.gradientClasses ?? "from-gray-500 to-gray-700")}>
         {initials}
       </div>
     );
   }
   const thumbUrl = charMeta.isPhotoAvatar ? charMeta.thumbnailUrl : style ? `${CDN_BASE}/${charMeta.id}-${style}.png` : charMeta.thumbnailUrl;
-  return <img src={thumbUrl} alt={charMeta.displayName} className="size-8 rounded-full object-cover" onError={() => setImgFailed(true)} />;
+  return (
+    <div className="w-8 aspect-[3/4] overflow-hidden rounded-md bg-muted/30">
+      <img src={thumbUrl} alt={charMeta.displayName} className="size-full object-contain" onError={() => setImgFailed(true)} />
+    </div>
+  );
 }

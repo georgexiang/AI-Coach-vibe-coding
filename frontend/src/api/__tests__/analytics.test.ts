@@ -69,6 +69,10 @@ const mockOrgAnalytics: OrgAnalytics = {
   avg_org_score: 71,
   bu_stats: [],
   skill_gaps: [],
+  score_distribution: [],
+  top_performers: [],
+  needs_attention: [],
+  training_activity: [],
 };
 
 const mockRecommendations: RecommendedScenarioItem[] = [

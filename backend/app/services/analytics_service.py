@@ -14,9 +14,13 @@ from app.schemas.analytics import (
     BuStats,
     DimensionScore,
     DimensionTrendPoint,
+    NeedsAttentionUser,
     OrgAnalytics,
     RecommendedScenarioItem,
+    ScoreDistributionBucket,
+    ScoreTrendPoint,
     SkillGapCell,
+    TopPerformer,
     UserDashboardStats,
 )
 
@@ -140,6 +144,140 @@ async def get_user_dimension_trends(
     return points
 
 
+async def _get_score_distribution(
+    db: AsyncSession, date_filters: list
+) -> list[ScoreDistributionBucket]:
+    """Compute score distribution across 5 buckets."""
+    buckets = [
+        ("0-20", 0, 20),
+        ("21-40", 21, 40),
+        ("41-60", 41, 60),
+        ("61-80", 61, 80),
+        ("81-100", 81, 100),
+    ]
+    result = []
+    for label, low, high in buckets:
+        count_result = await db.execute(
+            select(func.count())
+            .select_from(CoachingSession)
+            .where(
+                and_(
+                    CoachingSession.status == "scored",
+                    CoachingSession.overall_score >= low,
+                    CoachingSession.overall_score <= high,
+                    *date_filters,
+                )
+            )
+        )
+        result.append(ScoreDistributionBucket(range=label, count=count_result.scalar() or 0))
+    return result
+
+
+async def _get_top_performers(
+    db: AsyncSession, date_filters: list, limit: int = 3
+) -> list[TopPerformer]:
+    """Get top N users by average overall score."""
+    query = (
+        select(
+            User.full_name,
+            User.username,
+            User.business_unit,
+            func.avg(CoachingSession.overall_score).label("avg_score"),
+        )
+        .join(CoachingSession, CoachingSession.user_id == User.id)
+        .where(
+            and_(
+                CoachingSession.status == "scored",
+                User.role == "user",
+                *date_filters,
+            )
+        )
+        .group_by(User.id, User.full_name, User.username, User.business_unit)
+        .order_by(func.avg(CoachingSession.overall_score).desc())
+        .limit(limit)
+    )
+    rows = await db.execute(query)
+    return [
+        TopPerformer(
+            name=row.full_name or row.username,
+            score=round(row.avg_score or 0.0, 1),
+            bu=row.business_unit or "-",
+        )
+        for row in rows.all()
+    ]
+
+
+async def _get_needs_attention(
+    db: AsyncSession, date_filters: list, limit: int = 3
+) -> list[NeedsAttentionUser]:
+    """Get bottom N users by average overall score (minimum 1 scored session)."""
+    query = (
+        select(
+            User.full_name,
+            User.username,
+            User.business_unit,
+            func.avg(CoachingSession.overall_score).label("avg_score"),
+            func.count(CoachingSession.id).label("session_count"),
+        )
+        .join(CoachingSession, CoachingSession.user_id == User.id)
+        .where(
+            and_(
+                CoachingSession.status == "scored",
+                User.role == "user",
+                *date_filters,
+            )
+        )
+        .group_by(User.id, User.full_name, User.username, User.business_unit)
+        .order_by(func.avg(CoachingSession.overall_score).asc())
+        .limit(limit)
+    )
+    rows = await db.execute(query)
+    return [
+        NeedsAttentionUser(
+            name=row.full_name or row.username,
+            score=round(row.avg_score or 0.0, 1),
+            sessions=row.session_count,
+            bu=row.business_unit or "-",
+        )
+        for row in rows.all()
+    ]
+
+
+async def _get_training_activity(db: AsyncSession) -> list[list[int]]:
+    """Get training sessions per day for the last 4 weeks (Mon-Sun per week)."""
+    now = datetime.now(UTC)
+    days_since_monday = now.weekday()
+    current_monday = (now - timedelta(days=days_since_monday)).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+    start_date = current_monday - timedelta(weeks=3)
+    # Strip timezone for comparison with potentially naive DB timestamps (SQLite)
+    start_naive = start_date.replace(tzinfo=None)
+
+    result = await db.execute(
+        select(CoachingSession.created_at).where(
+            and_(
+                CoachingSession.created_at >= start_date,
+                CoachingSession.created_at < now,
+            )
+        )
+    )
+    timestamps = [row[0] for row in result.all()]
+
+    weeks: list[list[int]] = [[0] * 7 for _ in range(4)]
+    for ts in timestamps:
+        if ts is None:
+            continue
+        # Handle both naive and aware timestamps
+        ts_naive = ts.replace(tzinfo=None) if ts.tzinfo else ts
+        delta = ts_naive - start_naive
+        week_idx = delta.days // 7
+        day_idx = delta.days % 7
+        if 0 <= week_idx < 4 and 0 <= day_idx < 7:
+            weeks[week_idx][day_idx] += 1
+    return weeks
+
+
 async def get_org_analytics(
     db: AsyncSession,
     start_date: str | None = None,
@@ -218,6 +356,18 @@ async def get_org_analytics(
     # Skill gaps
     skill_gaps = await get_skill_gap_matrix(db)
 
+    # Score distribution (5 buckets: 0-20, 21-40, 41-60, 61-80, 81-100)
+    score_distribution = await _get_score_distribution(db, date_filters)
+
+    # Top performers (top 3 by avg score)
+    top_performers = await _get_top_performers(db, date_filters, limit=3)
+
+    # Needs attention (bottom 3 by avg score with at least 1 session)
+    needs_attention = await _get_needs_attention(db, date_filters, limit=3)
+
+    # Training activity heatmap (last 4 weeks x 7 days)
+    training_activity = await _get_training_activity(db)
+
     return OrgAnalytics(
         total_users=total_users,
         active_users=active_users,
@@ -226,7 +376,47 @@ async def get_org_analytics(
         avg_org_score=avg_org_score,
         bu_stats=bu_stats,
         skill_gaps=skill_gaps,
+        score_distribution=score_distribution,
+        top_performers=top_performers,
+        needs_attention=needs_attention,
+        training_activity=training_activity,
     )
+
+
+async def get_score_trends(db: AsyncSession, months: int = 6) -> list[ScoreTrendPoint]:
+    """Get monthly average score trends for the last N months."""
+    now = datetime.now(UTC)
+    points: list[ScoreTrendPoint] = []
+
+    for i in range(months - 1, -1, -1):
+        month_start = (now - timedelta(days=30 * i)).replace(
+            day=1, hour=0, minute=0, second=0, microsecond=0
+        )
+        if month_start.month == 12:
+            month_end = month_start.replace(year=month_start.year + 1, month=1)
+        else:
+            month_end = month_start.replace(month=month_start.month + 1)
+
+        avg_result = await db.execute(
+            select(func.avg(CoachingSession.overall_score)).where(
+                and_(
+                    CoachingSession.status == "scored",
+                    CoachingSession.completed_at >= month_start,
+                    CoachingSession.completed_at < month_end,
+                )
+            )
+        )
+        avg_score = avg_result.scalar()
+
+        points.append(
+            ScoreTrendPoint(
+                month=month_start.strftime("%b"),
+                overall=round(avg_score, 1) if avg_score else 0,
+                benchmark=75.0,
+            )
+        )
+
+    return points
 
 
 async def get_skill_gap_matrix(db: AsyncSession) -> list[SkillGapCell]:

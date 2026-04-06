@@ -47,7 +47,7 @@ postgresql = [
 ]
 voice = [
     "azure-cognitiveservices-speech>=1.48.0",
-    # GPT Realtime API deferred to post-MVP per user decision
+    "azure-ai-voicelive[aiohttp]>=1.0.0",
 ]
 all = [
     "ai-coach-backend[dev,postgresql,voice]",

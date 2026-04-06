@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { AudioLines } from "lucide-react";
+import { AudioLines, Settings2, MessageSquare } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -12,31 +12,29 @@ import {
   DialogTitle,
   Button,
   Tabs,
+  TabsContent,
   TabsList,
   TabsTrigger,
-  TabsContent,
 } from "@/components/ui";
 import { cn } from "@/lib/utils";
-import { ScenarioPanel } from "@/components/coach/scenario-panel";
-import { HintsPanel } from "@/components/coach/hints-panel";
 import { useVoiceLive } from "@/hooks/use-voice-live";
 import { useAvatarStream } from "@/hooks/use-avatar-stream";
 import { useAudioHandler } from "@/hooks/use-audio-handler";
+import { useAudioPlayer } from "@/hooks/use-audio-player";
 import { useEndSession } from "@/hooks/use-session";
 import { useScenario } from "@/hooks/use-scenarios";
 import { persistTranscriptMessage } from "@/api/voice-live";
 import { VoiceSessionHeader } from "./voice-session-header";
 import { AvatarView } from "./avatar-view";
 import { VoiceTranscript } from "./voice-transcript";
-import { VoiceConfigPanel } from "./voice-config-panel";
 import { VoiceControls } from "./voice-controls";
-import { FloatingTranscript } from "./floating-transcript";
+import { VoiceConfigPanel } from "./voice-config-panel";
 import type {
   SessionMode,
   TranscriptSegment,
   VoiceConfigSettings,
 } from "@/types/voice-live";
-import type { KeyMessageStatus, CoachingHint } from "@/types/session";
+import type { KeyMessageStatus } from "@/types/session";
 import type { Scenario } from "@/types/scenario";
 
 interface VoiceSessionProps {
@@ -46,11 +44,20 @@ interface VoiceSessionProps {
   hcpName: string;
   systemPrompt: string;
   language: string;
+  /** Azure TTS Avatar character ID (e.g. "lisa", "lori"). */
+  avatarCharacter?: string;
+  /** Avatar style variant (e.g. "casual", "formal"). */
+  avatarStyle?: string;
+  /** HCP voice name for display in config panel. */
+  voiceName?: string;
 }
 
 /**
- * Main voice session container — digital human + voice is the primary flow.
- * No fallback to text mode. Avatar must appear.
+ * Main voice session container — AI Foundry-style 3-panel layout.
+ *
+ * Left: Avatar video/preview + voice controls
+ * Right: Tabbed panel (Transcript | Configuration)
+ *
  * Supports both realtime model and LLM model scenarios via Voice Live API.
  */
 export function VoiceSession({
@@ -60,6 +67,9 @@ export function VoiceSession({
   hcpName,
   systemPrompt,
   language,
+  avatarCharacter,
+  avatarStyle,
+  voiceName = "",
 }: VoiceSessionProps) {
   const { t } = useTranslation("voice");
   const { t: tc } = useTranslation("common");
@@ -72,25 +82,21 @@ export function VoiceSession({
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [showKeyboard, setShowKeyboard] = useState(false);
   const [showEndDialog, setShowEndDialog] = useState(false);
-  const [leftCollapsed, setLeftCollapsed] = useState(false);
-  const [rightCollapsed, setRightCollapsed] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [sessionStarted, setSessionStarted] = useState(false);
-  // TODO: Wire up coaching hints from Voice Live events (text training has this via coaching callback)
-  const [hints] = useState<CoachingHint[]>([]);
-  // TODO: Wire up key message delivery detection from transcript analysis
   const [keyMessagesStatus, setKeyMessagesStatus] = useState<
     KeyMessageStatus[]
   >([]);
   const [startedAt] = useState<string>(new Date().toISOString());
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  // Voice config state (for Configuration panel)
   const [voiceConfig, setVoiceConfig] = useState<VoiceConfigSettings>({
     language: language || "auto",
     autoDetect: !language || language === "auto",
     interimResponse: true,
     proactiveEngagement: false,
   });
-  const [bottomTab, setBottomTab] = useState<string>("transcript");
-  const videoRef = useRef<HTMLVideoElement>(null);
 
   // Track pending transcript flush promises (D-09)
   const pendingFlushesRef = useRef<Promise<void>[]>([]);
@@ -139,10 +145,15 @@ export function VoiceSession({
     [sessionId],
   );
 
+  const avatarStream = useAvatarStream(videoRef);
+  const audioHandler = useAudioHandler();
+  const audioPlayer = useAudioPlayer();
+
   const voiceLive = useVoiceLive({
     language,
     systemPrompt,
     onTranscript: handleTranscript,
+    onAudioDelta: audioPlayer.playAudio,
     onConnectionStateChange: (state) => {
       if (state === "error") {
         toast.error(t("error.connectionFailed"));
@@ -152,25 +163,6 @@ export function VoiceSession({
       console.error("Voice Live error:", error);
     },
   });
-
-  const avatarStream = useAvatarStream(videoRef);
-  const audioHandler = useAudioHandler();
-
-  // Send config changes to backend via WebSocket session.update
-  const handleConfigChange = useCallback(
-    (newConfig: VoiceConfigSettings) => {
-      setVoiceConfig(newConfig);
-      if (voiceLive.connectionState === "connected") {
-        voiceLive.send({
-          type: "session.update",
-          session: {
-            input_audio_transcription: { language: newConfig.language === "auto" ? undefined : newConfig.language },
-          },
-        });
-      }
-    },
-    [voiceLive],
-  );
 
   // Escape key exits fullscreen mode
   useEffect(() => {
@@ -214,16 +206,14 @@ export function VoiceSession({
       }
 
       // Wire up avatar SDP callback BEFORE connecting
-      // When server sends session.avatar.connecting event, this callback
-      // forwards the SDP answer to the avatar WebRTC hook
       voiceLive.avatarSdpCallbackRef.current = (serverSdp: string) => {
         void avatarStream.handleServerSdp(serverSdp);
       };
 
-      // Connect via backend WebSocket proxy — returns { avatarEnabled, model, iceServers }
+      // Connect via backend WebSocket proxy
       const result = await voiceLive.connect(hcpProfileId, systemPrompt);
 
-      // Resolve mode from proxy response (always model mode via backend proxy)
+      // Resolve mode from proxy response
       const resolvedMode: SessionMode = result.avatarEnabled
         ? "digital_human_realtime_model"
         : "voice_realtime_model";
@@ -236,7 +226,6 @@ export function VoiceSession({
           await avatarStream.connect(
             result.iceServers,
             async (clientSdp: string) => {
-              // Send SDP offer via backend proxy → Azure
               voiceLive.send({
                 type: "session.avatar.connect",
                 client_sdp: clientSdp,
@@ -247,23 +236,19 @@ export function VoiceSession({
         } catch (avatarError) {
           console.error("[VoiceSession] Avatar WebRTC failed:", avatarError);
           toast.error(t("error.avatarFailed"));
-          // Continue with voice-only mode — avatar is a Voice Live API
-          // feature that enhances the session but voice still works without it
           setCurrentMode("voice_realtime_model");
         }
       }
 
       // Start recording — send audio via backend WebSocket proxy
       audioHandler.startRecording((audioData: Float32Array) => {
-        if (voiceLive.isMuted) return; // Skip sending when muted
-        // Convert Float32Array → Int16 PCM → base64
+        if (voiceLive.isMuted) return;
         const int16 = new Int16Array(audioData.length);
         for (let i = 0; i < audioData.length; i++) {
           const s = Math.max(-1, Math.min(1, audioData[i] ?? 0));
           int16[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
         }
         const bytes = new Uint8Array(int16.buffer);
-        // Encode to base64 for JSON transport through proxy
         let binary = "";
         for (let i = 0; i < bytes.length; i++) {
           binary += String.fromCharCode(bytes[i]!);
@@ -291,11 +276,12 @@ export function VoiceSession({
 
     void initVoice();
 
-    // Cleanup on unmount — prevent dangling WebSocket connections
+    // Cleanup on unmount
     return () => {
       void voiceLive.disconnect();
       avatarStream.disconnect();
       audioHandler.cleanup();
+      audioPlayer.stopAudio();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionStarted]);
@@ -315,6 +301,7 @@ export function VoiceSession({
     await voiceLive.disconnect();
     avatarStream.disconnect();
     audioHandler.cleanup();
+    audioPlayer.stopAudio();
 
     // Call endSession API
     try {
@@ -386,24 +373,12 @@ export function VoiceSession({
 
   const currentScenario = scenario ?? defaultScenario;
 
-  const sessionStats = {
-    duration: Math.floor(
-      (Date.now() - new Date(startedAt).getTime()) / 1000,
-    ),
-    wordCount: transcripts
-      .filter((s) => s.role === "user" && s.isFinal)
-      .reduce((acc, s) => acc + s.content.split(/\s+/).length, 0),
-    messageCount: transcripts.filter((s) => s.isFinal).length,
-  };
-
-  const lastTranscript =
-    transcripts.length > 0
-      ? (transcripts[transcripts.length - 1] ?? null)
-      : null;
+  // Whether avatar is currently active (connected or character configured)
+  const avatarActive = avatarStream.isConnected || currentMode.includes("digital_human");
 
   return (
-    <div className="flex h-screen w-screen flex-col overflow-hidden bg-background">
-      {/* Header */}
+    <div className="flex h-screen w-screen flex-col overflow-hidden bg-slate-100">
+      {/* Compact header */}
       <VoiceSessionHeader
         scenarioTitle={currentScenario.name}
         currentMode={currentMode}
@@ -415,121 +390,48 @@ export function VoiceSession({
         onToggleView={() => setIsFullScreen((prev) => !prev)}
       />
 
-      {/* Main content: 3-panel layout */}
-      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-        {/* Left panel: Scenario */}
-        {!isFullScreen && (
-          <ScenarioPanel
-            scenario={currentScenario}
-            keyMessagesStatus={keyMessagesStatus}
-            isCollapsed={leftCollapsed}
-            onToggle={() => setLeftCollapsed((prev) => !prev)}
+      {/* AI Foundry-style layout: Avatar (left) + Transcript/Config (right) */}
+      <div className="mx-auto flex min-h-0 w-full max-w-[1400px] flex-1 gap-4 p-4">
+        {/* Left panel: Avatar / Voice orb — fixed width, portrait ratio */}
+        <div className="relative flex w-[480px] shrink-0 flex-col overflow-hidden rounded-xl bg-slate-900 shadow-lg">
+          <AvatarView
+            videoRef={videoRef}
+            isAvatarConnected={avatarStream.isConnected}
+            audioState={voiceLive.audioState}
+            isConnecting={isConnecting}
+            hcpName={hcpName}
+            isFullScreen={false}
+            avatarCharacter={avatarCharacter}
+            avatarStyle={avatarStyle}
+            className="flex-1"
           />
-        )}
 
-        {/* Center panel: Voice/Avatar + Transcript + Controls */}
-        <div className="flex min-w-0 flex-1 flex-col">
-          {/* Avatar/Waveform area */}
-          <div className="relative flex-1">
-            <AvatarView
-              videoRef={videoRef}
-              isAvatarConnected={avatarStream.isConnected}
-              audioState={voiceLive.audioState}
-              isConnecting={isConnecting}
-              hcpName={hcpName}
-              isFullScreen={isFullScreen}
-              className="h-full"
-            />
-
-            {/* Start button overlay — shown before session begins */}
-            {!sessionStarted && !isConnecting && (
-              <div
-                className="absolute inset-0 z-30 flex flex-col items-center justify-center"
-                data-testid="start-overlay"
+          {/* Start button overlay — shown before session begins */}
+          {!sessionStarted && !isConnecting && (
+            <div
+              className="absolute inset-0 z-30 flex flex-col items-center justify-center"
+              data-testid="start-overlay"
+            >
+              <button
+                type="button"
+                onClick={handleStartSession}
+                className={cn(
+                  "group flex items-center gap-3 rounded-full px-8 py-4",
+                  "bg-white/15 text-white shadow-lg backdrop-blur-md",
+                  "transition-all duration-200",
+                  "hover:scale-105 hover:bg-white/25 hover:shadow-xl",
+                  "focus:outline-none focus:ring-2 focus:ring-white/50",
+                )}
+                aria-label={t("startButton")}
+                data-testid="start-session-btn"
               >
-                <button
-                  type="button"
-                  onClick={handleStartSession}
-                  className={cn(
-                    "group flex items-center gap-3 rounded-full px-8 py-4",
-                    "bg-slate-800/90 text-white shadow-lg backdrop-blur-sm",
-                    "transition-all duration-200",
-                    "hover:scale-105 hover:bg-slate-700/90 hover:shadow-xl",
-                    "focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-slate-900",
-                  )}
-                  aria-label={t("startButton")}
-                  data-testid="start-session-btn"
-                >
-                  <AudioLines className="h-6 w-6 text-white transition-transform group-hover:scale-110" />
-                  <span className="text-lg font-semibold">{t("startButton")}</span>
-                </button>
-              </div>
-            )}
-
-            {/* Floating transcript overlay in full-screen mode */}
-            {isFullScreen && (
-              <div className="absolute bottom-0 left-0 right-0">
-                <FloatingTranscript
-                  lastTranscript={lastTranscript}
-                  hcpName={hcpName}
-                />
-              </div>
-            )}
-          </div>
-
-          {/* Transcript / Config tabbed area (non-full-screen) */}
-          {!isFullScreen && (
-            <div className="h-[200px] border-t border-border" data-testid="bottom-tabbed-area">
-              <Tabs value={bottomTab} onValueChange={setBottomTab} className="flex h-full flex-col">
-                <TabsList className="mx-4 mt-1 w-fit shrink-0">
-                  <TabsTrigger value="transcript" data-testid="tab-transcript">
-                    {t("tabs.transcript")}
-                  </TabsTrigger>
-                  <TabsTrigger value="config" data-testid="tab-config">
-                    {t("tabs.config")}
-                  </TabsTrigger>
-                </TabsList>
-                <TabsContent value="transcript" className="min-h-0 flex-1">
-                  <VoiceTranscript
-                    transcripts={transcripts}
-                    hcpName={hcpName}
-                    className="h-full"
-                  />
-                </TabsContent>
-                <TabsContent value="config" className="min-h-0 flex-1">
-                  <VoiceConfigPanel
-                    config={voiceConfig}
-                    onConfigChange={handleConfigChange}
-                    voiceName={hcpName}
-                    avatarEnabled={currentMode.startsWith("digital_human")}
-                  />
-                </TabsContent>
-              </Tabs>
+                <AudioLines className="h-6 w-6 text-white transition-transform group-hover:scale-110" />
+                <span className="text-lg font-semibold">{t("startButton")}</span>
+              </button>
             </div>
           )}
 
-          {/* Keyboard input area */}
-          {showKeyboard && (
-            <div className="flex items-center gap-2 border-t border-border p-3">
-              <input
-                type="text"
-                value={inputText}
-                onChange={(e) => setInputText(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    handleKeyboardSubmit();
-                  }
-                }}
-                placeholder={t("keyboardInput")}
-                className="flex-1 rounded-md border border-border px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-              />
-              <Button size="sm" onClick={handleKeyboardSubmit}>
-                {tc("send")}
-              </Button>
-            </div>
-          )}
-
-          {/* Voice controls — AI Foundry-style bottom bar */}
+          {/* Bottom controls on avatar panel */}
           <VoiceControls
             audioState={voiceLive.audioState}
             connectionState={voiceLive.connectionState}
@@ -542,16 +444,84 @@ export function VoiceSession({
           />
         </div>
 
-        {/* Right panel: Hints */}
-        {!isFullScreen && (
-          <HintsPanel
-            hints={hints}
-            keyMessagesStatus={keyMessagesStatus}
-            sessionStats={sessionStats}
-            isCollapsed={rightCollapsed}
-            onToggle={() => setRightCollapsed((prev) => !prev)}
-          />
-        )}
+        {/* Right panel: Tabbed Transcript + Configuration (AI Foundry style) */}
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-xl bg-white shadow-lg">
+          {/* Scenario header */}
+          <div className="shrink-0 border-b border-slate-200 px-5 py-3">
+            <h3 className="text-base font-semibold text-slate-900">
+              {currentScenario.name}
+            </h3>
+            {currentScenario.description && (
+              <p className="mt-0.5 text-sm text-slate-500 line-clamp-2">
+                {currentScenario.description}
+              </p>
+            )}
+          </div>
+
+          {/* Tabbed area: Transcript | Configuration */}
+          <Tabs defaultValue="transcript" className="flex min-h-0 flex-1 flex-col">
+            <TabsList className="mx-4 mt-2 w-fit shrink-0" data-testid="right-panel-tabs">
+              <TabsTrigger value="transcript" className="gap-1.5">
+                <MessageSquare className="h-3.5 w-3.5" />
+                {t("tabs.transcript")}
+              </TabsTrigger>
+              <TabsTrigger value="config" className="gap-1.5">
+                <Settings2 className="h-3.5 w-3.5" />
+                {t("tabs.config")}
+              </TabsTrigger>
+            </TabsList>
+
+            {/* Transcript tab */}
+            <TabsContent value="transcript" className="mt-0 min-h-0 flex-1 flex flex-col">
+              <div className="min-h-0 flex-1" data-testid="chat-area">
+                {transcripts.length === 0 ? (
+                  <div className="flex h-full items-center justify-center">
+                    <p className="text-sm text-slate-400">
+                      {sessionStarted ? t("waitingForResponse") : t("startPrompt")}
+                    </p>
+                  </div>
+                ) : (
+                  <VoiceTranscript
+                    transcripts={transcripts}
+                    hcpName={hcpName}
+                    className="h-full"
+                  />
+                )}
+              </div>
+
+              {/* Keyboard input area */}
+              {showKeyboard && (
+                <div className="flex items-center gap-2 border-t border-slate-200 px-4 py-3">
+                  <input
+                    type="text"
+                    value={inputText}
+                    onChange={(e) => setInputText(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        handleKeyboardSubmit();
+                      }
+                    }}
+                    placeholder={t("keyboardInput")}
+                    className="flex-1 rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                  <Button size="sm" onClick={handleKeyboardSubmit}>
+                    {tc("send")}
+                  </Button>
+                </div>
+              )}
+            </TabsContent>
+
+            {/* Configuration tab */}
+            <TabsContent value="config" className="mt-0 min-h-0 flex-1" data-testid="config-tab">
+              <VoiceConfigPanel
+                config={voiceConfig}
+                onConfigChange={setVoiceConfig}
+                voiceName={voiceName}
+                avatarEnabled={avatarActive}
+              />
+            </TabsContent>
+          </Tabs>
+        </div>
       </div>
 
       {/* End session confirmation dialog */}

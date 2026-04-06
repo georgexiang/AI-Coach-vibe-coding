@@ -108,6 +108,15 @@ export function useVoiceLive(options: VoiceLiveOptions) {
               avatarSdpCallbackRef.current?.(sdpValue);
             }
 
+            // Debug: log event types (except high-frequency audio deltas)
+            if (
+              msg.type &&
+              msg.type !== "response.audio.delta" &&
+              msg.type !== "response.audio_transcript.delta"
+            ) {
+              console.debug("[VoiceLive] Event: %s, keys=%s", msg.type, Object.keys(msg).join(","));
+            }
+
             switch (msg.type) {
               case "proxy.connected":
                 sessionResult = {
@@ -129,26 +138,49 @@ export function useVoiceLive(options: VoiceLiveOptions) {
                 break;
 
               case "session.updated": {
-                console.info("[VoiceLive] Session updated");
-                // Extract ICE servers from avatar config
+                console.info("[VoiceLive] Session updated, avatar keys=%s",
+                  Object.keys(msg.session?.avatar || {}).join(","));
+                // Extract ICE servers from avatar config — matching reference
+                // implementation which uses session-level username/credential
+                // applied to all ICE servers (not per-server credentials).
                 const avatarResp = msg.session?.avatar;
+                const rawServers = avatarResp?.ice_servers ||
+                  msg.session?.rtc?.ice_servers ||
+                  msg.session?.ice_servers || [];
+
+                // Session-level TURN credentials (reference: session.avatar.username)
+                const sessionUsername: string | undefined =
+                  avatarResp?.username ||
+                  avatarResp?.ice_username ||
+                  msg.session?.rtc?.ice_username ||
+                  msg.session?.ice_username;
+                const sessionCredential: string | undefined =
+                  avatarResp?.credential ||
+                  avatarResp?.ice_credential ||
+                  msg.session?.rtc?.ice_credential ||
+                  msg.session?.ice_credential;
+
+                // Build ICE servers: apply session-level credentials if present
                 const servers: RTCIceServer[] = (
-                  avatarResp?.ice_servers || []
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  Array.isArray(rawServers) ? rawServers : [{ urls: rawServers }]
                 ).map(
-                  (s: {
-                    urls?: string[];
-                    username?: string;
-                    credential?: string;
-                  }) => ({
-                    urls: s.urls || [],
-                    username: s.username,
-                    credential: s.credential,
-                  }),
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  (s: any) => {
+                    const urls = typeof s === "string" ? s : (s.urls || []);
+                    return {
+                      urls,
+                      username: sessionUsername || s.username,
+                      credential: sessionCredential || s.credential,
+                      ...(sessionUsername ? { credentialType: "password" as const } : {}),
+                    };
+                  },
                 );
                 if (servers.length > 0) {
                   console.info(
-                    "[VoiceLive] ICE servers received:",
+                    "[VoiceLive] ICE servers received: count=%d, hasSessionCreds=%s",
                     servers.length,
+                    !!(sessionUsername && sessionCredential),
                   );
                 }
                 iceServersResolve?.(servers);
@@ -207,6 +239,18 @@ export function useVoiceLive(options: VoiceLiveOptions) {
               case "response.created":
                 setAudioState("speaking");
                 optionsRef.current.onAudioStateChange?.("speaking");
+                break;
+
+              // Streaming assistant audio data (base64 PCM16 24kHz)
+              case "response.audio.delta":
+                if (msg.delta) {
+                  optionsRef.current.onAudioDelta?.(msg.delta);
+                } else {
+                  console.warn(
+                    "[VoiceLive] response.audio.delta without delta field, keys=%s",
+                    Object.keys(msg).join(","),
+                  );
+                }
                 break;
 
               // Streaming assistant audio transcript

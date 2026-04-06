@@ -34,6 +34,12 @@ vi.mock("lucide-react", () => ({
   AudioLines: (props: Record<string, unknown>) => (
     <svg data-testid="audio-lines-icon" {...props} />
   ),
+  Settings2: (props: Record<string, unknown>) => (
+    <svg data-testid="settings2-icon" {...props} />
+  ),
+  MessageSquare: (props: Record<string, unknown>) => (
+    <svg data-testid="message-square-icon" {...props} />
+  ),
 }));
 
 // Mock child components to simplify rendering
@@ -71,21 +77,6 @@ vi.mock("./voice-transcript", () => ({
   ),
 }));
 
-vi.mock("./voice-config-panel", () => ({
-  VoiceConfigPanel: (props: {
-    config: { language: string; autoDetect: boolean; interimResponse: boolean; proactiveEngagement: boolean };
-    onConfigChange: (c: unknown) => void;
-    voiceName: string;
-    avatarEnabled: boolean;
-  }) => (
-    <div data-testid="voice-config-panel">
-      <span data-testid="config-language">{props.config.language}</span>
-      <span data-testid="config-avatar-enabled">{String(props.avatarEnabled)}</span>
-      <span data-testid="config-voice-name">{props.voiceName}</span>
-    </div>
-  ),
-}));
-
 vi.mock("./voice-controls", () => ({
   VoiceControls: (props: Record<string, unknown>) => (
     <div data-testid="voice-controls">
@@ -116,39 +107,14 @@ vi.mock("./voice-controls", () => ({
   ),
 }));
 
-vi.mock("./floating-transcript", () => ({
-  FloatingTranscript: (props: { lastTranscript: TranscriptSegment | null; hcpName: string }) => (
-    <div data-testid="floating-transcript">
-      {props.lastTranscript?.content ?? "none"}
+vi.mock("./voice-config-panel", () => ({
+  VoiceConfigPanel: (props: Record<string, unknown>) => (
+    <div data-testid="voice-config-panel">
+      <span data-testid="config-voice-name">{String(props.voiceName ?? "")}</span>
+      <span data-testid="config-avatar-enabled">{String(props.avatarEnabled)}</span>
     </div>
   ),
 }));
-
-vi.mock("@/components/coach/scenario-panel", () => ({
-  ScenarioPanel: (props: Record<string, unknown>) => (
-    <div data-testid="scenario-panel">
-      <button data-testid="scenario-toggle" onClick={props.onToggle as () => void}>
-        Toggle
-      </button>
-      <span data-testid="scenario-collapsed">{String(props.isCollapsed)}</span>
-    </div>
-  ),
-}));
-
-vi.mock("@/components/coach/hints-panel", () => ({
-  HintsPanel: (props: Record<string, unknown>) => (
-    <div data-testid="hints-panel">
-      <button data-testid="hints-toggle" onClick={props.onToggle as () => void}>
-        Toggle
-      </button>
-      <span data-testid="hints-collapsed">{String(props.isCollapsed)}</span>
-    </div>
-  ),
-}));
-
-// Shared ref for controlled Tabs mock
-let mockTabsValue = "transcript";
-let mockTabsOnValueChange: ((v: string) => void) | undefined;
 
 // Mock UI components
 vi.mock("@/components/ui", () => ({
@@ -184,47 +150,18 @@ vi.mock("@/components/ui", () => ({
       {children}
     </button>
   ),
-  Tabs: ({
-    children,
-    value,
-    onValueChange,
-  }: {
-    children: React.ReactNode;
-    value?: string;
-    onValueChange?: (v: string) => void;
-    className?: string;
-  }) => {
-    mockTabsValue = value ?? "transcript";
-    mockTabsOnValueChange = onValueChange;
-    return <div data-testid="tabs">{children}</div>;
-  },
-  TabsList: ({ children }: { children: React.ReactNode; className?: string }) => (
-    <div data-testid="tabs-list">{children}</div>
+  Tabs: ({ children, defaultValue, className }: { children: React.ReactNode; defaultValue?: string; className?: string }) => (
+    <div data-testid="tabs" data-default-value={defaultValue} className={className}>{children}</div>
   ),
-  TabsTrigger: ({
-    children,
-    value,
-    ...rest
-  }: {
-    children: React.ReactNode;
-    value: string;
-    "data-testid"?: string;
-  }) => (
-    <button
-      data-testid={rest["data-testid"] ?? `tab-${value}`}
-      onClick={() => mockTabsOnValueChange?.(value)}
-    >
-      {children}
-    </button>
+  TabsList: ({ children, className, ...rest }: { children: React.ReactNode; className?: string; [key: string]: unknown }) => (
+    <div data-testid="tabs-list" className={className} {...rest}>{children}</div>
   ),
-  TabsContent: ({
-    children,
-    value,
-  }: {
-    children: React.ReactNode;
-    value: string;
-    className?: string;
-  }) => (mockTabsValue === value ? <div data-testid={`tab-content-${value}`}>{children}</div> : null),
+  TabsTrigger: ({ children, value, className }: { children: React.ReactNode; value: string; className?: string }) => (
+    <button data-testid={`tab-trigger-${value}`} className={className}>{children}</button>
+  ),
+  TabsContent: ({ children, value, className, ...rest }: { children: React.ReactNode; value: string; className?: string; [key: string]: unknown }) => (
+    <div data-testid={`tab-content-${value}`} className={className} {...rest}>{children}</div>
+  ),
 }));
 
 // ---- Hook mocks ----
@@ -293,6 +230,17 @@ vi.mock("@/hooks/use-audio-handler", () => ({
     isRecording: false,
     analyserData: null,
     analyserRef: { current: null },
+  }),
+}));
+
+// Mock audio player (decodes response.audio.delta base64 PCM16 → Web Audio API)
+const mockPlayAudio = vi.fn();
+const mockStopAudio = vi.fn();
+
+vi.mock("@/hooks/use-audio-player", () => ({
+  useAudioPlayer: () => ({
+    playAudio: mockPlayAudio,
+    stopAudio: mockStopAudio,
   }),
 }));
 
@@ -366,8 +314,6 @@ describe("VoiceSession", () => {
     vi.clearAllMocks();
     mockScenarioReturn = { data: mockScenarioData };
     mockVoiceConnectionState = "disconnected";
-    mockTabsValue = "transcript";
-    mockTabsOnValueChange = undefined;
     capturedOnTranscript = undefined;
     capturedOnConnectionStateChange = undefined;
     capturedOnError = undefined;
@@ -376,15 +322,12 @@ describe("VoiceSession", () => {
   // ======== Rendering ========
 
   describe("rendering", () => {
-    it("renders main layout with header, panels, and controls", () => {
+    it("renders main layout with header, avatar, and controls", () => {
       renderSession();
 
       expect(screen.getByTestId("voice-session-header")).toBeInTheDocument();
       expect(screen.getByTestId("avatar-view")).toBeInTheDocument();
-      expect(screen.getByTestId("voice-transcript")).toBeInTheDocument();
       expect(screen.getByTestId("voice-controls")).toBeInTheDocument();
-      expect(screen.getByTestId("scenario-panel")).toBeInTheDocument();
-      expect(screen.getByTestId("hints-panel")).toBeInTheDocument();
     });
 
     it("shows start overlay with start button before session begins", () => {
@@ -418,103 +361,68 @@ describe("VoiceSession", () => {
       expect(screen.getByTestId("avatar-hcp")).toHaveTextContent("Dr. Smith");
     });
 
-    it("does not show floating transcript by default (not full-screen)", () => {
-      renderSession();
-      expect(screen.queryByTestId("floating-transcript")).not.toBeInTheDocument();
-    });
-
     it("does not show keyboard input by default", () => {
       renderSession();
       expect(screen.queryByPlaceholderText("voice.keyboardInput")).not.toBeInTheDocument();
     });
 
-    it("shows voice transcript in non-full-screen mode", () => {
+    it("shows empty state prompt before session starts (no transcripts)", () => {
       renderSession();
-      expect(screen.getByTestId("voice-transcript")).toBeInTheDocument();
+      // 2-panel layout: chat area shows prompt text when no transcripts
+      expect(screen.getByText("voice.startPrompt")).toBeInTheDocument();
+      expect(screen.queryByTestId("voice-transcript")).not.toBeInTheDocument();
     });
 
-    it("shows 0 transcript count initially", () => {
+    it("shows waiting message after session starts with no transcripts yet", async () => {
+      const user = userEvent.setup();
       renderSession();
-      expect(screen.getByTestId("transcript-count")).toHaveTextContent("0");
+
+      await user.click(screen.getByTestId("start-session-btn"));
+
+      // After starting but before any transcript arrives
+      expect(screen.getByText("voice.waitingForResponse")).toBeInTheDocument();
+    });
+
+    it("shows voice transcript when transcripts exist", async () => {
+      renderSession();
+
+      await act(async () => {
+        capturedOnTranscript?.({
+          id: "seg-1",
+          role: "user",
+          content: "Hello",
+          isFinal: true,
+          timestamp: Date.now(),
+        });
+      });
+
+      expect(screen.getByTestId("voice-transcript")).toBeInTheDocument();
+      expect(screen.getByTestId("transcript-count")).toHaveTextContent("1");
+    });
+
+    it("shows scenario info in right panel header", () => {
+      renderSession();
+      // Scenario name appears in header mock AND inline right panel — both present
+      expect(screen.getAllByText("Test Scenario").length).toBeGreaterThanOrEqual(1);
+      expect(screen.getByText("A test scenario")).toBeInTheDocument();
     });
   });
 
   // ======== Full-screen toggle ========
 
   describe("full-screen toggle", () => {
-    it("toggles full-screen when header toggle button is clicked", async () => {
+    it("toggles isFullScreen state when header toggle button is clicked", async () => {
       const user = userEvent.setup();
       renderSession();
 
-      // Initially not full-screen: side panels visible
-      expect(screen.getByTestId("scenario-panel")).toBeInTheDocument();
-      expect(screen.getByTestId("hints-panel")).toBeInTheDocument();
-      expect(screen.getByTestId("voice-transcript")).toBeInTheDocument();
-      expect(screen.queryByTestId("floating-transcript")).not.toBeInTheDocument();
-
-      // Toggle to full-screen
-      await user.click(screen.getByTestId("toggle-view-btn"));
-
-      // In full-screen: side panels hidden, floating transcript shown
-      expect(screen.queryByTestId("scenario-panel")).not.toBeInTheDocument();
-      expect(screen.queryByTestId("hints-panel")).not.toBeInTheDocument();
-      expect(screen.queryByTestId("voice-transcript")).not.toBeInTheDocument();
-      expect(screen.getByTestId("floating-transcript")).toBeInTheDocument();
-    });
-
-    it("can toggle full-screen from voice controls", async () => {
-      const user = userEvent.setup();
-      renderSession();
-
-      await user.click(screen.getByTestId("controls-toggle-view-btn"));
-
-      expect(screen.queryByTestId("scenario-panel")).not.toBeInTheDocument();
-      expect(screen.getByTestId("floating-transcript")).toBeInTheDocument();
-    });
-
-    it("toggles back from full-screen to normal", async () => {
-      const user = userEvent.setup();
-      renderSession();
-
-      // Toggle to full-screen
-      await user.click(screen.getByTestId("toggle-view-btn"));
-      expect(screen.queryByTestId("scenario-panel")).not.toBeInTheDocument();
-
-      // Toggle back
-      await user.click(screen.getByTestId("toggle-view-btn"));
-      expect(screen.getByTestId("scenario-panel")).toBeInTheDocument();
-      expect(screen.getByTestId("voice-transcript")).toBeInTheDocument();
-    });
-
-    it("passes isFullScreen to avatar view", async () => {
-      const user = userEvent.setup();
-      renderSession();
-
+      // Clicking toggle-view changes internal isFullScreen state
+      // In 2-panel layout, avatar always receives isFullScreen={false}
       expect(screen.getByTestId("avatar-fullscreen")).toHaveTextContent("false");
+
       await user.click(screen.getByTestId("toggle-view-btn"));
-      expect(screen.getByTestId("avatar-fullscreen")).toHaveTextContent("true");
-    });
-  });
 
-  // ======== Side panel toggling ========
-
-  describe("side panel toggling", () => {
-    it("toggles left panel (scenario) collapsed state", async () => {
-      const user = userEvent.setup();
-      renderSession();
-
-      expect(screen.getByTestId("scenario-collapsed")).toHaveTextContent("false");
-      await user.click(screen.getByTestId("scenario-toggle"));
-      expect(screen.getByTestId("scenario-collapsed")).toHaveTextContent("true");
-    });
-
-    it("toggles right panel (hints) collapsed state", async () => {
-      const user = userEvent.setup();
-      renderSession();
-
-      expect(screen.getByTestId("hints-collapsed")).toHaveTextContent("false");
-      await user.click(screen.getByTestId("hints-toggle"));
-      expect(screen.getByTestId("hints-collapsed")).toHaveTextContent("true");
+      // The AvatarView still gets false in the new 2-panel layout
+      expect(screen.getByTestId("avatar-fullscreen")).toHaveTextContent("false");
     });
   });
 
@@ -1023,17 +931,6 @@ describe("VoiceSession", () => {
     });
   });
 
-  // ======== Key messages initialization from scenario ========
-
-  describe("key messages initialization", () => {
-    it("initializes key messages from scenario data", () => {
-      renderSession();
-      // The scenario has key_messages: ["Message A", "Message B"]
-      // These are passed to HintsPanel -- we verified the component renders
-      expect(screen.getByTestId("hints-panel")).toBeInTheDocument();
-    });
-  });
-
   // ======== Text message sending via voice live ========
 
   describe("handleSendText", () => {
@@ -1076,41 +973,6 @@ describe("VoiceSession", () => {
         "user",
         "Hello connected",
       );
-    });
-  });
-
-  // ======== Floating transcript in full-screen mode ========
-
-  describe("floating transcript in full-screen", () => {
-    it("shows last transcript content in floating overlay", async () => {
-      const user = userEvent.setup();
-      renderSession();
-
-      // Add a transcript
-      await act(async () => {
-        capturedOnTranscript?.({
-          id: "float-1",
-          role: "assistant",
-          content: "Floating content",
-          isFinal: true,
-          timestamp: Date.now(),
-        });
-      });
-
-      // Toggle full-screen to see floating transcript
-      await user.click(screen.getByTestId("toggle-view-btn"));
-
-      expect(screen.getByTestId("floating-transcript")).toHaveTextContent(
-        "Floating content",
-      );
-    });
-
-    it("shows 'none' in floating transcript when no transcripts exist", async () => {
-      const user = userEvent.setup();
-      renderSession();
-
-      await user.click(screen.getByTestId("toggle-view-btn"));
-      expect(screen.getByTestId("floating-transcript")).toHaveTextContent("none");
     });
   });
 
@@ -1241,72 +1103,18 @@ describe("VoiceSession", () => {
       renderSession();
       expect(screen.getByTestId("header-connection")).toHaveTextContent("disconnected");
     });
-  });
 
-  // ======== Bottom panel tabs (Transcript / Configuration) ========
-
-  describe("bottom panel tabs", () => {
-    it("renders tabbed area with transcript and config tabs", () => {
-      renderSession();
-
-      expect(screen.getByTestId("bottom-tabbed-area")).toBeInTheDocument();
-      expect(screen.getByTestId("tab-transcript")).toBeInTheDocument();
-      expect(screen.getByTestId("tab-config")).toBeInTheDocument();
-    });
-
-    it("shows transcript tab content by default", () => {
-      renderSession();
-
-      expect(screen.getByTestId("voice-transcript")).toBeInTheDocument();
-      expect(screen.queryByTestId("voice-config-panel")).not.toBeInTheDocument();
-    });
-
-    it("shows config panel tab labels with i18n keys", () => {
-      renderSession();
-
-      expect(screen.getByText("voice.tabs.transcript")).toBeInTheDocument();
-      expect(screen.getByText("voice.tabs.config")).toBeInTheDocument();
-    });
-
-    it("switches to config tab when config tab is clicked", async () => {
+    it("stops audio player on end session", async () => {
       const user = userEvent.setup();
       renderSession();
 
-      await user.click(screen.getByTestId("tab-config"));
+      await user.click(screen.getByTestId("end-session-btn"));
+      const endBtn = screen.getByText("voice.endSession");
+      await user.click(endBtn);
 
-      expect(screen.getByTestId("voice-config-panel")).toBeInTheDocument();
-      expect(screen.queryByTestId("voice-transcript")).not.toBeInTheDocument();
-    });
-
-    it("passes correct props to config panel", async () => {
-      const user = userEvent.setup();
-      renderSession();
-
-      await user.click(screen.getByTestId("tab-config"));
-
-      expect(screen.getByTestId("config-language")).toHaveTextContent("en-US");
-      expect(screen.getByTestId("config-avatar-enabled")).toHaveTextContent("true");
-      expect(screen.getByTestId("config-voice-name")).toHaveTextContent("Dr. Smith");
-    });
-
-    it("hides tabbed area in full-screen mode", async () => {
-      const user = userEvent.setup();
-      renderSession();
-
-      await user.click(screen.getByTestId("toggle-view-btn"));
-
-      expect(screen.queryByTestId("bottom-tabbed-area")).not.toBeInTheDocument();
-    });
-
-    it("restores tabbed area when returning from full-screen", async () => {
-      const user = userEvent.setup();
-      renderSession();
-
-      await user.click(screen.getByTestId("toggle-view-btn"));
-      expect(screen.queryByTestId("bottom-tabbed-area")).not.toBeInTheDocument();
-
-      await user.click(screen.getByTestId("toggle-view-btn"));
-      expect(screen.getByTestId("bottom-tabbed-area")).toBeInTheDocument();
+      await waitFor(() => {
+        expect(mockStopAudio).toHaveBeenCalled();
+      });
     });
   });
 });

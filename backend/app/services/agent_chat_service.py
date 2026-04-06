@@ -45,8 +45,10 @@ async def chat_with_agent(
     client = agent_sync_service._get_project_client(project_endpoint, api_key)
 
     # Get the deployed model name from master config
+    from app.config import get_settings
+
     master = await config_service.get_master_config(db)
-    model = master.model_or_deployment if master else "gpt-4o"
+    model = master.model_or_deployment if master else get_settings().voice_live_default_model
 
     openai_client = client.get_openai_client()
 

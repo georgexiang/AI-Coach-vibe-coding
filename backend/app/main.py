@@ -1,10 +1,21 @@
+import logging
+import sys
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
+
+# Configure root logger so all app.* loggers output to stderr.
+# Without this, only uvicorn's own logger produces output.
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
+    stream=sys.stderr,
+)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api import (
+    admin_users_router,
     analytics_router,
     auth_router,
     azure_config_router,
@@ -19,117 +30,28 @@ from app.api import (
     speech_router,
     voice_live_router,
 )
+from app.api.health import router as health_router
 from app.config import get_settings
 from app.database import engine
-from app.models.base import Base
+from app.middleware import RequestLoggingMiddleware
+from app.startup import init_tables, load_service_configs, register_adapters, run_seed
 from app.utils.exceptions import AppException
 
+logger = logging.getLogger(__name__)
 settings = get_settings()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: create tables
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-
-    # Register mock adapters (always available, no Azure credentials needed)
-    from app.services.agents.adapters.mock import MockCoachingAdapter
-    from app.services.agents.avatar.mock import MockAvatarAdapter
-    from app.services.agents.registry import registry
-    from app.services.agents.stt.mock import MockSTTAdapter
-    from app.services.agents.tts.mock import MockTTSAdapter
-
-    registry.register("llm", MockCoachingAdapter())
-    registry.register("stt", MockSTTAdapter())
-    registry.register("tts", MockTTSAdapter())
-    registry.register("avatar", MockAvatarAdapter())
-
-    # Register Azure Speech adapters if credentials are configured
-    if settings.azure_speech_key and settings.azure_speech_region:
-        from app.services.agents.stt.azure import AzureSTTAdapter
-        from app.services.agents.tts.azure import AzureTTSAdapter
-
-        registry.register(
-            "stt", AzureSTTAdapter(settings.azure_speech_key, settings.azure_speech_region)
-        )
-        registry.register(
-            "tts", AzureTTSAdapter(settings.azure_speech_key, settings.azure_speech_region)
-        )
-
-    # Register Azure Avatar adapter stub (premium option behind feature toggle)
-    if settings.azure_avatar_endpoint and settings.azure_avatar_key:
-        from app.services.agents.avatar.azure import AzureAvatarAdapter
-
-        registry.register(
-            "avatar", AzureAvatarAdapter(settings.azure_avatar_endpoint, settings.azure_avatar_key)
-        )
-
-    # Seed all demo data (idempotent — skips if data exists)
-    # Set SEED_DATA_IGNORE=true to disable seed on startup
-    if not settings.seed_data_ignore:
-        from app.database import AsyncSessionLocal as _SeedSessionLocal
-        from app.startup_seed import seed_all
-
-        try:
-            async with _SeedSessionLocal() as seed_session:
-                await seed_all(seed_session)
-        except Exception:
-            pass  # Tolerate missing table on first run
-
-    # Load active configs from DB and register real adapters (overrides mocks)
-    # First load master AI Foundry config, then pass it to per-service registrations
-    from app.api.azure_config import register_adapter_from_config
-    from app.database import AsyncSessionLocal
-    from app.models.service_config import ServiceConfig
-    from app.utils.encryption import decrypt_value
-
-    try:
-        async with AsyncSessionLocal() as session:
-            from sqlalchemy import select
-
-            # Load master AI Foundry config first
-            master_endpoint = ""
-            master_key = ""
-            master_region = ""
-            master_result = await session.execute(
-                select(ServiceConfig).where(ServiceConfig.is_master == True)  # noqa: E712
-            )
-            master_cfg = master_result.scalar_one_or_none()
-            master_model = ""
-            if master_cfg:
-                master_endpoint = master_cfg.endpoint
-                master_key = decrypt_value(master_cfg.api_key_encrypted)
-                master_region = master_cfg.region
-                master_model = master_cfg.model_or_deployment
-
-            # Register per-service adapters with master fallback
-            result = await session.execute(
-                select(ServiceConfig).where(
-                    ServiceConfig.is_active == True,  # noqa: E712
-                    ServiceConfig.is_master == False,  # noqa: E712
-                )
-            )
-            configs = result.scalars().all()
-            for cfg in configs:
-                api_key = decrypt_value(cfg.api_key_encrypted)
-                await register_adapter_from_config(
-                    cfg.service_name,
-                    cfg.endpoint,
-                    api_key,
-                    cfg.model_or_deployment,
-                    cfg.region,
-                    master_endpoint=master_endpoint,
-                    master_key=master_key,
-                    master_region=master_region,
-                    master_model=master_model,
-                )
-    except Exception:
-        pass  # DB may not have the table yet on first run
-
+    logger.info("Starting %s", settings.app_name)
+    await init_tables()
+    register_adapters()
+    await run_seed()
+    await load_service_configs()
+    logger.info("Startup complete")
     yield
-    # Shutdown: dispose engine
     await engine.dispose()
+    logger.info("Shutdown complete")
 
 
 app = FastAPI(
@@ -137,7 +59,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS
+# Middleware (order matters: CORS first, then logging)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins.split(","),
@@ -145,6 +67,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(RequestLoggingMiddleware)
 
 
 # Global exception handler
@@ -174,9 +97,7 @@ app.include_router(conference_router, prefix=settings.api_prefix)
 app.include_router(analytics_router, prefix=settings.api_prefix)
 app.include_router(voice_live_router, prefix=settings.api_prefix)
 app.include_router(speech_router, prefix=settings.api_prefix)
+app.include_router(admin_users_router, prefix=settings.api_prefix)
 
-
-# Health check
-@app.get("/api/health")
-async def health():
-    return {"status": "healthy", "service": settings.app_name}
+# Health check (standalone router, no api_prefix)
+app.include_router(health_router)

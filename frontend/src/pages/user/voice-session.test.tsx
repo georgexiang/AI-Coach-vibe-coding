@@ -133,7 +133,7 @@ describe("VoiceSessionPage", () => {
       }),
     }));
     vi.doMock("react-router-dom", () => ({
-      useSearchParams: () => [new URLSearchParams("id=session-1&mode=avatar")],
+      useSearchParams: () => [new URLSearchParams("id=session-1")],
       useNavigate: () => vi.fn(),
     }));
     vi.doMock("@/hooks/use-session", () => ({
@@ -151,7 +151,7 @@ describe("VoiceSessionPage", () => {
           ? {
               id: "scenario-1",
               name: "Test Scenario",
-              hcp_profile: { name: "Dr. Chen" },
+              hcp_profile: { name: "Dr. Chen", avatar_character: "lisa" },
               description: "Prompt",
               key_messages: [],
               product: "",
@@ -159,7 +159,7 @@ describe("VoiceSessionPage", () => {
               mode: "f2f",
               difficulty: "medium",
               status: "active",
-              hcp_profile_id: "",
+              hcp_profile_id: "hcp-1",
               weight_key_message: 30,
               weight_objection_handling: 25,
               weight_communication: 20,
@@ -178,8 +178,8 @@ describe("VoiceSessionPage", () => {
       VoiceSession: (props: Record<string, unknown>) => (
         <div data-testid="voice-session">
           <span data-testid="session-id">{String(props["sessionId"])}</span>
-          <span data-testid="mode">{String(props["mode"])}</span>
           <span data-testid="hcp-name">{String(props["hcpName"])}</span>
+          <span data-testid="hcp-profile-id">{String(props["hcpProfileId"])}</span>
         </div>
       ),
     }));
@@ -188,7 +188,7 @@ describe("VoiceSessionPage", () => {
     render(<VoiceSessionPage />);
 
     expect(screen.getByTestId("session-id")).toHaveTextContent("session-1");
-    expect(screen.getByTestId("mode")).toHaveTextContent("avatar");
     expect(screen.getByTestId("hcp-name")).toHaveTextContent("Dr. Chen");
+    expect(screen.getByTestId("hcp-profile-id")).toHaveTextContent("hcp-1");
   });
 });

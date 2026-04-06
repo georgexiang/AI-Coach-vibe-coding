@@ -9,12 +9,14 @@ from app.models.scoring_rubric import ScoringRubric
 from app.models.service_config import ServiceConfig
 from app.models.session import CoachingSession
 from app.models.user import User
+from app.models.voice_live_instance import VoiceLiveInstance
 
 __all__ = [
     "Base",
     "TimestampMixin",
     "User",
     "HcpProfile",
+    "VoiceLiveInstance",
     "Scenario",
     "CoachingSession",
     "ConferenceAudienceHcp",
@@ -26,5 +28,4 @@ __all__ = [
     "TrainingMaterial",
     "MaterialVersion",
     "MaterialChunk",
-    "ServiceConfig",
 ]

@@ -68,6 +68,9 @@ class Settings(BaseSettings):
     # Seed data control: set SEED_DATA_IGNORE=true to skip seed on startup
     seed_data_ignore: bool = False
 
+    # Default Voice Live model (when creating new instances/profiles; override via .env)
+    voice_live_default_model: str = "gpt-4o"
+
     # Default AI provider per category
     default_llm_provider: str = "mock"
     default_stt_provider: str = "mock"

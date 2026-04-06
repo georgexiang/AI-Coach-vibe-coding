@@ -27,35 +27,6 @@ import {
 import { useOrgAnalytics } from "@/hooks/use-analytics";
 import { cn } from "@/lib/utils";
 
-// Mock data for score distribution
-const SCORE_DISTRIBUTION = [
-  { range: "0-20", count: 2 },
-  { range: "21-40", count: 8 },
-  { range: "41-60", count: 25 },
-  { range: "61-80", count: 45 },
-  { range: "81-100", count: 32 },
-];
-
-// Mock data for performance alerts
-const TOP_PERFORMERS = [
-  { name: "Zhang Wei", score: 95, bu: "Oncology" },
-  { name: "Li Mei", score: 92, bu: "Hematology" },
-  { name: "Wang Jun", score: 91, bu: "Oncology" },
-];
-
-const NEEDS_ATTENTION = [
-  { name: "Chen Fang", score: 38, sessions: 2, bu: "Immunology" },
-  { name: "Liu Hua", score: 42, sessions: 1, bu: "Hematology" },
-  { name: "Zhao Min", score: 45, sessions: 3, bu: "Oncology" },
-];
-
-// Mock data for training activity heatmap (last 4 weeks x 7 days)
-const HEATMAP_DATA = [
-  [3, 5, 2, 4, 6, 1, 0],
-  [4, 3, 5, 2, 7, 2, 1],
-  [2, 6, 4, 5, 3, 3, 0],
-  [5, 4, 6, 3, 8, 2, 1],
-];
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 function getHeatColor(value: number): string {
@@ -163,7 +134,7 @@ export default function AdminDashboard() {
           <CardContent>
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={SCORE_DISTRIBUTION}>
+                <BarChart data={orgData?.score_distribution ?? []}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                   <XAxis dataKey="range" tick={{ fill: "var(--color-muted-foreground)", fontSize: 12 }} />
                   <YAxis tick={{ fill: "var(--color-muted-foreground)", fontSize: 12 }} />
@@ -209,7 +180,7 @@ export default function AdminDashboard() {
             </div>
           </CardHeader>
           <CardContent className="space-y-3">
-            {TOP_PERFORMERS.map((user, idx) => (
+            {(orgData?.top_performers ?? []).map((user, idx) => (
               <div
                 key={user.name}
                 className="flex items-center justify-between rounded-lg border border-border p-3 transition-colors duration-150 hover:bg-muted/50"
@@ -250,7 +221,7 @@ export default function AdminDashboard() {
             </div>
           </CardHeader>
           <CardContent className="space-y-3">
-            {NEEDS_ATTENTION.map((user) => (
+            {(orgData?.needs_attention ?? []).map((user) => (
               <div
                 key={user.name}
                 className="flex items-center justify-between rounded-lg border border-weakness/20 bg-weakness/5 p-3 transition-colors duration-150 hover:bg-weakness/10"
@@ -293,7 +264,7 @@ export default function AdminDashboard() {
               ))}
             </div>
             {/* Heatmap rows */}
-            {HEATMAP_DATA.map((week, weekIdx) => (
+            {(orgData?.training_activity ?? []).map((week, weekIdx) => (
               <div key={weekIdx} className="flex items-center gap-1">
                 <span className="w-14 text-right text-xs text-muted-foreground">
                   {t("week", { defaultValue: "Week" })} {weekIdx + 1}

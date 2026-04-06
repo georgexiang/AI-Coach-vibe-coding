@@ -7,11 +7,10 @@ but all config resolution, DB lookups, and message routing use real code paths
 with real data from .env.
 
 Test categories:
-  1. _to_cognitive_services_endpoint — URL transformation
-  2. _load_connection_config — config loading from DB with real values
-  3. handle_voice_live_websocket — full proxy flow with mocked SDK
-  4. Real credential verification — encrypt/decrypt round-trip
-  5. WebSocket authentication — JWT token validation via query parameter
+  1. _load_connection_config — config loading from DB with real values
+  2. handle_voice_live_websocket — full proxy flow with mocked SDK
+  3. Real credential verification — encrypt/decrypt round-trip
+  4. WebSocket authentication — JWT token validation via query parameter
 """
 
 import asyncio
@@ -28,7 +27,6 @@ from app.models.hcp_profile import HcpProfile
 from app.models.service_config import ServiceConfig
 from app.services.voice_live_websocket import (
     _load_connection_config,
-    _to_cognitive_services_endpoint,
     handle_voice_live_websocket,
 )
 from app.utils.encryption import encrypt_value
@@ -61,7 +59,7 @@ async def seeded_db(db_session):
 
     Creates:
     - Master config (ai_foundry) with real endpoint, key, project
-    - Voice Live service config (azure_voice_live) in agent mode
+    - Voice Live service config (azure_voice_live) in model mode
     - Avatar service config (azure_avatar, inactive by default)
     """
     # Master AI Foundry config — real credentials
@@ -79,20 +77,13 @@ async def seeded_db(db_session):
     )
     db_session.add(master)
 
-    # Voice Live service config — agent mode with real project
-    vl_mode = json.dumps(
-        {
-            "mode": "agent",
-            "agent_id": "asst_test_agent_id",
-            "project_name": REAL_FOUNDRY_PROJECT,
-        }
-    )
+    # Voice Live service config — model mode with supported model
     voice_live = ServiceConfig(
         service_name="azure_voice_live",
         display_name="Azure Voice Live",
         endpoint="",  # inherit from master
         api_key_encrypted="",  # inherit from master
-        model_or_deployment=vl_mode,
+        model_or_deployment="gpt-4o",
         region="swedencentral",
         is_master=False,
         is_active=True,
@@ -120,7 +111,7 @@ async def seeded_db(db_session):
 
 @pytest.fixture
 async def seeded_db_model_mode(db_session):
-    """Seed test DB with model mode config (not agent mode)."""
+    """Seed test DB with gpt-4o-realtime-preview model config."""
     master = ServiceConfig(
         service_name="ai_foundry",
         display_name="Azure AI Foundry",
@@ -170,19 +161,12 @@ async def seeded_db_with_avatar(db_session):
     )
     db_session.add(master)
 
-    vl_mode = json.dumps(
-        {
-            "mode": "agent",
-            "agent_id": "asst_avatar_agent",
-            "project_name": REAL_FOUNDRY_PROJECT,
-        }
-    )
     voice_live = ServiceConfig(
         service_name="azure_voice_live",
         display_name="Azure Voice Live",
         endpoint="",
         api_key_encrypted="",
-        model_or_deployment=vl_mode,
+        model_or_deployment="gpt-4o",
         region="swedencentral",
         is_master=False,
         is_active=True,
@@ -231,69 +215,35 @@ async def hcp_profile_with_agent(seeded_db):
 
 
 # ===========================================================================
-# Test 1: _to_cognitive_services_endpoint
-# ===========================================================================
-
-
-class TestCognitiveServicesEndpoint:
-    """Tests for endpoint URL transformation."""
-
-    def test_transform_ai_services_url(self):
-        """services.ai.azure.com → cognitiveservices.azure.com."""
-        result = _to_cognitive_services_endpoint(
-            "https://ai-foundary-hu-sweden-central.services.ai.azure.com/"
-        )
-        assert "cognitiveservices.azure.com" in result
-        assert "services.ai.azure.com" not in result
-
-    def test_real_foundry_endpoint_transform(self):
-        """Real .env endpoint transforms correctly."""
-        result = _to_cognitive_services_endpoint(REAL_FOUNDRY_ENDPOINT)
-        if "services.ai.azure.com" in REAL_FOUNDRY_ENDPOINT:
-            assert "cognitiveservices.azure.com" in result
-        else:
-            # If endpoint is already cognitive services format, no change
-            assert result == REAL_FOUNDRY_ENDPOINT
-
-    def test_already_cognitive_services_no_change(self):
-        """cognitiveservices.azure.com stays unchanged."""
-        url = "https://test.cognitiveservices.azure.com/"
-        assert _to_cognitive_services_endpoint(url) == url
-
-    def test_non_azure_url_no_change(self):
-        """Non-Azure URLs pass through unchanged."""
-        url = "https://example.com/api"
-        assert _to_cognitive_services_endpoint(url) == url
-
-
-# ===========================================================================
-# Test 2: _load_connection_config — real DB config resolution
+# Test 1: _load_connection_config — real DB config resolution
 # ===========================================================================
 
 
 class TestLoadConnectionConfig:
     """Tests for _load_connection_config using real DB-seeded config."""
 
-    async def test_agent_mode_config_from_db(self, seeded_db):
-        """Agent mode loads agent_id and project_name from DB."""
+    async def test_model_mode_config_from_db(self, seeded_db):
+        """Model mode loads model name from DB (always model mode)."""
         cfg = await _load_connection_config(seeded_db)
 
-        assert cfg["is_agent"] is True
-        assert cfg["agent_id"] == "asst_test_agent_id"
-        assert cfg["project_name"] == REAL_FOUNDRY_PROJECT
-        # Endpoint should be transformed from master
+        assert cfg["model"] == "gpt-4o"
+        # Endpoint used as-is (no cognitiveservices transform)
         assert cfg["endpoint"]
-        assert "cognitiveservices.azure.com" in cfg["endpoint"]
+        assert cfg["endpoint"] == REAL_FOUNDRY_ENDPOINT.rstrip("/")
+        # No agent-related keys
+        assert "is_agent" not in cfg
+        assert "agent_id" not in cfg
+        assert "project_name" not in cfg
         # API key should be the real key from master
         assert cfg["api_key"] == REAL_FOUNDRY_API_KEY
 
-    async def test_model_mode_config_from_db(self, seeded_db_model_mode):
-        """Model mode loads model name, no agent_id."""
+    async def test_model_mode_realtime_preview(self, seeded_db_model_mode):
+        """Model mode loads gpt-4o-realtime-preview when configured."""
         cfg = await _load_connection_config(seeded_db_model_mode)
 
-        assert cfg["is_agent"] is False
-        assert cfg["agent_id"] is None or not cfg["agent_id"]
         assert cfg["model"] == "gpt-4o-realtime-preview"
+        assert "is_agent" not in cfg
+        assert "agent_id" not in cfg
         assert cfg["api_key"] == REAL_FOUNDRY_API_KEY
 
     async def test_avatar_enabled_from_db(self, seeded_db_with_avatar):
@@ -301,6 +251,7 @@ class TestLoadConnectionConfig:
         cfg = await _load_connection_config(seeded_db_with_avatar)
 
         assert cfg["avatar_enabled"] is True
+        # avatar_character comes from azure_avatar config model_or_deployment
         assert cfg["avatar_character"] == "Lisa-casual-sitting"
 
     async def test_avatar_disabled_when_inactive(self, seeded_db):
@@ -309,22 +260,23 @@ class TestLoadConnectionConfig:
 
         assert cfg["avatar_enabled"] is False
 
-    async def test_hcp_profile_overrides_agent_id(self, hcp_profile_with_agent):
-        """HCP profile with synced agent overrides config-level agent_id."""
+    async def test_hcp_profile_overrides_voice_settings(self, hcp_profile_with_agent):
+        """HCP profile overrides voice/avatar settings in model mode."""
         profile, db = hcp_profile_with_agent
 
         cfg = await _load_connection_config(db, hcp_profile_id=profile.id)
 
-        assert cfg["agent_id"] == "asst_hcp_override_agent"
-        assert cfg["is_agent"] is True
-        # Project should fall back to master default
-        assert cfg["project_name"] == REAL_FOUNDRY_PROJECT
+        # Always model mode — no agent keys
+        assert "is_agent" not in cfg
+        assert "agent_id" not in cfg
         # Voice settings from profile
         assert cfg["voice_name"] == "zh-CN-XiaoxiaoMultilingualNeural"
         assert cfg["voice_type"] == "azure-standard"
+        # Model defaults to gpt-4o (profile has no voice_live_model override)
+        assert cfg["model"] == "gpt-4o"
 
-    async def test_hcp_profile_without_agent_uses_config(self, seeded_db):
-        """HCP profile without agent_id falls back to config-level agent."""
+    async def test_hcp_profile_voice_settings_applied(self, seeded_db):
+        """HCP profile voice settings are applied in model mode."""
         profile = HcpProfile(
             name="Dr. No Agent",
             specialty="Cardiology",
@@ -340,11 +292,11 @@ class TestLoadConnectionConfig:
 
         cfg = await _load_connection_config(seeded_db, hcp_profile_id=profile.id)
 
-        # Should keep config-level agent_id since profile has none
-        assert cfg["agent_id"] == "asst_test_agent_id"
-        assert cfg["is_agent"] is True
+        # Always model mode
+        assert "is_agent" not in cfg
         # Voice from profile
         assert cfg["voice_name"] == "en-US-AvaNeural"
+        assert cfg["model"] == "gpt-4o"
 
     async def test_system_prompt_passed_through(self, seeded_db):
         """System prompt is passed through to config."""
@@ -403,6 +355,7 @@ def _install_mock_sdk() -> tuple[MagicMock, MagicMock, MagicMock]:
     # --- azure.ai.voicelive.models module ---
     models_mod = types.ModuleType("azure.ai.voicelive.models")
     models_mod.AudioEchoCancellation = MagicMock(name="AudioEchoCancellation")
+    models_mod.AudioInputTranscriptionOptions = MagicMock(name="AudioInputTranscriptionOptions")
     models_mod.AudioNoiseReduction = MagicMock(name="AudioNoiseReduction")
     models_mod.AvatarConfig = MagicMock(name="AvatarConfig")
     models_mod.AzureSemanticVad = MagicMock(name="AzureSemanticVad")
@@ -517,8 +470,8 @@ class TestHandleVoiceLiveWebsocket:
             msg = json.loads(call[0][0])
             if msg.get("type") == "proxy.connected":
                 proxy_connected_sent = True
-                assert msg["is_agent"] is True
                 assert msg["avatar_enabled"] is False
+                assert msg["model"] == "gpt-4o"
                 break
         assert proxy_connected_sent, "proxy.connected message was not sent"
 
@@ -553,8 +506,8 @@ class TestHandleVoiceLiveWebsocket:
         assert error_msg["type"] == "error"
         assert "not configured" in error_msg["error"]["message"]
 
-    async def test_agent_mode_passes_query_params(self, seeded_db, mock_sdk):
-        """Agent mode connect() includes agent-id and agent-project-name with real data."""
+    async def test_model_mode_passes_model_name(self, seeded_db, mock_sdk):
+        """Model mode connect() includes model name and endpoint as-is."""
         mock_connect_fn, _, _ = mock_sdk
 
         mock_conn = _make_mock_azure_conn()
@@ -573,18 +526,18 @@ class TestHandleVoiceLiveWebsocket:
 
         await handle_voice_live_websocket(ws, seeded_db)
 
-        # Verify connect() was called with correct params
+        # Verify connect() was called with correct model mode params
         mock_connect_fn.assert_called_once()
         call_kwargs = mock_connect_fn.call_args[1]
-        assert call_kwargs["model"] is None  # agent mode: model=None
-        assert call_kwargs["query"]["agent-id"] == "asst_test_agent_id"
-        assert call_kwargs["query"]["agent-project-name"] == REAL_FOUNDRY_PROJECT
+        assert call_kwargs["model"] == "gpt-4o"
         assert call_kwargs["api_version"] == "2025-05-01-preview"
-        # Endpoint should be the transformed real endpoint
-        assert "cognitiveservices.azure.com" in call_kwargs["endpoint"]
+        # Endpoint used as-is (no cognitiveservices transform)
+        assert call_kwargs["endpoint"] == REAL_FOUNDRY_ENDPOINT.rstrip("/")
+        # No query param (no agent mode)
+        assert "query" not in call_kwargs
 
-    async def test_model_mode_passes_model_name(self, seeded_db_model_mode, mock_sdk):
-        """Model mode connect() includes model name, no agent query params."""
+    async def test_realtime_preview_model_passed(self, seeded_db_model_mode, mock_sdk):
+        """gpt-4o-realtime-preview model is passed through correctly."""
         mock_connect_fn, _, _ = mock_sdk
 
         mock_conn = _make_mock_azure_conn()
@@ -606,7 +559,6 @@ class TestHandleVoiceLiveWebsocket:
         mock_connect_fn.assert_called_once()
         call_kwargs = mock_connect_fn.call_args[1]
         assert call_kwargs["model"] == "gpt-4o-realtime-preview"
-        assert call_kwargs["query"] == {}  # No agent params in model mode
 
     async def test_session_config_sent_to_azure(self, seeded_db, mock_sdk):
         """Session config (voice, VAD, noise, echo) is sent to Azure after connect."""

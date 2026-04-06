@@ -54,3 +54,15 @@ build/
 figma-make/
 .playwright-mcp/
 backend/storage/materials/materials/
+
+# Reference sample code repos (not part of this project)
+Voice-Live-Agent-With-Avadar-sample-code/
+voicelive-api-salescoach-main-sample-code/
+
+# Temp debug files
+avatar-debug-screenshot.png
+backend/=1.17.0
+backend/ai_coach.db-shm
+backend/ai_coach.db-wal
+backend/test_avatar_direct.py
+frontend/e2e/screenshots/

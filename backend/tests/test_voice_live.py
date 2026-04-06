@@ -377,17 +377,28 @@ class TestFeatureFlagsVoiceLive:
     """Tests for voice_live_enabled in feature flags API."""
 
     async def test_feature_flags_includes_voice_live_enabled(self, client):
-        """GET /api/v1/config/features includes voice_live_enabled field (default False)."""
+        """GET /api/v1/config/features includes voice_live_enabled field."""
         _, token = await _create_user_and_token("flags_vl_user")
-        response = await client.get(
-            "/api/v1/config/features",
-            headers={"Authorization": f"Bearer {token}"},
-        )
+
+        with patch("app.api.config.get_settings") as mock_get_settings:
+            mock_settings = MagicMock()
+            mock_settings.feature_avatar_enabled = False
+            mock_settings.feature_voice_enabled = False
+            mock_settings.feature_realtime_voice_enabled = False
+            mock_settings.feature_conference_enabled = False
+            mock_settings.feature_voice_live_enabled = False
+            mock_settings.default_voice_mode = "text_only"
+            mock_settings.region = "global"
+            mock_get_settings.return_value = mock_settings
+
+            response = await client.get(
+                "/api/v1/config/features",
+                headers={"Authorization": f"Bearer {token}"},
+            )
         assert response.status_code == 200
         data = response.json()
         assert "features" in data
         assert "voice_live_enabled" in data["features"]
-        # Default is False per config.py
         assert data["features"]["voice_live_enabled"] is False
 
     async def test_feature_flags_voice_live_enabled_true_when_setting_true(self, client):
