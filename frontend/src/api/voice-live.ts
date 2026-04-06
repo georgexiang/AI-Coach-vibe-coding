@@ -1,5 +1,14 @@
 import apiClient from "@/api/client";
-import type { VoiceLiveToken, VoiceLiveConfigStatus } from "@/types/voice-live";
+import type {
+  VoiceLiveToken,
+  VoiceLiveConfigStatus,
+  VoiceLiveModelsResponse,
+  AvatarCharactersResponse,
+  VoiceLiveInstance,
+  VoiceLiveInstanceCreate,
+  VoiceLiveInstanceUpdate,
+  VoiceLiveInstanceListResponse,
+} from "@/types/voice-live";
 
 export async function fetchVoiceLiveToken(hcpProfileId?: string): Promise<VoiceLiveToken> {
   const params = hcpProfileId ? { hcp_profile_id: hcpProfileId } : {};
@@ -9,6 +18,16 @@ export async function fetchVoiceLiveToken(hcpProfileId?: string): Promise<VoiceL
 
 export async function fetchVoiceLiveStatus(): Promise<VoiceLiveConfigStatus> {
   const response = await apiClient.get<VoiceLiveConfigStatus>("/voice-live/status");
+  return response.data;
+}
+
+export async function fetchVoiceLiveModels(): Promise<VoiceLiveModelsResponse> {
+  const response = await apiClient.get<VoiceLiveModelsResponse>("/voice-live/models");
+  return response.data;
+}
+
+export async function fetchAvatarCharacters(): Promise<AvatarCharactersResponse> {
+  const response = await apiClient.get<AvatarCharactersResponse>("/voice-live/avatar-characters");
   return response.data;
 }
 
@@ -22,4 +41,72 @@ export async function persistTranscriptMessage(
     role,
     source: "voice_transcript",
   });
+}
+
+// ── Voice Live Instance CRUD ───────────────────────────────────────────
+
+export async function fetchVoiceLiveInstances(params?: {
+  page?: number;
+  page_size?: number;
+}): Promise<VoiceLiveInstanceListResponse> {
+  const response = await apiClient.get<VoiceLiveInstanceListResponse>(
+    "/voice-live/instances",
+    { params },
+  );
+  return response.data;
+}
+
+export async function fetchVoiceLiveInstance(
+  id: string,
+): Promise<VoiceLiveInstance> {
+  const response = await apiClient.get<VoiceLiveInstance>(
+    `/voice-live/instances/${id}`,
+  );
+  return response.data;
+}
+
+export async function createVoiceLiveInstance(
+  data: VoiceLiveInstanceCreate,
+): Promise<VoiceLiveInstance> {
+  const response = await apiClient.post<VoiceLiveInstance>(
+    "/voice-live/instances",
+    data,
+  );
+  return response.data;
+}
+
+export async function updateVoiceLiveInstance(
+  id: string,
+  data: VoiceLiveInstanceUpdate,
+): Promise<VoiceLiveInstance> {
+  const response = await apiClient.put<VoiceLiveInstance>(
+    `/voice-live/instances/${id}`,
+    data,
+  );
+  return response.data;
+}
+
+export async function deleteVoiceLiveInstance(id: string): Promise<void> {
+  await apiClient.delete(`/voice-live/instances/${id}`);
+}
+
+export async function assignVoiceLiveInstance(
+  instanceId: string,
+  hcpProfileId: string,
+): Promise<VoiceLiveInstance> {
+  const response = await apiClient.post<VoiceLiveInstance>(
+    `/voice-live/instances/${instanceId}/assign`,
+    { hcp_profile_id: hcpProfileId },
+  );
+  return response.data;
+}
+
+export async function unassignVoiceLiveInstance(
+  hcpProfileId: string,
+): Promise<{ hcp_profile_id: string; voice_live_instance_id: null }> {
+  const response = await apiClient.post<{ hcp_profile_id: string; voice_live_instance_id: null }>(
+    "/voice-live/instances/unassign",
+    { hcp_profile_id: hcpProfileId },
+  );
+  return response.data;
 }

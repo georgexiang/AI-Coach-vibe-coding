@@ -9,6 +9,7 @@ export type SessionMode =
 
 export interface VoiceLiveToken {
   endpoint: string;
+  /** Masked token ("***configured***") -- auth is handled server-side by the WebSocket proxy. */
   token: string;
   auth_type?: "key" | "bearer"; // "key" for API key, "bearer" for STS bearer token
   region: string;
@@ -30,7 +31,6 @@ export interface VoiceLiveToken {
   echo_cancellation?: boolean;
   eou_detection?: boolean;
   recognition_language?: string;
-  agent_instructions_override?: string;
 }
 
 export interface VoiceLiveConfigStatus {
@@ -72,6 +72,8 @@ export interface VoiceLiveOptions {
   language: string;
   systemPrompt: string;
   onTranscript?: (segment: TranscriptSegment) => void;
+  /** Called for each `response.audio.delta` event with base64-encoded PCM16 audio. */
+  onAudioDelta?: (base64Audio: string) => void;
   onConnectionStateChange?: (state: VoiceConnectionState) => void;
   onAudioStateChange?: (state: AudioState) => void;
   onError?: (error: Error) => void;
@@ -113,6 +115,25 @@ export interface VoiceConfigSettings {
   proactiveEngagement: boolean;
 }
 
+export interface AvatarCharacterStyle {
+  id: string;
+  display_name: string;
+}
+
+export interface AvatarCharacterInfo {
+  id: string;
+  display_name: string;
+  gender: string;
+  is_photo_avatar: boolean;
+  styles: AvatarCharacterStyle[];
+  default_style: string;
+  thumbnail_url: string;
+}
+
+export interface AvatarCharactersResponse {
+  characters: AvatarCharacterInfo[];
+}
+
 export interface AvatarStreamControls {
   /** Start avatar WebRTC handshake. Sends SDP offer via VoiceLive session event. */
   connect: (
@@ -123,4 +144,75 @@ export interface AvatarStreamControls {
   handleServerSdp: (serverSdp: string) => Promise<void>;
   disconnect: () => void;
   isConnected: boolean;
+}
+
+// ── Voice Live Instance (reusable configuration entity) ────────────────
+
+export interface VoiceLiveInstance {
+  id: string;
+  name: string;
+  description: string;
+  voice_live_model: string;
+  enabled: boolean;
+  voice_name: string;
+  voice_type: string;
+  voice_temperature: number;
+  voice_custom: boolean;
+  avatar_character: string;
+  avatar_style: string;
+  avatar_customized: boolean;
+  turn_detection_type: string;
+  noise_suppression: boolean;
+  echo_cancellation: boolean;
+  eou_detection: boolean;
+  recognition_language: string;
+  agent_instructions_override: string;
+  hcp_count: number;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface VoiceLiveInstanceSummary {
+  id: string;
+  name: string;
+  voice_live_model: string;
+  voice_name: string;
+  avatar_character: string;
+  hcp_count: number;
+}
+
+export interface VoiceLiveInstanceCreate {
+  name: string;
+  description?: string;
+  voice_live_model?: string;
+  enabled?: boolean;
+  voice_name?: string;
+  voice_type?: string;
+  voice_temperature?: number;
+  voice_custom?: boolean;
+  avatar_character?: string;
+  avatar_style?: string;
+  avatar_customized?: boolean;
+  turn_detection_type?: string;
+  noise_suppression?: boolean;
+  echo_cancellation?: boolean;
+  eou_detection?: boolean;
+  recognition_language?: string;
+  agent_instructions_override?: string;
+}
+
+export type VoiceLiveInstanceUpdate = Partial<VoiceLiveInstanceCreate>;
+
+export interface VoiceLiveInstanceListResponse {
+  items: VoiceLiveInstance[];
+  total: number;
+}
+
+export interface VoiceLiveInstanceAssign {
+  hcp_profile_id: string;
+}
+
+export interface VoiceLiveInstanceUnassign {
+  hcp_profile_id: string;
 }
