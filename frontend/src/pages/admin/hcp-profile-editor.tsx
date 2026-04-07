@@ -5,7 +5,7 @@ import { useForm, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { ArrowLeft, Save, MessageSquare, RefreshCw, BookOpen, Wrench } from "lucide-react";
+import { ArrowLeft, Save, MessageSquare, RefreshCw } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -110,6 +110,14 @@ export default function HcpProfileEditorPage() {
   const retrySyncMutation = useRetrySyncHcpProfile();
 
   const [testChatOpen, setTestChatOpen] = useState(false);
+
+  // Legacy tab ID fallback: knowledge/tools tabs have been removed,
+  // but bookmarks or deep links may still reference them
+  const VALID_TABS = new Set(["profile", "voice-avatar"]);
+  const [activeTab, setActiveTab] = useState("profile");
+  const handleTabChange = (value: string) => {
+    setActiveTab(VALID_TABS.has(value) ? value : "profile");
+  };
 
   const form = useForm<HcpFormValues>({
     resolver: zodResolver(hcpSchema) as Resolver<HcpFormValues>,
@@ -274,19 +282,13 @@ export default function HcpProfileEditorPage() {
 
       {/* Form wraps entire Tabs so state persists across tab switches */}
       <Form {...form}>
-        <Tabs defaultValue="profile">
+        <Tabs value={activeTab} onValueChange={handleTabChange}>
           <TabsList className="w-full">
             <TabsTrigger value="profile" className="flex-1">
               {t("admin:hcp.tabProfile")}
             </TabsTrigger>
             <TabsTrigger value="voice-avatar" className="flex-1">
               {t("admin:hcp.tabVoiceAvatar")}
-            </TabsTrigger>
-            <TabsTrigger value="knowledge" className="flex-1">
-              {t("admin:voiceLive.tabKnowledge")}
-            </TabsTrigger>
-            <TabsTrigger value="tools" className="flex-1">
-              {t("admin:voiceLive.tabTools")}
             </TabsTrigger>
           </TabsList>
 
@@ -523,35 +525,6 @@ export default function HcpProfileEditorPage() {
             <VoiceAvatarTab form={form} profile={profile} isNew={isNew} />
           </TabsContent>
 
-          {/* Knowledge Tab (placeholder) */}
-          <TabsContent value="knowledge" className="mt-4">
-            <Card>
-              <CardContent className="flex flex-col items-center justify-center py-16">
-                <BookOpen className="size-12 text-muted-foreground/50 mb-4" />
-                <h3 className="text-lg font-semibold mb-2">
-                  {t("admin:voiceLive.knowledgePlaceholderTitle")}
-                </h3>
-                <p className="text-sm text-muted-foreground text-center max-w-md">
-                  {t("admin:voiceLive.knowledgePlaceholderBody")}
-                </p>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Tools Tab (placeholder) */}
-          <TabsContent value="tools" className="mt-4">
-            <Card>
-              <CardContent className="flex flex-col items-center justify-center py-16">
-                <Wrench className="size-12 text-muted-foreground/50 mb-4" />
-                <h3 className="text-lg font-semibold mb-2">
-                  {t("admin:voiceLive.toolsPlaceholderTitle")}
-                </h3>
-                <p className="text-sm text-muted-foreground text-center max-w-md">
-                  {t("admin:voiceLive.toolsPlaceholderBody")}
-                </p>
-              </CardContent>
-            </Card>
-          </TabsContent>
         </Tabs>
       </Form>
 
