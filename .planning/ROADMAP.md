@@ -26,6 +26,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 12: Voice Realtime API & Agent Mode Integration** - Per-HCP digital persona (voice/avatar/conversation config), auto-mode selection, fallback chain, tabbed HCP editor (completed 2026-04-02)
 - [ ] **Phase 13: Voice Live Instance & Agent Voice Management** - Create/manage Voice Live instances, bind to HCP Agents, enable Voice mode, configure speech/avatar — matching AI Foundry portal workflow
 - [ ] **Phase 14: HCP Agent Refactor** - VL Instance read-only reference in HCP editor, VL Management rewrite with rich CRUD, Knowledge/Tools placeholder tabs
+- [ ] **Phase 15: HCP Editor Agent Config Center** - 重构 HCP 编辑器为 Agent 配置中心：移除空 Knowledge/Tools tab，Voice & Avatar tab 升级为 Model Deployment + Instructions + Playground 预览布局，对齐 Azure AI Foundry Agent 编辑体验
 
 ## Phase Details
 
@@ -195,7 +196,7 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 01 -> 01.1 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07 -> 08 -> 09 -> 10 -> 11 -> 12 -> 13 -> 14
+Phases execute in numeric order: 01 -> 01.1 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07 -> 08 -> 09 -> 10 -> 11 -> 12 -> 13 -> 14 -> 15
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -214,6 +215,7 @@ Phases execute in numeric order: 01 -> 01.1 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07 
 | 12. Voice Realtime API & Agent Mode Integration | 4/4 | Complete    | 2026-04-02 |
 | 13. Voice Live Instance & Agent Voice Management | 1/3 | In Progress|  |
 | 14. HCP Agent Refactor | 3/4 | In Progress|  |
+| 15. HCP Editor Agent Config Center | 0/0 | Not Started |  |
 
 ### Phase 07: Azure Service Integration
 
@@ -377,3 +379,19 @@ Plans:
 - [x] 14-02-PLAN.md -- VL Management page rewrite with rich CRUD dialog (VlInstanceDialog), enhanced instance card
 - [x] 14-03-PLAN.md -- HCP Voice Tab simplification (read-only preview + instance selector), Knowledge/Tools placeholder tabs
 - [ ] 14-04-PLAN.md -- Backend + frontend tests, build verification, human visual checkpoint
+
+### Phase 15: HCP Editor Agent Config Center
+
+**Goal:** 重构 HCP 编辑器为 Agent 配置中心，对齐 Azure AI Foundry Agent 编辑体验。移除空 Knowledge/Tools tab，Voice & Avatar tab 升级为完整 Agent 配置布局：Model Deployment 选择器、Voice Mode 开关+VL Instance 关联、Instructions 自动生成+可编辑覆盖、右侧 Playground 预览面板（数字人/音波球+Start 测试）。
+**Requirements**: HCP-15-01, HCP-15-02, HCP-15-03, HCP-15-04, HCP-15-05
+**Depends on:** Phase 14
+**Plans:** 0/0 plans
+
+**Success Criteria** (what must be TRUE):
+  1. HCP 编辑器只有 Profile 和 Voice & Avatar 两个 tab（Knowledge/Tools 空 tab 已移除）
+  2. Voice & Avatar tab 左侧包含 Model Deployment 选择器、Voice Mode 开关+VL Instance 选择、Instructions 区域（自动生成+可编辑 override）
+  3. Voice & Avatar tab 右侧为 Playground 预览面板，根据 avatar 配置显示数字人形象或音波球，含 Start 测试按钮
+  4. Instructions 区域可通过魔法棒按钮调用 build_agent_instructions 重新生成
+  5. 前后端测试覆盖 + i18n（en-US + zh-CN）+ TypeScript 编译通过
+
+**UI hint**: yes
