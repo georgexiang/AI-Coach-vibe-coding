@@ -287,10 +287,6 @@ export default function VlInstanceEditorPage() {
   });
 
   const startTest = useCallback(async () => {
-    if (!testHcp) {
-      toast.error(t("voiceLive.playgroundSection.assignToHcp"));
-      return;
-    }
     try {
       setIsTestConnecting(true);
       setTranscripts([]);
@@ -298,10 +294,16 @@ export default function VlInstanceEditorPage() {
       await audioHandler.initialize();
       voiceLive.avatarSdpCallbackRef.current = avatarStream.handleServerSdp;
 
-      const result = await voiceLive.connect(
-        testHcp.id,
-        form.agent_instructions_override ?? "",
-      );
+      const result = testHcp
+        ? await voiceLive.connect(
+            testHcp.id,
+            form.agent_instructions_override ?? "",
+          )
+        : await voiceLive.connect(
+            undefined,
+            form.agent_instructions_override ?? "",
+            id,
+          );
 
       if (result.avatarEnabled) {
         await avatarStream.connect(result.iceServers, async (clientSdp) => {
@@ -1018,7 +1020,7 @@ export default function VlInstanceEditorPage() {
                 <Button
                   size="lg"
                   className="gap-2 min-w-[140px] rounded-full"
-                  disabled={!isEdit || !testHcp || isTestConnecting}
+                  disabled={!isEdit || isTestConnecting}
                   onClick={startTest}
                 >
                   <Play className="size-4" />
@@ -1026,21 +1028,6 @@ export default function VlInstanceEditorPage() {
                     ? t("voiceLive.vlDialogSaving")
                     : tp("startTest")}
                 </Button>
-                {isEdit && !testHcp && (
-                  <p className="text-xs text-muted-foreground">
-                    {t("voiceLive.instanceNoHcps")} —{" "}
-                    <button
-                      type="button"
-                      className="text-primary underline"
-                      onClick={() => {
-                        setSelectedHcpId("");
-                        setAssignOpen(true);
-                      }}
-                    >
-                      {tp("assignToHcp")}
-                    </button>
-                  </p>
-                )}
                 {!isEdit && (
                   <p className="text-xs text-muted-foreground">
                     {tp("testPlaceholder")}

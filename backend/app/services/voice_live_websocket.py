@@ -44,6 +44,7 @@ async def _load_connection_config(
     db: AsyncSession,
     hcp_profile_id: str | None = None,
     system_prompt: str | None = None,
+    vl_instance_id: str | None = None,
 ) -> dict[str, Any]:
     """Load all config needed for Azure Voice Live connection from DB.
 
@@ -162,6 +163,60 @@ async def _load_connection_config(
                 exc_info=True,
             )
 
+    elif vl_instance_id:
+        # Standalone VL Instance test — no HCP, use instance config directly
+        from app.services.voice_live_instance_service import get_instance
+
+        try:
+            inst = await get_instance(db, vl_instance_id)
+
+            result["voice_name"] = inst.voice_name or "en-US-AvaNeural"
+            result["voice_type"] = inst.voice_type or "azure-standard"
+
+            char_id = inst.avatar_character or "lisa"
+            raw_style = inst.avatar_style or "casual-sitting"
+            result["avatar_character"] = char_id
+            result["avatar_customized"] = inst.avatar_customized
+
+            from app.services.avatar_characters import validate_avatar_style
+
+            validated = validate_avatar_style(char_id, raw_style)
+            if validated is not None and validated != raw_style:
+                logger.warning(
+                    "Avatar style %r invalid for %s, using %r",
+                    raw_style,
+                    char_id,
+                    validated,
+                )
+            result["avatar_style"] = validated if validated is not None else raw_style
+
+            from app.services.voice_live_models import VOICE_LIVE_MODELS
+
+            inst_model = inst.voice_live_model or _default_model
+            if inst_model.lower() not in VOICE_LIVE_MODELS:
+                logger.warning(
+                    "VL Instance %s voice_live_model %r not supported, using %s",
+                    vl_instance_id,
+                    inst_model,
+                    _default_model,
+                )
+                inst_model = _default_model
+            result["model"] = inst_model
+
+            # Use agent_instructions_override as instructions for standalone test
+            override = inst.agent_instructions_override or ""
+            if override.strip():
+                result["instructions"] = override.strip()
+
+            # Avatar enabled from instance
+            result["avatar_enabled"] = inst.avatar_enabled and result["avatar_enabled"]
+        except Exception:
+            logger.warning(
+                "Failed to load VL Instance %s, using defaults",
+                vl_instance_id,
+                exc_info=True,
+            )
+
     return result
 
 
@@ -190,8 +245,12 @@ async def handle_voice_live_websocket(ws: WebSocket, db: AsyncSession) -> None:
         session_data = first_msg.get("session", {})
         hcp_profile_id = session_data.get("hcp_profile_id")
         system_prompt = session_data.get("system_prompt")
+        vl_instance_id = session_data.get("vl_instance_id")
 
-        session_log.info("Session started: sid=%s, hcp=%s", sid, hcp_profile_id)
+        session_log.info(
+            "Session started: sid=%s, hcp=%s, vl_instance=%s",
+            sid, hcp_profile_id, vl_instance_id,
+        )
 
         # Step 2a: Check voice_live_enabled on the HCP profile (if provided)
         if hcp_profile_id:
@@ -211,7 +270,9 @@ async def handle_voice_live_websocket(ws: WebSocket, db: AsyncSession) -> None:
 
         # Step 2b: Load config from DB
         try:
-            cfg = await _load_connection_config(db, hcp_profile_id, system_prompt)
+            cfg = await _load_connection_config(
+                db, hcp_profile_id, system_prompt, vl_instance_id,
+            )
         except ValueError as e:
             await _send_error(ws, str(e))
             return
