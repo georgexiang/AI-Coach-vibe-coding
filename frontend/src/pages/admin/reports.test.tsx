@@ -29,9 +29,37 @@ vi.mock("@/hooks/use-analytics", () => ({
       avg_org_score: 73.8,
       completion_rate: 68,
       active_users: 156,
+      bu_stats: [
+        { business_unit: "Oncology", avg_score: 78, session_count: 300, user_count: 40 },
+        { business_unit: "Hematology", avg_score: 72, session_count: 250, user_count: 35 },
+        { business_unit: "Immunology", avg_score: 65, session_count: 200, user_count: 30 },
+        { business_unit: "Neurology", avg_score: 70, session_count: 150, user_count: 25 },
+      ],
+      skill_gaps: [
+        { business_unit: "Oncology", dimension: "Knowledge", avg_score: 82 },
+        { business_unit: "Oncology", dimension: "Communication", avg_score: 75 },
+        { business_unit: "Hematology", dimension: "Knowledge", avg_score: 70 },
+        { business_unit: "Hematology", dimension: "Communication", avg_score: 68 },
+        { business_unit: "Immunology", dimension: "Knowledge", avg_score: 60 },
+        { business_unit: "Immunology", dimension: "Communication", avg_score: 55 },
+        { business_unit: "Neurology", dimension: "Knowledge", avg_score: 72 },
+        { business_unit: "Neurology", dimension: "Communication", avg_score: 66 },
+      ],
     },
     isLoading: false,
   }),
+  useScoreTrends: () => ({
+    data: [
+      { month: "Jan", overall: 70, benchmark: 75 },
+      { month: "Feb", overall: 72, benchmark: 75 },
+    ],
+  }),
+}));
+
+vi.mock("@/components/shared", () => ({
+  StatCard: ({ label, value }: { label: string; value: string | number }) => (
+    <div data-testid="stat-card"><span>{label}</span><span>{String(value)}</span></div>
+  ),
 }));
 
 vi.mock("recharts", () => ({

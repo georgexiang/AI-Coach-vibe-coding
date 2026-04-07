@@ -17,7 +17,7 @@ class MockWebSocket {
   readyState = MockWebSocket.OPEN;
   onopen: (() => void) | null = null;
   onmessage: WSHandler = null;
-  onclose: (() => void) | null = null;
+  onclose: ((event: CloseEvent) => void) | null = null;
   onerror: ((err: unknown) => void) | null = null;
 
   sentMessages: string[] = [];
@@ -36,7 +36,7 @@ class MockWebSocket {
 
   close() {
     this.readyState = MockWebSocket.CLOSED;
-    this.onclose?.();
+    this.onclose?.({ code: 1000, reason: "", wasClean: true } as CloseEvent);
   }
 
   // Test helpers
@@ -615,7 +615,7 @@ describe("useVoiceLive (backend WebSocket proxy)", () => {
     // Simulate unexpected close (server-side)
     act(() => {
       ws.readyState = MockWebSocket.CLOSED;
-      ws.onclose?.();
+      ws.onclose?.({ code: 1006, reason: "", wasClean: false } as CloseEvent);
     });
 
     // Should transition to "connecting" for reconnect

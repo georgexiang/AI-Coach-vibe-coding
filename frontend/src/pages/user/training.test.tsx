@@ -73,6 +73,10 @@ vi.mock("@/components/shared", () => ({
   ),
 }));
 
+vi.mock("@/components/voice", () => ({
+  ModeSelector: () => <div data-testid="mode-selector" />,
+}));
+
 vi.mock("@/components/coach", () => ({
   ScenarioCard: ({
     scenario,
@@ -287,7 +291,7 @@ describe("ScenarioSelection Filters and Actions", () => {
     expect(mockNavigate).toHaveBeenCalledWith("/user/training/conference?id=conf-session-1");
   });
 
-  it("creates voice session with avatar mode when avatar_enabled", async () => {
+  it("creates voice session with default voice_pipeline mode", async () => {
     scenarioData = twoScenarios;
     mockFlags.voice_live_enabled = true;
     mockFlags.avatar_enabled = true;
@@ -301,11 +305,12 @@ describe("ScenarioSelection Filters and Actions", () => {
     const startBtns = screen.getAllByText("Start");
     await userEvent.setup().click(startBtns[0]!);
 
-    expect(mockMutateAsync).toHaveBeenCalledWith({ scenarioId: "sc-1", mode: "avatar" });
-    expect(mockNavigate).toHaveBeenCalledWith("/user/training/voice?id=voice-session-1&mode=avatar");
+    // Source uses selectedVoiceMode state (default: "voice_pipeline")
+    expect(mockMutateAsync).toHaveBeenCalledWith({ scenarioId: "sc-1", mode: "voice_pipeline" });
+    expect(mockNavigate).toHaveBeenCalledWith("/user/training/voice?id=voice-session-1&mode=voice_pipeline");
   });
 
-  it("creates voice session with voice mode when avatar is not enabled", async () => {
+  it("creates voice session with voice_pipeline mode when avatar is not enabled", async () => {
     scenarioData = twoScenarios;
     mockFlags.voice_live_enabled = true;
     mockFlags.avatar_enabled = false;
@@ -318,8 +323,9 @@ describe("ScenarioSelection Filters and Actions", () => {
     const startBtns = screen.getAllByText("Start");
     await userEvent.setup().click(startBtns[0]!);
 
-    expect(mockMutateAsync).toHaveBeenCalledWith({ scenarioId: "sc-1", mode: "voice" });
-    expect(mockNavigate).toHaveBeenCalledWith("/user/training/voice?id=voice-session-2&mode=voice");
+    // Source uses selectedVoiceMode state (default: "voice_pipeline")
+    expect(mockMutateAsync).toHaveBeenCalledWith({ scenarioId: "sc-1", mode: "voice_pipeline" });
+    expect(mockNavigate).toHaveBeenCalledWith("/user/training/voice?id=voice-session-2&mode=voice_pipeline");
   });
 
   it("handles createSession failure gracefully for F2F", async () => {
@@ -375,8 +381,8 @@ describe("ScenarioSelection Filters and Actions", () => {
     isLoading = true;
     scenarioData = undefined;
     const { container } = renderPage();
-    // Loading state should render skeleton cards (overflow-hidden rounded-xl)
-    const skeletonContainers = container.querySelectorAll(".overflow-hidden.rounded-xl");
+    // Loading state should render skeleton cards (overflow-hidden rounded-lg)
+    const skeletonContainers = container.querySelectorAll(".overflow-hidden.rounded-lg");
     expect(skeletonContainers.length).toBeGreaterThanOrEqual(6);
   });
 });

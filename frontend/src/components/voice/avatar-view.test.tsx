@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { AvatarView } from "./avatar-view";
 
 vi.mock("react-i18next", () => ({
@@ -19,6 +19,37 @@ vi.mock("./audio-orb", () => ({
     <div data-testid="audio-orb" data-audio-state={audioState} />
   ),
 }));
+
+vi.mock("@/data/avatar-characters", () => {
+  const mockCharMeta = {
+    id: "lisa",
+    displayName: "Lisa",
+    styles: ["graceful-standing", "casual-sitting"],
+    defaultStyle: "graceful-standing",
+    gender: "female",
+    isPhotoAvatar: false,
+    gradientClasses: "from-blue-400 to-purple-500",
+    thumbnailUrl: "https://example.com/lisa.png",
+  };
+  const mockPhotoCharMeta = {
+    id: "max",
+    displayName: "Max",
+    styles: [],
+    defaultStyle: "",
+    gender: "male",
+    isPhotoAvatar: true,
+    gradientClasses: "from-green-400 to-teal-500",
+    thumbnailUrl: "https://example.com/max-photo.png",
+  };
+  const charMap = new Map([
+    ["lisa", mockCharMeta],
+    ["max", mockPhotoCharMeta],
+  ]);
+  return {
+    AVATAR_CHARACTER_MAP: charMap,
+    getAvatarInitials: (name: string) => name.charAt(0).toUpperCase(),
+  };
+});
 
 const defaultProps: React.ComponentProps<typeof AvatarView> = {
   videoRef: { current: null },
@@ -74,13 +105,13 @@ describe("AvatarView", () => {
     );
   });
 
-  it("shows hcpName overlay", () => {
-    render(<AvatarView {...defaultProps} />);
+  it("shows hcpName overlay when avatar is connected", () => {
+    render(<AvatarView {...defaultProps} isAvatarConnected={true} />);
     expect(screen.getByText("Dr. Smith")).toBeInTheDocument();
   });
 
-  it("hides hcpName when empty", () => {
-    render(<AvatarView {...defaultProps} hcpName="" />);
+  it("hides hcpName when not connected", () => {
+    render(<AvatarView {...defaultProps} />);
     expect(screen.queryByText("Dr. Smith")).not.toBeInTheDocument();
   });
 
@@ -104,5 +135,122 @@ describe("AvatarView", () => {
   it("does not show audio orb when connecting", () => {
     render(<AvatarView {...defaultProps} isConnecting={true} />);
     expect(screen.queryByTestId("audio-orb")).not.toBeInTheDocument();
+  });
+
+  // --- Static preview (lines 106-121) ---
+
+  it("shows static preview when avatarCharacter is valid and not connected or connecting", () => {
+    render(
+      <AvatarView {...defaultProps} avatarCharacter="lisa" />,
+    );
+    const preview = screen.getByTestId("avatar-static-preview");
+    expect(preview).toBeInTheDocument();
+    // Should show display name
+    expect(screen.getByText("Lisa")).toBeInTheDocument();
+  });
+
+  it("static preview renders correct thumbnail URL for video avatar with style", () => {
+    render(
+      <AvatarView
+        {...defaultProps}
+        avatarCharacter="lisa"
+        avatarStyle="casual-sitting"
+      />,
+    );
+    const img = screen.getByAltText("Lisa");
+    // Video avatar with style: CDN_BASE/lisa-casual-sitting.png
+    expect(img).toHaveAttribute(
+      "src",
+      expect.stringContaining("lisa-casual-sitting.png"),
+    );
+  });
+
+  it("static preview uses default thumbnailUrl for video avatar without style", () => {
+    render(
+      <AvatarView {...defaultProps} avatarCharacter="lisa" />,
+    );
+    const img = screen.getByAltText("Lisa");
+    expect(img).toHaveAttribute("src", "https://example.com/lisa.png");
+  });
+
+  it("static preview uses thumbnailUrl for photo avatar regardless of style", () => {
+    render(
+      <AvatarView {...defaultProps} avatarCharacter="max" avatarStyle="some-style" />,
+    );
+    const img = screen.getByAltText("Max");
+    // Photo avatar: always uses its own thumbnailUrl
+    expect(img).toHaveAttribute("src", "https://example.com/max-photo.png");
+  });
+
+  it("does not show static preview when connected", () => {
+    render(
+      <AvatarView
+        {...defaultProps}
+        avatarCharacter="lisa"
+        isAvatarConnected={true}
+      />,
+    );
+    expect(screen.queryByTestId("avatar-static-preview")).not.toBeInTheDocument();
+  });
+
+  it("does not show static preview when connecting", () => {
+    render(
+      <AvatarView
+        {...defaultProps}
+        avatarCharacter="lisa"
+        isConnecting={true}
+      />,
+    );
+    expect(screen.queryByTestId("avatar-static-preview")).not.toBeInTheDocument();
+  });
+
+  it("does not show audio orb when avatarCharacter is set (shows static preview instead)", () => {
+    render(
+      <AvatarView {...defaultProps} avatarCharacter="lisa" />,
+    );
+    expect(screen.queryByTestId("audio-orb")).not.toBeInTheDocument();
+  });
+
+  // --- Image error fallback (lines 124-139) ---
+
+  it("shows gradient circle fallback with initials when image fails to load", () => {
+    render(
+      <AvatarView {...defaultProps} avatarCharacter="lisa" />,
+    );
+    // Simulate image load error
+    const img = screen.getByAltText("Lisa");
+    fireEvent.error(img);
+
+    // Static preview should be gone
+    expect(screen.queryByTestId("avatar-static-preview")).not.toBeInTheDocument();
+
+    // Fallback circle with initial should appear
+    expect(screen.getByText("L")).toBeInTheDocument();
+    // Display name below the circle
+    expect(screen.getByText("Lisa")).toBeInTheDocument();
+  });
+
+  it("image error fallback is not shown when avatar is connected", () => {
+    render(
+      <AvatarView
+        {...defaultProps}
+        avatarCharacter="lisa"
+        isAvatarConnected={true}
+      />,
+    );
+    // No img to trigger error on because static preview is hidden when connected
+    expect(screen.queryByText("L")).not.toBeInTheDocument();
+  });
+
+  it("image error fallback is not shown when connecting", () => {
+    render(
+      <AvatarView
+        {...defaultProps}
+        avatarCharacter="lisa"
+        isConnecting={true}
+      />,
+    );
+    // No static preview when connecting
+    expect(screen.queryByText("L")).not.toBeInTheDocument();
   });
 });

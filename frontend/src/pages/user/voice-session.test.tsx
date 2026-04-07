@@ -123,6 +123,128 @@ describe("VoiceSessionPage", () => {
     expect(container.querySelector(".animate-spin")).toBeInTheDocument();
   });
 
+  it("shows error state with back button when session fetch fails", async () => {
+    vi.resetModules();
+    vi.doMock("react-i18next", () => ({
+      useTranslation: () => ({
+        t: (key: string) => key,
+        i18n: { changeLanguage: vi.fn(), language: "en" },
+      }),
+    }));
+    const mockNavigate = vi.fn();
+    vi.doMock("react-router-dom", () => ({
+      useSearchParams: () => [new URLSearchParams("id=session-1")],
+      useNavigate: () => mockNavigate,
+    }));
+    vi.doMock("@/hooks/use-session", () => ({
+      useSession: () => ({
+        data: undefined,
+        isLoading: false,
+        isError: true,
+      }),
+      useEndSession: () => ({ mutateAsync: vi.fn(), isPending: false }),
+    }));
+    vi.doMock("@/hooks/use-scenarios", () => ({
+      useScenario: () => ({
+        data: undefined,
+        isLoading: false,
+        isError: false,
+      }),
+    }));
+    vi.doMock("@/components/voice/voice-session", () => ({
+      VoiceSession: () => <div data-testid="voice-session" />,
+    }));
+
+    const { default: VoiceSessionPage } = await import("./voice-session");
+    render(<VoiceSessionPage />);
+
+    // Should show error message
+    expect(screen.getByText("error.loadFailed")).toBeInTheDocument();
+    // Should show back button
+    const backButton = screen.getByText("back");
+    expect(backButton).toBeInTheDocument();
+
+    // VoiceSession should NOT be rendered
+    expect(screen.queryByTestId("voice-session")).not.toBeInTheDocument();
+  });
+
+  it("shows error state when scenario fetch fails", async () => {
+    vi.resetModules();
+    vi.doMock("react-i18next", () => ({
+      useTranslation: () => ({
+        t: (key: string) => key,
+        i18n: { changeLanguage: vi.fn(), language: "en" },
+      }),
+    }));
+    vi.doMock("react-router-dom", () => ({
+      useSearchParams: () => [new URLSearchParams("id=session-1")],
+      useNavigate: () => vi.fn(),
+    }));
+    vi.doMock("@/hooks/use-session", () => ({
+      useSession: (id: string | undefined) => ({
+        data: id
+          ? { id: "session-1", scenario_id: "scenario-1", status: "in_progress", started_at: "" }
+          : undefined,
+        isLoading: false,
+        isError: false,
+      }),
+      useEndSession: () => ({ mutateAsync: vi.fn(), isPending: false }),
+    }));
+    vi.doMock("@/hooks/use-scenarios", () => ({
+      useScenario: () => ({
+        data: undefined,
+        isLoading: false,
+        isError: true,
+      }),
+    }));
+    vi.doMock("@/components/voice/voice-session", () => ({
+      VoiceSession: () => <div data-testid="voice-session" />,
+    }));
+
+    const { default: VoiceSessionPage } = await import("./voice-session");
+    render(<VoiceSessionPage />);
+
+    expect(screen.getByText("error.loadFailed")).toBeInTheDocument();
+    expect(screen.queryByTestId("voice-session")).not.toBeInTheDocument();
+  });
+
+  it("error state back button navigates to /user/scenarios", async () => {
+    vi.resetModules();
+    vi.doMock("react-i18next", () => ({
+      useTranslation: () => ({
+        t: (key: string) => key,
+        i18n: { changeLanguage: vi.fn(), language: "en" },
+      }),
+    }));
+    const mockNavigate = vi.fn();
+    vi.doMock("react-router-dom", () => ({
+      useSearchParams: () => [new URLSearchParams("id=session-1")],
+      useNavigate: () => mockNavigate,
+    }));
+    vi.doMock("@/hooks/use-session", () => ({
+      useSession: () => ({
+        data: undefined,
+        isLoading: false,
+        isError: true,
+      }),
+      useEndSession: () => ({ mutateAsync: vi.fn(), isPending: false }),
+    }));
+    vi.doMock("@/hooks/use-scenarios", () => ({
+      useScenario: () => ({ data: undefined, isLoading: false, isError: false }),
+    }));
+    vi.doMock("@/components/voice/voice-session", () => ({
+      VoiceSession: () => <div data-testid="voice-session" />,
+    }));
+    // Need lucide-react available
+    const { default: VoiceSessionPage } = await import("./voice-session");
+    const { default: userEvent } = await import("@testing-library/user-event");
+    render(<VoiceSessionPage />);
+
+    const backButton = screen.getByText("back");
+    await userEvent.click(backButton);
+    expect(mockNavigate).toHaveBeenCalledWith("/user/scenarios");
+  });
+
   it("renders VoiceSession component with correct props after session load", async () => {
     // Reset modules and re-establish mocks
     vi.resetModules();

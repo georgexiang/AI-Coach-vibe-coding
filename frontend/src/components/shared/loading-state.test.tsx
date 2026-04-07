@@ -53,7 +53,7 @@ describe("LoadingState", () => {
 
   it("card variant renders 6 skeleton card items", () => {
     const { container } = render(<LoadingState variant="card" />);
-    const cardItems = container.querySelectorAll(".overflow-hidden.rounded-xl");
+    const cardItems = container.querySelectorAll(".overflow-hidden.rounded-lg");
     expect(cardItems.length).toBe(6);
   });
 

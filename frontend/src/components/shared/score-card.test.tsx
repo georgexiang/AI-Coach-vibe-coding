@@ -25,7 +25,9 @@ describe("ScoreCard", () => {
 
   it("renders without trend when not provided", () => {
     const { container } = render(<ScoreCard score={80} label="Test" />);
-    expect(container.querySelector(".text-strength")).not.toBeInTheDocument();
+    // When no trend is provided, the trend container (with TrendingUp/Down icons) should not exist
+    const trendIcons = container.querySelectorAll(".size-4.text-strength, .size-4.text-destructive");
+    expect(trendIcons.length).toBe(0);
   });
 
   it("renders custom chart when provided", () => {

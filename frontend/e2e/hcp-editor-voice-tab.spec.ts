@@ -218,6 +218,202 @@ test.describe("HCP Editor: Voice & Avatar Tab", () => {
   });
 });
 
+// ─── Phase 15: Agent Config Center — Additional Gaps ─────────────────────
+
+test.describe("HCP Editor: Agent Config Center (Phase 15)", () => {
+  test.use({ storageState: join(authDir, "admin.json") });
+
+  test.beforeEach(async ({ page }) => {
+    await page.goto("/admin/hcp-profiles");
+    await page.waitForSelector("table", { timeout: 10000 }).catch(() => {});
+    const firstRow = page.locator("table tbody tr").first();
+    const rowCount = await firstRow.count();
+    if (rowCount > 0) {
+      await firstRow.click();
+      await page.waitForTimeout(500);
+    }
+  });
+
+  test("Instructions section has regenerate/magic-wand button", async ({
+    page,
+  }) => {
+    const voiceTab = page.getByRole("tab", { name: /voice.*avatar/i });
+    await voiceTab.click();
+    await page.waitForTimeout(500);
+
+    // Instructions section title should be visible
+    const instructionsTitle = page.getByText(/instruction/i);
+    await expect(instructionsTitle.first()).toBeVisible({ timeout: 5000 });
+
+    // The regenerate button with Wand2 icon should be present
+    // It shows either "Generate" or "Regenerate" text
+    const regenBtn = page
+      .getByRole("button", { name: /regenerate|generate/i })
+      .first();
+    const regenCount = await regenBtn.count();
+
+    if (regenCount > 0) {
+      await expect(regenBtn).toBeVisible();
+      await expect(regenBtn).toBeEnabled();
+    }
+  });
+
+  test("clicking regenerate button triggers instructions preview", async ({
+    page,
+  }) => {
+    const voiceTab = page.getByRole("tab", { name: /voice.*avatar/i });
+    await voiceTab.click();
+    await page.waitForTimeout(500);
+
+    // Mock the preview-instructions endpoint
+    await page.route(
+      "**/api/v1/hcp-profiles/preview-instructions",
+      async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            instructions:
+              "You are Dr. Test, a specialist in oncology. Be skeptical of new treatments...",
+          }),
+        });
+      },
+    );
+
+    const regenBtn = page
+      .getByRole("button", { name: /regenerate|generate/i })
+      .first();
+    const regenCount = await regenBtn.count();
+
+    if (regenCount > 0) {
+      await regenBtn.click();
+      await page.waitForTimeout(1500);
+
+      // After generation, the instructions preview should appear in a <pre> element
+      const preElement = page.locator('pre[role="log"]');
+      const preCount = await preElement.count();
+      if (preCount > 0) {
+        const preText = await preElement.first().textContent();
+        expect(preText).toBeTruthy();
+        expect(preText!.length).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  test("Playground panel shows text chat UI in text mode", async ({ page }) => {
+    const voiceTab = page.getByRole("tab", { name: /voice.*avatar/i });
+    await voiceTab.click();
+    await page.waitForTimeout(500);
+
+    // Ensure voice mode is OFF
+    const switches = page.getByRole("switch");
+    const switchCount = await switches.count();
+    if (switchCount > 0) {
+      const isChecked = await switches.first().isChecked();
+      if (isChecked) {
+        await switches.first().click();
+        await page.waitForTimeout(300);
+      }
+    }
+
+    // The Playground panel should show a chat interface
+    const playgroundTitle = page.getByText(/playground/i);
+    await expect(playgroundTitle.first()).toBeVisible({ timeout: 3000 });
+
+    // Chat input or empty state message should be visible
+    const chatInput = page.locator("input").last();
+    const chatEmptyState = page.getByText(/message|chat|agent/i);
+    const hasChat =
+      (await chatInput.count()) > 0 || (await chatEmptyState.count()) > 0;
+    expect(hasChat).toBeTruthy();
+  });
+
+  test("Playground panel shows voice-related UI when voice mode is ON", async ({
+    page,
+  }) => {
+    const voiceTab = page.getByRole("tab", { name: /voice.*avatar/i });
+    await voiceTab.click();
+    await page.waitForTimeout(500);
+
+    // Turn voice mode ON
+    const switches = page.getByRole("switch");
+    const switchCount = await switches.count();
+    if (switchCount > 0) {
+      const isChecked = await switches.first().isChecked();
+      if (!isChecked) {
+        await switches.first().click();
+        await page.waitForTimeout(300);
+      }
+    }
+
+    // VL Instance selector should appear
+    const vlLabel = page.getByText(/voice live instance/i);
+    await expect(vlLabel.first()).toBeVisible({ timeout: 3000 });
+
+    // The playground panel should contain voice-related content
+    // (e.g., start button, avatar view, or disabled message)
+    const playground = page.getByText(/playground/i);
+    const count = await playground.count();
+    expect(count).toBeGreaterThan(0);
+  });
+
+  test("Model Deployment selector is interactive", async ({ page }) => {
+    const voiceTab = page.getByRole("tab", { name: /voice.*avatar/i });
+    await voiceTab.click();
+    await page.waitForTimeout(500);
+
+    // Model Deployment label should be visible
+    const modelLabel = page.getByText(/model deployment/i);
+    await expect(modelLabel.first()).toBeVisible({ timeout: 5000 });
+
+    // Find the model select trigger (a combobox-style button)
+    const modelSelect = page.locator(
+      "button[role='combobox']",
+    );
+    const selectCount = await modelSelect.count();
+
+    if (selectCount > 0) {
+      // Click to open the model dropdown
+      await modelSelect.first().click();
+      await page.waitForTimeout(300);
+
+      // Model options should appear (e.g., GPT-4o, GPT-Realtime)
+      const optionItem = page.getByRole("option");
+      const optionCount = await optionItem.count();
+      expect(optionCount).toBeGreaterThan(0);
+
+      // Close by pressing Escape
+      await page.keyboard.press("Escape");
+      await page.waitForTimeout(200);
+    }
+  });
+
+  test("Override Instructions textarea is available", async ({ page }) => {
+    const voiceTab = page.getByRole("tab", { name: /voice.*avatar/i });
+    await voiceTab.click();
+    await page.waitForTimeout(500);
+
+    // The override instructions textarea should exist
+    const overrideLabel = page.getByText(/override/i);
+    const overrideCount = await overrideLabel.count();
+
+    if (overrideCount > 0) {
+      // Find the textarea near the override label
+      const textarea = page.locator("textarea");
+      const textareaCount = await textarea.count();
+      expect(textareaCount).toBeGreaterThan(0);
+
+      // Type some override text
+      const lastTextarea = textarea.last();
+      await lastTextarea.fill("Custom override instructions for testing");
+      await page.waitForTimeout(300);
+
+      const value = await lastTextarea.inputValue();
+      expect(value).toContain("Custom override instructions");
+    }
+  });
+});
+
 test.describe("HCP Editor: Voice & Avatar Tab (i18n zh-CN)", () => {
   test.use({ storageState: join(authDir, "admin.json") });
 

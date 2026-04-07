@@ -4,18 +4,9 @@ import type { VoiceLiveInstance } from "@/types/voice-live";
 
 // ---- Mocks ----
 
-const mockNavigate = vi.fn();
-
-vi.mock("react-router-dom", () => ({
-  useNavigate: () => mockNavigate,
-}));
-
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
-    t: (key: string, fallbackOrParams?: string | Record<string, unknown>) => {
-      if (typeof fallbackOrParams === "string") return fallbackOrParams;
-      return key;
-    },
+    t: (key: string) => key,
     i18n: { language: "en-US" },
   }),
 }));
@@ -63,33 +54,24 @@ vi.mock("@/hooks/use-voice-live-instances", () => ({
     data: { items: mockInstances, total: mockInstances.length },
     isLoading: false,
   }),
-  useAssignVoiceLiveInstance: () => ({ mutate: vi.fn(), isPending: false }),
-  useUnassignVoiceLiveInstance: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 
-vi.mock("@/components/admin/voice-live-model-select", () => ({
-  VOICE_LIVE_MODEL_OPTIONS: [
-    { value: "gpt-4o", i18nKey: "modelGpt4o", tier: "pro" },
-  ],
+// Mock the two child panels the component delegates to
+let capturedLeftPanelProps: Record<string, unknown> | null = null;
+let capturedPlaygroundProps: Record<string, unknown> | null = null;
+
+vi.mock("@/components/admin/agent-config-left-panel", () => ({
+  AgentConfigLeftPanel: (props: Record<string, unknown>) => {
+    capturedLeftPanelProps = props;
+    return <div data-testid="agent-config-left-panel">AgentConfigLeftPanel</div>;
+  },
 }));
 
-vi.mock("@/data/avatar-characters", () => ({
-  AVATAR_CHARACTER_MAP: new Map([
-    [
-      "lisa",
-      {
-        id: "lisa",
-        displayName: "Lisa",
-        gender: "female",
-        isPhotoAvatar: false,
-        styles: ["casual"],
-        defaultStyle: "casual",
-        thumbnailUrl: "https://example.com/lisa.png",
-        gradientClasses: "from-blue-500 to-purple-600",
-      },
-    ],
-  ]),
-  getAvatarInitials: (name: string) => name.charAt(0).toUpperCase(),
+vi.mock("@/components/admin/playground-preview-panel", () => ({
+  PlaygroundPreviewPanel: (props: Record<string, unknown>) => {
+    capturedPlaygroundProps = props;
+    return <div data-testid="playground-preview-panel">PlaygroundPreviewPanel</div>;
+  },
 }));
 
 // Import after mocks
@@ -101,9 +83,11 @@ import type { HcpFormValues } from "@/pages/admin/hcp-profile-editor";
 function TestWrapper({
   instanceId = null,
   isNew = false,
+  profile,
 }: {
   instanceId?: string | null;
   isNew?: boolean;
+  profile?: { id: string; name: string; agent_id?: string };
 }) {
   const form = useForm<HcpFormValues>({
     defaultValues: {
@@ -141,78 +125,88 @@ function TestWrapper({
 
   return (
     <FormProvider {...form}>
-      <VoiceAvatarTab form={form} isNew={isNew} />
+      <VoiceAvatarTab
+        form={form}
+        isNew={isNew}
+        profile={profile as never}
+      />
     </FormProvider>
   );
 }
 
-describe("VoiceAvatarTab (Phase 14 read-only)", () => {
-  it("shows read-only preview when instance is assigned", () => {
-    // Set up mock instances list to include our instance
+describe("VoiceAvatarTab (two-panel layout)", () => {
+  beforeEach(() => {
+    capturedLeftPanelProps = null;
+    capturedPlaygroundProps = null;
     mockInstances = [MOCK_INSTANCE];
+  });
 
+  it("renders both panels", () => {
     render(<TestWrapper instanceId="inst-001" />);
-
-    // Config preview section should be visible
-    expect(screen.getByText("admin:voiceLive.configPreview")).toBeInTheDocument();
-
-    // Instance model should appear in the preview (may appear multiple times: selector + preview)
-    const modelTexts = screen.getAllByText("gpt-4o");
-    expect(modelTexts.length).toBeGreaterThanOrEqual(1);
-
-    // Voice name should appear
-    expect(screen.getByText("en-US-AvaNeural")).toBeInTheDocument();
+    expect(screen.getByTestId("agent-config-left-panel")).toBeInTheDocument();
+    expect(screen.getByTestId("playground-preview-panel")).toBeInTheDocument();
   });
 
-  it("shows empty state when no instance assigned", () => {
-    mockInstances = [MOCK_INSTANCE];
-
-    render(<TestWrapper instanceId={null} isNew={false} />);
-
-    // Empty state text should be visible
-    expect(
-      screen.getByText("admin:voiceLive.noInstanceAssigned"),
-    ).toBeInTheDocument();
-
-    // Management link should be visible (appears in selector card + empty state)
-    const links = screen.getAllByText("admin:voiceLive.goToVlManagement");
-    expect(links.length).toBeGreaterThanOrEqual(1);
+  it("passes form, isNew, and voiceModeEnabled to AgentConfigLeftPanel", () => {
+    render(<TestWrapper instanceId="inst-001" isNew={false} />);
+    expect(capturedLeftPanelProps).toBeTruthy();
+    expect(capturedLeftPanelProps!.isNew).toBe(false);
+    expect(typeof capturedLeftPanelProps!.onVoiceModeChange).toBe("function");
+    expect(typeof capturedLeftPanelProps!.onAutoInstructionsChange).toBe("function");
   });
 
-  it("does not render voice editing controls", () => {
+  it("passes avatar data from selected VL instance to PlaygroundPreviewPanel", () => {
     mockInstances = [MOCK_INSTANCE];
-
     render(<TestWrapper instanceId="inst-001" />);
-
-    // Should NOT find temperature slider elements
-    expect(screen.queryByRole("slider")).not.toBeInTheDocument();
-
-    // Should NOT find voice name dropdown with specific voice options
-    expect(screen.queryByText("hcp.voiceAva")).not.toBeInTheDocument();
-    expect(screen.queryByText("hcp.voiceAndrew")).not.toBeInTheDocument();
-
-    // Should NOT find avatar grid
-    expect(screen.queryByTestId("avatar-character-grid")).not.toBeInTheDocument();
+    expect(capturedPlaygroundProps).toBeTruthy();
+    expect(capturedPlaygroundProps!.avatarCharacter).toBe("lisa");
+    expect(capturedPlaygroundProps!.avatarStyle).toBe("casual");
+    expect(capturedPlaygroundProps!.avatarEnabled).toBe(true);
   });
 
-  it("renders instance selector dropdown", () => {
+  it("passes undefined avatar data when no instance is selected", () => {
     mockInstances = [MOCK_INSTANCE];
-
-    render(<TestWrapper instanceId={null} isNew={false} />);
-
-    // Instance selector label should be visible
-    expect(
-      screen.getByText("admin:voiceLive.selectInstance"),
-    ).toBeInTheDocument();
+    render(<TestWrapper instanceId={null} />);
+    expect(capturedPlaygroundProps).toBeTruthy();
+    expect(capturedPlaygroundProps!.avatarCharacter).toBeUndefined();
+    expect(capturedPlaygroundProps!.avatarStyle).toBeUndefined();
+    expect(capturedPlaygroundProps!.avatarEnabled).toBe(false);
   });
 
-  it("shows manage link to VL Management page", () => {
-    mockInstances = [];
+  it("sets disabled=true on PlaygroundPreviewPanel when isNew is true", () => {
+    render(<TestWrapper instanceId={null} isNew={true} />);
+    expect(capturedPlaygroundProps).toBeTruthy();
+    expect(capturedPlaygroundProps!.disabled).toBe(true);
+  });
 
+  it("sets disabled=false on PlaygroundPreviewPanel when isNew is false", () => {
     render(<TestWrapper instanceId={null} isNew={false} />);
+    expect(capturedPlaygroundProps).toBeTruthy();
+    expect(capturedPlaygroundProps!.disabled).toBe(false);
+  });
 
-    // "Go to VL Management" link should be present
-    const links = screen.getAllByText("admin:voiceLive.goToVlManagement");
-    expect(links.length).toBeGreaterThanOrEqual(1);
+  it("passes profile data to PlaygroundPreviewPanel", () => {
+    const profile = { id: "hcp-1", name: "Dr. Test", agent_id: "agent-1" };
+    render(
+      <TestWrapper instanceId={null} isNew={false} profile={profile} />,
+    );
+    expect(capturedPlaygroundProps).toBeTruthy();
+    expect(capturedPlaygroundProps!.hcpProfileId).toBe("hcp-1");
+    expect(capturedPlaygroundProps!.profileName).toBe("Dr. Test");
+    expect(capturedPlaygroundProps!.agentId).toBe("agent-1");
+  });
+
+  it("initializes voiceModeEnabled=true when form has a voice_live_instance_id", () => {
+    render(<TestWrapper instanceId="inst-001" />);
+    expect(capturedLeftPanelProps).toBeTruthy();
+    expect(capturedLeftPanelProps!.voiceModeEnabled).toBe(true);
+    expect(capturedPlaygroundProps!.voiceModeEnabled).toBe(true);
+  });
+
+  it("initializes voiceModeEnabled=false when form has no voice_live_instance_id", () => {
+    render(<TestWrapper instanceId={null} />);
+    expect(capturedLeftPanelProps).toBeTruthy();
+    expect(capturedLeftPanelProps!.voiceModeEnabled).toBe(false);
+    expect(capturedPlaygroundProps!.voiceModeEnabled).toBe(false);
   });
 });

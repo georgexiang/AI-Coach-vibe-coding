@@ -104,6 +104,10 @@ vi.mock("@/components/shared", () => ({
   ),
   MiniRadarChart: () => <div data-testid="mini-radar-chart" />,
   MiniTrendChart: () => <div data-testid="mini-trend-chart" />,
+  LoadingState: () => <div className="animate-spin" data-testid="loading-state" />,
+  EmptyState: ({ title, body }: { title: string; body?: string }) => (
+    <div data-testid="empty-state"><span>{title}</span>{body && <span>{body}</span>}</div>
+  ),
 }));
 
 function renderDashboard() {
@@ -200,13 +204,13 @@ describe("UserDashboard", () => {
   it("shows no sessions message when recentSessions is empty", () => {
     mockRecentSessions = [];
     renderDashboard();
-    expect(screen.getByText(/noSessions/)).toBeInTheDocument();
+    expect(screen.getAllByText(/noSessions/).length).toBeGreaterThanOrEqual(1);
   });
 
   it("shows no sessions message when recentSessions is undefined", () => {
     mockRecentSessions = undefined;
     renderDashboard();
-    expect(screen.getByText(/noSessions/)).toBeInTheDocument();
+    expect(screen.getAllByText(/noSessions/).length).toBeGreaterThanOrEqual(1);
   });
 
   it("uses username as fallback when full_name is not set", () => {

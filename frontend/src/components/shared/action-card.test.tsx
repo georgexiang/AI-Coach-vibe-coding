@@ -32,7 +32,7 @@ describe("ActionCard", () => {
       <ActionCard {...defaultProps} gradient="purple" />,
     );
     const card = container.firstChild as HTMLElement;
-    expect(card.className).toContain("from-purple-500");
+    expect(card.className).toContain("from-improvement");
   });
 
   it("applies blue gradient classes when gradient is blue", () => {
@@ -40,6 +40,6 @@ describe("ActionCard", () => {
       <ActionCard {...defaultProps} gradient="blue" />,
     );
     const card = container.firstChild as HTMLElement;
-    expect(card.className).toContain("from-blue-500");
+    expect(card.className).toContain("from-primary");
   });
 });

@@ -6,6 +6,11 @@ import {
   createHcpProfile,
   updateHcpProfile,
   deleteHcpProfile,
+  retrySyncHcpProfile,
+  batchSyncAgents,
+  testChatWithAgent,
+  getAgentPortalUrl,
+  previewInstructions,
 } from "./hcp-profiles";
 
 vi.mock("./client", () => ({
@@ -142,6 +147,190 @@ describe("HCP Profiles API client", () => {
       mockClient.delete.mockRejectedValue(new Error("403 Forbidden"));
 
       await expect(deleteHcpProfile("hp-1")).rejects.toThrow("403 Forbidden");
+    });
+  });
+
+  describe("retrySyncHcpProfile", () => {
+    it("calls POST /hcp-profiles/:id/retry-sync", async () => {
+      const synced = { id: "hp-1", name: "Dr. Smith", agent_sync_status: "synced" };
+      mockClient.post.mockResolvedValue({ data: synced });
+
+      const result = await retrySyncHcpProfile("hp-1");
+
+      expect(mockClient.post).toHaveBeenCalledWith("/hcp-profiles/hp-1/retry-sync");
+      expect(result.agent_sync_status).toBe("synced");
+    });
+
+    it("propagates errors on retry sync", async () => {
+      mockClient.post.mockRejectedValue(new Error("500 Sync failed"));
+
+      await expect(retrySyncHcpProfile("hp-1")).rejects.toThrow("500 Sync failed");
+    });
+  });
+
+  describe("batchSyncAgents", () => {
+    it("calls POST /hcp-profiles/batch-sync and returns sync summary", async () => {
+      const syncResult = { synced: 5, failed: 1, total: 6 };
+      mockClient.post.mockResolvedValue({ data: syncResult });
+
+      const result = await batchSyncAgents();
+
+      expect(mockClient.post).toHaveBeenCalledWith("/hcp-profiles/batch-sync");
+      expect(result.synced).toBe(5);
+      expect(result.failed).toBe(1);
+      expect(result.total).toBe(6);
+    });
+
+    it("returns error field when some syncs fail", async () => {
+      const syncResult = { synced: 0, failed: 3, total: 3, error: "Connection timeout" };
+      mockClient.post.mockResolvedValue({ data: syncResult });
+
+      const result = await batchSyncAgents();
+
+      expect(result.error).toBe("Connection timeout");
+    });
+
+    it("propagates errors from apiClient", async () => {
+      mockClient.post.mockRejectedValue(new Error("503 Service Unavailable"));
+
+      await expect(batchSyncAgents()).rejects.toThrow("503 Service Unavailable");
+    });
+  });
+
+  describe("testChatWithAgent", () => {
+    it("calls POST /hcp-profiles/:id/test-chat with message body", async () => {
+      const chatResponse = {
+        response_text: "Hello, I am Dr. Smith.",
+        response_id: "resp-123",
+        agent_name: "Dr. Smith Agent",
+        agent_version: "v1.0",
+      };
+      mockClient.post.mockResolvedValue({ data: chatResponse });
+
+      const result = await testChatWithAgent("hp-1", {
+        message: "Hello doctor",
+      });
+
+      expect(mockClient.post).toHaveBeenCalledWith("/hcp-profiles/hp-1/test-chat", {
+        message: "Hello doctor",
+      });
+      expect(result.response_text).toBe("Hello, I am Dr. Smith.");
+      expect(result.response_id).toBe("resp-123");
+    });
+
+    it("passes previous_response_id for continuation", async () => {
+      const chatResponse = {
+        response_text: "Yes, let me explain further.",
+        response_id: "resp-456",
+        agent_name: "Dr. Smith Agent",
+        agent_version: "v1.0",
+      };
+      mockClient.post.mockResolvedValue({ data: chatResponse });
+
+      const result = await testChatWithAgent("hp-1", {
+        message: "Can you explain more?",
+        previous_response_id: "resp-123",
+      });
+
+      expect(mockClient.post).toHaveBeenCalledWith("/hcp-profiles/hp-1/test-chat", {
+        message: "Can you explain more?",
+        previous_response_id: "resp-123",
+      });
+      expect(result.response_id).toBe("resp-456");
+    });
+
+    it("propagates errors on test chat", async () => {
+      mockClient.post.mockRejectedValue(new Error("404 Agent not found"));
+
+      await expect(
+        testChatWithAgent("hp-missing", { message: "Hello" }),
+      ).rejects.toThrow("404 Agent not found");
+    });
+  });
+
+  describe("getAgentPortalUrl", () => {
+    it("calls GET /hcp-profiles/:id/portal-url and returns URL data", async () => {
+      const portalData = {
+        url: "https://portal.azure.com/agent/hp-1",
+        agent_name: "Dr. Smith Agent",
+        agent_version: "v1.0",
+      };
+      mockClient.get.mockResolvedValue({ data: portalData });
+
+      const result = await getAgentPortalUrl("hp-1");
+
+      expect(mockClient.get).toHaveBeenCalledWith("/hcp-profiles/hp-1/portal-url");
+      expect(result.url).toBe("https://portal.azure.com/agent/hp-1");
+      expect(result.agent_name).toBe("Dr. Smith Agent");
+    });
+
+    it("propagates errors for missing profile", async () => {
+      mockClient.get.mockRejectedValue(new Error("404 Not Found"));
+
+      await expect(getAgentPortalUrl("missing")).rejects.toThrow("404 Not Found");
+    });
+  });
+
+  describe("previewInstructions", () => {
+    it("calls POST /hcp-profiles/preview-instructions with body", async () => {
+      const previewResponse = {
+        instructions: "You are Dr. Smith, an oncologist...",
+        is_override: false,
+      };
+      mockClient.post.mockResolvedValue({ data: previewResponse });
+
+      const body = {
+        name: "Dr. Smith",
+        specialty: "Oncology",
+        hospital: "Beijing General Hospital",
+        personality_type: "analytical",
+        difficulty: "medium",
+      };
+
+      const result = await previewInstructions(body);
+
+      expect(mockClient.post).toHaveBeenCalledWith(
+        "/hcp-profiles/preview-instructions",
+        body,
+        { signal: undefined },
+      );
+      expect(result.instructions).toContain("Dr. Smith");
+      expect(result.is_override).toBe(false);
+    });
+
+    it("returns override flag when agent_instructions_override is set", async () => {
+      const previewResponse = {
+        instructions: "Custom override instructions",
+        is_override: true,
+      };
+      mockClient.post.mockResolvedValue({ data: previewResponse });
+
+      const result = await previewInstructions({
+        agent_instructions_override: "Custom override instructions",
+      });
+
+      expect(result.is_override).toBe(true);
+    });
+
+    it("passes AbortSignal when provided", async () => {
+      const controller = new AbortController();
+      mockClient.post.mockResolvedValue({
+        data: { instructions: "test", is_override: false },
+      });
+
+      await previewInstructions({ name: "Test" }, controller.signal);
+
+      expect(mockClient.post).toHaveBeenCalledWith(
+        "/hcp-profiles/preview-instructions",
+        { name: "Test" },
+        { signal: controller.signal },
+      );
+    });
+
+    it("propagates errors from apiClient", async () => {
+      mockClient.post.mockRejectedValue(new Error("422 Validation Error"));
+
+      await expect(previewInstructions({})).rejects.toThrow("422 Validation Error");
     });
   });
 });

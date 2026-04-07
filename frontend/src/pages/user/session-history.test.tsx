@@ -124,6 +124,9 @@ vi.mock("@/components/ui", () => ({
     <div data-testid="select-trigger">{children}</div>
   ),
   SelectValue: () => <span />,
+  Skeleton: ({ className }: { className?: string }) => (
+    <div data-testid="skeleton" className={`animate-pulse ${className ?? ""}`} />
+  ),
 }));
 
 // Generate many items for pagination testing
@@ -202,14 +205,16 @@ describe("SessionHistory", () => {
 
   it("renders session rows", () => {
     renderSessionHistory();
-    expect(screen.getByText("Dr. Sarah Mitchell")).toBeInTheDocument();
-    expect(screen.getByText("Dr. James Wong")).toBeInTheDocument();
+    // Desktop table + mobile cards both render, so text appears multiple times
+    expect(screen.getAllByText("Dr. Sarah Mitchell").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("Dr. James Wong").length).toBeGreaterThanOrEqual(1);
   });
 
   it("renders overall scores", () => {
     renderSessionHistory();
-    expect(screen.getByText("85")).toBeInTheDocument();
-    expect(screen.getByText("55")).toBeInTheDocument();
+    // Desktop table + mobile cards both render scores
+    expect(screen.getAllByText("85").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("55").length).toBeGreaterThanOrEqual(1);
   });
 
   it("renders passed/failed badges", () => {
@@ -245,7 +250,9 @@ describe("SessionHistory", () => {
     const user = userEvent.setup();
     renderSessionHistory();
 
-    const row = screen.getByText("Dr. Sarah Mitchell").closest("tr");
+    // Both desktop table and mobile cards render; find the one inside a <tr>
+    const elements = screen.getAllByText("Dr. Sarah Mitchell");
+    const row = elements.map((el) => el.closest("tr")).find(Boolean);
     expect(row).toBeTruthy();
     await user.click(row!);
 
@@ -255,8 +262,9 @@ describe("SessionHistory", () => {
   it("shows loading state", () => {
     mockScoreHistoryReturn = { data: undefined, isLoading: true };
     renderSessionHistory();
-    const spinner = document.querySelector(".animate-spin");
-    expect(spinner).toBeTruthy();
+    // LoadingState variant="table" renders Skeleton (animate-pulse)
+    const skeleton = document.querySelector(".animate-pulse");
+    expect(skeleton).toBeTruthy();
   });
 
   it("shows empty state when no history", () => {
@@ -278,8 +286,8 @@ describe("SessionHistory", () => {
     renderSessionHistory();
     const input = screen.getByTestId("search-input");
     await user.type(input, "Sarah");
-    // Should only show matching rows
-    expect(screen.getByText("Dr. Sarah Mitchell")).toBeInTheDocument();
+    // Should only show matching rows (desktop + mobile duplicates)
+    expect(screen.getAllByText("Dr. Sarah Mitchell").length).toBeGreaterThanOrEqual(1);
     expect(screen.queryByText("Dr. James Wong")).not.toBeInTheDocument();
   });
 
@@ -290,8 +298,8 @@ describe("SessionHistory", () => {
     // The first select is mode filter
     const modeSelect = selects[0]!;
     await userEvent.setup().selectOptions(modeSelect, "passed");
-    // Should show only passed sessions
-    expect(screen.getByText("Dr. Sarah Mitchell")).toBeInTheDocument();
+    // Should show only passed sessions (desktop + mobile duplicates)
+    expect(screen.getAllByText("Dr. Sarah Mitchell").length).toBeGreaterThanOrEqual(1);
     expect(screen.queryByText("Dr. James Wong")).not.toBeInTheDocument();
   });
 
@@ -300,9 +308,9 @@ describe("SessionHistory", () => {
     const selects = screen.getAllByTestId("hidden-select");
     const modeSelect = selects[0]!;
     await userEvent.setup().selectOptions(modeSelect, "failed");
-    // Should show only failed sessions
+    // Should show only failed sessions (desktop + mobile duplicates)
     expect(screen.queryByText("Dr. Sarah Mitchell")).not.toBeInTheDocument();
-    expect(screen.getByText("Dr. James Wong")).toBeInTheDocument();
+    expect(screen.getAllByText("Dr. James Wong").length).toBeGreaterThanOrEqual(1);
   });
 
   it("filters by score range (high >= 80)", async () => {
@@ -310,7 +318,7 @@ describe("SessionHistory", () => {
     const selects = screen.getAllByTestId("hidden-select");
     const scoreSelect = selects[1]!;
     await userEvent.setup().selectOptions(scoreSelect, "high");
-    expect(screen.getByText("Dr. Sarah Mitchell")).toBeInTheDocument(); // 85
+    expect(screen.getAllByText("Dr. Sarah Mitchell").length).toBeGreaterThanOrEqual(1); // 85
     expect(screen.queryByText("Dr. James Wong")).not.toBeInTheDocument(); // 55
   });
 
@@ -333,7 +341,7 @@ describe("SessionHistory", () => {
     const selects = screen.getAllByTestId("hidden-select");
     const scoreSelect = selects[1]!;
     await userEvent.setup().selectOptions(scoreSelect, "mid");
-    expect(screen.getByText("Dr. Mid Score")).toBeInTheDocument(); // 72
+    expect(screen.getAllByText("Dr. Mid Score").length).toBeGreaterThanOrEqual(1); // 72
     expect(screen.queryByText("Dr. Sarah Mitchell")).not.toBeInTheDocument(); // 85
     expect(screen.queryByText("Dr. James Wong")).not.toBeInTheDocument(); // 55
   });
@@ -343,23 +351,26 @@ describe("SessionHistory", () => {
     const selects = screen.getAllByTestId("hidden-select");
     const scoreSelect = selects[1]!;
     await userEvent.setup().selectOptions(scoreSelect, "low");
-    expect(screen.getByText("Dr. James Wong")).toBeInTheDocument(); // 55
+    expect(screen.getAllByText("Dr. James Wong").length).toBeGreaterThanOrEqual(1); // 55
     expect(screen.queryByText("Dr. Sarah Mitchell")).not.toBeInTheDocument(); // 85
   });
 
   it("shows results count reflecting filtered items", async () => {
     renderSessionHistory();
-    // 2 results initially
-    expect(screen.getByText(/2 results/)).toBeInTheDocument();
+    // "2 results" rendered from `{filteredHistory.length} {t("history.results", ...)}`
+    // The "2" text node and "results" text node are siblings, so we look for combined text
+    const resultsSpan = screen.getByText(/results/);
+    expect(resultsSpan.textContent).toContain("2");
   });
 
   it("renders pagination when more than 10 items", () => {
     const manyItems = makeHistoryItems(15);
     mockScoreHistoryReturn = { data: manyItems, isLoading: false };
     renderSessionHistory();
-    expect(screen.getByText("Previous")).toBeInTheDocument();
-    expect(screen.getByText("Next")).toBeInTheDocument();
-    expect(screen.getByText("1 / 2")).toBeInTheDocument();
+    // Desktop + mobile both render pagination
+    expect(screen.getAllByText("Previous").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("Next").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("1 / 2").length).toBeGreaterThanOrEqual(1);
   });
 
   it("does not render pagination when 10 or fewer items", () => {
@@ -374,9 +385,10 @@ describe("SessionHistory", () => {
     mockScoreHistoryReturn = { data: manyItems, isLoading: false };
     renderSessionHistory();
 
-    const nextBtn = screen.getByText("Next");
-    await user.click(nextBtn);
-    expect(screen.getByText("2 / 2")).toBeInTheDocument();
+    // Desktop + mobile both render pagination; click first one
+    const nextBtns = screen.getAllByText("Next");
+    await user.click(nextBtns[0]!);
+    expect(screen.getAllByText("2 / 2").length).toBeGreaterThanOrEqual(1);
   });
 
   it("navigates to previous page on Previous click", async () => {
@@ -385,19 +397,23 @@ describe("SessionHistory", () => {
     mockScoreHistoryReturn = { data: manyItems, isLoading: false };
     renderSessionHistory();
 
-    // Go to page 2
-    await user.click(screen.getByText("Next"));
-    expect(screen.getByText("2 / 2")).toBeInTheDocument();
-    // Go back to page 1
-    await user.click(screen.getByText("Previous"));
-    expect(screen.getByText("1 / 2")).toBeInTheDocument();
+    // Go to page 2 (click first Next button)
+    const nextBtns = screen.getAllByText("Next");
+    await user.click(nextBtns[0]!);
+    expect(screen.getAllByText("2 / 2").length).toBeGreaterThanOrEqual(1);
+    // Go back to page 1 (click first Previous button)
+    const prevBtns = screen.getAllByText("Previous");
+    await user.click(prevBtns[0]!);
+    expect(screen.getAllByText("1 / 2").length).toBeGreaterThanOrEqual(1);
   });
 
   it("Previous button is disabled on first page", () => {
     const manyItems = makeHistoryItems(15);
     mockScoreHistoryReturn = { data: manyItems, isLoading: false };
     renderSessionHistory();
-    expect(screen.getByText("Previous")).toBeDisabled();
+    // Desktop + mobile both render Previous; all should be disabled on page 1
+    const prevBtns = screen.getAllByText("Previous");
+    expect(prevBtns[0]!).toBeDisabled();
   });
 
   it("Next button is disabled on last page", async () => {
@@ -405,22 +421,27 @@ describe("SessionHistory", () => {
     const manyItems = makeHistoryItems(15);
     mockScoreHistoryReturn = { data: manyItems, isLoading: false };
     renderSessionHistory();
-    await user.click(screen.getByText("Next"));
-    expect(screen.getByText("Next")).toBeDisabled();
+    const nextBtns = screen.getAllByText("Next");
+    await user.click(nextBtns[0]!);
+    // After going to last page, all Next buttons should be disabled
+    const nextBtnsAfter = screen.getAllByText("Next");
+    expect(nextBtnsAfter[0]!).toBeDisabled();
   });
 
   it("renders score badge with green styling for high scores", () => {
     renderSessionHistory();
-    // Score 85 should have green styling
-    const score85 = screen.getByText("85");
-    expect(score85.className).toContain("bg-green-100");
+    // Score 85 should have green styling (desktop + mobile both render)
+    const score85Elements = screen.getAllByText("85");
+    const greenStyled = score85Elements.find((el) => el.className.includes("bg-green-100"));
+    expect(greenStyled).toBeTruthy();
   });
 
   it("renders score badge with red styling for low scores", () => {
     renderSessionHistory();
-    // Score 55 should have red styling
-    const score55 = screen.getByText("55");
-    expect(score55.className).toContain("bg-red-100");
+    // Score 55 should have red styling (desktop + mobile both render)
+    const score55Elements = screen.getAllByText("55");
+    const redStyled = score55Elements.find((el) => el.className.includes("bg-red-100"));
+    expect(redStyled).toBeTruthy();
   });
 
   it("renders TrendingUp icon for positive improvement", () => {

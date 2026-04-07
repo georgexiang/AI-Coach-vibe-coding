@@ -5,7 +5,11 @@ import NotFound from "./not-found";
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
-    t: (key: string) => key,
+    t: (key: string, opts?: string | Record<string, string>) => {
+      if (typeof opts === "string") return opts;
+      if (opts && typeof opts === "object" && "defaultValue" in opts) return opts.defaultValue;
+      return key;
+    },
     i18n: { changeLanguage: vi.fn(), language: "en" },
   }),
 }));
@@ -28,7 +32,7 @@ describe("NotFound", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText("error.title")).toBeInTheDocument();
+    expect(screen.getByText("Page not found")).toBeInTheDocument();
   });
 
   it("renders a link back to home", () => {
@@ -41,7 +45,7 @@ describe("NotFound", () => {
     // The button has a Link to "/"
     const link = screen.getByRole("link");
     expect(link).toBeInTheDocument();
-    expect(link).toHaveAttribute("href", "/");
+    expect(link).toHaveAttribute("href", "/user/dashboard");
   });
 
   it("has the min-h-screen layout class", () => {

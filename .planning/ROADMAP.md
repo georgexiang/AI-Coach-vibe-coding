@@ -26,7 +26,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 12: Voice Realtime API & Agent Mode Integration** - Per-HCP digital persona (voice/avatar/conversation config), auto-mode selection, fallback chain, tabbed HCP editor (completed 2026-04-02)
 - [ ] **Phase 13: Voice Live Instance & Agent Voice Management** - Create/manage Voice Live instances, bind to HCP Agents, enable Voice mode, configure speech/avatar — matching AI Foundry portal workflow
 - [ ] **Phase 14: HCP Agent Refactor** - VL Instance read-only reference in HCP editor, VL Management rewrite with rich CRUD, Knowledge/Tools placeholder tabs
-- [ ] **Phase 15: HCP Editor Agent Config Center** - 重构 HCP 编辑器为 Agent 配置中心：移除空 Knowledge/Tools tab，Voice & Avatar tab 升级为 Model Deployment + Instructions + Playground 预览布局，对齐 Azure AI Foundry Agent 编辑体验
+- [x] **Phase 15: HCP Editor Agent Config Center** - 重构 HCP 编辑器为 Agent 配置中心：移除空 Knowledge/Tools tab，Voice & Avatar tab 升级为 Model Deployment + Instructions + Playground 预览布局，对齐 Azure AI Foundry Agent 编辑体验 (completed 2026-04-07)
 
 ## Phase Details
 
@@ -215,7 +215,7 @@ Phases execute in numeric order: 01 -> 01.1 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07 
 | 12. Voice Realtime API & Agent Mode Integration | 4/4 | Complete    | 2026-04-02 |
 | 13. Voice Live Instance & Agent Voice Management | 1/3 | In Progress|  |
 | 14. HCP Agent Refactor | 3/4 | In Progress|  |
-| 15. HCP Editor Agent Config Center | 0/3 | Not Started |  |
+| 15. HCP Editor Agent Config Center | 3/3 | Complete   | 2026-04-07 |
 
 ### Phase 07: Azure Service Integration
 
@@ -385,12 +385,12 @@ Plans:
 **Goal:** 重构 HCP 编辑器为 Agent 配置中心，对齐 Azure AI Foundry Agent 编辑体验。移除空 Knowledge/Tools tab，Voice & Avatar tab 升级为完整 Agent 配置布局：Model Deployment 选择器、Voice Mode 开关+VL Instance 关联、Instructions 自动生成+可编辑覆盖、右侧 Playground 预览面板（数字人/音波球+Start 测试）。
 **Requirements**: HCP-15-01, HCP-15-02, HCP-15-03, HCP-15-04, HCP-15-05
 **Depends on:** Phase 14
-**Plans:** 3 plans
+**Plans:** 3/3 plans complete
 
 Plans:
-- [ ] 15-01-PLAN.md -- Backend preview-instructions endpoint, to_prompt_dict fix, i18n keys, left panel components (AgentConfigLeftPanel + InstructionsSection)
-- [ ] 15-02-PLAN.md -- PlaygroundPreviewPanel component, VoiceAvatarTab rewrite (2-panel grid), hcp-profile-editor tab cleanup (remove Knowledge/Tools)
-- [ ] 15-03-PLAN.md -- Backend tests, full build verification, visual checkpoint for Agent Config Center layout
+- [x] 15-01-PLAN.md -- Backend preview-instructions endpoint, to_prompt_dict fix, i18n keys, left panel components (AgentConfigLeftPanel + InstructionsSection)
+- [x] 15-02-PLAN.md -- PlaygroundPreviewPanel component, VoiceAvatarTab rewrite (2-panel grid), hcp-profile-editor tab cleanup (remove Knowledge/Tools)
+- [x] 15-03-PLAN.md -- Backend tests, full build verification, visual checkpoint for Agent Config Center layout
 
 
 **Success Criteria** (what must be TRUE):

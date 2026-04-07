@@ -154,7 +154,8 @@ describe("TrainingSession page", () => {
   it("uses default scenario when scenario data is not loaded", () => {
     render(<TrainingSession />, { wrapper });
     // Default scenario name comes from tc("loading") => "loading"
-    expect(screen.getByText("loading")).toBeInTheDocument();
+    // Appears in both ScenarioPanel and mobile HCP info bar
+    expect(screen.getAllByText("loading").length).toBeGreaterThanOrEqual(1);
   });
 
   it("renders with actual scenario data when loaded", () => {

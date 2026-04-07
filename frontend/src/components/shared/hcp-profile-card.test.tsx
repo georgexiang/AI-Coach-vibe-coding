@@ -53,7 +53,7 @@ describe("HCPProfileCard", () => {
       (b) => b.textContent === "Easy",
     );
     expect(difficultyBadge).toBeDefined();
-    expect(difficultyBadge?.className).toContain("bg-green-100");
+    expect(difficultyBadge?.className).toContain("bg-strength/10");
   });
 
   it("renders Hard difficulty with red styling", () => {
@@ -65,7 +65,7 @@ describe("HCPProfileCard", () => {
       (b) => b.textContent === "Hard",
     );
     expect(difficultyBadge).toBeDefined();
-    expect(difficultyBadge?.className).toContain("bg-red-100");
+    expect(difficultyBadge?.className).toContain("bg-destructive/10");
   });
 
   it("renders avatar initials when no avatar image is provided", () => {

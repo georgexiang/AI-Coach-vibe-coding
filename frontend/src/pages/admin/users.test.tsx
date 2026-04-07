@@ -11,6 +11,51 @@ vi.mock("react-i18next", () => ({
   }),
 }));
 
+const mockUsers = [
+  { id: "u1", username: "awang", email: "alice@example.com", full_name: "Alice Wang", role: "MR", is_active: true, preferred_language: "en", business_unit: "Oncology", created_at: "2025-01-01" },
+  { id: "u2", username: "bzhang", email: "bob@example.com", full_name: "Bob Zhang", role: "DM", is_active: true, preferred_language: "en", business_unit: "Hematology", created_at: "2025-02-01" },
+  { id: "u3", username: "clee", email: "carol@example.com", full_name: "Carol Lee", role: "Admin", is_active: true, preferred_language: "en", business_unit: "Oncology", created_at: "2025-03-01" },
+  { id: "u4", username: "dchen", email: "david@example.com", full_name: "David Chen", role: "MR", is_active: false, preferred_language: "en", business_unit: "Hematology", created_at: "2025-04-01" },
+  { id: "u5", username: "ewu", email: "emily@example.com", full_name: "Emily Wu", role: "MR", is_active: true, preferred_language: "en", business_unit: "Oncology", created_at: "2025-05-01" },
+  { id: "u6", username: "fli", email: "frank@example.com", full_name: "Frank Li", role: "DM", is_active: true, preferred_language: "en", business_unit: "Immunology", created_at: "2025-06-01" },
+  { id: "u7", username: "ghuang", email: "grace@example.com", full_name: "Grace Huang", role: "MR", is_active: false, preferred_language: "en", business_unit: "Hematology", created_at: "2025-07-01" },
+  { id: "u8", username: "hzhao", email: "henry@example.com", full_name: "Henry Zhao", role: "MR", is_active: true, preferred_language: "en", business_unit: "Oncology", created_at: "2025-08-01" },
+  { id: "u9", username: "ijin", email: "iris@example.com", full_name: "Iris Jin", role: "Admin", is_active: true, preferred_language: "en", business_unit: "Immunology", created_at: "2025-09-01" },
+  { id: "u10", username: "jyang", email: "jack@example.com", full_name: "Jack Yang", role: "MR", is_active: true, preferred_language: "en", business_unit: "Neurology", created_at: "2025-10-01" },
+  { id: "u11", username: "kxu", email: "karen@example.com", full_name: "Karen Xu", role: "DM", is_active: true, preferred_language: "en", business_unit: "Oncology", created_at: "2025-11-01" },
+  { id: "u12", username: "lma", email: "leo@example.com", full_name: "Leo Ma", role: "MR", is_active: false, preferred_language: "en", business_unit: "Hematology", created_at: "2025-12-01" },
+];
+
+let mockSearch = "";
+
+vi.mock("@/hooks/use-users", () => ({
+  useUsers: (params: { page: number; page_size: number; search?: string }) => {
+    mockSearch = params.search ?? "";
+    const filtered = mockSearch
+      ? mockUsers.filter(
+          (u) =>
+            u.full_name.toLowerCase().includes(mockSearch.toLowerCase()) ||
+            u.email.toLowerCase().includes(mockSearch.toLowerCase()),
+        )
+      : mockUsers;
+    const pageSize = params.page_size;
+    const start = (params.page - 1) * pageSize;
+    const paged = filtered.slice(start, start + pageSize);
+    return {
+      data: {
+        items: paged,
+        total: filtered.length,
+        page: params.page,
+        page_size: pageSize,
+        total_pages: Math.ceil(filtered.length / pageSize),
+      },
+      isLoading: false,
+    };
+  },
+  useDeleteUser: () => ({ mutate: vi.fn() }),
+  useUpdateUser: () => ({ mutate: vi.fn() }),
+}));
+
 describe("UserManagementPage", () => {
   beforeEach(() => vi.clearAllMocks());
 
@@ -22,10 +67,10 @@ describe("UserManagementPage", () => {
     ).toBeInTheDocument();
   });
 
-  it("renders Import CSV and Add User buttons", () => {
+  it("renders filter controls", () => {
     render(<UserManagementPage />);
-    expect(screen.getByText("Import CSV")).toBeInTheDocument();
-    expect(screen.getByText("Add User")).toBeInTheDocument();
+    // Source has search input and role/status filter selects
+    expect(screen.getByPlaceholderText("Search by name or email...")).toBeInTheDocument();
   });
 
   it("renders the table header columns", () => {

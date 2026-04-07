@@ -16,7 +16,7 @@ describe("StatusBadge", () => {
 
   it("renders in-progress status dot with correct class", () => {
     const { container } = render(<StatusBadge status="in-progress" label="In Progress" />);
-    const dot = container.querySelector(".bg-weakness");
+    const dot = container.querySelector(".bg-chart-3");
     expect(dot).toBeInTheDocument();
   });
 

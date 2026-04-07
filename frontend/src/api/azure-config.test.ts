@@ -4,6 +4,9 @@ import {
   updateServiceConfig,
   testServiceConnection,
   getRegionCapabilities,
+  getAIFoundryConfig,
+  updateAIFoundryConfig,
+  testAIFoundryConnection,
 } from "./azure-config";
 
 // Mock the apiClient module
@@ -175,6 +178,94 @@ describe("azure-config API", () => {
       await expect(getRegionCapabilities("invalidregion")).rejects.toThrow(
         "Not found",
       );
+    });
+  });
+
+  describe("getAIFoundryConfig", () => {
+    it("calls GET /azure-config/ai-foundry and returns config", async () => {
+      const mockConfig = {
+        endpoint: "https://ai-foundry.azure.com",
+        project_name: "my-project",
+        api_key_set: true,
+        is_active: true,
+      };
+      mockedGet.mockResolvedValue({ data: mockConfig });
+
+      const result = await getAIFoundryConfig();
+
+      expect(mockedGet).toHaveBeenCalledWith("/azure-config/ai-foundry");
+      expect(result).toEqual(mockConfig);
+    });
+
+    it("propagates errors from the API client", async () => {
+      mockedGet.mockRejectedValue(new Error("Network error"));
+
+      await expect(getAIFoundryConfig()).rejects.toThrow("Network error");
+    });
+  });
+
+  describe("updateAIFoundryConfig", () => {
+    it("calls PUT /azure-config/ai-foundry with config payload", async () => {
+      const mockResponse = {
+        endpoint: "https://new-foundry.azure.com",
+        project_name: "updated-project",
+        api_key_set: true,
+        is_active: true,
+      };
+      mockedPut.mockResolvedValue({ data: mockResponse });
+
+      const config = {
+        endpoint: "https://new-foundry.azure.com",
+        api_key: "new-key-123",
+        project_name: "updated-project",
+      };
+      const result = await updateAIFoundryConfig(config as never);
+
+      expect(mockedPut).toHaveBeenCalledWith("/azure-config/ai-foundry", config);
+      expect(result).toEqual(mockResponse);
+    });
+
+    it("propagates errors from the API client", async () => {
+      mockedPut.mockRejectedValue(new Error("422 Validation Error"));
+
+      await expect(
+        updateAIFoundryConfig({ endpoint: "" } as never),
+      ).rejects.toThrow("422 Validation Error");
+    });
+  });
+
+  describe("testAIFoundryConnection", () => {
+    it("calls POST /azure-config/ai-foundry/test and returns success result", async () => {
+      const mockResult = {
+        success: true,
+        message: "AI Foundry connection successful",
+        services_discovered: ["openai", "speech"],
+      };
+      mockedPost.mockResolvedValue({ data: mockResult });
+
+      const result = await testAIFoundryConnection();
+
+      expect(mockedPost).toHaveBeenCalledWith("/azure-config/ai-foundry/test");
+      expect(result.success).toBe(true);
+    });
+
+    it("returns failure result when connection fails", async () => {
+      const mockResult = {
+        success: false,
+        message: "Invalid endpoint or API key",
+      };
+      mockedPost.mockResolvedValue({ data: mockResult });
+
+      const result = await testAIFoundryConnection();
+
+      expect(result.success).toBe(false);
+      expect(result.message).toBe("Invalid endpoint or API key");
+    });
+
+    it("propagates errors from the API client", async () => {
+      mockedPost.mockRejectedValue(new Error("Server error"));
+
+      await expect(testAIFoundryConnection()).rejects.toThrow("Server error");
     });
   });
 });

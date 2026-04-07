@@ -6,6 +6,7 @@ let mockPc: Record<string, unknown>;
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.spyOn(HTMLAudioElement.prototype, "play").mockResolvedValue(undefined);
 
   mockPc = {
     addTransceiver: vi.fn(),
@@ -471,6 +472,353 @@ describe("useAvatarStream", () => {
     });
   });
 
+  it("ICE candidate with a real candidate is logged (branch coverage)", async () => {
+    const video = createMockVideoElement();
+    const ref = { current: video } as React.RefObject<HTMLVideoElement | null>;
+
+    const { result } = renderHook(() => useAvatarStream(ref));
+    const { sendSdpOffer } = createMockSdpExchange(result.current.handleServerSdp);
+
+    await act(async () => {
+      const p = result.current.connect([], sendSdpOffer);
+      // Wait for onicecandidate to be set
+      await vi.waitFor(() => expect(mockPc.onicecandidate).toBeTruthy());
+      const handler = mockPc.onicecandidate as (ev: unknown) => void;
+
+      // Fire a real ICE candidate (not the null end-of-candidates signal)
+      handler({ candidate: { type: "host", protocol: "udp" } });
+
+      // Then fire the null candidate to complete
+      handler({ candidate: null });
+      await p;
+    });
+
+    expect(result.current.isConnected).toBe(true);
+  });
+
+  it("onicegatheringstatechange fires and resolves SDP offer when 'complete'", async () => {
+    const video = createMockVideoElement();
+    const ref = { current: video } as React.RefObject<HTMLVideoElement | null>;
+
+    const { result } = renderHook(() => useAvatarStream(ref));
+    const { sendSdpOffer } = createMockSdpExchange(result.current.handleServerSdp);
+
+    await act(async () => {
+      const p = result.current.connect([], sendSdpOffer);
+      await vi.waitFor(() => expect(mockPc.onicegatheringstatechange).toBeTruthy());
+
+      // Simulate iceGatheringState changing to "complete"
+      Object.defineProperty(mockPc, "iceGatheringState", { value: "complete", writable: true });
+      const handler = mockPc.onicegatheringstatechange as () => void;
+      handler();
+
+      await p;
+    });
+
+    expect(result.current.isConnected).toBe(true);
+    expect(sendSdpOffer).toHaveBeenCalled();
+  });
+
+  it("ICE gathering timeout (8s) sends SDP if neither null-candidate nor statechange fired", async () => {
+    vi.useFakeTimers();
+    const video = createMockVideoElement();
+    const ref = { current: video } as React.RefObject<HTMLVideoElement | null>;
+
+    const { result } = renderHook(() => useAvatarStream(ref));
+    const { sendSdpOffer } = createMockSdpExchange(result.current.handleServerSdp);
+
+    let connectPromise: Promise<void>;
+    await act(async () => {
+      connectPromise = result.current.connect([], sendSdpOffer);
+    });
+
+    // Advance past the 8s ICE gathering timeout
+    await act(async () => {
+      vi.advanceTimersByTime(8500);
+    });
+
+    await act(async () => {
+      await connectPromise!;
+    });
+
+    expect(sendSdpOffer).toHaveBeenCalled();
+    expect(result.current.isConnected).toBe(true);
+    vi.useRealTimers();
+  });
+
+  it("connectionState handlers are set on the peer connection", async () => {
+    const video = createMockVideoElement();
+    const ref = { current: video } as React.RefObject<HTMLVideoElement | null>;
+
+    const { result } = renderHook(() => useAvatarStream(ref));
+    const { sendSdpOffer, triggerIceComplete } = createMockSdpExchange(
+      result.current.handleServerSdp,
+    );
+
+    await act(async () => {
+      const p = result.current.connect([], sendSdpOffer);
+      await waitAndTriggerIce(triggerIceComplete);
+      await p;
+    });
+
+    // Verify connection state change handlers are set
+    expect(mockPc.onconnectionstatechange).toBeTruthy();
+    expect(mockPc.oniceconnectionstatechange).toBeTruthy();
+    expect(mockPc.onsignalingstatechange).toBeTruthy();
+
+    // Exercise the handlers without error (covers log branches)
+    const connHandler = mockPc.onconnectionstatechange as () => void;
+    const iceConnHandler = mockPc.oniceconnectionstatechange as () => void;
+    const sigHandler = mockPc.onsignalingstatechange as () => void;
+
+    // Simulate "connected"
+    Object.defineProperty(mockPc, "connectionState", { value: "connected", writable: true, configurable: true });
+    connHandler();
+
+    // Simulate "failed"
+    Object.defineProperty(mockPc, "connectionState", { value: "failed", writable: true, configurable: true });
+    connHandler();
+
+    // ICE connection states
+    Object.defineProperty(mockPc, "iceConnectionState", { value: "checking", writable: true, configurable: true });
+    iceConnHandler();
+
+    Object.defineProperty(mockPc, "iceConnectionState", { value: "failed", writable: true, configurable: true });
+    iceConnHandler();
+
+    Object.defineProperty(mockPc, "iceConnectionState", { value: "disconnected", writable: true, configurable: true });
+    iceConnHandler();
+
+    // Signaling state
+    Object.defineProperty(mockPc, "signalingState", { value: "stable", writable: true, configurable: true });
+    sigHandler();
+  });
+
+  it("stats interval is started after connect and cleared on disconnect", async () => {
+    vi.useFakeTimers();
+    const video = createMockVideoElement();
+    const ref = { current: video } as React.RefObject<HTMLVideoElement | null>;
+
+    const mockStats = new Map<string, unknown>();
+    mockPc.getStats = vi.fn().mockResolvedValue(mockStats);
+
+    const { result } = renderHook(() => useAvatarStream(ref));
+    const { sendSdpOffer, triggerIceComplete } = createMockSdpExchange(
+      result.current.handleServerSdp,
+    );
+
+    await act(async () => {
+      const p = result.current.connect([], sendSdpOffer);
+      await waitAndTriggerIce(triggerIceComplete);
+      await p;
+    });
+
+    // Advance 5s to trigger the stats interval
+    await act(async () => {
+      vi.advanceTimersByTime(5500);
+    });
+
+    expect(mockPc.getStats).toHaveBeenCalled();
+
+    // Disconnect should clear the interval
+    act(() => {
+      result.current.disconnect();
+    });
+
+    vi.useRealTimers();
+  });
+
+  it("stats interval processes inbound-rtp and candidate-pair reports", async () => {
+    vi.useFakeTimers();
+    const video = createMockVideoElement();
+    const ref = { current: video } as React.RefObject<HTMLVideoElement | null>;
+
+    const statsMap = new Map<string, Record<string, unknown>>();
+    statsMap.set("video-rtp", {
+      type: "inbound-rtp",
+      kind: "video",
+      framesPerSecond: 30,
+      packetsLost: 0,
+      packetsReceived: 100,
+      jitter: 0.001,
+      bytesReceived: 50000,
+    });
+    statsMap.set("audio-rtp", {
+      type: "inbound-rtp",
+      kind: "audio",
+      packetsLost: 1,
+      packetsReceived: 200,
+      jitter: 0.002,
+    });
+    statsMap.set("pair-1", {
+      type: "candidate-pair",
+      state: "succeeded",
+      currentRoundTripTime: 0.05,
+    });
+
+    mockPc.getStats = vi.fn().mockResolvedValue(statsMap);
+
+    const { result } = renderHook(() => useAvatarStream(ref));
+    const { sendSdpOffer, triggerIceComplete } = createMockSdpExchange(
+      result.current.handleServerSdp,
+    );
+
+    await act(async () => {
+      const p = result.current.connect([], sendSdpOffer);
+      await waitAndTriggerIce(triggerIceComplete);
+      await p;
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(5500);
+      // Let the promise resolve
+      await Promise.resolve();
+    });
+
+    expect(mockPc.getStats).toHaveBeenCalled();
+
+    act(() => {
+      result.current.disconnect();
+    });
+    vi.useRealTimers();
+  });
+
+  it("stats interval detects video packet loss anomaly (>5%)", async () => {
+    vi.useFakeTimers();
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const video = createMockVideoElement();
+    const ref = { current: video } as React.RefObject<HTMLVideoElement | null>;
+
+    const statsMap = new Map<string, Record<string, unknown>>();
+    statsMap.set("video-rtp", {
+      type: "inbound-rtp",
+      kind: "video",
+      framesPerSecond: 25,
+      packetsLost: 10,
+      packetsReceived: 90,
+      jitter: 0.01,
+      bytesReceived: 10000,
+    });
+
+    mockPc.getStats = vi.fn().mockResolvedValue(statsMap);
+
+    const { result } = renderHook(() => useAvatarStream(ref));
+    const { sendSdpOffer, triggerIceComplete } = createMockSdpExchange(
+      result.current.handleServerSdp,
+    );
+
+    await act(async () => {
+      const p = result.current.connect([], sendSdpOffer);
+      await waitAndTriggerIce(triggerIceComplete);
+      await p;
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(5500);
+      await Promise.resolve();
+    });
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("[AvatarStream]"),
+      expect.stringContaining("ANOMALY: video packet loss"),
+      expect.any(Number),
+    );
+
+    act(() => { result.current.disconnect(); });
+    warnSpy.mockRestore();
+    vi.useRealTimers();
+  });
+
+  it("stats interval detects low video fps anomaly (<10)", async () => {
+    vi.useFakeTimers();
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const video = createMockVideoElement();
+    const ref = { current: video } as React.RefObject<HTMLVideoElement | null>;
+
+    const statsMap = new Map<string, Record<string, unknown>>();
+    statsMap.set("video-rtp", {
+      type: "inbound-rtp",
+      kind: "video",
+      framesPerSecond: 5,
+      packetsLost: 0,
+      packetsReceived: 100,
+      jitter: 0.01,
+      bytesReceived: 5000,
+    });
+
+    mockPc.getStats = vi.fn().mockResolvedValue(statsMap);
+
+    const { result } = renderHook(() => useAvatarStream(ref));
+    const { sendSdpOffer, triggerIceComplete } = createMockSdpExchange(
+      result.current.handleServerSdp,
+    );
+
+    await act(async () => {
+      const p = result.current.connect([], sendSdpOffer);
+      await waitAndTriggerIce(triggerIceComplete);
+      await p;
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(5500);
+      await Promise.resolve();
+    });
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("[AvatarStream]"),
+      expect.stringContaining("ANOMALY: video fps"),
+      expect.any(Number),
+    );
+
+    act(() => { result.current.disconnect(); });
+    warnSpy.mockRestore();
+    vi.useRealTimers();
+  });
+
+  it("stats interval detects audio packet loss anomaly (>5%)", async () => {
+    vi.useFakeTimers();
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const video = createMockVideoElement();
+    const ref = { current: video } as React.RefObject<HTMLVideoElement | null>;
+
+    const statsMap = new Map<string, Record<string, unknown>>();
+    statsMap.set("audio-rtp", {
+      type: "inbound-rtp",
+      kind: "audio",
+      packetsLost: 15,
+      packetsReceived: 85,
+      jitter: 0.05,
+    });
+
+    mockPc.getStats = vi.fn().mockResolvedValue(statsMap);
+
+    const { result } = renderHook(() => useAvatarStream(ref));
+    const { sendSdpOffer, triggerIceComplete } = createMockSdpExchange(
+      result.current.handleServerSdp,
+    );
+
+    await act(async () => {
+      const p = result.current.connect([], sendSdpOffer);
+      await waitAndTriggerIce(triggerIceComplete);
+      await p;
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(5500);
+      await Promise.resolve();
+    });
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("[AvatarStream]"),
+      expect.stringContaining("ANOMALY: audio packet loss"),
+      expect.any(Number),
+    );
+
+    act(() => { result.current.disconnect(); });
+    warnSpy.mockRestore();
+    vi.useRealTimers();
+  });
+
   it("ontrack video play() failure is caught gracefully", async () => {
     const video = createMockVideoElement();
     (video.play as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
@@ -502,7 +850,8 @@ describe("useAvatarStream", () => {
     });
 
     expect(warnSpy).toHaveBeenCalledWith(
-      "[AvatarStream] Video play() failed:",
+      expect.stringContaining("[AvatarStream]"),
+      expect.stringContaining("Video play() failed"),
       expect.any(Error),
     );
     warnSpy.mockRestore();

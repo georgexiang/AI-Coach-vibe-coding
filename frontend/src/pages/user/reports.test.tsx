@@ -134,6 +134,9 @@ vi.mock("@/components/ui", () => ({
   CardTitle: ({ children }: { children: React.ReactNode }) => (
     <h3>{children}</h3>
   ),
+  Skeleton: ({ className }: { className?: string }) => (
+    <div data-testid="skeleton" className={`animate-pulse ${className ?? ""}`} />
+  ),
 }));
 
 function renderReportsPage() {
@@ -215,11 +218,11 @@ describe("UserReportsPage", () => {
 });
 
 describe("UserReportsPage - loading state", () => {
-  it("shows spinner when stats are loading", () => {
+  it("shows loading skeleton when stats are loading", () => {
     mockStatsData.isLoading = true;
     mockTrendsData.isLoading = true;
     const { container } = renderReportsPage();
-    expect(container.querySelector(".animate-spin")).toBeInTheDocument();
+    expect(container.querySelector(".animate-pulse")).toBeInTheDocument();
   });
 });
 
@@ -233,7 +236,7 @@ describe("UserReportsPage - empty state", () => {
     };
     renderReportsPage();
     expect(
-      screen.getByText("Complete your first training session to see reports"),
+      screen.getByText("Complete your first training session to see reports."),
     ).toBeInTheDocument();
   });
 });

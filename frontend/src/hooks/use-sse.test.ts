@@ -28,10 +28,11 @@ describe("useSSEStream", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.spyOn(Storage.prototype, "getItem").mockReturnValue("test-token");
+    localStorage.setItem("access_token", "test-token");
   });
 
   afterEach(() => {
+    localStorage.removeItem("access_token");
     vi.restoreAllMocks();
   });
 

@@ -5,7 +5,8 @@ import type { ReactNode } from "react";
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
-    t: (key: string) => key,
+    t: (key: string, opts?: Record<string, unknown>) =>
+      (opts?.defaultValue as string) ?? key,
     i18n: { language: "en-US" },
   }),
 }));
@@ -16,6 +17,10 @@ vi.mock("@/hooks/use-hcp-profiles", () => ({
   useHcpProfile: () => ({ data: undefined }),
   useCreateHcpProfile: () => ({ mutate: vi.fn() }),
   useUpdateHcpProfile: () => ({ mutate: vi.fn() }),
+  useDeleteHcpProfile: () => ({ mutate: vi.fn() }),
+  useRetrySyncHcpProfile: () => ({ mutateAsync: vi.fn() }),
+  useBatchSyncAgents: () => ({ mutateAsync: vi.fn() }),
+  usePreviewInstructions: () => ({ mutateAsync: vi.fn() }),
 }));
 
 vi.mock("@/hooks/use-scenarios", () => ({
@@ -34,6 +39,9 @@ vi.mock("@/hooks/use-azure-config", () => ({
   useServiceConfigs: () => ({ data: [], isLoading: false }),
   useUpdateServiceConfig: () => ({ mutate: vi.fn() }),
   useTestServiceConnection: () => ({ mutateAsync: vi.fn() }),
+  useAIFoundryConfig: () => ({ data: undefined, isLoading: false }),
+  useUpdateAIFoundry: () => ({ mutateAsync: vi.fn() }),
+  useTestAIFoundry: () => ({ mutateAsync: vi.fn() }),
 }));
 
 vi.mock("@/hooks/use-region-capabilities", () => ({

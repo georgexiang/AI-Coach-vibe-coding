@@ -82,7 +82,7 @@ describe("RubricTable", () => {
     expect(screen.getByText("rubrics.scenarioType")).toBeInTheDocument();
     expect(screen.getByText("rubrics.dimensions")).toBeInTheDocument();
     expect(screen.getByText("rubrics.isDefault")).toBeInTheDocument();
-    expect(screen.getByText("Actions")).toBeInTheDocument();
+    expect(screen.getByText("rubrics.actions")).toBeInTheDocument();
   });
 
   it("renders rubric names", () => {
@@ -129,7 +129,7 @@ describe("RubricTable", () => {
         onDelete={mockOnDelete}
       />,
     );
-    const defaultBadges = screen.getAllByText("Default");
+    const defaultBadges = screen.getAllByText("rubrics.default");
     expect(defaultBadges).toHaveLength(1);
   });
 
