@@ -7,7 +7,6 @@ import {
   ChevronDown,
   ChevronRight,
   Users,
-  Play,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,8 +32,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { VoiceLiveModelSelect } from "@/components/admin/voice-live-model-select";
-import { AvatarView } from "@/components/voice/avatar-view";
-import { VoiceControls } from "@/components/voice/voice-controls";
+import { VoiceTestPlayground } from "@/components/voice/voice-test-playground";
 import {
   useVoiceLiveInstance,
   useCreateVoiceLiveInstance,
@@ -42,16 +40,13 @@ import {
   useAssignVoiceLiveInstance,
 } from "@/hooks/use-voice-live-instances";
 import { useHcpProfiles } from "@/hooks/use-hcp-profiles";
-import { useVoiceLive } from "@/hooks/use-voice-live";
-import { useAvatarStream } from "@/hooks/use-avatar-stream";
-import { useAudioHandler } from "@/hooks/use-audio-handler";
-import { useAudioPlayer } from "@/hooks/use-audio-player";
+import type { SessionState as PlaygroundSessionState } from "@/components/voice/voice-test-playground";
 import {
   AVATAR_CHARACTERS,
   getAvatarInitials,
 } from "@/data/avatar-characters";
 import { cn } from "@/lib/utils";
-import type { VoiceLiveInstanceCreate, TranscriptSegment } from "@/types/voice-live";
+import type { VoiceLiveInstanceCreate } from "@/types/voice-live";
 
 /* ── Option constants ─────────────────────────────────────────────────── */
 
@@ -101,7 +96,7 @@ const DEFAULT_FORM: VoiceLiveInstanceCreate = {
   echo_cancellation: false,
   eou_detection: false,
   recognition_language: "auto",
-  agent_instructions_override: "",
+  model_instruction: "",
   response_temperature: 0.8,
   proactive_engagement: true,
   auto_detect_language: true,
@@ -211,7 +206,7 @@ export default function VlInstanceEditorPage() {
         ...DEFAULT_FORM,
         ...formFields,
         description: instance.description ?? "",
-        agent_instructions_override: instance.agent_instructions_override ?? "",
+        model_instruction: instance.model_instruction ?? "",
       });
     }
   }, [instance]);
@@ -237,134 +232,22 @@ export default function VlInstanceEditorPage() {
         ...DEFAULT_FORM,
         ...formFields,
         description: instance.description ?? "",
-        agent_instructions_override: instance.agent_instructions_override ?? "",
+        model_instruction: instance.model_instruction ?? "",
       });
     } else {
       setForm({ ...DEFAULT_FORM });
     }
   }, [instance]);
 
-  /* ── Voice test session hooks ──────────────────────────────────────── */
+  /* ── Voice test session state (delegated to VoiceTestPlayground) ──── */
 
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const transcriptPanelRef = useRef<HTMLDivElement>(null);
-  const [transcripts, setTranscripts] = useState<TranscriptSegment[]>([]);
-  const [isTestConnecting, setIsTestConnecting] = useState(false);
   const [isTestActive, setIsTestActive] = useState(false);
-  const [showKeyboard, setShowKeyboard] = useState(false);
-  const [keyboardText, setKeyboardText] = useState("");
-
-  const audioHandler = useAudioHandler();
-  const audioPlayer = useAudioPlayer();
-  const avatarStream = useAvatarStream(videoRef);
-
-  const voiceLive = useVoiceLive({
-    language: form.recognition_language ?? "auto",
-    systemPrompt: form.agent_instructions_override ?? "",
-    onTranscript: useCallback((seg: TranscriptSegment) => {
-      setTranscripts((prev) => {
-        const idx = prev.findIndex((s) => s.id === seg.id);
-        if (idx >= 0) {
-          const next = [...prev];
-          const existing = next[idx]!;
-          if (!seg.isFinal && !existing.isFinal) {
-            // Streaming delta: accumulate content instead of replacing
-            next[idx] = { ...seg, content: existing.content + seg.content };
-          } else {
-            // Final event: replace with complete content
-            next[idx] = seg;
-          }
-          return next;
-        }
-        return [...prev, seg];
-      });
-    }, []),
-    onAudioDelta: audioPlayer.playAudio,
-    onError: useCallback(
-      (err: Error) => toast.error(err.message),
-      [],
-    ),
-  });
-
-  const startTest = useCallback(async () => {
-    try {
-      setIsTestConnecting(true);
-      setTranscripts([]);
-
-      await audioHandler.initialize();
-      voiceLive.avatarSdpCallbackRef.current = avatarStream.handleServerSdp;
-
-      const result = testHcp
-        ? await voiceLive.connect(
-            testHcp.id,
-            form.agent_instructions_override ?? "",
-          )
-        : await voiceLive.connect(
-            undefined,
-            form.agent_instructions_override ?? "",
-            id,
-          );
-
-      if (result.avatarEnabled) {
-        await avatarStream.connect(result.iceServers, async (clientSdp) => {
-          voiceLive.send({
-            type: "session.avatar.connect",
-            client_sdp: clientSdp,
-          });
-        });
-      }
-
-      // Start recording mic audio
-      audioHandler.startRecording((audioData: Float32Array) => {
-        if (voiceLive.isMuted) return;
-        const int16 = new Int16Array(audioData.length);
-        for (let i = 0; i < audioData.length; i++) {
-          const s = Math.max(-1, Math.min(1, audioData[i] ?? 0));
-          int16[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
-        }
-        const bytes = new Uint8Array(int16.buffer);
-        let binary = "";
-        for (let i = 0; i < bytes.length; i++) {
-          binary += String.fromCharCode(bytes[i]!);
-        }
-        voiceLive.sendAudio(btoa(binary));
-      });
-
-      setIsTestActive(true);
-    } catch (err) {
-      toast.error(String(err));
-    } finally {
-      setIsTestConnecting(false);
-    }
-  }, [testHcp, audioHandler, avatarStream, voiceLive, form.agent_instructions_override, t]);
-
-  const stopTest = useCallback(async () => {
-    try {
-      await voiceLive.disconnect();
-      avatarStream.disconnect();
-      audioHandler.cleanup();
-      audioPlayer.stopAudio();
-    } finally {
-      setIsTestActive(false);
-    }
-  }, [voiceLive, avatarStream, audioHandler, audioPlayer]);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      audioHandler.cleanup();
-      audioPlayer.stopAudio();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Auto-scroll transcript panel to bottom on new content
-  useEffect(() => {
-    if (transcriptPanelRef.current) {
-      transcriptPanelRef.current.scrollTop =
-        transcriptPanelRef.current.scrollHeight;
-    }
-  }, [transcripts]);
+  const handleSessionStateChange = useCallback(
+    (state: PlaygroundSessionState) => {
+      setIsTestActive(state === "connected" || state === "connecting");
+    },
+    [],
+  );
 
   /* ── Avatar grid ────────────────────────────────────────────────────── */
 
@@ -545,9 +428,9 @@ export default function VlInstanceEditorPage() {
               <Textarea
                 rows={3}
                 className="text-sm resize-none"
-                value={form.agent_instructions_override ?? ""}
+                value={form.model_instruction ?? ""}
                 onChange={(e) =>
-                  updateField("agent_instructions_override", e.target.value)
+                  updateField("model_instruction", e.target.value)
                 }
                 placeholder={tp("responseInstructionPlaceholder")}
               />
@@ -893,150 +776,47 @@ export default function VlInstanceEditorPage() {
       </div>
 
       {/* ════════════ RIGHT PANEL — Test Playground (~70%) ════════════ */}
-      <div className="flex-1 flex flex-col bg-muted/10">
-        {/* Playground header */}
-        <div className="flex items-center justify-between px-6 py-3 border-b shrink-0">
-          <h2 className="text-sm font-semibold">
-            {t("voiceLive.playgroundTitle")}
-          </h2>
-          {isEdit && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1.5"
-              onClick={() => {
-                setSelectedHcpId("");
-                setAssignOpen(true);
-              }}
-            >
-              <Users className="size-3.5" />
-              {tp("assignToHcp")}
-              {assignedHcps.length > 0 && (
-                <span className="ml-1 text-xs text-muted-foreground">
-                  ({assignedHcps.length})
-                </span>
-              )}
-            </Button>
-          )}
-        </div>
-
-        {/* Test area — avatar fills the panel like AI Foundry */}
-        <div className="flex-1 relative flex flex-col">
-          {/* Avatar / Audio orb area — fills available space */}
-          <div className="flex-1 relative">
-            <AvatarView
-              videoRef={videoRef}
-              isAvatarConnected={avatarStream.isConnected}
-              audioState={voiceLive.audioState}
-              isConnecting={isTestConnecting}
-              hcpName={testHcp?.name ?? form.name ?? ""}
-              isFullScreen={false}
-              avatarCharacter={
-                form.avatar_enabled ? (form.avatar_character ?? undefined) : undefined
-              }
-              avatarStyle={
-                form.avatar_enabled ? (form.avatar_style ?? undefined) : undefined
-              }
-              className="absolute inset-0"
-            />
-          </div>
-
-          {/* Transcript panel — shows text alongside voice output */}
-          {isTestActive && transcripts.length > 0 && (
-            <div
-              ref={transcriptPanelRef}
-              className="shrink-0 max-h-32 overflow-y-auto border-t bg-background/90 backdrop-blur-sm px-4 py-2 space-y-1"
-            >
-              {transcripts.map((seg) => (
-                <div
-                  key={seg.id}
-                  className={cn(
-                    "text-xs leading-relaxed",
-                    seg.role === "user"
-                      ? "text-primary font-medium"
-                      : "text-foreground",
-                  )}
-                >
-                  <span className="text-muted-foreground mr-1.5">
-                    {seg.role === "user" ? "You:" : "AI:"}
+      <div className="flex-1 flex flex-col">
+        <VoiceTestPlayground
+          hcpProfileId={testHcp?.id}
+          vlInstanceId={!testHcp ? id : undefined}
+          systemPrompt={form.model_instruction ?? ""}
+          language={form.recognition_language ?? "auto"}
+          avatarCharacter={
+            form.avatar_enabled ? (form.avatar_character ?? undefined) : undefined
+          }
+          avatarStyle={
+            form.avatar_enabled ? (form.avatar_style ?? undefined) : undefined
+          }
+          avatarEnabled={form.avatar_enabled ?? false}
+          hcpName={testHcp?.name ?? form.name ?? ""}
+          disabled={!isEdit}
+          disabledMessage={!isEdit ? tp("testPlaceholder") : undefined}
+          onSessionStateChange={handleSessionStateChange}
+          headerExtra={
+            isEdit ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                onClick={() => {
+                  setSelectedHcpId("");
+                  setAssignOpen(true);
+                }}
+              >
+                <Users className="size-3.5" />
+                {tp("assignToHcp")}
+                {assignedHcps.length > 0 && (
+                  <span className="ml-1 text-xs text-muted-foreground">
+                    ({assignedHcps.length})
                   </span>
-                  {seg.content}
-                  {!seg.isFinal && (
-                    <span className="text-muted-foreground animate-pulse">
-                      ...
-                    </span>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Controls bar at bottom */}
-          <div className="shrink-0 border-t bg-background/80 backdrop-blur-sm">
-            {isTestActive ? (
-              <>
-                {/* Voice controls when test is active */}
-                <VoiceControls
-                  audioState={voiceLive.audioState}
-                  connectionState={voiceLive.connectionState}
-                  isMuted={voiceLive.isMuted}
-                  onToggleMute={voiceLive.toggleMute}
-                  onToggleKeyboard={() => setShowKeyboard((v) => !v)}
-                  onEndSession={stopTest}
-                  className="py-3"
-                />
-                {showKeyboard && (
-                  <div className="flex items-center gap-2 border-t px-4 py-2">
-                    <input
-                      type="text"
-                      value={keyboardText}
-                      onChange={(e) => setKeyboardText(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && keyboardText.trim()) {
-                          void voiceLive.sendTextMessage(keyboardText.trim());
-                          setKeyboardText("");
-                        }
-                      }}
-                      placeholder="Type a message..."
-                      className="flex-1 rounded-lg border px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-                    />
-                    <Button
-                      size="sm"
-                      onClick={() => {
-                        if (keyboardText.trim()) {
-                          void voiceLive.sendTextMessage(keyboardText.trim());
-                          setKeyboardText("");
-                        }
-                      }}
-                    >
-                      Send
-                    </Button>
-                  </div>
                 )}
-              </>
-            ) : (
-              /* Start button when test is idle */
-              <div className="flex flex-col items-center gap-2 py-4">
-                <Button
-                  size="lg"
-                  className="gap-2 min-w-[140px] rounded-full"
-                  disabled={!isEdit || isTestConnecting}
-                  onClick={startTest}
-                >
-                  <Play className="size-4" />
-                  {isTestConnecting
-                    ? t("voiceLive.vlDialogSaving")
-                    : tp("startTest")}
-                </Button>
-                {!isEdit && (
-                  <p className="text-xs text-muted-foreground">
-                    {tp("testPlaceholder")}
-                  </p>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
+              </Button>
+            ) : undefined
+          }
+          title={t("voiceLive.playgroundTitle")}
+          className="flex-1"
+        />
       </div>
 
       {/* ════════════ Assign to HCP Dialog ════════════ */}

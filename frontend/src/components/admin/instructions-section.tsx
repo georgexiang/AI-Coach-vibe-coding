@@ -19,12 +19,15 @@ interface InstructionsSectionProps {
   form: UseFormReturn<HcpFormValues>;
   profileId?: string;
   isNew: boolean;
+  /** Called when auto-generated instructions are loaded or regenerated */
+  onAutoInstructionsChange?: (instructions: string) => void;
 }
 
 export function InstructionsSection({
   form,
   profileId,
   isNew,
+  onAutoInstructionsChange,
 }: InstructionsSectionProps) {
   const { t } = useTranslation(["admin", "common"]);
   const [autoInstructions, setAutoInstructions] = useState("");
@@ -42,6 +45,7 @@ export function InstructionsSection({
     previewInstructions(form.getValues(), controller.signal)
       .then((result) => {
         setAutoInstructions(result.instructions);
+        onAutoInstructionsChange?.(result.instructions);
         hasGenerated.current = true;
       })
       .catch((err: unknown) => {
@@ -72,6 +76,7 @@ export function InstructionsSection({
         controller.signal,
       );
       setAutoInstructions(result.instructions);
+      onAutoInstructionsChange?.(result.instructions);
       hasGenerated.current = true;
     } catch (err: unknown) {
       if (err instanceof Error && err.name === "AbortError") return;

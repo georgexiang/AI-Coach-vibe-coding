@@ -62,6 +62,12 @@ describe("i18n key parity", () => {
       "instructionsError",
       "testConnectionError",
       "permissionDeniedMic",
+      "playgroundChatPlaceholder",
+      "playgroundChatSend",
+      "playgroundChatReady",
+      "playgroundChatNoAgent",
+      "playgroundChatThinking",
+      "playgroundVoiceHint",
     ];
 
     const enHcpSection = enAdmin["hcp"] ?? {};
@@ -133,34 +139,35 @@ describe("HCP editor tab structure", () => {
   });
 });
 
-// Test 3: PlaygroundPreviewPanel has lifecycle safeguards
-describe("PlaygroundPreviewPanel lifecycle safeguards", () => {
-  const panelPath = path.resolve(
+// Test 3: VoiceTestPlayground has lifecycle safeguards
+// (Voice logic was extracted from PlaygroundPreviewPanel to shared VoiceTestPlayground)
+describe("VoiceTestPlayground lifecycle safeguards", () => {
+  const voicePath = path.resolve(
     __dirname,
-    "../components/admin/playground-preview-panel.tsx",
+    "../components/voice/voice-test-playground.tsx",
   );
 
-  it("playground-preview-panel.tsx has session state machine", () => {
-    const source = fs.readFileSync(panelPath, "utf-8");
+  it("voice-test-playground.tsx has session state machine", () => {
+    const source = fs.readFileSync(voicePath, "utf-8");
     expect(source).toContain("idle");
     expect(source).toContain("connecting");
     expect(source).toContain("connected");
     expect(source).toContain("stopping");
   });
 
-  it("playground-preview-panel.tsx has unmount cleanup", () => {
-    const source = fs.readFileSync(panelPath, "utf-8");
+  it("voice-test-playground.tsx has unmount cleanup", () => {
+    const source = fs.readFileSync(voicePath, "utf-8");
     expect(source).toContain("audioHandler.cleanup");
     expect(source).toContain("audioPlayer.stopAudio");
   });
 
-  it("playground-preview-panel.tsx has transcript buffer cap", () => {
-    const source = fs.readFileSync(panelPath, "utf-8");
+  it("voice-test-playground.tsx has transcript buffer cap", () => {
+    const source = fs.readFileSync(voicePath, "utf-8");
     expect(source).toMatch(/MAX_TRANSCRIPTS|maxTranscripts|\.slice/);
   });
 
-  it("playground-preview-panel.tsx handles mic permission denied", () => {
-    const source = fs.readFileSync(panelPath, "utf-8");
+  it("voice-test-playground.tsx handles mic permission denied", () => {
+    const source = fs.readFileSync(voicePath, "utf-8");
     expect(source).toContain("NotAllowedError");
     expect(source).toContain("permissionDeniedMic");
   });

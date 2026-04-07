@@ -25,6 +25,7 @@ from fastapi import WebSocket
 from app.config import get_settings
 from app.models.hcp_profile import HcpProfile
 from app.models.service_config import ServiceConfig
+from app.models.voice_live_instance import VoiceLiveInstance
 from app.services.voice_live_websocket import (
     _load_connection_config,
     handle_voice_live_websocket,
@@ -214,6 +215,104 @@ async def hcp_profile_with_agent(seeded_db):
     return profile, seeded_db
 
 
+@pytest.fixture
+async def hcp_with_vl_instance(seeded_db):
+    """Create an HCP profile linked to a VL Instance.
+
+    The VL Instance has its own model_instruction ("You are an English teacher"),
+    while the HCP profile has different instructions.
+    Used to test that HCP instructions take priority over VL Instance instructions.
+    """
+    # Create VL Instance with its own instructions
+    vl_inst = VoiceLiveInstance(
+        name="VL-Female-Video",
+        voice_live_model="gpt-4o",
+        voice_name="en-US-AvaNeural",
+        voice_type="azure-standard",
+        avatar_character="lisa",
+        avatar_style="casual-sitting",
+        avatar_enabled=True,
+        model_instruction="You are an English teacher named Clara.",
+        created_by="test-user",
+    )
+    seeded_db.add(vl_inst)
+    await seeded_db.flush()
+    await seeded_db.refresh(vl_inst)
+
+    # Create HCP profile linked to VL Instance — no override, no agent
+    profile = HcpProfile(
+        name="Dr. Wang Fang",
+        specialty="Neurology",
+        agent_id="",
+        agent_sync_status="none",
+        voice_live_instance_id=vl_inst.id,
+        agent_instructions_override="",
+        created_by="test-user",
+    )
+    seeded_db.add(profile)
+    await seeded_db.flush()
+    await seeded_db.refresh(profile)
+    return profile, vl_inst, seeded_db
+
+
+@pytest.fixture
+async def hcp_with_vl_and_override(seeded_db):
+    """HCP profile linked to VL Instance, but HCP has its own override.
+
+    VL Instance: "You are an English teacher named Clara."
+    HCP override: "You are Dr. Li Ming, a Cardiologist."
+    Expected: HCP override wins.
+    """
+    vl_inst = VoiceLiveInstance(
+        name="VL-Male-Video",
+        voice_live_model="gpt-4o",
+        voice_name="en-US-AvaNeural",
+        voice_type="azure-standard",
+        avatar_character="lisa",
+        avatar_style="casual-sitting",
+        avatar_enabled=True,
+        model_instruction="You are an English teacher named Clara.",
+        created_by="test-user",
+    )
+    seeded_db.add(vl_inst)
+    await seeded_db.flush()
+    await seeded_db.refresh(vl_inst)
+
+    profile = HcpProfile(
+        name="Dr. Li Ming",
+        specialty="Cardiology",
+        agent_id="asst_li_ming",
+        agent_sync_status="synced",
+        voice_live_instance_id=vl_inst.id,
+        agent_instructions_override="You are Dr. Li Ming, a Cardiologist.",
+        created_by="test-user",
+    )
+    seeded_db.add(profile)
+    await seeded_db.flush()
+    await seeded_db.refresh(profile)
+    return profile, vl_inst, seeded_db
+
+
+@pytest.fixture
+async def vl_instance_standalone(seeded_db):
+    """Standalone VL Instance (no HCP) with its own instructions."""
+    vl_inst = VoiceLiveInstance(
+        name="VL-Standalone-Test",
+        voice_live_model="gpt-4o",
+        voice_name="zh-CN-XiaoxiaoMultilingualNeural",
+        voice_type="azure-standard",
+        avatar_character="lisa",
+        avatar_style="casual-sitting",
+        avatar_enabled=False,
+        model_instruction="You are a helpful AI assistant for testing.",
+        created_by="test-user",
+    )
+    seeded_db.add(vl_inst)
+    await seeded_db.flush()
+    await seeded_db.refresh(vl_inst)
+    return vl_inst, seeded_db
+
+
 # ===========================================================================
 # Test 1: _load_connection_config — real DB config resolution
 # ===========================================================================
@@ -311,6 +410,143 @@ class TestLoadConnectionConfig:
         """Missing voice_live config raises ValueError."""
         with pytest.raises(ValueError, match="not configured"):
             await _load_connection_config(db_session)
+
+    # =======================================================================
+    # HCP Instructions Priority Tests (Bug fix: HCP > client prompt > auto-gen)
+    # =======================================================================
+
+    async def test_hcp_with_override_uses_hcp_override(self, hcp_with_vl_and_override):
+        """HCP's own agent_instructions_override takes priority over VL Instance's.
+
+        Bug fix: previously used VL Instance's model_instruction
+        (e.g., "English teacher"), ignoring the HCP profile's own override.
+        """
+        profile, vl_inst, db = hcp_with_vl_and_override
+
+        cfg = await _load_connection_config(db, hcp_profile_id=profile.id)
+
+        # HCP's override should win, NOT VL Instance's
+        assert cfg["instructions"] == "You are Dr. Li Ming, a Cardiologist."
+        # VL Instance has "English teacher" but should NOT appear
+        assert "English teacher" not in cfg["instructions"]
+        assert "Clara" not in cfg["instructions"]
+
+    async def test_hcp_without_override_uses_client_system_prompt(self, hcp_with_vl_instance):
+        """When HCP has no override, client-sent system_prompt is used as fallback.
+
+        This is the auto-generated instructions sent by the frontend from
+        the InstructionsSection component.
+        """
+        profile, vl_inst, db = hcp_with_vl_instance
+
+        cfg = await _load_connection_config(
+            db,
+            hcp_profile_id=profile.id,
+            system_prompt="You are Dr. Wang Fang, a Neurology specialist.",
+        )
+
+        # Client system_prompt should be used (auto-generated from frontend)
+        assert cfg["instructions"] == "You are Dr. Wang Fang, a Neurology specialist."
+        # NOT the VL Instance's instructions
+        assert "English teacher" not in cfg["instructions"]
+        assert "Clara" not in cfg["instructions"]
+
+    async def test_hcp_without_override_and_no_prompt_uses_auto_gen(self, hcp_with_vl_instance):
+        """When HCP has no override AND no client system_prompt, auto-generate from profile.
+
+        Falls back to build_agent_instructions(profile.to_prompt_dict()).
+        """
+        profile, vl_inst, db = hcp_with_vl_instance
+
+        cfg = await _load_connection_config(
+            db,
+            hcp_profile_id=profile.id,
+            system_prompt="",  # empty — no client prompt
+        )
+
+        # Auto-generated instructions should contain HCP's name and specialty
+        assert "Dr. Wang Fang" in cfg["instructions"]
+        assert "Neurology" in cfg["instructions"]
+        # NOT the VL Instance's instructions
+        assert "English teacher" not in cfg["instructions"]
+        assert "Clara" not in cfg["instructions"]
+
+    async def test_vl_instance_standalone_uses_own_instructions(self, vl_instance_standalone):
+        """Standalone VL Instance test (no HCP) uses VL Instance's own instructions."""
+        vl_inst, db = vl_instance_standalone
+
+        cfg = await _load_connection_config(
+            db,
+            vl_instance_id=vl_inst.id,
+        )
+
+        # VL Instance's own instructions should be used in standalone mode
+        assert cfg["instructions"] == "You are a helpful AI assistant for testing."
+
+    async def test_vl_instance_standalone_no_instructions_fallback(self, seeded_db):
+        """Standalone VL Instance without instructions uses client system_prompt."""
+        vl_inst = VoiceLiveInstance(
+            name="VL-No-Instructions",
+            voice_live_model="gpt-4o",
+            voice_name="en-US-AvaNeural",
+            voice_type="azure-standard",
+            avatar_character="lisa",
+            avatar_style="casual-sitting",
+            avatar_enabled=False,
+            model_instruction="",  # empty
+            created_by="test-user",
+        )
+        seeded_db.add(vl_inst)
+        await seeded_db.flush()
+        await seeded_db.refresh(vl_inst)
+
+        cfg = await _load_connection_config(
+            seeded_db,
+            vl_instance_id=vl_inst.id,
+            system_prompt="Fallback system prompt for model test",
+        )
+
+        # Empty VL instructions → instructions field stays empty
+        # system_prompt is in cfg["system_prompt"] and resolved at line 377
+        assert cfg["instructions"] == ""
+        assert cfg["system_prompt"] == "Fallback system prompt for model test"
+
+    async def test_hcp_override_whitespace_only_is_treated_as_empty(self, seeded_db):
+        """HCP with whitespace-only override falls back to client system_prompt."""
+        vl_inst = VoiceLiveInstance(
+            name="VL-Whitespace-Test",
+            voice_live_model="gpt-4o",
+            voice_name="en-US-AvaNeural",
+            voice_type="azure-standard",
+            model_instruction="You are a piano teacher.",
+            created_by="test-user",
+        )
+        seeded_db.add(vl_inst)
+        await seeded_db.flush()
+        await seeded_db.refresh(vl_inst)
+
+        profile = HcpProfile(
+            name="Dr. Whitespace",
+            specialty="General",
+            agent_id="",
+            agent_sync_status="none",
+            voice_live_instance_id=vl_inst.id,
+            agent_instructions_override="   ",  # whitespace only
+            created_by="test-user",
+        )
+        seeded_db.add(profile)
+        await seeded_db.flush()
+        await seeded_db.refresh(profile)
+
+        cfg = await _load_connection_config(
+            seeded_db,
+            hcp_profile_id=profile.id,
+            system_prompt="You are Dr. Whitespace, a General practitioner.",
+        )
+
+        # Whitespace-only override treated as empty → use client system_prompt
+        assert cfg["instructions"] == "You are Dr. Whitespace, a General practitioner."
+        assert "piano teacher" not in cfg["instructions"]
 
 
 # ===========================================================================

@@ -1,300 +1,220 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { toast } from "sonner";
-import { Play, Square, RefreshCw, Mic, MicOff } from "lucide-react";
+import { Send, Loader2, MessageSquare } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { AvatarView } from "@/components/voice/avatar-view";
-import { AudioOrb } from "@/components/voice/audio-orb";
-import { useVoiceLive } from "@/hooks/use-voice-live";
-import { useAvatarStream } from "@/hooks/use-avatar-stream";
-import { useAudioHandler } from "@/hooks/use-audio-handler";
-import { useAudioPlayer } from "@/hooks/use-audio-player";
-import type { TranscriptSegment, AudioState } from "@/types/voice-live";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { VoiceTestPlayground } from "@/components/voice/voice-test-playground";
+import { testChatWithAgent } from "@/api/hcp-profiles";
 
-const MAX_TRANSCRIPTS = 100;
-
-type SessionState = "idle" | "connecting" | "connected" | "error" | "stopping";
+interface ChatMessage {
+  role: "user" | "hcp";
+  content: string;
+}
 
 interface PlaygroundPreviewPanelProps {
   hcpProfileId?: string;
+  profileName?: string;
+  agentId?: string;
   vlInstanceId?: string;
   systemPrompt?: string;
   avatarCharacter?: string;
   avatarStyle?: string;
   avatarEnabled: boolean;
+  voiceModeEnabled: boolean;
   disabled?: boolean;
 }
 
 export function PlaygroundPreviewPanel({
   hcpProfileId,
+  profileName,
+  agentId,
   vlInstanceId,
   systemPrompt,
   avatarCharacter,
   avatarStyle,
   avatarEnabled,
+  voiceModeEnabled,
   disabled,
 }: PlaygroundPreviewPanelProps) {
   const { t } = useTranslation(["admin"]);
 
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const transcriptPanelRef = useRef<HTMLDivElement>(null);
-  const userScrolledRef = useRef(false);
-  const [transcripts, setTranscripts] = useState<TranscriptSegment[]>([]);
-  const [sessionState, setSessionState] = useState<SessionState>("idle");
+  // ── Text chat state ───────────────────────────────────────────────
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatInput, setChatInput] = useState("");
+  const [chatLoading, setChatLoading] = useState(false);
+  const [chatResponseId, setChatResponseId] = useState<string | null>(null);
+  const chatScrollRef = useRef<HTMLDivElement>(null);
 
-  const audioHandler = useAudioHandler();
-  const audioPlayer = useAudioPlayer();
-  const avatarStream = useAvatarStream(videoRef);
+  // Auto-scroll chat
+  useEffect(() => {
+    if (chatScrollRef.current) {
+      chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
+    }
+  }, [chatMessages]);
 
-  const onTranscript = useCallback((seg: TranscriptSegment) => {
-    setTranscripts((prev) => {
-      const idx = prev.findIndex((s) => s.id === seg.id);
-      let next: TranscriptSegment[];
-      if (idx >= 0) {
-        next = [...prev];
-        const existing = next[idx]!;
-        if (!seg.isFinal && !existing.isFinal) {
-          next[idx] = { ...seg, content: existing.content + seg.content };
-        } else {
-          next[idx] = seg;
-        }
-      } else {
-        next = [...prev, seg];
-      }
-      if (next.length > MAX_TRANSCRIPTS) {
-        next = next.slice(next.length - MAX_TRANSCRIPTS);
-      }
-      return next;
-    });
-  }, []);
+  // Reset chat when switching modes or profile changes
+  useEffect(() => {
+    setChatMessages([]);
+    setChatInput("");
+    setChatResponseId(null);
+  }, [hcpProfileId, voiceModeEnabled]);
 
-  const onError = useCallback(
-    (err: Error) => {
-      toast.error(err.message);
-      setSessionState("error");
-    },
-    [],
-  );
+  const sendChatMessage = useCallback(async () => {
+    if (!chatInput.trim() || chatLoading || !hcpProfileId) return;
 
-  const voiceLive = useVoiceLive({
-    language: "auto",
-    systemPrompt: systemPrompt ?? "",
-    onTranscript,
-    onAudioDelta: audioPlayer.playAudio,
-    onError,
-  });
+    const userMsg: ChatMessage = { role: "user", content: chatInput.trim() };
+    setChatMessages((prev) => [...prev, userMsg]);
+    setChatInput("");
+    setChatLoading(true);
 
-  // Derive audioState for sub-components
-  const audioState: AudioState = voiceLive.audioState;
-
-  const startTest = useCallback(async () => {
     try {
-      setSessionState("connecting");
-      setTranscripts([]);
-
-      // Mic permission check with user-friendly error
-      try {
-        await audioHandler.initialize();
-      } catch (err) {
-        if (err instanceof DOMException && err.name === "NotAllowedError") {
-          toast.error(t("admin:hcp.permissionDeniedMic"));
-          setSessionState("error");
-          return;
-        }
-        throw err;
-      }
-
-      voiceLive.avatarSdpCallbackRef.current = avatarStream.handleServerSdp;
-
-      const result = await voiceLive.connect(
-        hcpProfileId,
-        systemPrompt ?? "",
-        vlInstanceId,
-      );
-
-      if (result.avatarEnabled) {
-        await avatarStream.connect(result.iceServers, async (clientSdp) => {
-          voiceLive.send({
-            type: "session.avatar.connect",
-            client_sdp: clientSdp,
-          });
-        });
-      }
-
-      // Start recording mic audio
-      audioHandler.startRecording((audioData: Float32Array) => {
-        if (voiceLive.isMuted) return;
-        const int16 = new Int16Array(audioData.length);
-        for (let i = 0; i < audioData.length; i++) {
-          const s = Math.max(-1, Math.min(1, audioData[i] ?? 0));
-          int16[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
-        }
-        const bytes = new Uint8Array(int16.buffer);
-        let binary = "";
-        for (let i = 0; i < bytes.length; i++) {
-          binary += String.fromCharCode(bytes[i]!);
-        }
-        voiceLive.sendAudio(btoa(binary));
+      const result = await testChatWithAgent(hcpProfileId, {
+        message: userMsg.content,
+        previous_response_id: chatResponseId ?? undefined,
       });
-
-      setSessionState("connected");
+      setChatResponseId(result.response_id);
+      setChatMessages((prev) => [
+        ...prev,
+        { role: "hcp", content: result.response_text },
+      ]);
     } catch (err) {
-      toast.error(String(err));
-      setSessionState("error");
-    }
-  }, [hcpProfileId, vlInstanceId, systemPrompt, audioHandler, avatarStream, voiceLive, t]);
-
-  const stopTest = useCallback(async () => {
-    setSessionState("stopping");
-    try {
-      await voiceLive.disconnect();
-      avatarStream.disconnect();
-      audioHandler.cleanup();
-      audioPlayer.stopAudio();
+      const msg = err instanceof Error ? err.message : "Failed to get agent response";
+      setChatMessages((prev) => [
+        ...prev,
+        { role: "hcp", content: `[Error] ${msg}` },
+      ]);
     } finally {
-      setSessionState("idle");
+      setChatLoading(false);
     }
-  }, [voiceLive, avatarStream, audioHandler, audioPlayer]);
+  }, [chatInput, chatLoading, hcpProfileId, chatResponseId]);
 
-  // Cleanup on unmount (tab switch, navigation, profile change)
-  useEffect(() => {
-    return () => {
-      voiceLive.disconnect().catch(() => { /* ignore */ });
-      avatarStream.disconnect();
-      audioHandler.cleanup();
-      audioPlayer.stopAudio();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // If hcpProfileId or vlInstanceId changes while connected, force disconnect
-  useEffect(() => {
-    if (sessionState === "connected" || sessionState === "connecting") {
-      void stopTest();
+  const handleChatKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      void sendChatMessage();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hcpProfileId, vlInstanceId]);
-
-  // Auto-scroll transcript panel (pause when user scrolls up)
-  const handleTranscriptScroll = () => {
-    const el = transcriptPanelRef.current;
-    if (!el) return;
-    userScrolledRef.current = el.scrollTop + el.clientHeight < el.scrollHeight - 20;
   };
 
-  useEffect(() => {
-    if (!userScrolledRef.current && transcriptPanelRef.current) {
-      transcriptPanelRef.current.scrollTop = transcriptPanelRef.current.scrollHeight;
-    }
-  }, [transcripts]);
+  const hasAgent = !!agentId;
 
+  // ── Render ────────────────────────────────────────────────────────
+
+  if (voiceModeEnabled) {
+    // Voice mode — delegate to shared VoiceTestPlayground component
+    return (
+      <Card className="flex flex-col h-full overflow-hidden">
+        <VoiceTestPlayground
+          hcpProfileId={hcpProfileId}
+          vlInstanceId={vlInstanceId}
+          systemPrompt={systemPrompt}
+          avatarCharacter={avatarEnabled ? avatarCharacter : undefined}
+          avatarStyle={avatarEnabled ? avatarStyle : undefined}
+          avatarEnabled={avatarEnabled}
+          hcpName={profileName}
+          disabled={disabled || !vlInstanceId}
+          disabledMessage={
+            disabled
+              ? t("admin:hcp.playgroundDisabledNew")
+              : !vlInstanceId
+                ? t("admin:hcp.playgroundDisabledNoVl")
+                : undefined
+          }
+          className="flex-1"
+        />
+      </Card>
+    );
+  }
+
+  // Text chat mode — HCP-specific (agent interaction via testChatWithAgent API)
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-sm font-semibold">
-          {t("admin:hcp.playgroundTitle")}
-        </CardTitle>
+    <Card className="flex flex-col h-full">
+      <CardHeader className="pb-2">
+        <div className="flex items-center gap-2">
+          <MessageSquare className="size-4 text-muted-foreground" />
+          <CardTitle className="text-sm font-semibold">
+            {t("admin:hcp.playgroundTitle")}
+          </CardTitle>
+        </div>
       </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Avatar/Orb area */}
-        <div className="flex items-center justify-center min-h-[240px] bg-muted/30 rounded-lg">
-          {avatarEnabled && avatarCharacter ? (
-            <AvatarView
-              videoRef={videoRef}
-              avatarCharacter={avatarCharacter}
-              avatarStyle={avatarStyle ?? ""}
-              isAvatarConnected={sessionState === "connected"}
-              audioState={audioState}
-              isConnecting={sessionState === "connecting"}
-              hcpName=""
-              isFullScreen={false}
-            />
-          ) : (
-            <AudioOrb audioState={audioState} />
-          )}
-        </div>
 
-        {/* Start/Stop + Mute Controls */}
-        <div className="flex flex-col items-center gap-2">
-          {sessionState !== "connected" && sessionState !== "stopping" ? (
-            <Button
-              onClick={startTest}
-              disabled={disabled || !vlInstanceId || sessionState === "connecting"}
-              className="min-w-[120px]"
-              aria-label={t("admin:hcp.playgroundStart")}
-            >
-              {sessionState === "connecting" ? (
-                <RefreshCw className="size-4 mr-2 animate-spin" />
-              ) : (
-                <Play className="size-4 mr-2" />
-              )}
-              {t("admin:hcp.playgroundStart")}
-            </Button>
-          ) : (
-            <Button
-              variant="destructive"
-              onClick={stopTest}
-              disabled={sessionState === "stopping"}
-              className="min-w-[120px]"
-              aria-label={t("admin:hcp.playgroundStop")}
-            >
-              <Square className="size-4 mr-2" />
-              {t("admin:hcp.playgroundStop")}
-            </Button>
-          )}
-          {sessionState === "connected" && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={voiceLive.toggleMute}
-              aria-label={voiceLive.isMuted ? "Unmute" : "Mute"}
-            >
-              {voiceLive.isMuted ? (
-                <MicOff className="size-4 mr-1" />
-              ) : (
-                <Mic className="size-4 mr-1" />
-              )}
-              {voiceLive.isMuted ? "Unmute" : "Mute"}
-            </Button>
-          )}
-        </div>
-
-        {/* Disabled helper text */}
-        {disabled && (
-          <p className="text-xs text-muted-foreground text-center">
-            {t("admin:hcp.playgroundDisabledNew")}
-          </p>
-        )}
-        {!disabled && !vlInstanceId && (
-          <p className="text-xs text-muted-foreground text-center">
-            {t("admin:hcp.playgroundDisabledNoVl")}
-          </p>
-        )}
-
-        {/* Transcript area */}
-        <div
-          ref={transcriptPanelRef}
-          className="bg-muted/30 rounded p-3 max-h-[200px] overflow-y-auto space-y-2"
-          role="log"
-          aria-live="polite"
-          onScroll={handleTranscriptScroll}
-        >
-          {transcripts.length === 0 ? (
-            <p className="text-xs text-muted-foreground text-center">...</p>
-          ) : (
-            transcripts.map((seg) => (
-              <div key={seg.id} className="text-xs">
-                <span className="font-semibold">
-                  {seg.role === "user"
-                    ? t("admin:hcp.transcriptUser")
-                    : t("admin:hcp.transcriptAgent")}
-                  :
-                </span>{" "}
-                {seg.content}
+      <CardContent className="flex-1 flex flex-col space-y-3">
+        {/* Chat messages area */}
+        <ScrollArea className="flex-1 min-h-[360px] rounded-md border p-4" ref={chatScrollRef}>
+          <div className="space-y-3">
+            {chatMessages.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <MessageSquare className="size-10 text-muted-foreground/40 mb-3" />
+                <p className="text-sm text-muted-foreground">
+                  {hasAgent
+                    ? t("admin:hcp.playgroundChatReady")
+                    : t("admin:hcp.playgroundChatNoAgent")}
+                </p>
+                {profileName && (
+                  <p className="text-xs text-muted-foreground/60 mt-1">
+                    {profileName}
+                  </p>
+                )}
               </div>
-            ))
-          )}
+            )}
+            {chatMessages.map((msg, i) => (
+              <div
+                key={i}
+                className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+              >
+                <div
+                  className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${
+                    msg.role === "user"
+                      ? "bg-muted text-foreground"
+                      : msg.content.startsWith("[Error]")
+                        ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
+                        : "bg-primary text-primary-foreground"
+                  }`}
+                >
+                  {msg.content}
+                </div>
+              </div>
+            ))}
+            {chatLoading && (
+              <div className="flex justify-start">
+                <div className="flex items-center gap-2 rounded-lg bg-primary/10 px-3 py-2 text-sm text-primary">
+                  <Loader2 className="size-3.5 animate-spin" />
+                  {t("admin:hcp.playgroundChatThinking")}
+                </div>
+              </div>
+            )}
+          </div>
+        </ScrollArea>
+
+        {/* Chat input */}
+        <div className="flex items-center gap-2">
+          <Input
+            value={chatInput}
+            onChange={(e) => setChatInput(e.target.value)}
+            onKeyDown={handleChatKeyDown}
+            placeholder={
+              disabled
+                ? t("admin:hcp.playgroundDisabledNew")
+                : hasAgent
+                  ? t("admin:hcp.playgroundChatPlaceholder")
+                  : t("admin:hcp.playgroundChatNoAgent")
+            }
+            className="flex-1"
+            disabled={disabled || !hasAgent || chatLoading}
+          />
+          <Button
+            size="icon"
+            onClick={() => void sendChatMessage()}
+            disabled={!chatInput.trim() || !hasAgent || chatLoading || disabled}
+            aria-label={t("admin:hcp.playgroundChatSend")}
+          >
+            {chatLoading ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <Send className="size-4" />
+            )}
+          </Button>
         </div>
       </CardContent>
     </Card>

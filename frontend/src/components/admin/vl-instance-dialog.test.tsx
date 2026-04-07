@@ -63,7 +63,7 @@ const MOCK_INSTANCE: VoiceLiveInstance = {
   echo_cancellation: false,
   eou_detection: false,
   recognition_language: "auto",
-  agent_instructions_override: "",
+  model_instruction: "",
   response_temperature: 0.8,
   proactive_engagement: true,
   auto_detect_language: true,

@@ -50,7 +50,7 @@ export default function UserReportsPage() {
 
   if (isLoading) {
     return (
-      <div className="mx-auto max-w-7xl space-y-6 p-4 lg:p-8">
+      <div className="space-y-6">
         <h1 className="text-2xl font-medium text-foreground">
           {t("pageTitle", { defaultValue: "Analytics & Reports" })}
         </h1>
@@ -62,7 +62,7 @@ export default function UserReportsPage() {
   // Empty state: no sessions yet
   if (dashStats?.total_sessions === 0) {
     return (
-      <div className="mx-auto max-w-7xl space-y-6 p-4 lg:p-8">
+      <div className="space-y-6">
         <h1 className="text-2xl font-medium text-foreground">
           {t("pageTitle", { defaultValue: "Analytics & Reports" })}
         </h1>
@@ -75,7 +75,7 @@ export default function UserReportsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 p-4 lg:p-8">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-medium text-foreground">

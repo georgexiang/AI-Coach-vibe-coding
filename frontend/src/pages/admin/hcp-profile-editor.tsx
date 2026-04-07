@@ -250,7 +250,7 @@ export default function HcpProfileEditorPage() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto">
+    <div>
       {/* Header */}
       <div className="flex items-center gap-4 mb-6">
         <Button
@@ -283,11 +283,17 @@ export default function HcpProfileEditorPage() {
       {/* Form wraps entire Tabs so state persists across tab switches */}
       <Form {...form}>
         <Tabs value={activeTab} onValueChange={handleTabChange}>
-          <TabsList className="w-full">
-            <TabsTrigger value="profile" className="flex-1">
+          <TabsList className="w-full bg-muted/60 border">
+            <TabsTrigger
+              value="profile"
+              className="flex-1 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+            >
               {t("admin:hcp.tabProfile")}
             </TabsTrigger>
-            <TabsTrigger value="voice-avatar" className="flex-1">
+            <TabsTrigger
+              value="voice-avatar"
+              className="flex-1 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+            >
               {t("admin:hcp.tabVoiceAvatar")}
             </TabsTrigger>
           </TabsList>

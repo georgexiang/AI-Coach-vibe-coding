@@ -56,8 +56,8 @@ class VoiceLiveInstance(Base, TimestampMixin):
     # Avatar toggle (Image #11)
     avatar_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
 
-    # Agent instruction override
-    agent_instructions_override: Mapped[str] = mapped_column(Text, default="")
+    # Model instruction (not agent — VL Instance is a model/API configuration)
+    model_instruction: Mapped[str] = mapped_column(Text, default="")
 
     # Owner
     created_by: Mapped[str] = mapped_column(

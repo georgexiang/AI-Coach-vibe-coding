@@ -1,6 +1,8 @@
+import { useCallback, useState } from "react";
 import type { UseFormReturn } from "react-hook-form";
 import { AgentConfigLeftPanel } from "@/components/admin/agent-config-left-panel";
 import { PlaygroundPreviewPanel } from "@/components/admin/playground-preview-panel";
+import { useVoiceLiveInstances } from "@/hooks/use-voice-live-instances";
 import type { HcpFormValues } from "@/pages/admin/hcp-profile-editor";
 import type { HcpProfile } from "@/types/hcp";
 
@@ -11,21 +13,52 @@ interface VoiceAvatarTabProps {
 }
 
 export function VoiceAvatarTab({ form, profile, isNew }: VoiceAvatarTabProps) {
+  // Lift voiceModeEnabled up so Playground can switch between text chat and voice mode
+  const [voiceModeEnabled, setVoiceModeEnabled] = useState(
+    Boolean(form.getValues("voice_live_instance_id")),
+  );
+
+  // Auto-generated instructions from InstructionsSection (used as fallback systemPrompt)
+  const [autoInstructions, setAutoInstructions] = useState("");
+  const handleAutoInstructionsChange = useCallback((instructions: string) => {
+    setAutoInstructions(instructions);
+  }, []);
+
+  // Resolve selected VL Instance to pass its avatar data to Playground
+  const { data } = useVoiceLiveInstances();
+  const instances = data?.items ?? [];
+  const vlInstanceId = form.watch("voice_live_instance_id");
+  const selectedInstance = instances.find((i) => i.id === vlInstanceId);
+
+  // systemPrompt: use override if set, otherwise use auto-generated instructions
+  const overridePrompt = form.watch("agent_instructions_override");
+  const systemPrompt = (overridePrompt && overridePrompt.trim()) ? overridePrompt : autoInstructions;
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      {/* Left Panel: Agent Configuration */}
-      <div className="space-y-4">
-        <AgentConfigLeftPanel form={form} profile={profile} isNew={isNew} />
+    <div className="flex h-[calc(100vh-14rem)] min-h-[480px]">
+      {/* Left Panel: Agent Configuration — fixed width, scrollable, matching VL editor */}
+      <div className="w-[380px] min-w-[340px] border-r overflow-y-auto p-4 space-y-4">
+        <AgentConfigLeftPanel
+          form={form}
+          profile={profile}
+          isNew={isNew}
+          voiceModeEnabled={voiceModeEnabled}
+          onVoiceModeChange={setVoiceModeEnabled}
+          onAutoInstructionsChange={handleAutoInstructionsChange}
+        />
       </div>
-      {/* Right Panel: Playground Preview */}
-      <div className="lg:sticky lg:top-4 lg:self-start">
+      {/* Right Panel: Playground Preview — fills remaining space, matching VL editor */}
+      <div className="flex-1 flex flex-col min-w-0">
         <PlaygroundPreviewPanel
           hcpProfileId={profile?.id}
-          vlInstanceId={form.watch("voice_live_instance_id") ?? undefined}
-          systemPrompt={form.watch("agent_instructions_override") ?? ""}
-          avatarCharacter={form.watch("avatar_character")}
-          avatarStyle={form.watch("avatar_style")}
-          avatarEnabled={!!form.watch("avatar_character")}
+          profileName={profile?.name}
+          agentId={profile?.agent_id}
+          vlInstanceId={vlInstanceId ?? undefined}
+          systemPrompt={systemPrompt}
+          avatarCharacter={selectedInstance?.avatar_character}
+          avatarStyle={selectedInstance?.avatar_style}
+          avatarEnabled={selectedInstance?.avatar_enabled ?? false}
+          voiceModeEnabled={voiceModeEnabled}
           disabled={isNew}
         />
       </div>

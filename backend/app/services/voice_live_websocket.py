@@ -148,10 +148,17 @@ async def _load_connection_config(
                 hcp_model = _default_model
             result["model"] = hcp_model
 
-            # Instructions: use override if set, otherwise auto-generate from profile
-            override = vc["agent_instructions_override"] or ""
-            if override.strip():
-                result["instructions"] = override.strip()
+            # Instructions priority for HCP mode:
+            #   1. HCP profile's own agent_instructions_override (admin-set override)
+            #   2. Client-sent system_prompt (frontend auto-generated from profile data)
+            #   3. Auto-generated from build_agent_instructions(profile)
+            # NOTE: VL Instance's model_instruction is NOT used here —
+            # VL Instance only provides voice/avatar config, not agent personality.
+            hcp_override = profile.agent_instructions_override or ""
+            if hcp_override.strip():
+                result["instructions"] = hcp_override.strip()
+            elif system_prompt and system_prompt.strip():
+                result["instructions"] = system_prompt.strip()
             else:
                 from app.services.agent_sync_service import build_agent_instructions
 
@@ -203,8 +210,8 @@ async def _load_connection_config(
                 inst_model = _default_model
             result["model"] = inst_model
 
-            # Use agent_instructions_override as instructions for standalone test
-            override = inst.agent_instructions_override or ""
+            # Use model_instruction as instructions for standalone VL test
+            override = inst.model_instruction or ""
             if override.strip():
                 result["instructions"] = override.strip()
 

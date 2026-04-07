@@ -86,7 +86,7 @@ const DEFAULT_FORM: VoiceLiveInstanceCreate = {
   echo_cancellation: false,
   eou_detection: false,
   recognition_language: "auto",
-  agent_instructions_override: "",
+  model_instruction: "",
 };
 
 /* ── Types ───────────────────────────────────────────────────────────── */
@@ -142,7 +142,7 @@ export function VlInstanceDialog({
         echo_cancellation: instance.echo_cancellation,
         eou_detection: instance.eou_detection,
         recognition_language: instance.recognition_language,
-        agent_instructions_override: instance.agent_instructions_override ?? "",
+        model_instruction: instance.model_instruction ?? "",
       });
     } else {
       setForm({ ...DEFAULT_FORM });
@@ -499,9 +499,9 @@ export function VlInstanceDialog({
             </h4>
             <Textarea
               rows={3}
-              value={form.agent_instructions_override ?? ""}
+              value={form.model_instruction ?? ""}
               onChange={(e) =>
-                updateField("agent_instructions_override", e.target.value)
+                updateField("model_instruction", e.target.value)
               }
               placeholder={t("voiceLive.vlDialogAgentInstructionsHint")}
             />

@@ -174,7 +174,7 @@ export interface VoiceLiveInstance {
   custom_lexicon_enabled: boolean;
   custom_lexicon_url: string;
   avatar_enabled: boolean;
-  agent_instructions_override: string;
+  model_instruction: string;
   hcp_count: number;
   created_by: string;
   created_at: string;
@@ -215,7 +215,7 @@ export interface VoiceLiveInstanceCreate {
   custom_lexicon_enabled?: boolean;
   custom_lexicon_url?: string;
   avatar_enabled?: boolean;
-  agent_instructions_override?: string;
+  model_instruction?: string;
 }
 
 export type VoiceLiveInstanceUpdate = Partial<VoiceLiveInstanceCreate>;

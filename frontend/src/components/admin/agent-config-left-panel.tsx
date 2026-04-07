@@ -45,12 +45,18 @@ interface AgentConfigLeftPanelProps {
   form: UseFormReturn<HcpFormValues>;
   profile?: HcpProfile;
   isNew: boolean;
+  voiceModeEnabled: boolean;
+  onVoiceModeChange: (enabled: boolean) => void;
+  onAutoInstructionsChange?: (instructions: string) => void;
 }
 
 export function AgentConfigLeftPanel({
   form,
   profile,
   isNew,
+  voiceModeEnabled,
+  onVoiceModeChange,
+  onAutoInstructionsChange,
 }: AgentConfigLeftPanelProps) {
   const { t } = useTranslation(["admin", "common"]);
   const navigate = useNavigate();
@@ -63,9 +69,6 @@ export function AgentConfigLeftPanel({
   const currentId = form.watch("voice_live_instance_id");
   const selectedInstance = instances.find((i) => i.id === currentId);
 
-  const [voiceModeEnabled, setVoiceModeEnabled] = useState(
-    Boolean(currentId),
-  );
   const [knowledgeToolsExpanded, setKnowledgeToolsExpanded] = useState(false);
   const [showRemoveDialog, setShowRemoveDialog] = useState(false);
 
@@ -115,7 +118,7 @@ export function AgentConfigLeftPanel({
   };
 
   const handleVoiceModeToggle = (checked: boolean) => {
-    setVoiceModeEnabled(checked);
+    onVoiceModeChange(checked);
     if (!checked) {
       form.setValue("voice_live_instance_id", null, { shouldDirty: true });
     }
@@ -168,7 +171,7 @@ export function AgentConfigLeftPanel({
                   onValueChange={handleInstanceChange}
                   disabled={isNew}
                 >
-                  <SelectTrigger className="h-9 text-sm flex-1">
+                  <SelectTrigger className="h-9 text-sm flex-1 min-w-0 truncate">
                     <SelectValue
                       placeholder={t("admin:hcp.vlInstanceNone")}
                     />
@@ -179,9 +182,9 @@ export function AgentConfigLeftPanel({
                     </SelectItem>
                     {instances.map((inst) => (
                       <SelectItem key={inst.id} value={inst.id}>
-                        <span className="flex items-center gap-1.5">
-                          {inst.name}
-                          <Badge variant="secondary" className="text-[10px]">
+                        <span className="flex items-center gap-1.5 max-w-full">
+                          <span className="truncate">{inst.name}</span>
+                          <Badge variant="secondary" className="text-[10px] shrink-0">
                             {inst.voice_live_model}
                           </Badge>
                         </span>
@@ -226,6 +229,7 @@ export function AgentConfigLeftPanel({
         form={form}
         profileId={profile?.id}
         isNew={isNew}
+        onAutoInstructionsChange={onAutoInstructionsChange}
       />
 
       {/* 4. Knowledge & Tools (collapsible skeleton) */}

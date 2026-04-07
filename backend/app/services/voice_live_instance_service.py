@@ -178,7 +178,7 @@ def resolve_voice_config(profile: HcpProfile) -> dict:
             "echo_cancellation": inst.echo_cancellation,
             "eou_detection": inst.eou_detection,
             "recognition_language": inst.recognition_language,
-            "agent_instructions_override": inst.agent_instructions_override,
+            "model_instruction": inst.model_instruction,
             # AI Foundry Playground fields (n17a)
             "response_temperature": inst.response_temperature,
             "proactive_engagement": inst.proactive_engagement,
@@ -209,7 +209,7 @@ def resolve_voice_config(profile: HcpProfile) -> dict:
         "echo_cancellation": profile.echo_cancellation,
         "eou_detection": profile.eou_detection,
         "recognition_language": profile.recognition_language,
-        "agent_instructions_override": profile.agent_instructions_override,
+        "model_instruction": "",  # inline fallback has no model_instruction
         "response_temperature": 0.8,
         "proactive_engagement": True,
         "auto_detect_language": True,

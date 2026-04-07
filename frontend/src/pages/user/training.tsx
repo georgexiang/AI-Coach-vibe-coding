@@ -186,7 +186,7 @@ export default function ScenarioSelection() {
   };
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 p-4 lg:p-8">
+    <div className="space-y-6">
       <h1 className="text-2xl font-medium text-foreground">
         {t("scenarioSelection.title")}
       </h1>

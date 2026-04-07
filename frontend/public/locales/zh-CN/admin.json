@@ -128,7 +128,13 @@
     "instructionsError": "生成指令失败，请检查 Profile 数据后重试",
     "testConnectionError": "Voice Live 连接失败",
     "permissionDeniedMic": "麦克风权限被拒绝，请允许麦克风权限后重试",
-    "permissionDeniedCamera": "摄像头权限被拒绝，请允许摄像头权限后重试"
+    "permissionDeniedCamera": "摄像头权限被拒绝，请允许摄像头权限后重试",
+    "playgroundChatPlaceholder": "向 Agent 发送消息...",
+    "playgroundChatSend": "发送消息",
+    "playgroundChatReady": "发送消息与 AI Foundry Agent 对话",
+    "playgroundChatNoAgent": "Agent 未同步 - 请先同步 Agent 以启用对话",
+    "playgroundChatThinking": "Agent 正在思考...",
+    "playgroundVoiceHint": "点击「开始」以启动语音会话"
   },
   "scenarios": {
     "title": "培训场景",

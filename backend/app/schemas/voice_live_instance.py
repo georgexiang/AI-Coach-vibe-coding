@@ -48,8 +48,8 @@ class VoiceLiveInstanceCreate(BaseModel):
     # Avatar toggle (AI Foundry Image #11)
     avatar_enabled: bool = True
 
-    # Agent instruction override
-    agent_instructions_override: str = ""
+    # Model instruction (VL Instance is a model/API, not an agent)
+    model_instruction: str = ""
 
 
 class VoiceLiveInstanceUpdate(BaseModel):
@@ -78,7 +78,7 @@ class VoiceLiveInstanceUpdate(BaseModel):
     custom_lexicon_enabled: bool | None = None
     custom_lexicon_url: str | None = None
     avatar_enabled: bool | None = None
-    agent_instructions_override: str | None = None
+    model_instruction: str | None = None
 
 
 class VoiceLiveInstanceResponse(BaseModel):
@@ -108,7 +108,7 @@ class VoiceLiveInstanceResponse(BaseModel):
     custom_lexicon_enabled: bool
     custom_lexicon_url: str
     avatar_enabled: bool
-    agent_instructions_override: str
+    model_instruction: str
     hcp_count: int = 0
     created_by: str
     created_at: datetime

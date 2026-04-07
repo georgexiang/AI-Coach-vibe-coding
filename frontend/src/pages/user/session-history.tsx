@@ -101,7 +101,7 @@ export default function SessionHistory() {
 
   if (isLoading) {
     return (
-      <div className="mx-auto max-w-5xl space-y-6 p-4 lg:p-8">
+      <div className="space-y-6">
         <h1 className="text-2xl font-medium text-foreground">{t("history.title")}</h1>
         <LoadingState variant="table" />
       </div>
@@ -110,7 +110,7 @@ export default function SessionHistory() {
 
   if (!history || history.length === 0) {
     return (
-      <div className="mx-auto max-w-5xl space-y-6 p-4 lg:p-8">
+      <div className="space-y-6">
         <h1 className="text-2xl font-medium text-foreground">{t("history.title")}</h1>
         <EmptyState
           title={t("history.noSessions")}
@@ -130,7 +130,7 @@ export default function SessionHistory() {
     : undefined;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 p-4 lg:p-8">
+    <div className="space-y-6">
       <h1 className="text-2xl font-medium text-foreground">{t("history.title")}</h1>
 
       {/* Skill overview radar */}

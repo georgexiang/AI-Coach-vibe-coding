@@ -128,7 +128,13 @@
     "instructionsError": "Failed to generate instructions. Check profile data and try again.",
     "testConnectionError": "Voice Live connection failed",
     "permissionDeniedMic": "Microphone access denied. Please allow microphone permission and try again.",
-    "permissionDeniedCamera": "Camera access denied. Please allow camera permission and try again."
+    "permissionDeniedCamera": "Camera access denied. Please allow camera permission and try again.",
+    "playgroundChatPlaceholder": "Message the agent...",
+    "playgroundChatSend": "Send message",
+    "playgroundChatReady": "Send a message to chat with the AI Foundry Agent",
+    "playgroundChatNoAgent": "Agent not synced - sync the agent first to enable chat",
+    "playgroundChatThinking": "Agent is thinking...",
+    "playgroundVoiceHint": "Click Start to begin a voice session"
   },
   "scenarios": {
     "title": "Training Scenarios",

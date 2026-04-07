@@ -32,7 +32,7 @@ export default function AdminSettingsPage() {
         </p>
       </div>
 
-      <div className="grid gap-6 max-w-2xl">
+      <div className="grid gap-6">
         {/* Language Settings */}
         <Card className="bg-card rounded-lg border border-border shadow-sm">
           <CardHeader>

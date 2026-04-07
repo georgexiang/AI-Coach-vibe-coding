@@ -57,7 +57,7 @@ interface VoiceLiveToken {
   echo_cancellation?: boolean;
   eou_detection?: boolean;
   recognition_language?: string;
-  agent_instructions_override?: string;
+  model_instruction?: string;
 }
 
 interface VoiceLiveConfigStatus {

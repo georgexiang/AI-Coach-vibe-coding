@@ -47,7 +47,7 @@ export default function ScoringFeedback() {
   // Loading state while scoring
   if (scoreLoading || triggerScoring.isPending || !score) {
     return (
-      <div className="mx-auto max-w-7xl space-y-6 p-4 lg:p-8">
+      <div className="space-y-6">
         <h1 className="text-2xl font-medium text-foreground">{t("title")}</h1>
         <LoadingState variant="card" />
         <p className="text-center text-sm text-muted-foreground">
@@ -63,12 +63,12 @@ export default function ScoringFeedback() {
   }));
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 p-4 lg:p-8">
+    <div className="space-y-6">
       {/* Print stylesheet */}
       <style>{`
         @media print {
           nav, .sidebar, header, footer, .action-bar { display: none !important; }
-          .max-w-7xl { max-width: 100% !important; padding: 0 !important; }
+          .space-y-6 { padding: 0 !important; }
           .recharts-wrapper { break-inside: avoid; }
           button { display: none !important; }
         }
