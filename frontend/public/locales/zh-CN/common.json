@@ -51,5 +51,7 @@
   "emptyState.generic.body": "请稍后查看或调整筛选条件。",
   "error.network": "连接错误。请检查网络后重试。",
   "error.server": "出现问题，请稍后重试。",
-  "error.notFound": "页面未找到。返回仪表盘。"
+  "error.notFound": "页面未找到。返回仪表盘。",
+  "generate": "生成",
+  "regenerate": "重新生成"
 }

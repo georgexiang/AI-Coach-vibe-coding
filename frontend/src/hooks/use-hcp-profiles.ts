@@ -7,7 +7,9 @@ import {
   deleteHcpProfile,
   retrySyncHcpProfile,
   batchSyncAgents,
+  previewInstructions,
 } from "@/api/hcp-profiles";
+import type { InstructionsPreviewRequest } from "@/api/hcp-profiles";
 import type { HcpProfileCreate, HcpProfileUpdate } from "@/types/hcp";
 
 export function useHcpProfiles(params?: {
@@ -77,5 +79,11 @@ export function useBatchSyncAgents() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["hcp-profiles"] });
     },
+  });
+}
+
+export function usePreviewInstructions() {
+  return useMutation({
+    mutationFn: (data: InstructionsPreviewRequest) => previewInstructions(data),
   });
 }

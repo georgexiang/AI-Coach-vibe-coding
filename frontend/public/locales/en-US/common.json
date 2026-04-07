@@ -51,5 +51,7 @@
   "emptyState.generic.body": "Check back later or adjust your filters.",
   "error.network": "Connection Error. Check your network and try again.",
   "error.server": "Something went wrong. Please try again later.",
-  "error.notFound": "Page not found. Return to dashboard."
+  "error.notFound": "Page not found. Return to dashboard.",
+  "generate": "Generate",
+  "regenerate": "Regenerate"
 }

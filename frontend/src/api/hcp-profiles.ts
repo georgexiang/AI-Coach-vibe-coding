@@ -91,3 +91,37 @@ export async function getAgentPortalUrl(profileId: string) {
   );
   return data;
 }
+
+export interface InstructionsPreviewRequest {
+  name?: string;
+  specialty?: string;
+  hospital?: string;
+  title?: string;
+  personality_type?: string;
+  emotional_state?: number;
+  communication_style?: number;
+  expertise_areas?: string[];
+  prescribing_habits?: string;
+  concerns?: string;
+  objections?: string[];
+  probe_topics?: string[];
+  difficulty?: string;
+  agent_instructions_override?: string;
+}
+
+export interface InstructionsPreviewResponse {
+  instructions: string;
+  is_override: boolean;
+}
+
+export async function previewInstructions(
+  body: InstructionsPreviewRequest,
+  signal?: AbortSignal,
+) {
+  const { data } = await apiClient.post<InstructionsPreviewResponse>(
+    "/hcp-profiles/preview-instructions",
+    body,
+    { signal },
+  );
+  return data;
+}
