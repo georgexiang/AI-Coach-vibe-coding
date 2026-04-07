@@ -215,7 +215,7 @@ Phases execute in numeric order: 01 -> 01.1 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07 
 | 12. Voice Realtime API & Agent Mode Integration | 4/4 | Complete    | 2026-04-02 |
 | 13. Voice Live Instance & Agent Voice Management | 1/3 | In Progress|  |
 | 14. HCP Agent Refactor | 3/4 | In Progress|  |
-| 15. HCP Editor Agent Config Center | 0/0 | Not Started |  |
+| 15. HCP Editor Agent Config Center | 0/3 | Not Started |  |
 
 ### Phase 07: Azure Service Integration
 
@@ -385,7 +385,13 @@ Plans:
 **Goal:** 重构 HCP 编辑器为 Agent 配置中心，对齐 Azure AI Foundry Agent 编辑体验。移除空 Knowledge/Tools tab，Voice & Avatar tab 升级为完整 Agent 配置布局：Model Deployment 选择器、Voice Mode 开关+VL Instance 关联、Instructions 自动生成+可编辑覆盖、右侧 Playground 预览面板（数字人/音波球+Start 测试）。
 **Requirements**: HCP-15-01, HCP-15-02, HCP-15-03, HCP-15-04, HCP-15-05
 **Depends on:** Phase 14
-**Plans:** 0/0 plans
+**Plans:** 3 plans
+
+Plans:
+- [ ] 15-01-PLAN.md -- Backend preview-instructions endpoint, to_prompt_dict fix, i18n keys, left panel components (AgentConfigLeftPanel + InstructionsSection)
+- [ ] 15-02-PLAN.md -- PlaygroundPreviewPanel component, VoiceAvatarTab rewrite (2-panel grid), hcp-profile-editor tab cleanup (remove Knowledge/Tools)
+- [ ] 15-03-PLAN.md -- Backend tests, full build verification, visual checkpoint for Agent Config Center layout
+
 
 **Success Criteria** (what must be TRUE):
   1. HCP 编辑器只有 Profile 和 Voice & Avatar 两个 tab（Knowledge/Tools 空 tab 已移除）
