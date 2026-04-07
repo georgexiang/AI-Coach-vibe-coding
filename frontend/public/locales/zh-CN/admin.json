@@ -425,7 +425,7 @@
       "reset": "重置",
       "startTest": "开始",
       "stopTest": "停止",
-      "testPlaceholder": "配置设置并点击"开始"以启动测试会话",
+      "testPlaceholder": "配置设置并点击「开始」以启动测试会话",
       "testPlaceholderNoAvatar": "纯语音模式 — 音频波形可视化",
       "testPlaceholderWithAvatar": "数字人形象将在此处显示",
       "assignToHcp": "分配给 HCP"
