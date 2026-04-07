@@ -161,6 +161,50 @@ async def batch_sync_agents(
     return result
 
 
+class InstructionsPreviewRequest(BaseModel):
+    """Profile data for instructions generation preview."""
+
+    name: str = ""
+    specialty: str = ""
+    hospital: str = ""
+    title: str = ""
+    personality_type: str = "friendly"
+    emotional_state: int = 50
+    communication_style: int = 50
+    expertise_areas: list[str] = []
+    prescribing_habits: str = ""
+    concerns: str = ""
+    objections: list[str] = []
+    probe_topics: list[str] = []
+    difficulty: str = "medium"
+    agent_instructions_override: str = ""
+
+
+class InstructionsPreviewResponse(BaseModel):
+    """Generated instructions text with precedence flag."""
+
+    instructions: str
+    is_override: bool
+
+
+@router.post("/preview-instructions", response_model=InstructionsPreviewResponse)
+async def preview_instructions(
+    body: InstructionsPreviewRequest,
+    user: User = Depends(require_role("admin")),
+):
+    """Preview auto-generated agent instructions from profile data. Admin only.
+
+    Instruction precedence: override (non-empty) > auto-generated from template.
+    """
+    from app.services.agent_sync_service import build_agent_instructions
+
+    profile_data = body.model_dump()
+    instructions = build_agent_instructions(profile_data)
+    override_text = body.agent_instructions_override
+    is_override = bool(override_text and override_text.strip())
+    return InstructionsPreviewResponse(instructions=instructions, is_override=is_override)
+
+
 class TestChatRequest(BaseModel):
     """Request body for test chat with agent."""
 
