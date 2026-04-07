@@ -97,4 +97,5 @@ class HcpProfile(Base, TimestampMixin):
             "objections": json.loads(self.objections),
             "probe_topics": json.loads(self.probe_topics),
             "difficulty": self.difficulty,
+            "agent_instructions_override": self.agent_instructions_override,
         }
