@@ -1,0 +1,30 @@
+# Microsoft Agent Framework — 使用前置说明书
+
+> 本目录包含 Azure AI Foundry Agent Service 和 Voice Live API 的架构理解、认证模型、以及与 AI Coach 平台集成的关键设计决策。
+>
+> **阅读顺序**：按编号从 01 到 04 依次阅读，每层知识建立在前一层之上。
+
+## 文档索引
+
+| 编号 | 文档 | 内容 | 适用人群 |
+|------|------|------|---------|
+| 01 | [Azure 服务认证模型](./01-azure-authentication-model.md) | API Key vs Entra ID 的本质区别、适用场景、决策树 | 全体开发 |
+| 02 | [Model 模式 vs Agent 模式](./02-model-vs-agent-mode.md) | 两种调用模式的架构差异、数据流、认证方式实测结果 | 后端开发 |
+| 03 | [Agent Identity 与认证方向](./03-agent-identity-and-auth-direction.md) | Agent 内部 Identity 的作用、入站/出站认证的区别、常见误解澄清 | 架构师 |
+| 04 | [AI Coach 平台集成策略](./04-ai-coach-integration-strategy.md) | 当前实现现状、双模式切换设计、集成方案 | 项目开发 |
+| 05 | [POC 验证测试代码](./tests/test_agent_auth_v2.py) | SDK 1.2.0b5 四种认证方式实测代码（**唯一有效测试**） | 开发/验证 |
+
+> **注意**：`tests/` 目录下的 `test_voice_live_auth_modes.py` 和 `test_agent_conversation.py`
+> 是 SDK 1.1.0 时期的早期探索代码，使用了 `session.agent` 字段（服务端不接受）和错误的 API 版本。
+> 这两个文件已标记为废弃，仅供历史参考。**所有结论以 `test_agent_auth_v2.py` 为准**。
+
+## 核心结论速查（2026-04-08 实测验证）
+
+> 以下结论基于 `azure-ai-voicelive==1.2.0b5`（API version `2026-01-01-preview`）POC 实测。
+
+1. **API Key + Agent 模式 = 可行** — SDK 1.2.0b5 通过 `AgentSessionConfig` + URL query params 支持 API Key 调用 Agent（推翻了微软文档中的声明）
+2. **Entra ID + Agent 模式 = 可行** — 标准方式，同样正常
+3. **STS Token + Agent 模式 = 不可行** — STS Token 不是 Entra ID 签发的，无法通过 Bearer Token 验证通道（401）
+4. **SDK 版本是关键** — 1.1.0 没有 `AgentSessionConfig`，只有 1.2.0b5 才支持 Agent 连接
+5. **Agent 回复内容与 Model 不同** — 实测确认 Agent 模式加载了 AI Foundry 上预配置的 instructions，而非代码中的
+6. **对 AI Coach 平台的重大利好** — 可以继续使用 API Key 认证，不需要改认证架构即可支持 Agent 模式
