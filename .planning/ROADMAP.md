@@ -27,6 +27,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 13: Voice Live Instance & Agent Voice Management** - Create/manage Voice Live instances, bind to HCP Agents, enable Voice mode, configure speech/avatar — matching AI Foundry portal workflow (completed 2026-04-08)
 - [x] **Phase 14: HCP Agent Refactor** - VL Instance read-only reference in HCP editor, VL Management rewrite with rich CRUD, Knowledge/Tools placeholder tabs (completed 2026-04-08)
 - [x] **Phase 15: HCP Editor Agent Config Center** - 重构 HCP 编辑器为 Agent 配置中心：移除空 Knowledge/Tools tab，Voice & Avatar tab 升级为 Model Deployment + Instructions + Playground 预览布局，对齐 Azure AI Foundry Agent 编辑体验 (completed 2026-04-07)
+- [ ] **Phase 16: Voice Live Refactor — Modularize, Agent Mode, Sync** - 前端 Voice Live 模块化复用，后端 WebSocket 双模式（Model+Agent），SDK 升级 1.2.0b5，HCP voice 配置同步到 AI Foundry Agent
 
 ## Phase Details
 
@@ -196,7 +197,7 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 01 -> 01.1 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07 -> 08 -> 09 -> 10 -> 11 -> 12 -> 13 -> 14 -> 15
+Phases execute in numeric order: 01 -> 01.1 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07 -> 08 -> 09 -> 10 -> 11 -> 12 -> 13 -> 14 -> 15 -> 16
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -216,6 +217,31 @@ Phases execute in numeric order: 01 -> 01.1 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07 
 | 13. Voice Live Instance & Agent Voice Management | 3/3 | Complete   | 2026-04-08 |
 | 14. HCP Agent Refactor | 4/4 | Complete   | 2026-04-08 |
 | 15. HCP Editor Agent Config Center | 3/3 | Complete   | 2026-04-07 |
+| 16. Voice Live Refactor — Modularize, Agent Mode, Sync | 0/4 | Planned    |  |
+
+### Phase 16: Voice Live Refactor — Modularize, Agent Mode, Sync
+
+**Goal:** 前端 Voice Live 功能模块化（提取共享 utils/hooks/components 消除重复），后端 WebSocket proxy 支持双模式（Model + Agent），SDK 升级到 1.2.0b5，HCP 绑定的 voice/avatar 配置完整同步到 AI Foundry Agent（解决 portal 中 agent voice 配置为空的问题）。
+**Requirements**: VL-16-01, VL-16-02, VL-16-03, VL-16-04, VL-16-05, VL-16-06
+**Depends on:** Phase 15
+**Plans:** 0/4 plans executed
+
+**Success Criteria** (what must be TRUE):
+  1. 前端 Voice Live 重复代码提取为共享模块（voice-utils、useVoiceSessionLifecycle、AssignHcpDialog、voice-constants）
+  2. VL Instance Editor 使用 Model 模式连接 Voice Live 并可进行联通测试
+  3. HCP 页面 Playground 使用 Agent 模式调用 Voice Live（前提：HCP 已同步且有 agent-id）
+  4. Agent 模式连接失败时自动降级为 Model 模式（fallback chain）
+  5. HCP 绑定的 VoiceLiveInstance 配置（含 avatar）完整同步到 AI Foundry Agent metadata
+  6. VL Instance 更新/分配/取消分配时触发关联 HCP agent 重新同步
+  7. 前后端测试覆盖 + TypeScript/Ruff 构建通过
+
+Plans:
+- [ ] 16-01-PLAN.md -- Frontend Voice Live modularization: extract voice-utils, useVoiceSessionLifecycle, AssignHcpDialog, voice-constants
+- [ ] 16-02-PLAN.md -- Backend dual-mode WebSocket (Model+Agent), SDK 1.2.0b5 upgrade, agent pre-check, fallback chain
+- [ ] 16-03-PLAN.md -- Voice Live config sync to AI Foundry Agent: fix build_voice_live_metadata, add avatar fields, trigger re-sync on VL Instance changes
+- [ ] 16-04-PLAN.md -- Full test coverage + build verification + human visual checkpoint
+
+**UI hint**: yes
 
 ### Phase 07: Azure Service Integration
 
