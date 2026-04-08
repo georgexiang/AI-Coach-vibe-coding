@@ -124,6 +124,9 @@ def build_voice_live_metadata(profile: object) -> dict[str, str] | None:
     Uses resolve_voice_config() to get the effective voice/avatar settings,
     respecting VoiceLiveInstance > inline HcpProfile field priority.
 
+    The output format matches Azure AI Foundry Portal's own save format exactly:
+    ``{"session": {camelCase keys for voice, avatar, turnDetection, etc.}}``
+
     Returns dict[str, str] suitable for agent metadata, or None if voice_live_enabled is False.
     The config JSON is chunked at 512-char boundaries per Azure metadata limits.
     """
@@ -134,48 +137,73 @@ def build_voice_live_metadata(profile: object) -> dict[str, str] | None:
     if not vc.get("voice_live_enabled", True):
         return None
 
-    config: dict = {}
+    # --- Build session config in Foundry Portal's camelCase format ---
+    session: dict = {}
 
     # Voice settings
     voice_name = vc.get("voice_name", "en-US-AvaNeural")
     voice_type = vc.get("voice_type", "azure-standard")
-    voice: dict = {"type": voice_type, "name": voice_name}
-    if voice_type == "azure-standard":
-        voice["temperature"] = vc.get("voice_temperature", 0.9)
-    config["voice"] = voice
+    voice_temp = vc.get("voice_temperature", 0.8)
+    playback_speed = vc.get("playback_speed", 1.0)
+    is_hd = ":DragonHDLatestNeural" in voice_name or "HD" in voice_name
+    voice: dict = {
+        "name": voice_name,
+        "type": voice_type,
+        "temperature": voice_temp,
+        "rate": str(playback_speed),
+        "isHdVoice": is_hd,
+    }
+    session["voice"] = voice
 
-    # Turn detection
-    turn_detection_type = vc.get("turn_detection_type", "server_vad")
+    # Input audio transcription (Foundry always includes this)
+    recognition_lang = vc.get("recognition_language", "auto")
+    transcription_lang = (
+        "auto-detect" if recognition_lang in ("auto", "auto-detect") else recognition_lang
+    )
+    session["inputAudioTranscription"] = {
+        "model": "azure-speech",
+        "language": transcription_lang,
+    }
+
+    # Turn detection (camelCase keys to match Foundry)
+    turn_detection_type = vc.get("turn_detection_type", "azure_semantic_vad")
     turn_detection: dict = {"type": turn_detection_type}
     if vc.get("eou_detection", False):
-        turn_detection["end_of_utterance_detection"] = {"model": "semantic_detection_v1"}
-    config["turn_detection"] = turn_detection
+        turn_detection["endOfUtteranceDetection"] = {"model": "semantic_detection_v1"}
+    else:
+        turn_detection["endOfUtteranceDetection"] = None
+    if vc.get("remove_filler_words", True):
+        turn_detection["removeFillerWords"] = True
+    session["turnDetection"] = turn_detection
 
-    # Noise suppression
+    # Noise suppression (Foundry uses null when disabled)
     if vc.get("noise_suppression", False):
-        config["input_audio_noise_reduction"] = {"type": "azure_deep_noise_suppression"}
+        session["inputAudioNoiseReduction"] = {"type": "azure_deep_noise_suppression"}
+    else:
+        session["inputAudioNoiseReduction"] = None
 
-    # Echo cancellation
+    # Echo cancellation (Foundry uses null when disabled)
     if vc.get("echo_cancellation", False):
-        config["input_audio_echo_cancellation"] = {"type": "server_echo_cancellation"}
+        session["inputAudioEchoCancellation"] = {"type": "server_echo_cancellation"}
+    else:
+        session["inputAudioEchoCancellation"] = None
 
-    # Avatar settings — PREVIOUSLY MISSING
+    # Filler response (Foundry uses null when not configured)
+    session["fillerResponse"] = None
+
+    # Avatar settings (Foundry format — no "enabled" field, presence implies enabled)
     avatar: dict = {
         "character": vc.get("avatar_character", "lori"),
         "style": vc.get("avatar_style", "casual"),
         "customized": vc.get("avatar_customized", False),
-        "enabled": vc.get("avatar_enabled", True),
     }
-    config["avatar"] = avatar
+    session["avatar"] = avatar
 
-    # VL Instance-specific fields — PREVIOUSLY MISSING
-    config["response_temperature"] = vc.get("response_temperature", 0.8)
-    config["proactive_engagement"] = vc.get("proactive_engagement", True)
-    config["auto_detect_language"] = vc.get("auto_detect_language", True)
-    config["playback_speed"] = vc.get("playback_speed", 1.0)
-    if vc.get("custom_lexicon_enabled", False) and vc.get("custom_lexicon_url", ""):
-        config["custom_lexicon"] = {"url": vc["custom_lexicon_url"]}
-    config["recognition_language"] = vc.get("recognition_language", "auto")
+    # Proactive engagement
+    session["proactiveEngagement"] = vc.get("proactive_engagement", False)
+
+    # Wrap in {"session": {...}} to match Foundry Portal format
+    config = {"session": session}
 
     config_json = json.dumps(config, separators=(",", ":"))
     result = {VOICE_LIVE_ENABLED_KEY: "true"}

@@ -396,13 +396,16 @@ def test_build_voice_live_metadata_basic():
     # Should have exactly one key (config fits in 512 chars)
     assert VOICE_LIVE_CONFIG_KEY in result
     config = _reassemble_config(result)
-    assert config["voice"]["type"] == "azure-standard"
-    assert config["voice"]["name"] == "en-US-AvaNeural"
-    assert config["voice"]["temperature"] == 0.9
-    assert config["turn_detection"]["type"] == "server_vad"
-    # No noise/echo keys when disabled
-    assert "input_audio_noise_reduction" not in config
-    assert "input_audio_echo_cancellation" not in config
+    # Foundry Portal format: {"session": {camelCase keys}}
+    assert "session" in config
+    session = config["session"]
+    assert session["voice"]["type"] == "azure-standard"
+    assert session["voice"]["name"] == "en-US-AvaNeural"
+    assert session["voice"]["temperature"] == 0.9
+    assert session["turnDetection"]["type"] == "server_vad"
+    # Noise/echo are null when disabled (Foundry format)
+    assert session["inputAudioNoiseReduction"] is None
+    assert session["inputAudioEchoCancellation"] is None
 
 
 # ---------------------------------------------------------------------------
@@ -433,9 +436,10 @@ def test_build_voice_live_metadata_with_noise_echo():
 
     assert result is not None
     config = _reassemble_config(result)
-    assert config["input_audio_noise_reduction"]["type"] == "azure_deep_noise_suppression"
-    assert config["input_audio_echo_cancellation"]["type"] == "server_echo_cancellation"
-    eou = config["turn_detection"]["end_of_utterance_detection"]
+    session = config["session"]
+    assert session["inputAudioNoiseReduction"]["type"] == "azure_deep_noise_suppression"
+    assert session["inputAudioEchoCancellation"]["type"] == "server_echo_cancellation"
+    eou = session["turnDetection"]["endOfUtteranceDetection"]
     assert eou["model"] == "semantic_detection_v1"
 
 
@@ -516,9 +520,9 @@ def test_build_voice_live_metadata_custom_voice():
 
     assert result is not None
     config = _reassemble_config(result)
-    assert config["voice"]["type"] == "custom-neural"
-    assert config["voice"]["name"] == "my-custom-voice"
-    assert "temperature" not in config["voice"]
+    session = config["session"]
+    assert session["voice"]["type"] == "custom-neural"
+    assert session["voice"]["name"] == "my-custom-voice"
 
 
 # ===========================================================================
@@ -738,12 +742,15 @@ class TestBuildVoiceLiveMetadataRealORM:
         assert result is not None
         assert "microsoft.voice-live.configuration" in result
         config = self._reassemble_metadata(result, "microsoft.voice-live.configuration")
-        assert config["voice"]["type"] == "azure-standard"
-        assert config["voice"]["name"] == "en-US-AvaNeural"
-        assert config["voice"]["temperature"] == 0.9
-        assert config["turn_detection"]["type"] == "server_vad"
-        assert "input_audio_noise_reduction" not in config
-        assert "input_audio_echo_cancellation" not in config
+        # Foundry Portal format: {"session": {camelCase keys}}
+        assert "session" in config
+        session = config["session"]
+        assert session["voice"]["type"] == "azure-standard"
+        assert session["voice"]["name"] == "en-US-AvaNeural"
+        assert session["voice"]["temperature"] == 0.9
+        assert session["turnDetection"]["type"] == "server_vad"
+        assert session["inputAudioNoiseReduction"] is None
+        assert session["inputAudioEchoCancellation"] is None
 
     @pytest.mark.asyncio
     async def test_build_metadata_with_noise_echo_real_orm(self, db_session):
@@ -766,9 +773,10 @@ class TestBuildVoiceLiveMetadataRealORM:
 
         assert result is not None
         config = self._reassemble_metadata(result, "microsoft.voice-live.configuration")
-        assert config["input_audio_noise_reduction"]["type"] == "azure_deep_noise_suppression"
-        assert config["input_audio_echo_cancellation"]["type"] == "server_echo_cancellation"
-        eou = config["turn_detection"]["end_of_utterance_detection"]
+        session = config["session"]
+        assert session["inputAudioNoiseReduction"]["type"] == "azure_deep_noise_suppression"
+        assert session["inputAudioEchoCancellation"]["type"] == "server_echo_cancellation"
+        eou = session["turnDetection"]["endOfUtteranceDetection"]
         assert eou["model"] == "semantic_detection_v1"
 
     @pytest.mark.asyncio
@@ -803,9 +811,9 @@ class TestBuildVoiceLiveMetadataRealORM:
 
         assert result is not None
         config = self._reassemble_metadata(result, "microsoft.voice-live.configuration")
-        assert config["voice"]["type"] == "custom-neural"
-        assert config["voice"]["name"] == "my-custom-voice"
-        assert "temperature" not in config["voice"]
+        session = config["session"]
+        assert session["voice"]["type"] == "custom-neural"
+        assert session["voice"]["name"] == "my-custom-voice"
 
 
 class TestProfileLifecycleRealDB:

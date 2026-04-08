@@ -1595,32 +1595,35 @@ def test_build_voice_live_metadata_uses_resolve_voice_config():
     config_json = "".join(config_parts)
     config = json.loads(config_json)
 
+    # Foundry Portal format: config wrapped in {"session": {...}} with camelCase keys
+    assert "session" in config
+    session = config["session"]
+
     # Voice settings
-    assert config["voice"]["name"] == "zh-CN-XiaoxiaoMultilingualNeural"
-    assert config["voice"]["type"] == "azure-standard"
-    assert config["voice"]["temperature"] == 0.7
+    assert session["voice"]["name"] == "zh-CN-XiaoxiaoMultilingualNeural"
+    assert session["voice"]["type"] == "azure-standard"
+    assert session["voice"]["temperature"] == 0.7
+    assert session["voice"]["rate"] == "1.2"
 
-    # Turn detection with EOU
-    assert config["turn_detection"]["type"] == "server_vad"
-    assert "end_of_utterance_detection" in config["turn_detection"]
+    # Input audio transcription
+    assert session["inputAudioTranscription"]["model"] == "azure-speech"
+    assert session["inputAudioTranscription"]["language"] == "zh-CN"
 
-    # Noise/echo
-    assert "input_audio_noise_reduction" in config
-    assert "input_audio_echo_cancellation" in config
+    # Turn detection with EOU (camelCase)
+    assert session["turnDetection"]["type"] == "server_vad"
+    assert session["turnDetection"]["endOfUtteranceDetection"] == {"model": "semantic_detection_v1"}
 
-    # Avatar settings — PREVIOUSLY MISSING, now included
-    assert config["avatar"]["character"] == "lisa"
-    assert config["avatar"]["style"] == "formal"
-    assert config["avatar"]["customized"] is False
-    assert config["avatar"]["enabled"] is True
+    # Noise/echo (non-null when enabled)
+    assert session["inputAudioNoiseReduction"] is not None
+    assert session["inputAudioEchoCancellation"] is not None
 
-    # VL Instance-specific fields — PREVIOUSLY MISSING
-    assert config["response_temperature"] == 0.6
-    assert config["proactive_engagement"] is False
-    assert config["auto_detect_language"] is False
-    assert config["playback_speed"] == 1.2
-    assert config["custom_lexicon"]["url"] == "https://example.com/lexicon.xml"
-    assert config["recognition_language"] == "zh-CN"
+    # Avatar settings
+    assert session["avatar"]["character"] == "lisa"
+    assert session["avatar"]["style"] == "formal"
+    assert session["avatar"]["customized"] is False
+
+    # Proactive engagement
+    assert session["proactiveEngagement"] is False
 
 
 def test_build_cleared_voice_metadata_returns_disabled_state():
@@ -2297,9 +2300,11 @@ def test_build_voice_live_metadata_semantic_vad():
             i += 1
     config = json.loads("".join(config_parts))
 
-    assert config["turn_detection"]["type"] == "semantic_vad"
+    # Foundry format: config["session"]["turnDetection"]
+    session = config["session"]
+    assert session["turnDetection"]["type"] == "semantic_vad"
     # No EOU since eou_detection=False
-    assert "end_of_utterance_detection" not in config["turn_detection"]
+    assert session["turnDetection"]["endOfUtteranceDetection"] is None
 
 
 def test_build_voice_live_metadata_non_azure_standard_voice():
@@ -2342,9 +2347,11 @@ def test_build_voice_live_metadata_non_azure_standard_voice():
     assert result is not None
     config = json.loads(result[VOICE_LIVE_CONFIG_KEY])
 
-    # Non-azure-standard should not have temperature in voice
-    assert "temperature" not in config["voice"]
-    assert config["voice"]["type"] == "custom"
+    # Foundry format: config["session"]["voice"]
+    session = config["session"]
+    # All voice types include temperature in Foundry format
+    assert session["voice"]["type"] == "custom"
+    assert session["voice"]["name"] == "custom-voice"
 
 
 def test_build_voice_live_metadata_custom_lexicon_disabled():
