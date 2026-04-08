@@ -237,9 +237,9 @@ Phases execute in numeric order: 01 -> 01.1 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07 
 
 Plans:
 - [ ] 16-01-PLAN.md -- Frontend Voice Live modularization: extract voice-utils, useVoiceSessionLifecycle, AssignHcpDialog, voice-constants
-- [ ] 16-02-PLAN.md -- Backend dual-mode WebSocket (Model+Agent), SDK 1.2.0b5 upgrade, agent pre-check, fallback chain
-- [ ] 16-03-PLAN.md -- Voice Live config sync to AI Foundry Agent: fix build_voice_live_metadata, add avatar fields, trigger re-sync on VL Instance changes
-- [ ] 16-04-PLAN.md -- Full test coverage + build verification + human visual checkpoint
+- [ ] 16-02-PLAN.md -- Backend dual-mode WebSocket (Model+Agent), SDK 1.2.0b5 upgrade, agent pre-check, NO fallback
+- [ ] 16-03-PLAN.md -- Voice Live config sync to AI Foundry Agent: fix build_voice_live_metadata, avatar fields, re-sync triggers, agent versioning, clear-on-unassign
+- [ ] 16-04-PLAN.md -- ROADMAP fix (no-fallback), frontend tests, build verification, human visual checkpoint
 
 **UI hint**: yes
 
