@@ -171,6 +171,7 @@ const mockSend = vi.fn();
 const mockConnect = vi.fn().mockResolvedValue({
   avatarEnabled: false,
   model: "gpt-4o",
+  mode: "model",
   iceServers: [],
 });
 const mockDisconnect = vi.fn().mockResolvedValue(undefined);
@@ -833,6 +834,7 @@ describe("VoiceSession", () => {
       ];
       mockConnect.mockResolvedValueOnce({
         model: "gpt-4o",
+        mode: "model",
         avatarEnabled: true,
         iceServers: mockIceServers,
       });
@@ -881,6 +883,7 @@ describe("VoiceSession", () => {
     it("does not attempt avatar when avatarEnabled is false", async () => {
       mockConnect.mockResolvedValueOnce({
         model: "gpt-4o",
+        mode: "model",
         avatarEnabled: false,
         iceServers: [],
       });
@@ -896,6 +899,42 @@ describe("VoiceSession", () => {
 
       // Avatar not attempted since avatarEnabled is false
       expect(mockAvatarConnect).not.toHaveBeenCalled();
+    });
+
+    it("sets agent mode in header when backend reports mode=agent", async () => {
+      mockConnect.mockResolvedValueOnce({
+        model: "gpt-4o",
+        mode: "agent",
+        avatarEnabled: false,
+        iceServers: [],
+      });
+
+      const user = userEvent.setup();
+      renderSession();
+
+      await user.click(screen.getByTestId("start-session-btn"));
+
+      await waitFor(() => {
+        expect(screen.getByTestId("header-mode")).toHaveTextContent("voice_realtime_agent");
+      });
+    });
+
+    it("sets digital_human_realtime_agent when mode=agent and avatar enabled", async () => {
+      mockConnect.mockResolvedValueOnce({
+        model: "gpt-4o",
+        mode: "agent",
+        avatarEnabled: true,
+        iceServers: [{ urls: "turn:relay.azure.com:3478", username: "u", credential: "c" }],
+      });
+
+      const user = userEvent.setup();
+      renderSession();
+
+      await user.click(screen.getByTestId("start-session-btn"));
+
+      await waitFor(() => {
+        expect(screen.getByTestId("header-mode")).toHaveTextContent("digital_human_realtime_agent");
+      });
     });
 
     it("sets isConnecting during initialization", async () => {
@@ -924,6 +963,7 @@ describe("VoiceSession", () => {
       await act(async () => {
         resolveConnect?.({
           model: "gpt-4o",
+          mode: "model",
           avatarEnabled: false,
           iceServers: [],
         });

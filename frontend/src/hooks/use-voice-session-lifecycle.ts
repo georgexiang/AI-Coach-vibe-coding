@@ -35,6 +35,7 @@ export interface StartSessionOptions {
 export interface StartSessionResult {
   avatarEnabled: boolean;
   model: string;
+  mode: "agent" | "model";
 }
 
 /**
@@ -126,6 +127,7 @@ export function useVoiceSessionLifecycle(deps: VoiceSessionLifecycleDeps) {
         return {
           avatarEnabled: result.avatarEnabled,
           model: result.model,
+          mode: result.mode,
         };
       } catch (error) {
         options.onConnectionFailed?.(error);

@@ -207,7 +207,10 @@ export function VoiceSession({
         onAvatarFailed: () => {
           log.error("Avatar WebRTC failed");
           toast.error(t("error.avatarFailed"));
-          setCurrentMode("voice_realtime_model");
+          // Fall back to voice-only but preserve the agent/model distinction
+          setCurrentMode((prev) =>
+            prev.includes("agent") ? "voice_realtime_agent" : "voice_realtime_model",
+          );
         },
         onConnectionFailed: (error) => {
           log.error("Connection failed: %o", error);
@@ -216,12 +219,13 @@ export function VoiceSession({
       });
 
       if (result) {
+        const isAgent = result.mode === "agent";
         const resolvedMode: SessionMode = result.avatarEnabled
-          ? "digital_human_realtime_model"
-          : "voice_realtime_model";
+          ? (isAgent ? "digital_human_realtime_agent" : "digital_human_realtime_model")
+          : (isAgent ? "voice_realtime_agent" : "voice_realtime_model");
         setCurrentMode(resolvedMode);
         initialModeRef.current = resolvedMode;
-        log.info("Avatar WebRTC connected=%s", result.avatarEnabled);
+        log.info("Mode=%s avatar=%s resolvedMode=%s", result.mode, result.avatarEnabled, resolvedMode);
       }
     } finally {
       setIsConnecting(false);

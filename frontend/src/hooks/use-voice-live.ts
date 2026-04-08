@@ -67,6 +67,7 @@ export function useVoiceLive(options: VoiceLiveOptions) {
       return new Promise<{
         avatarEnabled: boolean;
         model: string;
+        mode: "agent" | "model";
         iceServers: RTCIceServer[];
       }>((resolve, reject) => {
         try {
@@ -76,7 +77,7 @@ export function useVoiceLive(options: VoiceLiveOptions) {
           const ws = new WebSocket(wsUrl);
 
           let resolved = false;
-          let sessionResult = { avatarEnabled: false, model: "gpt-4o" };
+          let sessionResult = { avatarEnabled: false, model: "gpt-4o", mode: "model" as "agent" | "model" };
           let iceServersResolve: ((servers: RTCIceServer[]) => void) | null =
             null;
           const iceServersPromise = new Promise<RTCIceServer[]>((res) => {
@@ -141,9 +142,11 @@ export function useVoiceLive(options: VoiceLiveOptions) {
                 sessionResult = {
                   avatarEnabled: msg.avatar_enabled ?? false,
                   model: msg.model ?? "gpt-4o",
+                  mode: (msg.mode === "agent" ? "agent" : "model") as "agent" | "model",
                 };
                 log.info(
-                  "Proxy connected, model=%s, avatar=%s",
+                  "Proxy connected, mode=%s, model=%s, avatar=%s",
+                  sessionResult.mode,
                   sessionResult.model,
                   sessionResult.avatarEnabled,
                 );

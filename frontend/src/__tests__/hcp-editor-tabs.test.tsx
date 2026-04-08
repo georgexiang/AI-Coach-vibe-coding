@@ -155,10 +155,20 @@ describe("VoiceTestPlayground lifecycle safeguards", () => {
     expect(source).toContain("stopping");
   });
 
-  it("voice-test-playground.tsx has unmount cleanup", () => {
+  it("voice-test-playground.tsx has unmount cleanup (via lifecycle hook)", () => {
+    // Cleanup logic was extracted to use-voice-session-lifecycle.ts;
+    // playground calls stopVoiceSession() on unmount which internally
+    // invokes audioHandler.cleanup + audioPlayer.stopAudio.
     const source = fs.readFileSync(voicePath, "utf-8");
-    expect(source).toContain("audioHandler.cleanup");
-    expect(source).toContain("audioPlayer.stopAudio");
+    expect(source).toContain("stopVoiceSession");
+    // Verify the lifecycle hook itself has the direct cleanup calls
+    const lifecyclePath = path.resolve(
+      __dirname,
+      "../hooks/use-voice-session-lifecycle.ts",
+    );
+    const lifecycleSource = fs.readFileSync(lifecyclePath, "utf-8");
+    expect(lifecycleSource).toContain("audioHandler.cleanup");
+    expect(lifecycleSource).toContain("audioPlayer.stopAudio");
   });
 
   it("voice-test-playground.tsx has transcript buffer cap", () => {
@@ -166,10 +176,19 @@ describe("VoiceTestPlayground lifecycle safeguards", () => {
     expect(source).toMatch(/MAX_TRANSCRIPTS|maxTranscripts|\.slice/);
   });
 
-  it("voice-test-playground.tsx handles mic permission denied", () => {
+  it("voice-test-playground.tsx handles mic permission denied (via lifecycle hook)", () => {
+    // NotAllowedError handling was extracted to use-voice-session-lifecycle.ts;
+    // playground passes onMicDenied callback which shows permissionDeniedMic toast.
     const source = fs.readFileSync(voicePath, "utf-8");
-    expect(source).toContain("NotAllowedError");
     expect(source).toContain("permissionDeniedMic");
+    expect(source).toContain("onMicDenied");
+    // Verify the lifecycle hook handles the actual NotAllowedError
+    const lifecyclePath = path.resolve(
+      __dirname,
+      "../hooks/use-voice-session-lifecycle.ts",
+    );
+    const lifecycleSource = fs.readFileSync(lifecyclePath, "utf-8");
+    expect(lifecycleSource).toContain("NotAllowedError");
   });
 });
 

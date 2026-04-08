@@ -76,6 +76,7 @@ export function VoiceTestPlayground({
   const [sessionState, setSessionState] = useState<SessionState>("idle");
   const [showKeyboard, setShowKeyboard] = useState(false);
   const [keyboardText, setKeyboardText] = useState("");
+  const [activeMode, setActiveMode] = useState<"agent" | "model" | null>(null);
 
   const audioHandler = useAudioHandler();
   const audioPlayer = useAudioPlayer();
@@ -156,6 +157,7 @@ export function VoiceTestPlayground({
 
       if (result) {
         setSessionState("connected");
+        setActiveMode(result.mode);
       } else if (sessionState === "connecting") {
         // startVoiceSession returned null without triggering an error callback
         // (e.g. mic denied already handled above), reset to idle if still connecting
@@ -173,6 +175,7 @@ export function VoiceTestPlayground({
       await stopVoiceSession();
     } finally {
       setSessionState("idle");
+      setActiveMode(null);
     }
   }, [stopVoiceSession]);
 
@@ -204,9 +207,26 @@ export function VoiceTestPlayground({
     <div className={cn("flex flex-col bg-muted/10", className)}>
       {/* Header */}
       <div className="flex items-center justify-between px-6 py-3 border-b shrink-0">
-        <h2 className="text-sm font-semibold">
-          {title ?? t("admin:hcp.playgroundTitle")}
-        </h2>
+        <div className="flex items-center gap-2">
+          <h2 className="text-sm font-semibold">
+            {title ?? t("admin:hcp.playgroundTitle")}
+          </h2>
+          {activeMode && (
+            <span
+              data-testid="mode-badge"
+              className={cn(
+                "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
+                activeMode === "agent"
+                  ? "bg-emerald-100 text-emerald-700"
+                  : "bg-blue-100 text-blue-700",
+              )}
+            >
+              {activeMode === "agent"
+                ? t("admin:hcp.agentMode", { defaultValue: "Agent Mode" })
+                : t("admin:hcp.modelMode", { defaultValue: "Model Mode" })}
+            </span>
+          )}
+        </div>
         {headerExtra}
       </div>
 

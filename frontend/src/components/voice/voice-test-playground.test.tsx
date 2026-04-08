@@ -65,7 +65,7 @@ vi.mock("@/components/voice/voice-controls", () => ({
   ),
 }));
 
-const mockConnect = vi.fn().mockResolvedValue({ avatarEnabled: false, iceServers: [] });
+const mockConnect = vi.fn().mockResolvedValue({ avatarEnabled: false, mode: "model", iceServers: [] });
 const mockDisconnect = vi.fn().mockResolvedValue(undefined);
 const mockSend = vi.fn();
 const mockSendAudio = vi.fn();
@@ -139,7 +139,7 @@ const defaultProps: VoiceTestPlaygroundProps = {
 describe("VoiceTestPlayground", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockConnect.mockResolvedValue({ avatarEnabled: false, iceServers: [] });
+    mockConnect.mockResolvedValue({ avatarEnabled: false, mode: "model", iceServers: [] });
     mockInitialize.mockResolvedValue({});
     mockDisconnect.mockResolvedValue(undefined);
   });
@@ -329,6 +329,7 @@ describe("VoiceTestPlayground", () => {
   it("connects avatar when result.avatarEnabled is true", async () => {
     mockConnect.mockResolvedValueOnce({
       avatarEnabled: true,
+      mode: "model",
       iceServers: [{ urls: "stun:test" }],
     });
 
@@ -507,14 +508,69 @@ describe("VoiceTestPlayground", () => {
     expect(avatarView).toHaveAttribute("data-avatar-character", "lisa");
   });
 
+  // --- Mode badge ---
+
+  it("does not show mode badge before connection", () => {
+    render(<VoiceTestPlayground {...defaultProps} />);
+    expect(screen.queryByTestId("mode-badge")).not.toBeInTheDocument();
+  });
+
+  it("shows Model Mode badge after connecting in model mode", async () => {
+    mockConnect.mockResolvedValueOnce({ avatarEnabled: false, mode: "model", iceServers: [] });
+    render(<VoiceTestPlayground {...defaultProps} />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /playgroundStart/i }));
+    });
+
+    const badge = screen.getByTestId("mode-badge");
+    expect(badge).toBeInTheDocument();
+    expect(badge).toHaveTextContent("Model Mode");
+  });
+
+  it("shows Agent Mode badge after connecting in agent mode", async () => {
+    mockConnect.mockResolvedValueOnce({ avatarEnabled: false, mode: "agent", iceServers: [] });
+    render(<VoiceTestPlayground {...defaultProps} />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /playgroundStart/i }));
+    });
+
+    const badge = screen.getByTestId("mode-badge");
+    expect(badge).toBeInTheDocument();
+    expect(badge).toHaveTextContent("Agent Mode");
+  });
+
+  it("clears mode badge after stopping session", async () => {
+    render(<VoiceTestPlayground {...defaultProps} />);
+
+    // Start session
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /playgroundStart/i }));
+    });
+
+    expect(screen.getByTestId("mode-badge")).toBeInTheDocument();
+
+    // Stop session
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("end-session"));
+    });
+
+    expect(screen.queryByTestId("mode-badge")).not.toBeInTheDocument();
+  });
+
   // --- Cleanup on unmount ---
 
   it("cleans up on unmount", async () => {
     const { unmount } = render(<VoiceTestPlayground {...defaultProps} />);
 
-    unmount();
+    // unmount triggers async stopVoiceSession() via useEffect cleanup;
+    // wrap in act and flush microtasks so the async chain completes.
+    await act(async () => {
+      unmount();
+    });
 
-    // Disconnect is called in cleanup effect
+    // Disconnect is called in cleanup effect (via stopVoiceSession → lifecycle hook)
     expect(mockDisconnect).toHaveBeenCalled();
     expect(mockAvatarDisconnect).toHaveBeenCalled();
     expect(mockCleanup).toHaveBeenCalled();

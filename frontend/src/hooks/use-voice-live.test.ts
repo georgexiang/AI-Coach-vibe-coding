@@ -209,6 +209,7 @@ describe("useVoiceLive (backend WebSocket proxy)", () => {
     const connectResult = await connectPromise;
     expect(connectResult).toEqual({
       model: "gpt-4o",
+      mode: "model",
       avatarEnabled: false,
       iceServers: [],
     });
