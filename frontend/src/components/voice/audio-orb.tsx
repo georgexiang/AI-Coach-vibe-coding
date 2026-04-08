@@ -4,6 +4,8 @@ import type { AudioState } from "@/types/voice-live";
 
 interface AudioOrbProps {
   audioState: AudioState;
+  /** Normalised volume level 0–1, drives real-time pulsation scale. */
+  volumeLevel?: number;
   className?: string;
 }
 
@@ -39,11 +41,17 @@ function getStatusLabel(audioState: AudioState): string {
  * Status label is displayed prominently below the orb (larger text),
  * matching AI Foundry's "Listening..." / "Speaking..." display.
  */
-export function AudioOrb({ audioState, className }: AudioOrbProps) {
+export function AudioOrb({ audioState, volumeLevel = 0, className }: AudioOrbProps) {
   const { t } = useTranslation("voice");
   const statusLabel = getStatusLabel(audioState);
   const isActive = audioState === "listening" || audioState === "speaking";
   const isMuted = audioState === "muted";
+
+  // Clamp volume to 0–1, derive dynamic scale for real-time pulsation
+  const vol = Math.min(1, Math.max(0, volumeLevel));
+  const sphereScale = isActive ? 1 + vol * 0.18 : 1;
+  const rippleSize = 220 + vol * 60; // 220–280px based on volume
+  const glowSize = 200 + vol * 40;   // 200–240px based on volume
 
   return (
     <div
@@ -55,62 +63,66 @@ export function AudioOrb({ audioState, className }: AudioOrbProps) {
       aria-label={t(statusLabel)}
       data-testid="audio-orb"
     >
-      {/* Orb container — single ring + sphere (AI Foundry calm style) */}
+      {/* Orb container — enlarged for prominence, volume-reactive sizing */}
       <div className="relative flex items-center justify-center">
-        {/* Single subtle ripple ring — only when active */}
+        {/* Ripple ring — volume-reactive size */}
         {isActive && (
           <span
             className={cn(
-              "audio-orb-ripple absolute rounded-full",
+              "audio-orb-ripple absolute rounded-full transition-[width,height] duration-150",
               audioState === "listening"
                 ? "bg-voice-listening/15"
                 : "bg-voice-speaking/15",
             )}
             data-testid="orb-ripple"
-            style={{ width: 160, height: 160 }}
+            style={{ width: rippleSize, height: rippleSize }}
           />
         )}
 
-        {/* Soft outer glow */}
+        {/* Soft outer glow — volume-reactive */}
         <span
           className={cn(
-            "absolute rounded-full blur-2xl transition-all duration-700",
+            "absolute rounded-full blur-2xl transition-all duration-150",
             audioState === "listening" && "audio-orb-glow bg-voice-listening/20",
             audioState === "speaking" && "audio-orb-glow bg-voice-speaking/20",
             audioState === "idle" && "audio-orb-breathe bg-voice-listening/10",
             isMuted && "bg-voice-muted/5",
           )}
-          style={{ width: 140, height: 140 }}
+          style={{ width: glowSize, height: glowSize }}
         />
 
-        {/* Main orb sphere */}
+        {/* Main orb sphere — larger (160px base), CSS pulse + volume-driven scale */}
         <div
           className={cn(
-            "relative z-10 flex items-center justify-center rounded-full transition-all duration-700",
+            "relative z-10 flex items-center justify-center rounded-full transition-transform duration-150",
             audioState === "listening" &&
-              "audio-orb-pulse bg-gradient-to-br from-voice-listening via-[#7C3AED] to-[#6D28D9] shadow-[0_0_40px_rgba(168,85,247,0.3)]",
+              "audio-orb-pulse bg-gradient-to-br from-voice-listening via-[#7C3AED] to-[#6D28D9] shadow-[0_0_50px_rgba(168,85,247,0.35)]",
             audioState === "speaking" &&
-              "audio-orb-pulse bg-gradient-to-br from-voice-speaking via-[#16A34A] to-[#15803D] shadow-[0_0_40px_rgba(34,197,94,0.3)]",
+              "audio-orb-pulse bg-gradient-to-br from-voice-speaking via-[#16A34A] to-[#15803D] shadow-[0_0_50px_rgba(34,197,94,0.35)]",
             audioState === "idle" &&
-              "audio-orb-breathe bg-gradient-to-br from-voice-listening/80 via-[#7C3AED]/70 to-[#6D28D9]/60 shadow-[0_0_20px_rgba(168,85,247,0.15)]",
+              "audio-orb-breathe bg-gradient-to-br from-voice-listening/80 via-[#7C3AED]/70 to-[#6D28D9]/60 shadow-[0_0_25px_rgba(168,85,247,0.15)]",
             isMuted &&
               "bg-gradient-to-br from-voice-muted via-[#475569] to-[#334155] shadow-none",
           )}
           data-testid="orb-sphere"
-          style={{ width: 100, height: 100 }}
+          style={{
+            width: 160,
+            height: 160,
+            transform: `scale(${sphereScale})`,
+          }}
         >
           {/* Inner highlight for glass effect */}
           <span
             className={cn(
-              "absolute top-2.5 left-3.5 h-8 w-8 rounded-full transition-opacity duration-700",
+              "absolute top-3 left-5 h-10 w-10 rounded-full transition-opacity duration-700",
               isMuted ? "bg-white/5" : "bg-white/15",
             )}
           />
 
-          {/* Center dot */}
+          {/* Center dot — larger */}
           <span
             className={cn(
-              "h-3 w-3 rounded-full transition-all duration-500",
+              "h-4 w-4 rounded-full transition-all duration-150",
               audioState === "listening" && "bg-white audio-orb-center-pulse",
               audioState === "speaking" && "bg-white audio-orb-center-pulse",
               audioState === "idle" && "bg-white/50",

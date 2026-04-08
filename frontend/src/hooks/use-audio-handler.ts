@@ -3,25 +3,21 @@ import { createVoiceLogger } from "@/lib/voice-logger";
 
 const log = createVoiceLogger("AudioHandler");
 
-interface AudioHandlerState {
-  isRecording: boolean;
-  analyserData: Uint8Array | null;
-}
-
 /**
  * Audio capture and playback hook.
  * Wraps AudioWorklet with recording/playback/waveform data.
  * Uses AudioContext with 24kHz sample rate and AnalyserNode for waveform visualization.
+ *
+ * NOTE: Analyser frequency data is exposed via `analyserRef` (AnalyserNode ref)
+ * rather than React state to avoid 60fps re-renders of the parent component tree.
+ * Consumers that need volume visualization should use `useVolumeLevel(analyserRef)`.
  */
 export function useAudioHandler() {
   const audioContextRef = useRef<AudioContext | null>(null);
   const workletNodeRef = useRef<AudioWorkletNode | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const [state, setState] = useState<AudioHandlerState>({
-    isRecording: false,
-    analyserData: null,
-  });
+  const [isRecording, setIsRecording] = useState(false);
   const animationFrameRef = useRef<number | null>(null);
 
   const initialize = useCallback(async () => {
@@ -70,20 +66,15 @@ export function useAudioHandler() {
           onAudioData(msg.audioData);
         }
       };
-      setState((prev: AudioHandlerState) => ({ ...prev, isRecording: true }));
+      setIsRecording(true);
 
-      // Start analyser animation loop for waveform data
-      const updateAnalyser = () => {
-        if (analyserRef.current) {
-          const dataArray = new Uint8Array(
-            analyserRef.current.frequencyBinCount,
-          );
-          analyserRef.current.getByteFrequencyData(dataArray);
-          setState((prev: AudioHandlerState) => ({ ...prev, analyserData: dataArray }));
-        }
-        animationFrameRef.current = requestAnimationFrame(updateAnalyser);
+      // Keep RAF loop alive so AnalyserNode stays connected and responsive.
+      // Volume consumers read from analyserRef directly via useVolumeLevel().
+      // No setState here — avoids 60fps re-renders of the parent component tree.
+      const keepAlive = () => {
+        animationFrameRef.current = requestAnimationFrame(keepAlive);
       };
-      updateAnalyser();
+      keepAlive();
     },
     [],
   );
@@ -97,7 +88,7 @@ export function useAudioHandler() {
       cancelAnimationFrame(animationFrameRef.current);
       animationFrameRef.current = null;
     }
-    setState({ isRecording: false, analyserData: null });
+    setIsRecording(false);
   }, []);
 
   const cleanup = useCallback(() => {
@@ -122,8 +113,7 @@ export function useAudioHandler() {
     startRecording,
     stopRecording,
     cleanup,
-    isRecording: state.isRecording,
-    analyserData: state.analyserData,
+    isRecording,
     analyserRef,
   };
 }

@@ -11,8 +11,19 @@ const CDN_BASE =
 
 interface AvatarViewProps {
   videoRef: Ref<HTMLVideoElement>;
+  /** Whether the avatar WebRTC video stream is actually connected. */
   isAvatarConnected: boolean;
+  /**
+   * Whether a voice session is active (connected).
+   * Distinct from isAvatarConnected — a voice-only session has isSessionActive=true
+   * but isAvatarConnected=false. When provided, AudioOrb renders during voice-only
+   * sessions instead of the static preview.
+   * Falls back to isAvatarConnected when not provided (backwards-compatible).
+   */
+  isSessionActive?: boolean;
   audioState: AudioState;
+  /** Normalised volume level 0–1 for AudioOrb pulsation. */
+  volumeLevel?: number;
   isConnecting: boolean;
   hcpName: string;
   isFullScreen: boolean;
@@ -37,7 +48,9 @@ interface AvatarViewProps {
 export function AvatarView({
   videoRef,
   isAvatarConnected,
+  isSessionActive: isSessionActiveProp,
   audioState,
+  volumeLevel,
   isConnecting,
   hcpName,
   isFullScreen,
@@ -47,6 +60,9 @@ export function AvatarView({
 }: AvatarViewProps) {
   const { t } = useTranslation("voice");
   const [imgError, setImgError] = useState(false);
+
+  // Backwards-compatible: if isSessionActive is not provided, fall back to isAvatarConnected
+  const isSessionActive = isSessionActiveProp ?? isAvatarConnected;
 
   // Lookup character metadata for thumbnail
   const charMeta = avatarCharacter
@@ -62,8 +78,13 @@ export function AvatarView({
         : charMeta.thumbnailUrl
     : undefined;
 
-  // Show static preview when: not connected, not connecting, and we have a thumbnail
-  const showStaticPreview = !isAvatarConnected && !isConnecting && charMeta && !imgError;
+  // Show static preview when: no active session, not connecting, and we have a thumbnail
+  const showStaticPreview = !isSessionActive && !isAvatarConnected && !isConnecting && charMeta && !imgError;
+
+  // Show audio orb when: not connecting, avatar stream is NOT connected, AND
+  // either (a) no avatar character configured, or (b) session is active but avatar stream didn't connect
+  const showAudioOrb = !isConnecting && !isAvatarConnected &&
+    (!charMeta || (isSessionActive && !isAvatarConnected));
 
   return (
     <div
@@ -121,7 +142,7 @@ export function AvatarView({
       )}
 
       {/* Fallback: gradient circle with initials if image fails */}
-      {!isAvatarConnected && !isConnecting && imgError && charMeta && (
+      {!isSessionActive && !isAvatarConnected && !isConnecting && imgError && charMeta && (
         <div className="z-5 flex flex-col items-center gap-3">
           <div
             className={cn(
@@ -139,9 +160,9 @@ export function AvatarView({
         </div>
       )}
 
-      {/* Fallback: audio orb when no avatar character info and not loading */}
-      {!isConnecting && !isAvatarConnected && !charMeta && (
-        <AudioOrb audioState={audioState} />
+      {/* Audio orb: voice-only mode (no avatar stream) or idle with no avatar character */}
+      {showAudioOrb && (
+        <AudioOrb audioState={audioState} volumeLevel={volumeLevel} />
       )}
 
       {/* HCP name badge at bottom */}

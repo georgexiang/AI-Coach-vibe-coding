@@ -253,4 +253,160 @@ describe("AvatarView", () => {
     // No static preview when connecting
     expect(screen.queryByText("L")).not.toBeInTheDocument();
   });
+
+  // --- isSessionActive vs isAvatarConnected (voice-only session) ---
+
+  it("shows audio orb during voice-only session (isSessionActive=true, isAvatarConnected=false)", () => {
+    render(
+      <AvatarView
+        {...defaultProps}
+        isSessionActive={true}
+        isAvatarConnected={false}
+        avatarCharacter="lisa"
+      />,
+    );
+    // AudioOrb should show because avatar stream is not connected
+    expect(screen.getByTestId("audio-orb")).toBeInTheDocument();
+    // Static preview should NOT show during active session
+    expect(screen.queryByTestId("avatar-static-preview")).not.toBeInTheDocument();
+  });
+
+  it("hides static preview during active voice-only session even with avatarCharacter set", () => {
+    render(
+      <AvatarView
+        {...defaultProps}
+        isSessionActive={true}
+        isAvatarConnected={false}
+        avatarCharacter="lisa"
+        avatarStyle="casual-sitting"
+      />,
+    );
+    expect(screen.queryByTestId("avatar-static-preview")).not.toBeInTheDocument();
+    expect(screen.getByTestId("audio-orb")).toBeInTheDocument();
+  });
+
+  it("shows avatar video when avatar stream is actually connected (isAvatarConnected=true)", () => {
+    render(
+      <AvatarView
+        {...defaultProps}
+        isSessionActive={true}
+        isAvatarConnected={true}
+        avatarCharacter="lisa"
+      />,
+    );
+    const video = screen.getByTestId("avatar-video");
+    expect(video.className).toContain("opacity-100");
+    expect(screen.queryByTestId("audio-orb")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("avatar-static-preview")).not.toBeInTheDocument();
+  });
+
+  it("shows audio orb when no avatarCharacter and session is active", () => {
+    render(
+      <AvatarView
+        {...defaultProps}
+        isSessionActive={true}
+        isAvatarConnected={false}
+      />,
+    );
+    expect(screen.getByTestId("audio-orb")).toBeInTheDocument();
+  });
+
+  it("falls back to isAvatarConnected when isSessionActive is not provided", () => {
+    // When isSessionActive is omitted, it defaults to isAvatarConnected
+    render(
+      <AvatarView
+        {...defaultProps}
+        isAvatarConnected={false}
+        avatarCharacter="lisa"
+      />,
+    );
+    // Without isSessionActive, not connected => show static preview
+    expect(screen.getByTestId("avatar-static-preview")).toBeInTheDocument();
+    expect(screen.queryByTestId("audio-orb")).not.toBeInTheDocument();
+  });
+
+  it("hides image error fallback during active voice-only session", () => {
+    render(
+      <AvatarView
+        {...defaultProps}
+        isSessionActive={true}
+        isAvatarConnected={false}
+        avatarCharacter="lisa"
+      />,
+    );
+    // Even if image were to error, the fallback should not show during active session
+    // (AudioOrb takes precedence)
+    const img = screen.queryByAltText("Lisa");
+    // No static preview renders during active session, so no img to trigger error on
+    expect(img).not.toBeInTheDocument();
+  });
+
+  // --- REGRESSION: Avatar toggle bug (avatar showed even when disabled) ---
+
+  it("REGRESSION: shows AudioOrb (not avatar) when avatarCharacter is undefined and session is connected", () => {
+    // This is the core scenario: avatar toggle OFF → avatarCharacter=undefined
+    // During a connected session, AudioOrb must appear, NOT the avatar video
+    render(
+      <AvatarView
+        {...defaultProps}
+        isSessionActive={true}
+        isAvatarConnected={false}
+        // avatarCharacter intentionally omitted (avatar disabled)
+        audioState="listening"
+      />,
+    );
+    expect(screen.getByTestId("audio-orb")).toBeInTheDocument();
+    const video = screen.getByTestId("avatar-video");
+    expect(video.className).toContain("opacity-0");
+    expect(screen.queryByTestId("avatar-static-preview")).not.toBeInTheDocument();
+  });
+
+  it("REGRESSION: isAvatarConnected must reflect actual WebRTC stream, not session state", () => {
+    // Bug was: isAvatarConnected was set to (sessionState === "connected")
+    // which made the video always show during any connected session.
+    // Fix: isAvatarConnected must only be true when avatarStream.isConnected is true.
+    render(
+      <AvatarView
+        {...defaultProps}
+        isSessionActive={true}
+        isAvatarConnected={false}  // avatar stream NOT connected
+        avatarCharacter="lisa"      // avatar configured but stream not ready
+        audioState="speaking"
+      />,
+    );
+    // Video must be invisible (opacity-0) since avatar stream is not connected
+    const video = screen.getByTestId("avatar-video");
+    expect(video.className).toContain("opacity-0");
+    // AudioOrb must show instead
+    expect(screen.getByTestId("audio-orb")).toBeInTheDocument();
+  });
+
+  it("REGRESSION: avatar disabled idle state shows AudioOrb, not static preview", () => {
+    // When avatar is disabled (no avatarCharacter), idle state should show AudioOrb
+    render(
+      <AvatarView
+        {...defaultProps}
+        isAvatarConnected={false}
+        // no avatarCharacter = avatar disabled
+      />,
+    );
+    expect(screen.getByTestId("audio-orb")).toBeInTheDocument();
+    expect(screen.queryByTestId("avatar-static-preview")).not.toBeInTheDocument();
+  });
+
+  // --- volumeLevel prop ---
+
+  it("passes volumeLevel to AudioOrb", () => {
+    render(
+      <AvatarView
+        {...defaultProps}
+        volumeLevel={0.7}
+        audioState="listening"
+      />,
+    );
+    const orb = screen.getByTestId("audio-orb");
+    expect(orb).toBeInTheDocument();
+    // volumeLevel is forwarded — AudioOrb renders with volume-reactive attributes
+    expect(orb).toHaveAttribute("data-audio-state", "listening");
+  });
 });

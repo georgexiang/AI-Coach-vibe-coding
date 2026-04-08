@@ -11,6 +11,7 @@ import { useAvatarStream } from "@/hooks/use-avatar-stream";
 import { useAudioHandler } from "@/hooks/use-audio-handler";
 import { useAudioPlayer } from "@/hooks/use-audio-player";
 import { useVoiceSessionLifecycle } from "@/hooks/use-voice-session-lifecycle";
+import { useVolumeLevel } from "@/hooks/use-volume-level";
 import type { TranscriptSegment } from "@/types/voice-live";
 
 export type SessionState = "idle" | "connecting" | "connected" | "error" | "stopping";
@@ -79,6 +80,14 @@ export function VoiceTestPlayground({
   const audioHandler = useAudioHandler();
   const audioPlayer = useAudioPlayer();
   const avatarStream = useAvatarStream(videoRef);
+
+  // Volume levels from mic + output analysers — ref-based to avoid 60fps re-renders.
+  // Mic analyser captures user speech; output analyser captures AI TTS playback.
+  // AudioOrb receives the higher of the two for a responsive visualization.
+  const isSessionConnected = sessionState === "connected";
+  const micVolume = useVolumeLevel(audioHandler.analyserRef, isSessionConnected);
+  const outputVolume = useVolumeLevel(audioPlayer.analyserRef, isSessionConnected);
+  const volumeLevel = Math.max(micVolume, outputVolume);
 
   // Notify parent of state changes
   useEffect(() => {
@@ -207,8 +216,10 @@ export function VoiceTestPlayground({
         <div className="flex-1 relative min-h-[360px]">
           <AvatarView
             videoRef={videoRef}
-            isAvatarConnected={sessionState === "connected"}
+            isAvatarConnected={avatarStream.isConnected}
+            isSessionActive={sessionState === "connected"}
             audioState={voiceLive.audioState}
+            volumeLevel={volumeLevel}
             isConnecting={isConnecting}
             hcpName={hcpName}
             isFullScreen={false}

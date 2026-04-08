@@ -23,8 +23,19 @@ const mockResume = vi.fn().mockResolvedValue(undefined);
 const mockCreateBuffer = vi.fn();
 const mockCreateBufferSource = vi.fn();
 const mockGetChannelData = vi.fn().mockReturnValue({ set: vi.fn() });
+const mockAnalyserConnect = vi.fn();
+
+function createMockAnalyser() {
+  return {
+    fftSize: 2048,
+    connect: mockAnalyserConnect,
+    frequencyBinCount: 128,
+    getByteFrequencyData: vi.fn(),
+  };
+}
 
 function createMockAudioContext(overrides: Record<string, unknown> = {}) {
+  const analyser = createMockAnalyser();
   const ctx = {
     sampleRate: 24000,
     currentTime: 0,
@@ -41,6 +52,8 @@ function createMockAudioContext(overrides: Record<string, unknown> = {}) {
       connect: mockConnect,
       start: mockStart,
     }),
+    createAnalyser: vi.fn().mockReturnValue(analyser),
+    _analyser: analyser,
     ...overrides,
   };
   return ctx;
@@ -80,11 +93,13 @@ function makeBase64Pcm16(): string {
 }
 
 describe("useAudioPlayer", () => {
-  it("returns playAudio and stopAudio functions", () => {
+  it("returns playAudio, stopAudio, and analyserRef", () => {
     const { result } = renderHook(() => useAudioPlayer());
 
     expect(typeof result.current.playAudio).toBe("function");
     expect(typeof result.current.stopAudio).toBe("function");
+    expect(result.current.analyserRef).toBeDefined();
+    expect(result.current.analyserRef.current).toBeNull();
   });
 
   it("creates AudioContext lazily on first playAudio call", () => {
@@ -99,6 +114,28 @@ describe("useAudioPlayer", () => {
     expect(AudioContext).toHaveBeenCalledWith({ sampleRate: 24000 });
   });
 
+  it("creates AnalyserNode on first playAudio and exposes via analyserRef", () => {
+    const { result } = renderHook(() => useAudioPlayer());
+
+    act(() => {
+      result.current.playAudio(makeBase64Pcm16());
+    });
+
+    expect(mockAudioCtx!.createAnalyser).toHaveBeenCalled();
+    expect(result.current.analyserRef.current).toBe(mockAudioCtx!._analyser);
+  });
+
+  it("AnalyserNode connects to destination (audio pass-through)", () => {
+    const { result } = renderHook(() => useAudioPlayer());
+
+    act(() => {
+      result.current.playAudio(makeBase64Pcm16());
+    });
+
+    // Analyser → destination
+    expect(mockAnalyserConnect).toHaveBeenCalledWith(mockAudioCtx!.destination);
+  });
+
   it("reuses AudioContext on subsequent playAudio calls", () => {
     const { result } = renderHook(() => useAudioPlayer());
 
@@ -110,7 +147,7 @@ describe("useAudioPlayer", () => {
     expect(AudioContext).toHaveBeenCalledTimes(1);
   });
 
-  it("decodes base64, creates buffer, and schedules playback", () => {
+  it("decodes base64, creates buffer, and schedules playback via analyser", () => {
     const { result } = renderHook(() => useAudioPlayer());
 
     act(() => {
@@ -121,7 +158,8 @@ describe("useAudioPlayer", () => {
     expect(mockCreateBuffer).toHaveBeenCalledWith(1, 2, 24000);
     expect(mockGetChannelData).toHaveBeenCalledWith(0);
     expect(mockCreateBufferSource).toHaveBeenCalled();
-    expect(mockConnect).toHaveBeenCalledWith(mockAudioCtx!.destination);
+    // Source connects to analyser (not directly to destination)
+    expect(mockConnect).toHaveBeenCalledWith(mockAudioCtx!._analyser);
     expect(mockStart).toHaveBeenCalled();
   });
 
@@ -155,6 +193,7 @@ describe("useAudioPlayer", () => {
 
     // Override the global AudioContext mock to capture start times
     vi.mocked(AudioContext).mockImplementation(() => {
+      const analyser = createMockAnalyser();
       mockAudioCtx = {
         sampleRate: 24000,
         currentTime: 0,
@@ -173,6 +212,8 @@ describe("useAudioPlayer", () => {
             startTimes.push(time);
           },
         })),
+        createAnalyser: vi.fn().mockReturnValue(analyser),
+        _analyser: analyser,
       } as unknown as ReturnType<typeof createMockAudioContext>;
       return mockAudioCtx as unknown as AudioContext;
     });
@@ -189,7 +230,7 @@ describe("useAudioPlayer", () => {
     expect(startTimes[1]).toBeCloseTo(startTimes[0]! + 0.5, 5);
   });
 
-  it("stopAudio closes AudioContext and resets state", () => {
+  it("stopAudio closes AudioContext and resets analyserRef", () => {
     const { result } = renderHook(() => useAudioPlayer());
 
     act(() => {
@@ -197,12 +238,14 @@ describe("useAudioPlayer", () => {
     });
 
     expect(mockAudioCtx).not.toBeNull();
+    expect(result.current.analyserRef.current).not.toBeNull();
 
     act(() => {
       result.current.stopAudio();
     });
 
     expect(mockClose).toHaveBeenCalled();
+    expect(result.current.analyserRef.current).toBeNull();
   });
 
   it("stopAudio is safe to call without prior playAudio", () => {

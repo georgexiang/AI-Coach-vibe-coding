@@ -42,6 +42,9 @@ vi.mock("@/components/voice/avatar-view", () => ({
       data-testid="avatar-view"
       data-hcp-name={String(props["hcpName"] ?? "")}
       data-is-connecting={String(props["isConnecting"])}
+      data-is-avatar-connected={String(props["isAvatarConnected"] ?? false)}
+      data-is-session-active={String(props["isSessionActive"] ?? "")}
+      data-avatar-character={String(props["avatarCharacter"] ?? "")}
     />
   ),
 }));
@@ -106,8 +109,12 @@ vi.mock("@/hooks/use-audio-handler", () => ({
     stopRecording: vi.fn(),
     cleanup: mockCleanup,
     isRecording: false,
-    analyserData: null,
+    analyserRef: { current: null },
   }),
+}));
+
+vi.mock("@/hooks/use-volume-level", () => ({
+  useVolumeLevel: () => 0,
 }));
 
 const mockPlayAudio = vi.fn();
@@ -116,6 +123,7 @@ vi.mock("@/hooks/use-audio-player", () => ({
   useAudioPlayer: () => ({
     playAudio: mockPlayAudio,
     stopAudio: mockStopAudio,
+    analyserRef: { current: null },
   }),
 }));
 
@@ -448,6 +456,55 @@ describe("VoiceTestPlayground", () => {
     await user.type(input, "{Enter}");
 
     expect(mockSendTextMessage).not.toHaveBeenCalled();
+  });
+
+  // --- Avatar vs session state separation ---
+
+  it("passes avatarStream.isConnected as isAvatarConnected (not sessionState)", () => {
+    render(<VoiceTestPlayground {...defaultProps} />);
+    const avatarView = screen.getByTestId("avatar-view");
+    // In idle state, avatarStream.isConnected is false (from mock)
+    expect(avatarView).toHaveAttribute("data-is-avatar-connected", "false");
+  });
+
+  it("passes sessionState as isSessionActive after connection", async () => {
+    render(<VoiceTestPlayground {...defaultProps} />);
+
+    await act(async () => {
+      fireEvent.click(
+        screen.getByRole("button", { name: /playgroundStart/i }),
+      );
+    });
+
+    const avatarView = screen.getByTestId("avatar-view");
+    // Session is connected, so isSessionActive should be "true"
+    expect(avatarView).toHaveAttribute("data-is-session-active", "true");
+    // But avatar stream mock returns isConnected=false, so isAvatarConnected stays false
+    expect(avatarView).toHaveAttribute("data-is-avatar-connected", "false");
+  });
+
+  it("clears avatarCharacter when avatarEnabled is false", () => {
+    render(
+      <VoiceTestPlayground
+        {...defaultProps}
+        avatarEnabled={false}
+        avatarCharacter="lisa"
+      />,
+    );
+    const avatarView = screen.getByTestId("avatar-view");
+    expect(avatarView).toHaveAttribute("data-avatar-character", "");
+  });
+
+  it("passes avatarCharacter when avatarEnabled is true", () => {
+    render(
+      <VoiceTestPlayground
+        {...defaultProps}
+        avatarEnabled={true}
+        avatarCharacter="lisa"
+      />,
+    );
+    const avatarView = screen.getByTestId("avatar-view");
+    expect(avatarView).toHaveAttribute("data-avatar-character", "lisa");
   });
 
   // --- Cleanup on unmount ---

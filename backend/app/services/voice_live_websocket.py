@@ -384,17 +384,22 @@ async def handle_voice_live_websocket(ws: WebSocket, db: AsyncSession) -> None:
         # Enable input_audio_transcription so Azure sends
         # conversation.item.input_audio_transcription.completed events,
         # which provide user speech-to-text for the transcript display.
-        session_config = RequestSession(
-            modalities=modalities,
-            turn_detection=AzureSemanticVad(type="azure_semantic_vad"),
-            input_audio_noise_reduction=AudioNoiseReduction(type="azure_deep_noise_suppression"),
-            input_audio_echo_cancellation=AudioEchoCancellation(type="server_echo_cancellation"),
-            input_audio_transcription=AudioInputTranscriptionOptions(
+        session_kwargs: dict[str, Any] = {
+            "modalities": modalities,
+            "turn_detection": AzureSemanticVad(type="azure_semantic_vad"),
+            "input_audio_noise_reduction": AudioNoiseReduction(type="azure_deep_noise_suppression"),
+            "input_audio_echo_cancellation": AudioEchoCancellation(type="server_echo_cancellation"),
+            "input_audio_transcription": AudioInputTranscriptionOptions(
                 model="azure-speech",
             ),
-            voice=AzureStandardVoice(name=cfg["voice_name"], type=cfg["voice_type"]),
-            avatar=avatar_config_value,  # type: ignore[arg-type] -- dict for photo avatars
-        )
+            "voice": AzureStandardVoice(name=cfg["voice_name"], type=cfg["voice_type"]),
+        }
+        # Only include avatar config when explicitly enabled.
+        # Passing avatar=None may cause the SDK to serialize {"avatar": null}
+        # which Azure could interpret differently from omitting the field entirely.
+        if avatar_config_value is not None:
+            session_kwargs["avatar"] = avatar_config_value
+        session_config = RequestSession(**session_kwargs)  # type: ignore[arg-type]
 
         from app.config import get_settings as _get_settings
 
@@ -666,11 +671,13 @@ async def _forward_azure_to_client(
                 session_log.info("Session created: %s", event_dict.get("session", {}).get("id"))
             elif event.type == ServerEventType.SESSION_UPDATED:
                 # Detailed logging for avatar debugging
-                sess = event_dict.get("session", {})
-                avatar_cfg = sess.get("avatar", {})
-                modalities = sess.get("modalities", [])
-                voice_cfg = sess.get("voice", {})
-                ice_servers = avatar_cfg.get("ice_servers", [])
+                # Use `or {}` because Azure may send "avatar": null (key present, value None)
+                # — dict.get("avatar", {}) returns None when key exists with null value.
+                sess = event_dict.get("session") or {}
+                avatar_cfg = sess.get("avatar") or {}
+                modalities = sess.get("modalities") or []
+                voice_cfg = sess.get("voice") or {}
+                ice_servers = avatar_cfg.get("ice_servers") or []
                 session_log.info(
                     "Session updated: modalities=%s, voice=%s, "
                     "avatar_keys=%s, ice_servers=%d, "

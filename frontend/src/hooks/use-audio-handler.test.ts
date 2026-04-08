@@ -46,10 +46,10 @@ beforeEach(() => {
 });
 
 describe("useAudioHandler", () => {
-  it("initial state: not recording, no analyser data", () => {
+  it("initial state: not recording, analyserRef is null", () => {
     const { result } = renderHook(() => useAudioHandler());
     expect(result.current.isRecording).toBe(false);
-    expect(result.current.analyserData).toBeNull();
+    expect(result.current.analyserRef.current).toBeNull();
   });
 
   it("initialize() creates AudioContext and worklet node", async () => {
@@ -166,7 +166,7 @@ describe("useAudioHandler", () => {
     expect(onAudioData).not.toHaveBeenCalled();
   });
 
-  it("startRecording kicks off analyser animation loop", async () => {
+  it("startRecording kicks off RAF keep-alive loop", async () => {
     const { result } = renderHook(() => useAudioHandler());
     await act(async () => {
       await result.current.initialize();
@@ -177,10 +177,8 @@ describe("useAudioHandler", () => {
       result.current.startRecording(onAudioData);
     });
 
-    // requestAnimationFrame should have been called (the updateAnalyser runs once immediately)
+    // requestAnimationFrame should have been called for the keep-alive loop
     expect(requestAnimationFrame).toHaveBeenCalled();
-    // getByteFrequencyData should have been called in the initial run
-    expect(mockAnalyser.getByteFrequencyData).toHaveBeenCalled();
   });
 
   it("stopRecording posts STOP_RECORDING and resets state", async () => {
@@ -198,7 +196,6 @@ describe("useAudioHandler", () => {
       command: "STOP_RECORDING",
     });
     expect(result.current.isRecording).toBe(false);
-    expect(result.current.analyserData).toBeNull();
   });
 
   it("stopRecording cancels animation frame", async () => {

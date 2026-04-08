@@ -228,7 +228,6 @@ vi.mock("@/hooks/use-audio-handler", () => ({
     stopRecording: vi.fn(),
     cleanup: mockAudioCleanup,
     isRecording: false,
-    analyserData: null,
     analyserRef: { current: null },
   }),
 }));
@@ -241,6 +240,7 @@ vi.mock("@/hooks/use-audio-player", () => ({
   useAudioPlayer: () => ({
     playAudio: mockPlayAudio,
     stopAudio: mockStopAudio,
+    analyserRef: { current: null },
   }),
 }));
 

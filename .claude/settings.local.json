@@ -2,7 +2,11 @@
   "permissions": {
     "allow": [
       "Bash(python3 -m pytest --cov=app --cov-report=term-missing --tb=no -q)",
-      "Bash(npx vitest:*)"
+      "Bash(npx vitest:*)",
+      "Bash(.venv/bin/python3 ../docs/microsoft-agent-framework/tests/test_agent_auth_v2.py)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
     ]
   },
   "hooks": {

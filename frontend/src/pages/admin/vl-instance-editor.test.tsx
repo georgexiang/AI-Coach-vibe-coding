@@ -64,6 +64,8 @@ vi.mock("@/components/admin/voice-live-model-select", () => ({
 
 // Mock VoiceTestPlayground — capture ALL props so tests can verify correct routing
 let capturedPlaygroundProps: Record<string, unknown> | null = null;
+// Suppress TS6133 for variable used only for internal capture (not yet asserted)
+void capturedPlaygroundProps;
 vi.mock("@/components/voice/voice-test-playground", () => ({
   VoiceTestPlayground: (props: {
     hcpProfileId?: string;

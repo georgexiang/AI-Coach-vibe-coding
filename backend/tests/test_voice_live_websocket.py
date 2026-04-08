@@ -832,6 +832,171 @@ class TestHandleVoiceLiveWebsocket:
         voice_kwargs = models_mod.AzureStandardVoice.call_args[1]
         assert voice_kwargs["name"] == "zh-CN-XiaoxiaoMultilingualNeural"
 
+    async def test_avatar_disabled_excludes_avatar_from_session_config(
+        self, vl_instance_standalone, mock_sdk
+    ):
+        """When avatar_enabled=False, RequestSession is called WITHOUT avatar kwarg.
+
+        Passing avatar=None may cause the SDK to serialize {"avatar": null} which
+        Azure could reject or interpret differently from omitting the field entirely.
+        This test ensures the fix: conditionally exclude avatar from session_kwargs.
+        """
+        mock_connect_fn, _, models_mod = mock_sdk
+        vl_inst, db = vl_instance_standalone
+
+        mock_session_update = AsyncMock()
+        mock_conn = _make_mock_azure_conn()
+        mock_conn.session.update = mock_session_update
+
+        mock_ctx = AsyncMock()
+        mock_ctx.__aenter__ = AsyncMock(return_value=mock_conn)
+        mock_ctx.__aexit__ = AsyncMock(return_value=False)
+        mock_connect_fn.return_value = mock_ctx
+
+        session_update = json.dumps(
+            {
+                "type": "session.update",
+                "session": {"vl_instance_id": vl_inst.id},
+            }
+        )
+        ws = _make_mock_ws([session_update])
+
+        await handle_voice_live_websocket(ws, db)
+
+        # RequestSession must have been called
+        models_mod.RequestSession.assert_called_once()
+        rs_kwargs = models_mod.RequestSession.call_args[1]
+
+        # avatar must NOT be present in kwargs (not even as None)
+        assert "avatar" not in rs_kwargs, (
+            f"avatar should be excluded when avatar_enabled=False, got: {rs_kwargs.keys()}"
+        )
+
+        # modalities should be [TEXT, AUDIO] only — no AVATAR
+        assert rs_kwargs["modalities"] == ["text", "audio"], (
+            f"Expected [text, audio], got: {rs_kwargs['modalities']}"
+        )
+
+    async def test_avatar_enabled_includes_avatar_in_session_config(
+        self, seeded_db_with_avatar, mock_sdk
+    ):
+        """When avatar_enabled=True, RequestSession IS called WITH avatar kwarg.
+
+        Complementary to the avatar_disabled test — ensures avatar config
+        is passed through when the VL Instance has avatar enabled.
+        """
+        mock_connect_fn, _, models_mod = mock_sdk
+
+        mock_session_update = AsyncMock()
+        mock_conn = _make_mock_azure_conn()
+        mock_conn.session.update = mock_session_update
+
+        mock_ctx = AsyncMock()
+        mock_ctx.__aenter__ = AsyncMock(return_value=mock_conn)
+        mock_ctx.__aexit__ = AsyncMock(return_value=False)
+        mock_connect_fn.return_value = mock_ctx
+
+        session_update = json.dumps(
+            {
+                "type": "session.update",
+                "session": {"hcp_profile_id": None},
+            }
+        )
+        ws = _make_mock_ws([session_update])
+
+        await handle_voice_live_websocket(ws, seeded_db_with_avatar)
+
+        # RequestSession must have been called
+        models_mod.RequestSession.assert_called_once()
+        rs_kwargs = models_mod.RequestSession.call_args[1]
+
+        # avatar MUST be present when avatar_enabled=True + avatar config active
+        assert "avatar" in rs_kwargs, (
+            f"avatar should be present when avatar_enabled=True, got: {rs_kwargs.keys()}"
+        )
+
+        # modalities should include AVATAR
+        assert "avatar" in rs_kwargs["modalities"], (
+            f"Expected avatar in modalities, got: {rs_kwargs['modalities']}"
+        )
+
+    async def test_session_updated_with_null_avatar_does_not_crash_forwarding(
+        self, seeded_db, mock_sdk
+    ):
+        """Azure sends session.updated with "avatar": null when avatar disabled.
+
+        Regression test: dict.get("avatar", {}) returns None (not {}) when key
+        exists with null value. This crashed the forwarding loop, dropping all
+        subsequent events (audio deltas, transcripts, etc.).
+        """
+        mock_connect_fn, _, models_mod = mock_sdk
+
+        # Simulate Azure events: session.created, session.updated (avatar=null),
+        # then response.audio.delta — all should be forwarded without crash.
+        session_created_event = MagicMock()
+        session_created_event.type = models_mod.ServerEventType.SESSION_CREATED
+        session_created_event.as_dict.return_value = {
+            "type": "session.created",
+            "session": {"id": "ses_test123"},
+        }
+
+        session_updated_event = MagicMock()
+        session_updated_event.type = models_mod.ServerEventType.SESSION_UPDATED
+        session_updated_event.as_dict.return_value = {
+            "type": "session.updated",
+            "session": {
+                "modalities": ["text", "audio"],
+                "voice": {"name": "zh-CN-XiaoxiaoMultilingualNeural"},
+                "avatar": None,  # This is the key: null avatar
+            },
+        }
+
+        audio_delta_event = MagicMock()
+        audio_delta_event.type = "response.audio.delta"
+        audio_delta_event.as_dict.return_value = {
+            "type": "response.audio.delta",
+            "delta": "AAAA",
+        }
+
+        # Wire mock connection to yield these events
+        mock_conn = _make_mock_azure_conn()
+        mock_conn.session.update = AsyncMock()
+
+        events = [session_created_event, session_updated_event, audio_delta_event]
+        event_iter = AsyncMock()
+        event_iter.__anext__ = AsyncMock(
+            side_effect=[*events, StopAsyncIteration()]
+        )
+        mock_conn.__aiter__ = MagicMock(return_value=event_iter)
+
+        mock_ctx = AsyncMock()
+        mock_ctx.__aenter__ = AsyncMock(return_value=mock_conn)
+        mock_ctx.__aexit__ = AsyncMock(return_value=False)
+        mock_connect_fn.return_value = mock_ctx
+
+        session_update = json.dumps(
+            {
+                "type": "session.update",
+                "session": {"hcp_profile_id": None},
+            }
+        )
+        ws = _make_mock_ws([session_update])
+
+        await handle_voice_live_websocket(ws, seeded_db)
+
+        # All 3 events + proxy.connected should have been forwarded
+        sent_calls = ws.send_text.call_args_list
+        sent_types = []
+        for call in sent_calls:
+            msg = json.loads(call[0][0])
+            sent_types.append(msg.get("type"))
+
+        assert "session.created" in sent_types, f"session.created missing: {sent_types}"
+        assert "session.updated" in sent_types, f"session.updated missing: {sent_types}"
+        assert "response.audio.delta" in sent_types, (
+            f"audio.delta was NOT forwarded (forwarding loop likely crashed): {sent_types}"
+        )
+
     async def test_credential_uses_real_api_key(self, seeded_db, mock_sdk):
         """AzureKeyCredential is called with the real API key from DB."""
         mock_connect_fn, _, _ = mock_sdk
