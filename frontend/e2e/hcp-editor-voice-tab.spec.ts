@@ -3,23 +3,53 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const authDir = join(dirname(fileURLToPath(import.meta.url)), ".auth");
+const API_BASE = "http://localhost:8000";
+
+/**
+ * Helper: login via API and return access token.
+ */
+async function loginApi(
+  request: import("@playwright/test").APIRequestContext,
+  username: string,
+  password: string,
+): Promise<string> {
+  const resp = await request.post(`${API_BASE}/api/v1/auth/login`, {
+    data: { username, password },
+  });
+  expect(resp.ok()).toBe(true);
+  const data = await resp.json();
+  return data.access_token as string;
+}
+
+/**
+ * Helper: get the first HCP profile ID via API.
+ */
+async function getFirstHcpId(
+  request: import("@playwright/test").APIRequestContext,
+  token: string,
+): Promise<string | null> {
+  const resp = await request.get(`${API_BASE}/api/v1/hcp-profiles?page_size=1`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!resp.ok()) return null;
+  const data = await resp.json();
+  if (data.items.length === 0) return null;
+  return data.items[0].id as string;
+}
 
 test.describe("HCP Editor: Voice & Avatar Tab", () => {
   test.use({ storageState: join(authDir, "admin.json") });
 
-  test.beforeEach(async ({ page }) => {
-    // Navigate to HCP profiles and open an existing profile editor
-    await page.goto("/admin/hcp-profiles");
-    // Wait for profiles table to load
-    await page.waitForSelector("table", { timeout: 10000 }).catch(() => {
-      // If no table, try looking for profile list items
-    });
-    // Click the first profile row to open editor
-    const firstRow = page.locator("table tbody tr").first();
-    const rowCount = await firstRow.count();
-    if (rowCount > 0) {
-      await firstRow.click();
-      await page.waitForTimeout(500);
+  test.beforeEach(async ({ page, request }) => {
+    // Get the first HCP profile ID via API and navigate directly to editor
+    const token = await loginApi(request, "admin", "admin123");
+    const hcpId = await getFirstHcpId(request, token);
+    if (hcpId) {
+      await page.goto(`/admin/hcp-profiles/${hcpId}`);
+      // Wait for tabs to be present
+      await page.waitForSelector("[role='tab']", { timeout: 10000 });
+    } else {
+      await page.goto("/admin/hcp-profiles");
     }
   });
 
@@ -223,14 +253,14 @@ test.describe("HCP Editor: Voice & Avatar Tab", () => {
 test.describe("HCP Editor: Agent Config Center (Phase 15)", () => {
   test.use({ storageState: join(authDir, "admin.json") });
 
-  test.beforeEach(async ({ page }) => {
-    await page.goto("/admin/hcp-profiles");
-    await page.waitForSelector("table", { timeout: 10000 }).catch(() => {});
-    const firstRow = page.locator("table tbody tr").first();
-    const rowCount = await firstRow.count();
-    if (rowCount > 0) {
-      await firstRow.click();
-      await page.waitForTimeout(500);
+  test.beforeEach(async ({ page, request }) => {
+    const token = await loginApi(request, "admin", "admin123");
+    const hcpId = await getFirstHcpId(request, token);
+    if (hcpId) {
+      await page.goto(`/admin/hcp-profiles/${hcpId}`);
+      await page.waitForSelector("[role='tab']", { timeout: 10000 });
+    } else {
+      await page.goto("/admin/hcp-profiles");
     }
   });
 
@@ -417,9 +447,17 @@ test.describe("HCP Editor: Agent Config Center (Phase 15)", () => {
 test.describe("HCP Editor: Voice & Avatar Tab (i18n zh-CN)", () => {
   test.use({ storageState: join(authDir, "admin.json") });
 
-  test("Chinese labels display correctly", async ({ page }) => {
-    // Switch language to zh-CN first via language switcher or URL
-    await page.goto("/admin/hcp-profiles");
+  test("Chinese labels display correctly", async ({ page, request }) => {
+    const token = await loginApi(request, "admin", "admin123");
+    const hcpId = await getFirstHcpId(request, token);
+
+    // Navigate to profile editor directly
+    if (hcpId) {
+      await page.goto(`/admin/hcp-profiles/${hcpId}`);
+    } else {
+      await page.goto("/admin/hcp-profiles");
+    }
+    await page.waitForTimeout(1000);
 
     // Try to find and click a language switcher
     const langSwitcher = page.getByRole("button", { name: /language|english|中文/i });
@@ -434,14 +472,6 @@ test.describe("HCP Editor: Voice & Avatar Tab (i18n zh-CN)", () => {
         await zhOption.first().click();
         await page.waitForTimeout(500);
       }
-    }
-
-    // Navigate to profile editor
-    const firstRow = page.locator("table tbody tr").first();
-    const rowCount = await firstRow.count();
-    if (rowCount > 0) {
-      await firstRow.click();
-      await page.waitForTimeout(500);
     }
 
     // Click Voice & Avatar tab (in Chinese it might be different text)

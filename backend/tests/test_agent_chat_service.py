@@ -172,11 +172,15 @@ def _get_real_azure_config() -> tuple[str, str, str]:
 
 
 def _get_real_deployment_model() -> str:
-    """Read the actual deployment model name from .env."""
+    """Read the actual deployment model name from .env.
+
+    Checks AZURE_OPENAI_DEPLOYMENT first, then VOICE_LIVE_DEFAULT_MODEL,
+    falls back to gpt-4o.
+    """
     from dotenv import load_dotenv
 
     load_dotenv()
-    return os.getenv("AZURE_OPENAI_DEPLOYMENT", "gpt-4o")
+    return os.getenv("AZURE_OPENAI_DEPLOYMENT") or os.getenv("VOICE_LIVE_DEFAULT_MODEL") or "gpt-4o"
 
 
 def _has_real_azure_config() -> bool:
@@ -307,3 +311,188 @@ async def test_real_chat_cleanup():
 
     print(f"  Cleanup: deleted {deleted}/{len(_created_agents)} test agents")
     _created_agents.clear()
+
+
+# ===========================================================================
+# Real integration tests for the chat_with_agent() SERVICE FUNCTION
+# ===========================================================================
+# The tests above call the Azure API directly (bypassing the service layer).
+# The tests below exercise the actual chat_with_agent() function end-to-end,
+# patching only the DB config lookup (since we don't have a real DB in tests)
+# but keeping all Azure API calls real.
+# ===========================================================================
+
+
+class TestRealAgentChatService:
+    """[REAL] Integration tests for the chat_with_agent() service function.
+
+    These tests create a real agent on Azure AI Foundry, then call the
+    chat_with_agent() service function with real Azure credentials.
+    Only the DB config layer is patched (get_project_endpoint, get_master_config).
+    """
+
+    _agent_name: str = ""
+    _agent_version: str = ""
+
+    @staticmethod
+    def _build_config_patches():
+        """Build context managers that patch DB-dependent config lookups."""
+        endpoint, api_key, project = _get_real_azure_config()
+        project_endpoint = f"{endpoint}/api/projects/{project}"
+        model = _get_real_deployment_model()
+
+        mock_master = MagicMock()
+        mock_master.model_or_deployment = model
+
+        patch_endpoint = patch(
+            "app.services.agent_chat_service.agent_sync_service.get_project_endpoint",
+            new_callable=AsyncMock,
+            return_value=(project_endpoint, api_key),
+        )
+        patch_config = patch(
+            "app.services.config_service.get_master_config",
+            new_callable=AsyncMock,
+            return_value=mock_master,
+        )
+        return patch_endpoint, patch_config
+
+    @_skip_no_creds
+    @pytest.mark.asyncio
+    async def test_real_service_setup_agent(self):
+        """[REAL] Create a test agent for service-level chat tests."""
+        from app.services.agent_sync_service import (
+            _get_project_client,
+            _sanitize_agent_name,
+            build_agent_instructions,
+        )
+
+        endpoint, api_key, project = _get_real_azure_config()
+        model = _get_real_deployment_model()
+        project_endpoint = f"{endpoint}/api/projects/{project}"
+        client = _get_project_client(project_endpoint, api_key)
+
+        from azure.ai.projects.models import PromptAgentDefinition
+
+        agent_name = _sanitize_agent_name("UT-SvcChat-Dr-Wang")
+        instructions = build_agent_instructions(
+            {
+                "name": "UT-SvcChat-Dr-Wang",
+                "specialty": "Cardiology",
+                "hospital": "Service Test Hospital",
+                "title": "Chief Physician",
+                "personality_type": "professional",
+                "emotional_state": 50,
+                "communication_style": 70,
+                "expertise_areas": ["interventional cardiology"],
+                "prescribing_habits": "evidence-based",
+                "concerns": "patient outcomes",
+                "objections": ["cost concerns"],
+                "probe_topics": ["new therapies"],
+            }
+        )
+
+        definition = PromptAgentDefinition(model=model, instructions=instructions)
+        result = client.agents.create_version(
+            agent_name=agent_name,
+            definition=definition,
+            description="Service-level chat test agent — safe to delete",
+        )
+
+        TestRealAgentChatService._agent_name = result.name
+        TestRealAgentChatService._agent_version = str(result.version)
+        _created_agents.append(result.name)
+
+        print(f"  Created service test agent: {result.name} v{result.version}")
+        assert result.name, "Agent name must not be empty"
+
+    @_skip_no_creds
+    @pytest.mark.asyncio
+    async def test_real_service_single_turn(self):
+        """[REAL] chat_with_agent() single-turn with real Azure API."""
+        if not TestRealAgentChatService._agent_name:
+            pytest.skip("Agent not created (setup test may have been skipped)")
+
+        from app.services.agent_chat_service import chat_with_agent
+
+        mock_db = AsyncMock()
+        patch_endpoint, patch_config = self._build_config_patches()
+
+        with patch_endpoint, patch_config:
+            result = await chat_with_agent(
+                mock_db,
+                agent_name=TestRealAgentChatService._agent_name,
+                agent_version=TestRealAgentChatService._agent_version,
+                message="Hello doctor, what is your medical specialty?",
+            )
+
+        print(f"  Service single-turn response: {result['response_text'][:200]}")
+
+        # Verify service function returns correct structure
+        assert result["response_text"], "response_text must not be empty"
+        assert result["response_id"], "response_id must not be empty"
+        assert result["agent_name"] == TestRealAgentChatService._agent_name
+        assert result["agent_version"] == TestRealAgentChatService._agent_version
+        assert len(result["response_text"]) > 5, "Response should have substantial content"
+
+        # Store for multi-turn test
+        TestRealAgentChatService._last_response_id = result["response_id"]
+
+    @_skip_no_creds
+    @pytest.mark.asyncio
+    async def test_real_service_multi_turn(self):
+        """[REAL] chat_with_agent() multi-turn with previous_response_id."""
+        if not TestRealAgentChatService._agent_name:
+            pytest.skip("Agent not created (setup test may have been skipped)")
+        if not getattr(TestRealAgentChatService, "_last_response_id", ""):
+            pytest.skip("Single-turn test did not run")
+
+        from app.services.agent_chat_service import chat_with_agent
+
+        mock_db = AsyncMock()
+        patch_endpoint, patch_config = self._build_config_patches()
+
+        with patch_endpoint, patch_config:
+            result = await chat_with_agent(
+                mock_db,
+                agent_name=TestRealAgentChatService._agent_name,
+                agent_version=TestRealAgentChatService._agent_version,
+                message="Can you tell me more about the treatments you typically recommend?",
+                previous_response_id=TestRealAgentChatService._last_response_id,
+            )
+
+        print(f"  Service multi-turn response: {result['response_text'][:200]}")
+
+        assert result["response_text"], "Multi-turn response_text must not be empty"
+        assert result["response_id"], "Multi-turn response_id must not be empty"
+        assert result["response_id"] != TestRealAgentChatService._last_response_id, (
+            "Follow-up should produce a different response_id"
+        )
+        assert result["agent_name"] == TestRealAgentChatService._agent_name
+        assert result["agent_version"] == TestRealAgentChatService._agent_version
+
+    @_skip_no_creds
+    @pytest.mark.asyncio
+    async def test_real_service_cleanup(self):
+        """[REAL] Cleanup: delete agents created by service-level tests."""
+        from app.services.agent_sync_service import _get_project_client
+
+        endpoint, api_key, project = _get_real_azure_config()
+        project_endpoint = f"{endpoint}/api/projects/{project}"
+        client = _get_project_client(project_endpoint, api_key)
+
+        deleted = 0
+        # Clean up any agents this class created (tracked in _created_agents)
+        to_remove = []
+        for name in _created_agents:
+            if "SvcChat" in name or "svcchat" in name.lower():
+                try:
+                    client.agents.delete(agent_name=name)
+                    deleted += 1
+                    to_remove.append(name)
+                except Exception as e:
+                    print(f"  Service cleanup: could not delete {name}: {e}")
+
+        for name in to_remove:
+            _created_agents.remove(name)
+
+        print(f"  Service cleanup: deleted {deleted} test agents")

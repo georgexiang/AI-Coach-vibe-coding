@@ -3,18 +3,18 @@
 Architecture: Backend acts as a proxy between the browser WebSocket and Azure Voice Live.
 This follows the pattern from voicelive-api-salescoach-main-sample-code (reference implementation).
 
-Voice Live uses MODEL MODE with the HCP profile's instructions as system prompt.
-Agent mode (passing agent-id to Azure) requires Azure AD/Entra ID auth which is not
-available in API-key-based deployments. Model mode gives equivalent results: the same
-HCP personality, voice, and avatar — the instructions come from the synced agent.
+Dual-mode support (SDK >= 1.2.0b5):
+  - Agent mode: when HCP profile has a synced agent_id, connects with AgentSessionConfig.
+    The agent carries its own instructions/tools/knowledge. Only modalities are sent.
+  - Model mode: when no synced agent, connects with model parameter and instructions.
 
 Flow:
   1. Client opens WebSocket to /api/v1/voice-live/ws
   2. Client sends session.update with hcp_profile_id and system_prompt
-  3. Backend looks up HCP profile → loads voice/avatar config + instructions
-  4. Backend connects to Azure Voice Live (model mode) with session config
+  3. Backend looks up HCP profile -> loads voice/avatar config + instructions
+  4. Backend connects to Azure Voice Live (agent or model mode) with session config
   5. Backend sends {"type": "proxy.connected"} to client
-  6. Bidirectional proxy: client ↔ backend ↔ Azure Voice Live
+  6. Bidirectional proxy: client <-> backend <-> Azure Voice Live
 """
 
 import asyncio
@@ -30,9 +30,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.services import config_service
 
 logger = logging.getLogger(__name__)
-
-# API version matching the reference implementation
-AZURE_VOICE_API_VERSION = "2025-05-01-preview"
 
 # Message types
 SESSION_UPDATE_TYPE = "session.update"
@@ -50,7 +47,8 @@ async def _load_connection_config(
 
     Returns dict with: endpoint, api_key, model, voice_name, voice_type,
     avatar_character, avatar_style, avatar_enabled, system_prompt,
-    instructions, and other voice/avatar settings.
+    instructions, use_agent_mode, agent_name, project_name,
+    and other voice/avatar settings.
     """
     # Fetch azure_voice_live config
     vl_config = await config_service.get_config(db, "azure_voice_live")
@@ -65,20 +63,18 @@ async def _load_connection_config(
     if not raw_endpoint:
         raise ValueError("Voice Live endpoint not configured")
 
-    # Use the endpoint as-is — azure-ai-voicelive SDK works directly with
+    # Use the endpoint as-is -- azure-ai-voicelive SDK works directly with
     # services.ai.azure.com endpoints. No domain conversion needed.
     effective_endpoint = raw_endpoint.rstrip("/")
 
-    # Defaults — always MODEL MODE.
-    # Agent mode requires Azure AD/Entra ID auth which is not available in
-    # API-key-based deployments. Model mode is equivalent: the HCP personality
-    # is conveyed through the instructions field.
+    # Defaults -- model mode unless HCP has a synced agent.
     # The config-level model_or_deployment is an admin-configured Azure deployment
-    # name (e.g. "gpt-4o-realtime-preview") — pass it through without validation.
+    # name (e.g. "gpt-4o-realtime-preview") -- pass it through without validation.
     # VOICE_LIVE_MODELS is only for the HCP-level UI dropdown selection.
     from app.config import get_settings
 
-    _default_model = get_settings().voice_live_default_model
+    _settings = get_settings()
+    _default_model = _settings.voice_live_default_model
     vl_model = vl_config.model_or_deployment or _default_model
 
     result: dict[str, Any] = {
@@ -93,6 +89,9 @@ async def _load_connection_config(
         "avatar_enabled": False,
         "system_prompt": system_prompt or "",
         "instructions": "",  # HCP-specific instructions (populated below)
+        "use_agent_mode": False,
+        "agent_name": "",
+        "project_name": "",
     }
 
     # Check avatar availability
@@ -103,7 +102,7 @@ async def _load_connection_config(
         if avatar_config.model_or_deployment:
             result["avatar_character"] = avatar_config.model_or_deployment
 
-    # Per-HCP profile overrides — config resolution: VoiceLiveInstance > inline fields
+    # Per-HCP profile overrides -- config resolution: VoiceLiveInstance > inline fields
     if hcp_profile_id:
         from app.services import hcp_profile_service
         from app.services.voice_live_instance_service import resolve_voice_config
@@ -134,7 +133,7 @@ async def _load_connection_config(
                 )
             result["avatar_style"] = validated if validated is not None else raw_style
 
-            # Per-HCP model — validate it's Voice Live compatible (UI selection list)
+            # Per-HCP model -- validate it's Voice Live compatible (UI selection list)
             from app.services.voice_live_models import VOICE_LIVE_MODELS
 
             hcp_model = vc["voice_live_model"] or _default_model
@@ -148,11 +147,23 @@ async def _load_connection_config(
                 hcp_model = _default_model
             result["model"] = hcp_model
 
+            # Agent mode: if HCP has a synced agent and agent mode is enabled,
+            # use AgentSessionConfig instead of model mode.
+            if (
+                _settings.voice_live_agent_mode_enabled
+                and profile.agent_id
+                and profile.agent_sync_status == "synced"
+            ):
+                master = await config_service.get_master_config(db)
+                result["use_agent_mode"] = True
+                result["agent_name"] = profile.agent_id
+                result["project_name"] = master.default_project if master else ""
+
             # Instructions priority for HCP mode:
             #   1. HCP profile's own agent_instructions_override (admin-set override)
             #   2. Client-sent system_prompt (frontend auto-generated from profile data)
             #   3. Auto-generated from build_agent_instructions(profile)
-            # NOTE: VL Instance's model_instruction is NOT used here —
+            # NOTE: VL Instance's model_instruction is NOT used here --
             # VL Instance only provides voice/avatar config, not agent personality.
             hcp_override = profile.agent_instructions_override or ""
             if hcp_override.strip():
@@ -171,7 +182,8 @@ async def _load_connection_config(
             )
 
     elif vl_instance_id:
-        # Standalone VL Instance test — no HCP, use instance config directly
+        # Standalone VL Instance test -- no HCP, use instance config directly.
+        # VL Instance test always uses model mode (no agent).
         from app.services.voice_live_instance_service import get_instance
 
         try:
@@ -228,11 +240,12 @@ async def _load_connection_config(
 
 
 async def handle_voice_live_websocket(ws: WebSocket, db: AsyncSession) -> None:
-    """Handle a Voice Live WebSocket connection — proxy between client and Azure.
+    """Handle a Voice Live WebSocket connection -- proxy between client and Azure.
 
     This is the main entry point called from the router.
+    Supports dual-mode: Agent mode (synced HCP) or Model mode (default).
     """
-    # Session correlation ID — from frontend query param or auto-generated
+    # Session correlation ID -- from frontend query param or auto-generated
     sid = ws.query_params.get("sid", "") or uuid.uuid4().hex[:8]
     session_log = logging.LoggerAdapter(logger, {"sid": sid})
     event_counts: dict[str, int] = {}
@@ -256,7 +269,9 @@ async def handle_voice_live_websocket(ws: WebSocket, db: AsyncSession) -> None:
 
         session_log.info(
             "Session started: sid=%s, hcp=%s, vl_instance=%s",
-            sid, hcp_profile_id, vl_instance_id,
+            sid,
+            hcp_profile_id,
+            vl_instance_id,
         )
 
         # Step 2a: Check voice_live_enabled on the HCP profile (if provided)
@@ -278,7 +293,10 @@ async def handle_voice_live_websocket(ws: WebSocket, db: AsyncSession) -> None:
         # Step 2b: Load config from DB
         try:
             cfg = await _load_connection_config(
-                db, hcp_profile_id, system_prompt, vl_instance_id,
+                db,
+                hcp_profile_id,
+                system_prompt,
+                vl_instance_id,
             )
         except ValueError as e:
             await _send_error(ws, str(e))
@@ -309,7 +327,7 @@ async def handle_voice_live_websocket(ws: WebSocket, db: AsyncSession) -> None:
 
         credential = AzureKeyCredential(cfg["api_key"])
 
-        # Build session config for model mode
+        # Build session config -- modalities and audio/voice settings
         modalities = [Modality.TEXT, Modality.AUDIO]
         avatar_config_value = None
         if cfg["avatar_enabled"]:
@@ -372,71 +390,134 @@ async def handle_voice_live_websocket(ws: WebSocket, db: AsyncSession) -> None:
             input_audio_noise_reduction=AudioNoiseReduction(type="azure_deep_noise_suppression"),
             input_audio_echo_cancellation=AudioEchoCancellation(type="server_echo_cancellation"),
             input_audio_transcription=AudioInputTranscriptionOptions(
-                model="azure-fast-transcription",
+                model="azure-speech",
             ),
             voice=AzureStandardVoice(name=cfg["voice_name"], type=cfg["voice_type"]),
-            avatar=avatar_config_value,  # type: ignore[arg-type] — dict for photo avatars
+            avatar=avatar_config_value,  # type: ignore[arg-type] -- dict for photo avatars
         )
 
         from app.config import get_settings as _get_settings
 
+        use_agent_mode = cfg.get("use_agent_mode", False)
         model = cfg["model"] or _get_settings().voice_live_default_model
-        instructions = cfg.get("instructions") or cfg.get("system_prompt")
-        if instructions:
-            session_config["instructions"] = instructions
 
-        # Always use MODEL MODE — agent mode requires Azure AD/Entra ID auth
-        # which is not available in API-key-based deployments.
-        # HCP personality is conveyed via the instructions field.
-        # Log the full session config for debugging
-        session_dict = (
-            session_config.as_dict() if hasattr(session_config, "as_dict") else dict(session_config)
-        )
-        session_log.info(
-            "Voice Live connecting (model mode): endpoint=%s, "
-            "model=%s, avatar=%s, has_instructions=%s, "
-            "session_modalities=%s, session_voice=%s, "
-            "session_avatar_type=%s",
-            cfg["endpoint"],
-            model,
-            cfg["avatar_enabled"],
-            bool(instructions),
-            session_dict.get("modalities"),
-            session_dict.get("voice"),
-            type(session_config.get("avatar")).__name__
-            if session_config.get("avatar") is not None
-            else "None",
-        )
+        if use_agent_mode:
+            # Agent mode: the agent carries its own instructions/tools/knowledge.
+            # Only send modalities (voice, avatar, transcription) -- NOT instructions.
+            agent_name = cfg["agent_name"]
+            project_name = cfg["project_name"]
+            session_log.info(
+                "Voice Live connecting (agent mode): endpoint=%s, "
+                "agent_name=%s, project_name=%s, avatar=%s, "
+                "session_modalities=%s",
+                cfg["endpoint"],
+                agent_name,
+                project_name,
+                cfg["avatar_enabled"],
+                [str(m) for m in modalities],
+            )
 
-        async with connect(
-            endpoint=cfg["endpoint"],
-            credential=credential,
-            model=model,
-            api_version=AZURE_VOICE_API_VERSION,
-        ) as azure_conn:
-            await azure_conn.session.update(session=session_config)
-            session_log.info("Connected to Azure Voice Live, session config sent")
-
-            await ws.send_text(
-                json.dumps(
-                    {
-                        "type": PROXY_CONNECTED_TYPE,
-                        "message": "Connected to Azure Voice Live",
-                        "avatar_enabled": cfg["avatar_enabled"],
-                        "model": model,
-                        "session_id": sid,
-                    }
+            # Import AgentSessionConfig for agent mode
+            try:
+                from azure.ai.voicelive.aio import AgentSessionConfig
+            except ImportError:
+                await _send_error(
+                    ws,
+                    "azure-ai-voicelive SDK >= 1.2.0b5 required for agent mode",
                 )
+                return
+
+            # NO fallback (RD-2): Agent failure = error propagated to frontend
+            async with connect(
+                endpoint=cfg["endpoint"],
+                credential=credential,
+                agent_config=AgentSessionConfig(
+                    agent_name=agent_name,
+                    project_name=project_name,
+                ),
+            ) as azure_conn:
+                await azure_conn.session.update(session=session_config)
+                session_log.info("Connected to Azure Voice Live (agent mode), session config sent")
+
+                await ws.send_text(
+                    json.dumps(
+                        {
+                            "type": PROXY_CONNECTED_TYPE,
+                            "message": "Connected to Azure Voice Live (agent mode)",
+                            "avatar_enabled": cfg["avatar_enabled"],
+                            "model": "",
+                            "mode": "agent",
+                            "agent_name": agent_name,
+                            "session_id": sid,
+                        }
+                    )
+                )
+
+                await _handle_message_forwarding(
+                    ws,
+                    azure_conn,
+                    ConnectionClosed,
+                    ServerEventType,
+                    session_log,
+                    event_counts,
+                )
+        else:
+            # Model mode: pass model name and instructions directly
+            instructions = cfg.get("instructions") or cfg.get("system_prompt")
+            if instructions:
+                session_config["instructions"] = instructions
+
+            # Log the full session config for debugging
+            session_dict = (
+                session_config.as_dict()
+                if hasattr(session_config, "as_dict")
+                else dict(session_config)
+            )
+            session_log.info(
+                "Voice Live connecting (model mode): endpoint=%s, "
+                "model=%s, avatar=%s, has_instructions=%s, "
+                "session_modalities=%s, session_voice=%s, "
+                "session_avatar_type=%s",
+                cfg["endpoint"],
+                model,
+                cfg["avatar_enabled"],
+                bool(instructions),
+                session_dict.get("modalities"),
+                session_dict.get("voice"),
+                type(session_config.get("avatar")).__name__
+                if session_config.get("avatar") is not None
+                else "None",
             )
 
-            await _handle_message_forwarding(
-                ws,
-                azure_conn,
-                ConnectionClosed,
-                ServerEventType,
-                session_log,
-                event_counts,
-            )
+            async with connect(
+                endpoint=cfg["endpoint"],
+                credential=credential,
+                model=model,
+            ) as azure_conn:
+                await azure_conn.session.update(session=session_config)
+                session_log.info("Connected to Azure Voice Live (model mode), session config sent")
+
+                await ws.send_text(
+                    json.dumps(
+                        {
+                            "type": PROXY_CONNECTED_TYPE,
+                            "message": "Connected to Azure Voice Live",
+                            "avatar_enabled": cfg["avatar_enabled"],
+                            "model": model,
+                            "mode": "model",
+                            "session_id": sid,
+                        }
+                    )
+                )
+
+                await _handle_message_forwarding(
+                    ws,
+                    azure_conn,
+                    ConnectionClosed,
+                    ServerEventType,
+                    session_log,
+                    event_counts,
+                )
 
     except WebSocketDisconnect:
         session_log.info("Client WebSocket disconnected")
@@ -516,7 +597,7 @@ async def _forward_client_to_azure(
             msg_type = parsed.get("type", "unknown") if isinstance(parsed, dict) else "non-dict"
             event_counts[f"c2a:{msg_type}"] = event_counts.get(f"c2a:{msg_type}", 0) + 1
             session_log.debug(
-                "Client→Azure: type=%s, keys=%s",
+                "Client->Azure: type=%s, keys=%s",
                 msg_type,
                 list(parsed.keys()) if isinstance(parsed, dict) else "N/A",
             )
@@ -528,9 +609,9 @@ async def _forward_client_to_azure(
                 )
             await azure_conn.send(parsed)
     except (WebSocketDisconnect, ConnectionClosed):
-        session_log.debug("Client→Azure forwarding stopped")
+        session_log.debug("Client->Azure forwarding stopped")
     except Exception as e:
-        session_log.warning("Client→Azure forwarding error: %s", e)
+        session_log.warning("Client->Azure forwarding error: %s", e)
 
 
 async def _forward_azure_to_client(
@@ -558,7 +639,7 @@ async def _forward_azure_to_client(
                     delta_len,
                     list(event_dict.keys()),
                 )
-            # Avatar SDP answer — promote to INFO for observability
+            # Avatar SDP answer -- promote to INFO for observability
             elif event_type == "session.avatar.connecting":
                 session_log.info(
                     "Avatar SDP answer: type=%s, has_server_sdp=%s, keys=%s",
@@ -610,9 +691,9 @@ async def _forward_azure_to_client(
             else:
                 session_log.debug("Azure event: type=%s", event_type)
     except (WebSocketDisconnect, ConnectionClosed):
-        session_log.debug("Azure→Client forwarding stopped")
+        session_log.debug("Azure->Client forwarding stopped")
     except Exception as e:
-        session_log.warning("Azure→Client forwarding error: %s", e)
+        session_log.warning("Azure->Client forwarding error: %s", e)
 
 
 async def _send_error(ws: WebSocket, error_message: str) -> None:

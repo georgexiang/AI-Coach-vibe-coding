@@ -22,6 +22,7 @@ import { useVoiceLive } from "@/hooks/use-voice-live";
 import { useAvatarStream } from "@/hooks/use-avatar-stream";
 import { useAudioHandler } from "@/hooks/use-audio-handler";
 import { useAudioPlayer } from "@/hooks/use-audio-player";
+import { useVoiceSessionLifecycle } from "@/hooks/use-voice-session-lifecycle";
 import { useEndSession } from "@/hooks/use-session";
 import { useScenario } from "@/hooks/use-scenarios";
 import { persistTranscriptMessage } from "@/api/voice-live";
@@ -166,6 +167,9 @@ export function VoiceSession({
     },
   });
 
+  const { startSession: startVoiceSession, stopSession: stopVoiceSession } =
+    useVoiceSessionLifecycle({ voiceLive, avatarStream, audioHandler, audioPlayer });
+
   // Escape key exits fullscreen mode
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -190,83 +194,40 @@ export function VoiceSession({
     }
   }, [scenario, keyMessagesStatus.length]);
 
-  // Voice initialization logic — extracted to reusable callback
+  // Voice initialization logic — uses shared lifecycle hook
   const initVoice = useCallback(async () => {
     log.info("initVoice: hcpProfileId=%s avatarCharacter=%s", hcpProfileId, avatarCharacter ?? "(none)");
     setIsConnecting(true);
     try {
-      // Initialize audio (mic permission + AudioWorklet)
-      try {
-        await audioHandler.initialize();
-      } catch (audioError) {
-        if (audioError instanceof DOMException && audioError.name === "NotAllowedError") {
-          toast.error(t("error.micDenied"));
-        } else {
-          toast.error(t("error.audioWorkletFailed"));
-        }
-        setIsConnecting(false);
-        return;
-      }
-
-      // Wire up avatar SDP callback BEFORE connecting
-      voiceLive.avatarSdpCallbackRef.current = (serverSdp: string) => {
-        void avatarStream.handleServerSdp(serverSdp);
-      };
-
-      // Connect via backend WebSocket proxy
-      const result = await voiceLive.connect(hcpProfileId, systemPrompt);
-
-      // Resolve mode from proxy response
-      const resolvedMode: SessionMode = result.avatarEnabled
-        ? "digital_human_realtime_model"
-        : "voice_realtime_model";
-      setCurrentMode(resolvedMode);
-      initialModeRef.current = resolvedMode;
-
-      // Connect avatar WebRTC using ICE servers from session
-      if (result.avatarEnabled) {
-        try {
-          await avatarStream.connect(
-            result.iceServers,
-            async (clientSdp: string) => {
-              voiceLive.send({
-                type: "session.avatar.connect",
-                client_sdp: clientSdp,
-              });
-            },
-          );
-          log.info("Avatar WebRTC connected");
-        } catch (avatarError) {
-          log.error("Avatar WebRTC failed: %o", avatarError);
+      const result = await startVoiceSession({
+        hcpProfileId,
+        systemPrompt,
+        onMicDenied: () => toast.error(t("error.micDenied")),
+        onAudioWorkletFailed: () => toast.error(t("error.audioWorkletFailed")),
+        onAvatarFailed: () => {
+          log.error("Avatar WebRTC failed");
           toast.error(t("error.avatarFailed"));
           setCurrentMode("voice_realtime_model");
-        }
-      }
-
-      // Start recording — send audio via backend WebSocket proxy
-      audioHandler.startRecording((audioData: Float32Array) => {
-        if (voiceLive.isMuted) return;
-        const int16 = new Int16Array(audioData.length);
-        for (let i = 0; i < audioData.length; i++) {
-          const s = Math.max(-1, Math.min(1, audioData[i] ?? 0));
-          int16[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
-        }
-        const bytes = new Uint8Array(int16.buffer);
-        let binary = "";
-        for (let i = 0; i < bytes.length; i++) {
-          binary += String.fromCharCode(bytes[i]!);
-        }
-        const base64 = btoa(binary);
-        voiceLive.sendAudio(base64);
+        },
+        onConnectionFailed: (error) => {
+          log.error("Connection failed: %o", error);
+          toast.error(t("error.connectionFailed"));
+        },
       });
-    } catch (error) {
-      log.error("Connection failed: %o", error);
-      toast.error(t("error.connectionFailed"));
+
+      if (result) {
+        const resolvedMode: SessionMode = result.avatarEnabled
+          ? "digital_human_realtime_model"
+          : "voice_realtime_model";
+        setCurrentMode(resolvedMode);
+        initialModeRef.current = resolvedMode;
+        log.info("Avatar WebRTC connected=%s", result.avatarEnabled);
+      }
     } finally {
       setIsConnecting(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hcpProfileId, systemPrompt]);
+  }, [hcpProfileId, systemPrompt, startVoiceSession]);
 
   // Start session handler — user clicks Start button
   const handleStartSession = useCallback(() => {
@@ -281,10 +242,7 @@ export function VoiceSession({
 
     // Cleanup on unmount
     return () => {
-      void voiceLive.disconnect();
-      avatarStream.disconnect();
-      audioHandler.cleanup();
-      audioPlayer.stopAudio();
+      void stopVoiceSession();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionStarted]);
@@ -301,11 +259,8 @@ export function VoiceSession({
     // Flush all pending transcript writes first (D-09)
     await Promise.all(pendingFlushesRef.current);
 
-    // Disconnect voice and avatar
-    await voiceLive.disconnect();
-    avatarStream.disconnect();
-    audioHandler.cleanup();
-    audioPlayer.stopAudio();
+    // Disconnect voice and avatar via shared lifecycle
+    await stopVoiceSession();
 
     // Call endSession API
     try {
@@ -317,9 +272,7 @@ export function VoiceSession({
     }
   }, [
     sessionId,
-    voiceLive,
-    avatarStream,
-    audioHandler,
+    stopVoiceSession,
     endSessionMutation,
     navigate,
   ]);

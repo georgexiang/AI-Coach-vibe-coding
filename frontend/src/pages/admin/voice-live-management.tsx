@@ -20,20 +20,14 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  Label,
 } from "@/components/ui";
 import { EmptyState } from "@/components/shared/empty-state";
 import { VoiceLiveInstanceCard } from "@/components/admin/voice-live-chain-card";
+import { AssignHcpDialog } from "@/components/admin/assign-hcp-dialog";
 import type { AssignedHcp } from "@/components/admin/voice-live-chain-card";
 import {
   useVoiceLiveInstances,
   useDeleteVoiceLiveInstance,
-  useAssignVoiceLiveInstance,
   useUnassignVoiceLiveInstance,
 } from "@/hooks/use-voice-live-instances";
 import { useHcpProfiles } from "@/hooks/use-hcp-profiles";
@@ -72,7 +66,6 @@ export default function VoiceLiveManagementPage() {
   const navigate = useNavigate();
   const { data, isLoading, isError, refetch } = useVoiceLiveInstances();
   const deleteMutation = useDeleteVoiceLiveInstance();
-  const assignMutation = useAssignVoiceLiveInstance();
   const unassignMutation = useUnassignVoiceLiveInstance();
   const { data: hcpData } = useHcpProfiles();
 
@@ -85,7 +78,6 @@ export default function VoiceLiveManagementPage() {
   const [assignTarget, setAssignTarget] = useState<VoiceLiveInstance | null>(
     null,
   );
-  const [selectedHcpId, setSelectedHcpId] = useState<string>("");
 
   const items = data?.items ?? [];
   const hcpProfiles = hcpData?.items ?? [];
@@ -138,35 +130,7 @@ export default function VoiceLiveManagementPage() {
 
   const openAssign = (instance: VoiceLiveInstance) => {
     setAssignTarget(instance);
-    setSelectedHcpId("");
   };
-
-  const handleAssign = () => {
-    if (!assignTarget || !selectedHcpId) return;
-    assignMutation.mutate(
-      { instanceId: assignTarget.id, hcpProfileId: selectedHcpId },
-      {
-        onSuccess: () => {
-          toast.success(t("voiceLive.assignSuccess"));
-          setAssignTarget(null);
-          setSelectedHcpId("");
-        },
-        onError: () => {
-          toast.error(t("voiceLive.assignError"));
-        },
-      },
-    );
-  };
-
-  // Filter HCP profiles: exclude those already assigned to this instance
-  const availableHcps = useMemo(() => {
-    if (!assignTarget) return [];
-    return hcpProfiles.filter(
-      (p) =>
-        !p.voice_live_instance_id ||
-        p.voice_live_instance_id !== assignTarget.id,
-    );
-  }, [hcpProfiles, assignTarget]);
 
   return (
     <div className="space-y-8">
@@ -281,70 +245,16 @@ export default function VoiceLiveManagementPage() {
       </Dialog>
 
       {/* Assign to HCP Dialog */}
-      <Dialog
-        open={!!assignTarget}
-        onOpenChange={(open) => {
-          if (!open) {
-            setAssignTarget(null);
-            setSelectedHcpId("");
-          }
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t("voiceLive.assignDialogTitle")}</DialogTitle>
-            <DialogDescription>
-              {assignTarget &&
-                t("voiceLive.assignDialogDescription", {
-                  name: assignTarget.name,
-                })}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4">
-            <Label>{t("voiceLive.assignDialogSelect")}</Label>
-            {availableHcps.length > 0 ? (
-              <Select
-                value={selectedHcpId}
-                onValueChange={setSelectedHcpId}
-              >
-                <SelectTrigger className="mt-1.5">
-                  <SelectValue
-                    placeholder={t("voiceLive.assignToHcpPlaceholder")}
-                  />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableHcps.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.name} - {p.specialty}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            ) : (
-              <p className="mt-2 text-sm text-muted-foreground">
-                {t("voiceLive.assignDialogEmpty")}
-              </p>
-            )}
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setAssignTarget(null);
-                setSelectedHcpId("");
-              }}
-            >
-              {t("voiceLive.vlDialogCancel")}
-            </Button>
-            <Button
-              onClick={handleAssign}
-              disabled={!selectedHcpId || assignMutation.isPending}
-            >
-              {t("voiceLive.assignToHcp")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {assignTarget && (
+        <AssignHcpDialog
+          open={!!assignTarget}
+          onOpenChange={(open) => {
+            if (!open) setAssignTarget(null);
+          }}
+          instanceId={assignTarget.id}
+          instanceName={assignTarget.name}
+        />
+      )}
     </div>
   );
 }

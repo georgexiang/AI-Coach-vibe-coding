@@ -17,6 +17,8 @@ class VoiceLiveTokenResponse(BaseModel):
     agent_id: str | None = None
     agent_version: str | None = None
     project_name: str | None = None
+    agent_mode_available: bool = False
+    agent_warning: str | None = None
 
     # Per-HCP fields (D-08)
     avatar_style: str = "casual"

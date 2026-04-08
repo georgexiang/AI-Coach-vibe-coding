@@ -20,6 +20,18 @@ from app.services.agent_sync_service import (
     build_voice_live_metadata,
 )
 
+VOICE_LIVE_CONFIG_KEY = "microsoft.voice-live.configuration"
+
+
+def _reassemble_config(result: dict[str, str]) -> dict:
+    """Reassemble chunked Voice Live config metadata back into a single JSON dict."""
+    parts = [result[VOICE_LIVE_CONFIG_KEY]]
+    idx = 1
+    while f"{VOICE_LIVE_CONFIG_KEY}.{idx}" in result:
+        parts.append(result[f"{VOICE_LIVE_CONFIG_KEY}.{idx}"])
+        idx += 1
+    return json.loads("".join(parts))
+
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -362,6 +374,7 @@ async def test_create_profile_sync_failure(mock_sync, aclient):
 def test_build_voice_live_metadata_basic():
     """Standard profile produces correct Voice Live metadata JSON."""
     profile = MagicMock()
+    profile.voice_live_instance = None  # Force inline fallback path
     profile.voice_live_enabled = True
     profile.voice_name = "en-US-AvaNeural"
     profile.voice_type = "azure-standard"
@@ -370,13 +383,19 @@ def test_build_voice_live_metadata_basic():
     profile.noise_suppression = False
     profile.echo_cancellation = False
     profile.eou_detection = False
+    profile.voice_live_model = "gpt-4o"
+    profile.voice_custom = None
+    profile.avatar_character = None
+    profile.avatar_style = None
+    profile.avatar_customized = None
+    profile.recognition_language = None
 
     result = build_voice_live_metadata(profile)
 
     assert result is not None
     # Should have exactly one key (config fits in 512 chars)
-    assert "microsoft.voice-live.configuration" in result
-    config = json.loads(result["microsoft.voice-live.configuration"])
+    assert VOICE_LIVE_CONFIG_KEY in result
+    config = _reassemble_config(result)
     assert config["voice"]["type"] == "azure-standard"
     assert config["voice"]["name"] == "en-US-AvaNeural"
     assert config["voice"]["temperature"] == 0.9
@@ -394,6 +413,7 @@ def test_build_voice_live_metadata_basic():
 def test_build_voice_live_metadata_with_noise_echo():
     """Noise suppression and echo cancellation flags appear in metadata."""
     profile = MagicMock()
+    profile.voice_live_instance = None  # Force inline fallback path
     profile.voice_live_enabled = True
     profile.voice_name = "en-US-JennyNeural"
     profile.voice_type = "azure-standard"
@@ -402,11 +422,17 @@ def test_build_voice_live_metadata_with_noise_echo():
     profile.noise_suppression = True
     profile.echo_cancellation = True
     profile.eou_detection = True
+    profile.voice_live_model = "gpt-4o"
+    profile.voice_custom = None
+    profile.avatar_character = None
+    profile.avatar_style = None
+    profile.avatar_customized = None
+    profile.recognition_language = None
 
     result = build_voice_live_metadata(profile)
 
     assert result is not None
-    config = json.loads(result["microsoft.voice-live.configuration"])
+    config = _reassemble_config(result)
     assert config["input_audio_noise_reduction"]["type"] == "azure_deep_noise_suppression"
     assert config["input_audio_echo_cancellation"]["type"] == "server_echo_cancellation"
     eou = config["turn_detection"]["end_of_utterance_detection"]
@@ -421,6 +447,7 @@ def test_build_voice_live_metadata_with_noise_echo():
 def test_build_voice_live_metadata_disabled():
     """voice_live_enabled=False returns None (no metadata attached to agent)."""
     profile = MagicMock()
+    profile.voice_live_instance = None  # Force inline fallback path
     profile.voice_live_enabled = False
 
     result = build_voice_live_metadata(profile)
@@ -469,6 +496,7 @@ def test_chunk_metadata_value_long():
 def test_build_voice_live_metadata_custom_voice():
     """Custom voice type omits temperature field."""
     profile = MagicMock()
+    profile.voice_live_instance = None  # Force inline fallback path
     profile.voice_live_enabled = True
     profile.voice_name = "my-custom-voice"
     profile.voice_type = "custom-neural"
@@ -477,11 +505,430 @@ def test_build_voice_live_metadata_custom_voice():
     profile.noise_suppression = False
     profile.echo_cancellation = False
     profile.eou_detection = False
+    profile.voice_live_model = "gpt-4o"
+    profile.voice_custom = None
+    profile.avatar_character = None
+    profile.avatar_style = None
+    profile.avatar_customized = None
+    profile.recognition_language = None
 
     result = build_voice_live_metadata(profile)
 
     assert result is not None
-    config = json.loads(result["microsoft.voice-live.configuration"])
+    config = _reassemble_config(result)
     assert config["voice"]["type"] == "custom-neural"
     assert config["voice"]["name"] == "my-custom-voice"
     assert "temperature" not in config["voice"]
+
+
+# ===========================================================================
+# Real-data integration tests (no mocking of config_service, hcp_profile_service,
+# or build_voice_live_metadata — use real DB objects and services)
+# ===========================================================================
+
+
+async def _seed_real_user(session, username="realdata_sync_user") -> User:
+    """Create a real User row in the test DB."""
+    from app.services.auth import get_password_hash
+
+    user = User(
+        username=username,
+        email=f"{username}@real.test",
+        hashed_password=get_password_hash("pass"),
+        full_name="Real Sync User",
+        role="admin",
+    )
+    session.add(user)
+    await session.flush()
+    await session.refresh(user)
+    return user
+
+
+async def _seed_real_service_configs(session, user_id: str) -> dict:
+    """Seed master AI Foundry + azure_voice_live config rows. Returns config dict."""
+    from app.models.service_config import ServiceConfig
+    from app.utils.encryption import encrypt_value
+
+    master = ServiceConfig(
+        service_name="ai_foundry",
+        display_name="Azure AI Foundry",
+        endpoint="https://test-foundry.services.ai.azure.com",
+        api_key_encrypted=encrypt_value("test-master-key-111"),
+        model_or_deployment="",
+        region="eastus2",
+        default_project="test-default-project",
+        is_master=True,
+        is_active=True,
+        updated_by=user_id,
+    )
+    session.add(master)
+
+    vl = ServiceConfig(
+        service_name="azure_voice_live",
+        display_name="Azure Voice Live",
+        endpoint="https://test-vl.openai.azure.com",
+        api_key_encrypted=encrypt_value("test-vl-key-222"),
+        model_or_deployment=json.dumps(
+            {
+                "mode": "agent",
+                "agent_id": "asst_config_default",
+                "project_name": "proj_config",
+            }
+        ),
+        region="eastus2",
+        is_master=False,
+        is_active=True,
+        updated_by=user_id,
+    )
+    session.add(vl)
+    await session.flush()
+    return {"master": master, "voice_live": vl}
+
+
+async def _seed_real_hcp_profile(session, user_id: str, **overrides) -> HcpProfile:
+    """Seed a real HcpProfile ORM object in the test DB."""
+    defaults = dict(
+        name="Dr. RealSync Li",
+        specialty="Cardiology",
+        hospital="Real Hospital",
+        title="Professor",
+        created_by=user_id,
+        agent_id="asst_real_profile_agent",
+        agent_sync_status="synced",
+        voice_live_enabled=True,
+        voice_live_model="gpt-4o-realtime-preview",
+        voice_name="zh-CN-YunxiNeural",
+        voice_type="azure-standard",
+        voice_temperature=0.7,
+        voice_custom=False,
+        avatar_character="harry",
+        avatar_style="business",
+        avatar_customized=False,
+        turn_detection_type="azure_semantic_vad",
+        noise_suppression=True,
+        echo_cancellation=False,
+        eou_detection=False,
+        recognition_language="zh-CN",
+    )
+    defaults.update(overrides)
+    profile = HcpProfile(**defaults)
+    session.add(profile)
+    await session.flush()
+    await session.refresh(profile)
+    return profile
+
+
+class TestTokenBrokerRealData:
+    """Real-data tests for get_voice_live_token using seeded DB rows.
+
+    These tests exercise config_service and hcp_profile_service against real
+    ServiceConfig and HcpProfile rows in the in-memory test DB (no mocking).
+    """
+
+    @pytest.mark.asyncio
+    async def test_voice_live_token_with_hcp_profile_id_real_db(self, db_session):
+        """Token broker returns HCP profile's agent_id from real DB data."""
+        from app.services.voice_live_service import get_voice_live_token
+
+        user = await _seed_real_user(db_session, "token_hcp_real")
+        await _seed_real_service_configs(db_session, user.id)
+        profile = await _seed_real_hcp_profile(db_session, user.id)
+        await db_session.commit()
+
+        result = await get_voice_live_token(db_session, hcp_profile_id=profile.id)
+
+        # Profile agent_id overrides config-level
+        assert result.agent_id == "asst_real_profile_agent"
+        # project_name falls back to master default_project
+        assert result.project_name == "test-default-project"
+        assert result.auth_type == "bearer"
+        assert result.token == "***configured***"
+        # Per-HCP voice settings sourced from real profile
+        assert result.voice_name == "zh-CN-YunxiNeural"
+        assert result.avatar_character == "harry"
+        assert result.turn_detection_type == "azure_semantic_vad"
+        assert result.noise_suppression is True
+
+    @pytest.mark.asyncio
+    async def test_voice_live_token_fallback_to_config_real_db(self, db_session):
+        """Token broker falls back to config-level agent_id when profile has no agent."""
+        from app.services.voice_live_service import get_voice_live_token
+
+        user = await _seed_real_user(db_session, "token_fallback_real")
+        await _seed_real_service_configs(db_session, user.id)
+        profile = await _seed_real_hcp_profile(
+            db_session, user.id, agent_id="", agent_sync_status="none"
+        )
+        await db_session.commit()
+
+        result = await get_voice_live_token(db_session, hcp_profile_id=profile.id)
+
+        # Falls back to config-level agent_id
+        assert result.agent_id == "asst_config_default"
+        assert result.project_name == "proj_config"
+
+    @pytest.mark.asyncio
+    async def test_voice_live_token_backward_compatible_real_db(self, db_session):
+        """Token broker returns config-level settings when no hcp_profile_id (real DB)."""
+        from app.services.voice_live_service import get_voice_live_token
+
+        user = await _seed_real_user(db_session, "token_compat_real")
+        await _seed_real_service_configs(db_session, user.id)
+        await db_session.commit()
+
+        result = await get_voice_live_token(db_session)
+
+        # Config-level agent_id used
+        assert result.agent_id == "asst_config_default"
+        assert result.project_name == "proj_config"
+        # Default voice settings (no HCP override)
+        assert result.voice_name == "zh-CN-XiaoxiaoMultilingualNeural"
+        assert result.turn_detection_type == "server_vad"
+
+    @pytest.mark.asyncio
+    async def test_voice_live_token_raises_when_no_config_real_db(self, db_session):
+        """Token broker raises ValueError when no ServiceConfig rows exist in DB."""
+        from app.services.voice_live_service import get_voice_live_token
+
+        with pytest.raises(ValueError, match="Voice Live not configured"):
+            await get_voice_live_token(db_session)
+
+
+class TestBuildVoiceLiveMetadataRealORM:
+    """Tests for build_voice_live_metadata using real HcpProfile ORM objects.
+
+    Instead of MagicMock, these seed actual HcpProfile instances in the test DB
+    so resolve_voice_config exercises the real inline-field fallback path.
+
+    The real inline fallback path includes additional fields (avatar, response_temperature,
+    proactive_engagement, etc.) which may cause the JSON to exceed 512 chars and get
+    chunked by _chunk_metadata_value. We reassemble chunks before parsing.
+    """
+
+    @staticmethod
+    def _reassemble_metadata(result: dict[str, str], base_key: str) -> dict:
+        """Reassemble a potentially chunked metadata value into parsed JSON."""
+        # Collect all chunks: base_key, base_key.1, base_key.2, ...
+        parts = [result[base_key]]
+        idx = 1
+        while f"{base_key}.{idx}" in result:
+            parts.append(result[f"{base_key}.{idx}"])
+            idx += 1
+        return json.loads("".join(parts))
+
+    @pytest.mark.asyncio
+    async def test_build_metadata_basic_real_orm(self, db_session):
+        """build_voice_live_metadata produces correct JSON from real HcpProfile."""
+        user = await _seed_real_user(db_session, "meta_basic_real")
+        profile = await _seed_real_hcp_profile(
+            db_session,
+            user.id,
+            voice_name="en-US-AvaNeural",
+            voice_type="azure-standard",
+            voice_temperature=0.9,
+            turn_detection_type="server_vad",
+            noise_suppression=False,
+            echo_cancellation=False,
+            eou_detection=False,
+        )
+        await db_session.commit()
+
+        result = build_voice_live_metadata(profile)
+
+        assert result is not None
+        assert "microsoft.voice-live.configuration" in result
+        config = self._reassemble_metadata(result, "microsoft.voice-live.configuration")
+        assert config["voice"]["type"] == "azure-standard"
+        assert config["voice"]["name"] == "en-US-AvaNeural"
+        assert config["voice"]["temperature"] == 0.9
+        assert config["turn_detection"]["type"] == "server_vad"
+        assert "input_audio_noise_reduction" not in config
+        assert "input_audio_echo_cancellation" not in config
+
+    @pytest.mark.asyncio
+    async def test_build_metadata_with_noise_echo_real_orm(self, db_session):
+        """Noise suppression and echo cancellation flags appear in metadata (real ORM)."""
+        user = await _seed_real_user(db_session, "meta_noise_real")
+        profile = await _seed_real_hcp_profile(
+            db_session,
+            user.id,
+            voice_name="en-US-JennyNeural",
+            voice_type="azure-standard",
+            voice_temperature=0.7,
+            turn_detection_type="server_vad",
+            noise_suppression=True,
+            echo_cancellation=True,
+            eou_detection=True,
+        )
+        await db_session.commit()
+
+        result = build_voice_live_metadata(profile)
+
+        assert result is not None
+        config = self._reassemble_metadata(result, "microsoft.voice-live.configuration")
+        assert config["input_audio_noise_reduction"]["type"] == "azure_deep_noise_suppression"
+        assert config["input_audio_echo_cancellation"]["type"] == "server_echo_cancellation"
+        eou = config["turn_detection"]["end_of_utterance_detection"]
+        assert eou["model"] == "semantic_detection_v1"
+
+    @pytest.mark.asyncio
+    async def test_build_metadata_disabled_real_orm(self, db_session):
+        """voice_live_enabled=False returns None from real HcpProfile."""
+        user = await _seed_real_user(db_session, "meta_disabled_real")
+        profile = await _seed_real_hcp_profile(db_session, user.id, voice_live_enabled=False)
+        await db_session.commit()
+
+        result = build_voice_live_metadata(profile)
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_build_metadata_custom_voice_real_orm(self, db_session):
+        """Custom voice type omits temperature from real HcpProfile ORM object."""
+        user = await _seed_real_user(db_session, "meta_custom_real")
+        profile = await _seed_real_hcp_profile(
+            db_session,
+            user.id,
+            voice_name="my-custom-voice",
+            voice_type="custom-neural",
+            voice_temperature=0.9,
+            turn_detection_type="server_vad",
+            noise_suppression=False,
+            echo_cancellation=False,
+            eou_detection=False,
+        )
+        await db_session.commit()
+
+        result = build_voice_live_metadata(profile)
+
+        assert result is not None
+        config = self._reassemble_metadata(result, "microsoft.voice-live.configuration")
+        assert config["voice"]["type"] == "custom-neural"
+        assert config["voice"]["name"] == "my-custom-voice"
+        assert "temperature" not in config["voice"]
+
+
+class TestProfileLifecycleRealDB:
+    """Real-data API tests for HCP profile create/update/delete lifecycle.
+
+    These exercise the profile CRUD endpoints against the real test DB.
+    Agent sync is still mocked because it requires external Azure AI Foundry
+    connectivity — the focus here is on DB persistence and response correctness.
+    """
+
+    @pytest.fixture
+    def real_admin_client(self, db_session):
+        """Async HTTP client with admin auth + real db_session override."""
+
+        async def override_get_db():
+            yield db_session
+
+        async def override_get_current_user():
+            return _fake_admin_user()
+
+        app.dependency_overrides[get_db] = override_get_db
+        app.dependency_overrides[get_current_user] = override_get_current_user
+        yield
+        app.dependency_overrides.clear()
+
+    @pytest.fixture
+    async def real_aclient(self, real_admin_client):
+        """Async HTTP client with real DB admin overrides."""
+        async with AsyncClient(
+            transport=ASGITransport(app=app),
+            base_url="http://test",
+        ) as ac:
+            yield ac
+
+    @patch("app.services.hcp_profile_service.agent_sync_service")
+    @pytest.mark.asyncio
+    async def test_create_and_get_profile_real_db(self, mock_sync, real_aclient, db_session):
+        """Create an HCP profile via API, then verify it exists with correct fields in real DB."""
+        mock_sync.sync_agent_for_profile = AsyncMock(return_value={"id": "asst_created"})
+
+        # Seed a user for created_by
+        user = await _seed_real_user(db_session, "lifecycle_creator")
+        await db_session.commit()
+
+        profile_data = {
+            "name": "Dr. Lifecycle Test",
+            "specialty": "Pulmonology",
+            "hospital": "Lifecycle Hospital",
+            "title": "Associate Professor",
+            "personality_type": "friendly",
+            "emotional_state": 30,
+            "communication_style": 70,
+            "expertise_areas": ["respiratory"],
+            "prescribing_habits": "Conservative",
+            "concerns": "Long-term safety",
+            "objections": ["complexity"],
+            "probe_topics": ["drug interactions"],
+            "difficulty": "easy",
+            "is_active": True,
+            "created_by": user.id,
+        }
+
+        resp = await real_aclient.post("/api/v1/hcp-profiles", json=profile_data)
+        assert resp.status_code == 201
+        data = resp.json()
+        assert data["name"] == "Dr. Lifecycle Test"
+        assert data["specialty"] == "Pulmonology"
+        assert data["agent_sync_status"] in ("synced", "pending", "failed")
+        profile_id = data["id"]
+
+        # Verify via GET
+        get_resp = await real_aclient.get(f"/api/v1/hcp-profiles/{profile_id}")
+        assert get_resp.status_code == 200
+        assert get_resp.json()["name"] == "Dr. Lifecycle Test"
+
+    @patch("app.services.hcp_profile_service.agent_sync_service")
+    @pytest.mark.asyncio
+    async def test_update_profile_persists_real_db(self, mock_sync, real_aclient, db_session):
+        """Update an HCP profile and verify changes persist in real DB."""
+        mock_sync.sync_agent_for_profile = AsyncMock(return_value={"id": "asst_updated"})
+
+        user = await _seed_real_user(db_session, "lifecycle_updater")
+        await db_session.commit()
+
+        create_resp = await real_aclient.post(
+            "/api/v1/hcp-profiles",
+            json={**PROFILE_DATA, "created_by": user.id},
+        )
+        assert create_resp.status_code == 201
+        profile_id = create_resp.json()["id"]
+
+        # Reset mock for update
+        mock_sync.sync_agent_for_profile.reset_mock()
+
+        update_resp = await real_aclient.put(
+            f"/api/v1/hcp-profiles/{profile_id}",
+            json={"name": "Dr. Updated Lifecycle"},
+        )
+        assert update_resp.status_code == 200
+        assert update_resp.json()["name"] == "Dr. Updated Lifecycle"
+        mock_sync.sync_agent_for_profile.assert_called_once()
+
+    @patch("app.services.hcp_profile_service.agent_sync_service")
+    @pytest.mark.asyncio
+    async def test_delete_profile_removes_from_real_db(self, mock_sync, real_aclient, db_session):
+        """Delete an HCP profile and verify it is removed from real DB."""
+        mock_sync.sync_agent_for_profile = AsyncMock(return_value={"id": "asst_to_delete"})
+        mock_sync.delete_agent = AsyncMock(return_value=True)
+
+        user = await _seed_real_user(db_session, "lifecycle_deleter")
+        await db_session.commit()
+
+        create_resp = await real_aclient.post(
+            "/api/v1/hcp-profiles",
+            json={**PROFILE_DATA, "created_by": user.id},
+        )
+        assert create_resp.status_code == 201
+        profile_id = create_resp.json()["id"]
+
+        # Delete the profile
+        del_resp = await real_aclient.delete(f"/api/v1/hcp-profiles/{profile_id}")
+        assert del_resp.status_code == 204
+
+        # Verify it's gone
+        get_resp = await real_aclient.get(f"/api/v1/hcp-profiles/{profile_id}")
+        assert get_resp.status_code == 404

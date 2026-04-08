@@ -113,6 +113,7 @@ class HcpProfileResponse(BaseModel):
     difficulty: str
     is_active: bool
     agent_id: str = ""
+    agent_version: str = ""
     agent_sync_status: str = "none"
     agent_sync_error: str = ""
 

@@ -32,62 +32,17 @@ import {
   getAvatarInitials,
 } from "@/data/avatar-characters";
 import { cn } from "@/lib/utils";
+import {
+  VOICE_NAME_OPTIONS,
+  TURN_DETECTION_TYPES,
+  RECOGNITION_LANGUAGES,
+  CDN_BASE,
+  createDefaultVlInstanceForm,
+} from "@/lib/voice-constants";
 import type {
   VoiceLiveInstance,
   VoiceLiveInstanceCreate,
 } from "@/types/voice-live";
-
-/* ── Option constants (same as voice-avatar-tab) ─────────────────────── */
-
-const VOICE_NAME_OPTIONS = [
-  { value: "en-US-AvaNeural", labelKey: "voiceAva" },
-  { value: "en-US-Ava:DragonHDLatestNeural", labelKey: "voiceAvaHd" },
-  { value: "en-US-AndrewNeural", labelKey: "voiceAndrew" },
-  { value: "en-US-JennyNeural", labelKey: "voiceJenny" },
-  { value: "zh-CN-XiaoxiaoMultilingualNeural", labelKey: "voiceXiaoxiaoMultilingual" },
-  { value: "zh-CN-XiaoxiaoNeural", labelKey: "voiceXiaoxiao" },
-  { value: "zh-CN-YunxiNeural", labelKey: "voiceYunxi" },
-  { value: "zh-CN-YunjianNeural", labelKey: "voiceYunjian" },
-] as const;
-
-const TURN_DETECTION_TYPES = [
-  { value: "server_vad", labelKey: "turnServerVad" },
-  { value: "semantic_vad", labelKey: "turnSemanticVad" },
-  { value: "azure_semantic_vad", labelKey: "turnAzureSemanticVad" },
-  { value: "azure_semantic_vad_multilingual", labelKey: "turnAzureSemanticVadMultilingual" },
-] as const;
-
-const RECOGNITION_LANGUAGES = [
-  { value: "auto", labelKey: "autoDetect" },
-  { value: "zh-CN", labelKey: "langChinese" },
-  { value: "en-US", labelKey: "langEnglish" },
-  { value: "ja-JP", labelKey: "langJapanese" },
-  { value: "ko-KR", labelKey: "langKorean" },
-] as const;
-
-/** CDN base URL for official Azure avatar preview images. */
-const CDN_BASE =
-  "https://learn.microsoft.com/en-us/azure/ai-services/speech-service/text-to-speech-avatar/media";
-
-const DEFAULT_FORM: VoiceLiveInstanceCreate = {
-  name: "",
-  description: "",
-  voice_live_model: "gpt-4o",
-  enabled: true,
-  voice_name: "en-US-AvaNeural",
-  voice_type: "azure-standard",
-  voice_temperature: 0.9,
-  voice_custom: false,
-  avatar_character: "lori",
-  avatar_style: "casual",
-  avatar_customized: false,
-  turn_detection_type: "server_vad",
-  noise_suppression: false,
-  echo_cancellation: false,
-  eou_detection: false,
-  recognition_language: "auto",
-  model_instruction: "",
-};
 
 /* ── Types ───────────────────────────────────────────────────────────── */
 
@@ -119,7 +74,7 @@ export function VlInstanceDialog({
   const createMutation = useCreateVoiceLiveInstance();
   const updateMutation = useUpdateVoiceLiveInstance();
 
-  const [form, setForm] = useState<VoiceLiveInstanceCreate>({ ...DEFAULT_FORM });
+  const [form, setForm] = useState<VoiceLiveInstanceCreate>(createDefaultVlInstanceForm());
   const [avatarFilter, setAvatarFilter] = useState<"all" | "photo" | "video">("all");
 
   // Reset form when instance prop changes
@@ -145,7 +100,7 @@ export function VlInstanceDialog({
         model_instruction: instance.model_instruction ?? "",
       });
     } else {
-      setForm({ ...DEFAULT_FORM });
+      setForm(createDefaultVlInstanceForm());
     }
     setAvatarFilter("all");
   }, [instance]);

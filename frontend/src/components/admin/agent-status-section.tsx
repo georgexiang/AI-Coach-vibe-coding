@@ -98,6 +98,18 @@ export function AgentStatusSection({
           </div>
         )}
 
+        {/* Agent Version (RD-7) */}
+        {profile?.agent_version && (
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">
+              {t("admin:hcp.agentVersion")}
+            </Label>
+            <p className="text-sm font-mono bg-background/80 rounded px-2 py-1 border">
+              {profile.agent_version}
+            </p>
+          </div>
+        )}
+
         {/* Error message */}
         {agentStatus === "failed" && profile?.agent_sync_error && (
           <div className="space-y-1">

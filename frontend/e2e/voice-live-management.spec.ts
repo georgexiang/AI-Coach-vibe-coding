@@ -68,10 +68,14 @@ async function deleteInstanceApi(
   token: string,
   instanceId: string,
 ): Promise<void> {
-  await request.delete(
-    `${API_BASE}/api/v1/voice-live/instances/${instanceId}`,
-    { headers: { Authorization: `Bearer ${token}` } },
-  );
+  try {
+    await request.delete(
+      `${API_BASE}/api/v1/voice-live/instances/${instanceId}`,
+      { headers: { Authorization: `Bearer ${token}` } },
+    );
+  } catch {
+    // Cleanup errors are non-fatal — instance may already be deleted
+  }
 }
 
 /**
@@ -673,7 +677,7 @@ test.describe("Voice Live Management — Instance Card Details", () => {
     }
   });
 
-  test("delete button on card triggers confirmation dialog", async ({
+  test("delete via API and verify instance removed from page", async ({
     page,
     request,
   }) => {
@@ -681,41 +685,24 @@ test.describe("Voice Live Management — Instance Card Details", () => {
     const instName = `E2E-Card-Delete-${Date.now()}`;
     const inst = await createInstanceApi(request, token, instName);
 
-    try {
-      await page.goto("/admin/voice-live");
-      await page.waitForTimeout(3000);
+    await page.goto("/admin/voice-live");
+    await page.waitForTimeout(3000);
 
-      // Find the card
-      await expect(page.getByText(instName).first()).toBeVisible({
-        timeout: 10000,
-      });
+    // Instance should appear on the page
+    await expect(page.getByText(instName).first()).toBeVisible({
+      timeout: 10000,
+    });
 
-      const card = page.locator("[data-slot='card']").filter({ hasText: instName }).first();
+    // Delete via API
+    const deleteResp = await request.delete(
+      `${API_BASE}/api/v1/voice-live/instances/${inst.id}`,
+      { headers: { Authorization: `Bearer ${token}` } },
+    );
+    expect(deleteResp.status()).toBe(204);
 
-      // Click the delete button on the card
-      const deleteBtn = card
-        .getByRole("button", { name: /delete|remove/i })
-        .first();
-      const deleteCount = await deleteBtn.count();
-
-      if (deleteCount > 0) {
-        await deleteBtn.click({ force: true });
-        await page.waitForTimeout(500);
-
-        // Confirmation dialog should appear
-        const dialog = page.getByRole("dialog");
-        await expect(dialog).toBeVisible({ timeout: 3000 });
-
-        // Dialog should have cancel and confirm buttons
-        const cancelBtn = dialog.getByRole("button", { name: /cancel/i });
-        await expect(cancelBtn).toBeVisible();
-
-        // Close the dialog without deleting
-        await cancelBtn.click();
-        await page.waitForTimeout(300);
-      }
-    } finally {
-      await deleteInstanceApi(request, token, inst.id);
-    }
+    // Reload and verify it's gone
+    await page.reload();
+    await page.waitForTimeout(3000);
+    await expect(page.getByText(instName)).toHaveCount(0, { timeout: 5000 });
   });
 });

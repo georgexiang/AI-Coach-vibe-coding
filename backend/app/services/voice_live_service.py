@@ -183,6 +183,19 @@ async def get_voice_live_token(
     # Determine final mode: agent if agent_id is set (from config or HCP profile)
     is_agent = bool(agent_id)
 
+    # Agent mode availability for frontend display
+    from app.config import get_settings as _get_settings_inner
+
+    _agent_mode_enabled = _get_settings_inner().voice_live_agent_mode_enabled
+    agent_mode_available = False
+    agent_warning: str | None = None
+    if hcp_profile_id:
+        if is_agent and _agent_mode_enabled:
+            agent_mode_available = True
+        elif not is_agent:
+            agent_warning = "HCP profile does not have a synced agent. Using model mode."
+    # No warning when no hcp_profile_id (generic/standalone mode)
+
     logger.info(
         "get_voice_live_token resolved: final_mode=%s, model=%s, voice=%s, "
         "avatar=%s/%s, agent_id=%s",
@@ -225,6 +238,8 @@ async def get_voice_live_token(
         echo_cancellation=echo_cancellation,
         eou_detection=eou_detection,
         recognition_language=recognition_language,
+        agent_mode_available=agent_mode_available,
+        agent_warning=agent_warning,
     )
 
 

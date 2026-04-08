@@ -121,41 +121,136 @@ def _chunk_metadata_value(key: str, value: str, max_len: int = 512) -> dict[str,
 def build_voice_live_metadata(profile: object) -> dict[str, str] | None:
     """Build microsoft.voice-live.configuration metadata from HCP profile voice fields.
 
+    Uses resolve_voice_config() to get the effective voice/avatar settings,
+    respecting VoiceLiveInstance > inline HcpProfile field priority.
+
     Returns dict[str, str] suitable for agent metadata, or None if voice_live_enabled is False.
     The config JSON is chunked at 512-char boundaries per Azure metadata limits.
     """
-    if not getattr(profile, "voice_live_enabled", True):
+    from app.services.voice_live_instance_service import resolve_voice_config
+
+    vc = resolve_voice_config(profile)
+
+    if not vc.get("voice_live_enabled", True):
         return None
 
     config: dict = {}
 
     # Voice settings
-    voice_name = getattr(profile, "voice_name", "en-US-AvaNeural")
-    voice_type = getattr(profile, "voice_type", "azure-standard")
+    voice_name = vc.get("voice_name", "en-US-AvaNeural")
+    voice_type = vc.get("voice_type", "azure-standard")
     voice: dict = {"type": voice_type, "name": voice_name}
     if voice_type == "azure-standard":
-        voice["temperature"] = getattr(profile, "voice_temperature", 0.9)
+        voice["temperature"] = vc.get("voice_temperature", 0.9)
     config["voice"] = voice
 
     # Turn detection
-    turn_detection_type = getattr(profile, "turn_detection_type", "server_vad")
+    turn_detection_type = vc.get("turn_detection_type", "server_vad")
     turn_detection: dict = {"type": turn_detection_type}
-    if getattr(profile, "eou_detection", False):
+    if vc.get("eou_detection", False):
         turn_detection["end_of_utterance_detection"] = {"model": "semantic_detection_v1"}
     config["turn_detection"] = turn_detection
 
     # Noise suppression
-    if getattr(profile, "noise_suppression", False):
+    if vc.get("noise_suppression", False):
         config["input_audio_noise_reduction"] = {"type": "azure_deep_noise_suppression"}
 
     # Echo cancellation
-    if getattr(profile, "echo_cancellation", False):
+    if vc.get("echo_cancellation", False):
         config["input_audio_echo_cancellation"] = {"type": "server_echo_cancellation"}
+
+    # Avatar settings — PREVIOUSLY MISSING
+    avatar: dict = {
+        "character": vc.get("avatar_character", "lori"),
+        "style": vc.get("avatar_style", "casual"),
+        "customized": vc.get("avatar_customized", False),
+        "enabled": vc.get("avatar_enabled", True),
+    }
+    config["avatar"] = avatar
+
+    # VL Instance-specific fields — PREVIOUSLY MISSING
+    config["response_temperature"] = vc.get("response_temperature", 0.8)
+    config["proactive_engagement"] = vc.get("proactive_engagement", True)
+    config["auto_detect_language"] = vc.get("auto_detect_language", True)
+    config["playback_speed"] = vc.get("playback_speed", 1.0)
+    if vc.get("custom_lexicon_enabled", False) and vc.get("custom_lexicon_url", ""):
+        config["custom_lexicon"] = {"url": vc["custom_lexicon_url"]}
+    config["recognition_language"] = vc.get("recognition_language", "auto")
 
     config_json = json.dumps(config, separators=(",", ":"))
     result = {VOICE_LIVE_ENABLED_KEY: "true"}
     result.update(_chunk_metadata_value(VOICE_LIVE_CONFIG_KEY, config_json))
     return result
+
+
+def build_cleared_voice_metadata() -> dict[str, str]:
+    """Return metadata dict that clears Voice Live configuration on an agent (RD-4).
+
+    Used when unassigning a VoiceLiveInstance from an HCP profile to disable
+    voice live on the agent without deleting the agent itself.
+    """
+    return {VOICE_LIVE_ENABLED_KEY: "false", VOICE_LIVE_CONFIG_KEY: "{}"}
+
+
+async def update_agent_metadata_only(
+    db: AsyncSession,
+    agent_id: str,
+    new_metadata: dict[str, str],
+    *,
+    endpoint_override: str = "",
+    key_override: str = "",
+) -> bool:
+    """Update only voice-live metadata keys on an existing agent without touching instructions.
+
+    Fetches current agent metadata, removes old microsoft.voice-live.* keys,
+    merges in new_metadata, and updates via create_version.
+    Returns True on success, False on failure.
+    """
+    if endpoint_override:
+        project_endpoint, api_key = endpoint_override, key_override
+    else:
+        project_endpoint, api_key = await get_project_endpoint(db)
+
+    client = _get_project_client(project_endpoint, api_key)
+
+    try:
+        # Get current agent to read existing metadata and instructions
+        agent = await asyncio.to_thread(client.agents.get, agent_name=agent_id)
+
+        # Build merged metadata: remove old VL keys, add new ones
+        current_metadata: dict[str, str] = {}
+        if hasattr(agent, "metadata") and agent.metadata:
+            current_metadata = dict(agent.metadata)
+
+        # Remove all microsoft.voice-live.* keys (including chunk keys like .configuration.1)
+        keys_to_remove = [k for k in current_metadata if k.startswith("microsoft.voice-live.")]
+        for k in keys_to_remove:
+            del current_metadata[k]
+
+        # Merge in new metadata
+        current_metadata.update(new_metadata)
+
+        # Get instructions and model from current agent
+        latest = getattr(agent, "versions", {}).get("latest", {})
+        definition = latest.get("definition", {})
+        instructions = definition.get("instructions", "")
+        model = definition.get("model", "gpt-4o")
+
+        from azure.ai.projects.models import PromptAgentDefinition
+
+        new_definition = PromptAgentDefinition(model=model, instructions=instructions)
+
+        await asyncio.to_thread(
+            client.agents.create_version,
+            agent_name=agent_id,
+            definition=new_definition,
+            metadata=current_metadata,
+        )
+        logger.info("update_agent_metadata_only: updated metadata for agent %s", agent_id)
+        return True
+    except Exception as e:
+        logger.warning("update_agent_metadata_only failed for agent %s: %s", agent_id, e)
+        return False
 
 
 class _ApiKeyTokenCredential:
@@ -458,7 +553,7 @@ async def sync_agent_for_profile(
     vl_metadata = build_voice_live_metadata(profile)
 
     if profile.agent_id:
-        return await update_agent(
+        result = await update_agent(
             db,
             profile.agent_id,
             profile.name,
@@ -469,7 +564,7 @@ async def sync_agent_for_profile(
             key_override=prefetched_key or "",
         )
     else:
-        return await create_agent(
+        result = await create_agent(
             db,
             profile.name,
             instructions,
@@ -478,6 +573,12 @@ async def sync_agent_for_profile(
             endpoint_override=prefetched_endpoint or "",
             key_override=prefetched_key or "",
         )
+
+    # Store agent version on profile (RD-7)
+    agent_version = result.get("version") or result.get("id", "")
+    profile.agent_version = str(agent_version) if agent_version else None
+
+    return result
 
 
 # ---------------------------------------------------------------------------

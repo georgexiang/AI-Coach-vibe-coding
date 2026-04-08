@@ -10,6 +10,7 @@ import { useVoiceLive } from "@/hooks/use-voice-live";
 import { useAvatarStream } from "@/hooks/use-avatar-stream";
 import { useAudioHandler } from "@/hooks/use-audio-handler";
 import { useAudioPlayer } from "@/hooks/use-audio-player";
+import { useVoiceSessionLifecycle } from "@/hooks/use-voice-session-lifecycle";
 import type { TranscriptSegment } from "@/types/voice-live";
 
 export type SessionState = "idle" | "connecting" | "connected" | "error" | "stopping";
@@ -116,6 +117,9 @@ export function VoiceTestPlayground({
     onError,
   });
 
+  const { startSession: startVoiceSession, stopSession: stopVoiceSession } =
+    useVoiceSessionLifecycle({ voiceLive, avatarStream, audioHandler, audioPlayer });
+
   const isActive = sessionState === "connected" || sessionState === "stopping";
   const isConnecting = sessionState === "connecting";
 
@@ -124,77 +128,49 @@ export function VoiceTestPlayground({
       setSessionState("connecting");
       setTranscripts([]);
 
-      // Mic permission check with user-friendly error
-      try {
-        await audioHandler.initialize();
-      } catch (err) {
-        if (err instanceof DOMException && err.name === "NotAllowedError") {
-          toast.error(t("admin:hcp.permissionDeniedMic"));
-          setSessionState("error");
-          return;
-        }
-        throw err;
-      }
-
-      voiceLive.avatarSdpCallbackRef.current = avatarStream.handleServerSdp;
-
-      const result = await voiceLive.connect(
+      const result = await startVoiceSession({
         hcpProfileId,
         systemPrompt,
         vlInstanceId,
-      );
-
-      if (result.avatarEnabled) {
-        await avatarStream.connect(result.iceServers, async (clientSdp) => {
-          voiceLive.send({
-            type: "session.avatar.connect",
-            client_sdp: clientSdp,
-          });
-        });
-      }
-
-      // Start recording mic audio
-      audioHandler.startRecording((audioData: Float32Array) => {
-        if (voiceLive.isMuted) return;
-        const int16 = new Int16Array(audioData.length);
-        for (let i = 0; i < audioData.length; i++) {
-          const s = Math.max(-1, Math.min(1, audioData[i] ?? 0));
-          int16[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
-        }
-        const bytes = new Uint8Array(int16.buffer);
-        let binary = "";
-        for (let i = 0; i < bytes.length; i++) {
-          binary += String.fromCharCode(bytes[i]!);
-        }
-        voiceLive.sendAudio(btoa(binary));
+        onMicDenied: () => {
+          toast.error(t("admin:hcp.permissionDeniedMic"));
+          setSessionState("error");
+        },
+        onAudioWorkletFailed: () => {
+          setSessionState("error");
+        },
+        onConnectionFailed: (err) => {
+          toast.error(String(err));
+          setSessionState("error");
+        },
       });
 
-      setSessionState("connected");
+      if (result) {
+        setSessionState("connected");
+      } else if (sessionState === "connecting") {
+        // startVoiceSession returned null without triggering an error callback
+        // (e.g. mic denied already handled above), reset to idle if still connecting
+        setSessionState("idle");
+      }
     } catch (err) {
       toast.error(String(err));
       setSessionState("error");
     }
-  }, [hcpProfileId, vlInstanceId, systemPrompt, audioHandler, avatarStream, voiceLive, t]);
+  }, [hcpProfileId, vlInstanceId, systemPrompt, startVoiceSession, t, sessionState]);
 
   const stopTest = useCallback(async () => {
     setSessionState("stopping");
     try {
-      await voiceLive.disconnect();
-      avatarStream.disconnect();
-      audioHandler.cleanup();
-      audioPlayer.stopAudio();
+      await stopVoiceSession();
     } finally {
       setSessionState("idle");
     }
-  }, [voiceLive, avatarStream, audioHandler, audioPlayer]);
+  }, [stopVoiceSession]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      voiceLive.disconnect().catch(() => { /* ignore */ });
-      avatarStream.disconnect();
-      audioHandler.cleanup();
-      audioPlayer.stopAudio();
+      void stopVoiceSession();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

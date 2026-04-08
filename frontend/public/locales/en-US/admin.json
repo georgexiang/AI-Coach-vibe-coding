@@ -32,6 +32,7 @@
     "agentSyncedTooltip": "Agent synced to AI Foundry",
     "agentPendingTooltip": "Syncing agent to AI Foundry...",
     "agentNoneTooltip": "AI Foundry not configured or sync not attempted",
+    "agentVersion": "Agent Version",
     "retrySync": "Retry Sync",
     "syncSuccess": "Agent synced successfully",
     "syncFailed": "Agent sync failed: {{error}}",

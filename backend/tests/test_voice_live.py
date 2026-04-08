@@ -1,8 +1,13 @@
 """Tests for Voice Live API: token broker, connection tester, schemas, region validation,
 and feature flags voice_live_enabled integration."""
 
+import os
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+
+from app.config import get_settings
+from app.models.service_config import ServiceConfig
 from app.models.user import User
 from app.schemas.session import SessionCreate
 from app.schemas.voice_live import VoiceLiveConfigStatus, VoiceLiveTokenResponse
@@ -14,6 +19,7 @@ from app.services.connection_tester import (
     test_service_connection as _test_service_connection,
 )
 from app.services.voice_live_service import SUPPORTED_REGIONS, validate_region
+from app.utils.encryption import encrypt_value
 from tests.conftest import TestSessionLocal
 
 
@@ -423,3 +429,316 @@ class TestFeatureFlagsVoiceLive:
         assert response.status_code == 200
         data = response.json()
         assert data["features"]["voice_live_enabled"] is True
+
+
+# === Real-Data Integration Tests ===
+# These tests use real Azure credentials from .env and real DB operations.
+# They are skipped automatically when credentials are not available.
+
+# Read Azure credentials from environment / settings for skip decisions
+_settings = get_settings()
+_AZURE_ENDPOINT = _settings.azure_foundry_endpoint or os.environ.get("AZURE_FOUNDRY_ENDPOINT", "")
+_AZURE_API_KEY = _settings.azure_foundry_api_key or os.environ.get("AZURE_FOUNDRY_API_KEY", "")
+_HAS_AZURE_CREDS = bool(_AZURE_ENDPOINT and _AZURE_API_KEY)
+
+_skip_no_creds = pytest.mark.skipif(
+    not _HAS_AZURE_CREDS,
+    reason="AZURE_FOUNDRY_ENDPOINT and AZURE_FOUNDRY_API_KEY not set in .env",
+)
+
+
+async def _seed_voice_live_config(
+    endpoint: str,
+    api_key: str,
+    region: str = "eastus2",
+    model: str = "gpt-4o-realtime-preview",
+    is_active: bool = True,
+) -> None:
+    """Seed a real azure_voice_live ServiceConfig row into the test DB."""
+    async with TestSessionLocal() as session:
+        config = ServiceConfig(
+            service_name="azure_voice_live",
+            display_name="Azure Voice Live",
+            endpoint=endpoint,
+            api_key_encrypted=encrypt_value(api_key),
+            model_or_deployment=model,
+            region=region,
+            is_active=is_active,
+            updated_by="test-seeder",
+        )
+        session.add(config)
+        await session.commit()
+
+
+async def _seed_master_config(
+    endpoint: str,
+    api_key: str,
+    region: str = "eastus2",
+) -> None:
+    """Seed the AI Foundry master config row into the test DB."""
+    async with TestSessionLocal() as session:
+        config = ServiceConfig(
+            service_name="ai_foundry",
+            display_name="Azure AI Foundry",
+            endpoint=endpoint,
+            api_key_encrypted=encrypt_value(api_key),
+            region=region,
+            is_master=True,
+            is_active=True,
+            updated_by="test-seeder",
+        )
+        session.add(config)
+        await session.commit()
+
+
+class TestRealConnectionTester:
+    """Real-data tests for Voice Live connection tester against Azure endpoints."""
+
+    @_skip_no_creds
+    async def test_real_connection_tester_voice_live_valid(self):
+        """Real httpx probe against Azure endpoint (no mocks).
+
+        A valid Azure endpoint should return success (endpoint reachable),
+        typically via HTTP 404/405/426 from the realtime WebSocket path.
+        """
+        from app.utils.azure_endpoints import to_cognitive_services_endpoint
+
+        effective_endpoint = to_cognitive_services_endpoint(_AZURE_ENDPOINT)
+        success, message = await _test_azure_voice_live(
+            endpoint=effective_endpoint,
+            api_key=_AZURE_API_KEY,
+            region="eastus2",
+        )
+        assert success is True
+        assert "reachable" in message.lower() or "successful" in message.lower()
+
+
+class TestRealVoiceLiveAPI:
+    """Real-data integration tests for Voice Live API endpoints.
+
+    These tests use a real in-memory SQLite database with seeded ServiceConfig
+    rows containing real Azure credentials. No mocking of config_service.
+    """
+
+    async def test_real_token_endpoint_no_config_seeded(self, client):
+        """POST /api/v1/voice-live/token returns 503 when DB has no config rows.
+
+        Uses a real empty DB — no mocking of config_service.
+        """
+        _, token = await _create_user_and_token("real_vl_noconfig")
+        response = await client.post(
+            "/api/v1/voice-live/token",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 503
+        data = response.json()
+        assert data["code"] == "VOICE_LIVE_NOT_CONFIGURED"
+
+    async def test_real_status_endpoint_no_config_seeded(self, client):
+        """GET /api/v1/voice-live/status returns voice_live_available=False with empty DB.
+
+        Uses a real empty DB — no mocking of config_service.
+        """
+        _, token = await _create_user_and_token("real_vl_status_empty")
+        response = await client.get(
+            "/api/v1/voice-live/status",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["voice_live_available"] is False
+        assert data["avatar_available"] is False
+
+    @_skip_no_creds
+    async def test_real_token_endpoint_with_seeded_config(self, client):
+        """POST /api/v1/voice-live/token returns 200 with seeded real credentials.
+
+        Seeds a real azure_voice_live config row with actual Azure credentials,
+        then verifies the token endpoint returns properly structured data
+        with the token masked (never exposing the raw API key).
+        """
+        from app.utils.azure_endpoints import to_cognitive_services_endpoint
+
+        effective_endpoint = to_cognitive_services_endpoint(_AZURE_ENDPOINT)
+        await _seed_voice_live_config(
+            endpoint=effective_endpoint,
+            api_key=_AZURE_API_KEY,
+            region="eastus2",
+        )
+        _, token = await _create_user_and_token("real_vl_withconfig")
+        response = await client.post(
+            "/api/v1/voice-live/token",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        # Verify expected structure
+        assert data["endpoint"] == effective_endpoint
+        assert data["token"] == "***configured***"
+        assert data["region"] == "eastus2"
+        assert "voice_name" in data
+        assert "avatar_enabled" in data
+        # Security: raw API key must NOT appear anywhere in the response
+        assert _AZURE_API_KEY not in response.text
+
+    @_skip_no_creds
+    async def test_real_status_endpoint_with_seeded_config(self, client):
+        """GET /api/v1/voice-live/status returns voice_live_available=True with seeded config."""
+        from app.utils.azure_endpoints import to_cognitive_services_endpoint
+
+        effective_endpoint = to_cognitive_services_endpoint(_AZURE_ENDPOINT)
+        await _seed_voice_live_config(
+            endpoint=effective_endpoint,
+            api_key=_AZURE_API_KEY,
+            region="eastus2",
+        )
+        _, token = await _create_user_and_token("real_vl_status_seeded")
+        response = await client.get(
+            "/api/v1/voice-live/status",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["voice_live_available"] is True
+
+    @_skip_no_creds
+    async def test_real_token_endpoint_with_master_fallback(self, client):
+        """POST /api/v1/voice-live/token uses master AI Foundry key when per-service key is empty.
+
+        Seeds a voice_live config row with no API key and a master config row
+        with the real API key. Verifies fallback resolution works end-to-end.
+        """
+        from app.utils.azure_endpoints import to_cognitive_services_endpoint
+
+        effective_endpoint = to_cognitive_services_endpoint(_AZURE_ENDPOINT)
+        # Seed master config with real credentials
+        await _seed_master_config(
+            endpoint=effective_endpoint,
+            api_key=_AZURE_API_KEY,
+            region="eastus2",
+        )
+        # Seed voice_live config with no key (will fall back to master)
+        async with TestSessionLocal() as session:
+            config = ServiceConfig(
+                service_name="azure_voice_live",
+                display_name="Azure Voice Live",
+                endpoint="",  # empty — falls back to master
+                api_key_encrypted="",  # empty — falls back to master
+                model_or_deployment="gpt-4o-realtime-preview",
+                region="eastus2",
+                is_active=True,
+                updated_by="test-seeder",
+            )
+            session.add(config)
+            await session.commit()
+
+        _, token = await _create_user_and_token("real_vl_master_fallback")
+        response = await client.post(
+            "/api/v1/voice-live/token",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["token"] == "***configured***"
+        assert data["endpoint"] == effective_endpoint
+        # Security: raw key must not leak
+        assert _AZURE_API_KEY not in response.text
+
+
+class TestRealTokenBrokerSecurity:
+    """Real-data security tests: seeded DB, verify API key never exposed."""
+
+    @_skip_no_creds
+    async def test_real_token_never_contains_api_key(self, client):
+        """POST /api/v1/voice-live/token with real credentials never exposes the raw key."""
+        from app.utils.azure_endpoints import to_cognitive_services_endpoint
+
+        effective_endpoint = to_cognitive_services_endpoint(_AZURE_ENDPOINT)
+        await _seed_voice_live_config(
+            endpoint=effective_endpoint,
+            api_key=_AZURE_API_KEY,
+        )
+        _, token = await _create_user_and_token("real_security_key")
+        response = await client.post(
+            "/api/v1/voice-live/token",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 200
+        raw_response = response.text
+        # The real API key must NEVER appear in any form in the response
+        assert _AZURE_API_KEY not in raw_response
+        data = response.json()
+        assert data["token"] == "***configured***"
+
+    @_skip_no_creds
+    async def test_real_response_does_not_contain_agent_instructions(self, client):
+        """POST /api/v1/voice-live/token must not expose agent_instructions_override."""
+        from app.utils.azure_endpoints import to_cognitive_services_endpoint
+
+        effective_endpoint = to_cognitive_services_endpoint(_AZURE_ENDPOINT)
+        await _seed_voice_live_config(
+            endpoint=effective_endpoint,
+            api_key=_AZURE_API_KEY,
+        )
+        _, token = await _create_user_and_token("real_security_instruct")
+        response = await client.post(
+            "/api/v1/voice-live/token",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "agent_instructions_override" not in data
+
+
+class TestRealFeatureFlagsVoiceLive:
+    """Real-data feature flag tests using actual get_settings() values."""
+
+    async def test_real_feature_flags_includes_voice_live_enabled(self, client):
+        """GET /api/v1/config/features includes voice_live_enabled field using real settings.
+
+        No mocking — reads the actual feature_voice_live_enabled from .env/defaults.
+        """
+        _, token = await _create_user_and_token("real_flags_vl")
+        response = await client.get(
+            "/api/v1/config/features",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "features" in data
+        assert "voice_live_enabled" in data["features"]
+        # The value should match the real settings
+        expected = _settings.feature_voice_live_enabled
+        assert data["features"]["voice_live_enabled"] is expected
+
+    async def test_real_feature_flags_voice_live_type_is_bool(self, client):
+        """GET /api/v1/config/features voice_live_enabled is always a boolean."""
+        _, token = await _create_user_and_token("real_flags_vl_type")
+        response = await client.get(
+            "/api/v1/config/features",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert isinstance(data["features"]["voice_live_enabled"], bool)
+
+    async def test_real_feature_flags_all_fields_present(self, client):
+        """GET /api/v1/config/features returns all expected feature flag fields."""
+        _, token = await _create_user_and_token("real_flags_all")
+        response = await client.get(
+            "/api/v1/config/features",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        features = data["features"]
+        expected_keys = {
+            "avatar_enabled",
+            "voice_enabled",
+            "realtime_voice_enabled",
+            "conference_enabled",
+            "voice_live_enabled",
+            "default_voice_mode",
+            "region",
+        }
+        assert expected_keys.issubset(set(features.keys()))

@@ -71,6 +71,9 @@ class Settings(BaseSettings):
     # Default Voice Live model (when creating new instances/profiles; override via .env)
     voice_live_default_model: str = "gpt-4o"
 
+    # Voice Live Agent Mode (RD-1: SDK >=1.2.0b5 supports API-key agent mode)
+    voice_live_agent_mode_enabled: bool = True
+
     # Logging
     log_level: str = "INFO"  # DEBUG, INFO, WARNING, ERROR
 

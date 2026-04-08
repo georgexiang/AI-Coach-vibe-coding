@@ -23,21 +23,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { VoiceLiveModelSelect } from "@/components/admin/voice-live-model-select";
 import { VoiceTestPlayground } from "@/components/voice/voice-test-playground";
+import { AssignHcpDialog } from "@/components/admin/assign-hcp-dialog";
 import {
   useVoiceLiveInstance,
   useCreateVoiceLiveInstance,
   useUpdateVoiceLiveInstance,
-  useAssignVoiceLiveInstance,
 } from "@/hooks/use-voice-live-instances";
 import { useHcpProfiles } from "@/hooks/use-hcp-profiles";
 import type { SessionState as PlaygroundSessionState } from "@/components/voice/voice-test-playground";
@@ -46,65 +38,16 @@ import {
   getAvatarInitials,
 } from "@/data/avatar-characters";
 import { cn } from "@/lib/utils";
+import {
+  VOICE_NAME_OPTIONS,
+  TURN_DETECTION_TYPES,
+  RECOGNITION_LANGUAGES,
+  CDN_BASE,
+  createDefaultVlInstanceForm,
+} from "@/lib/voice-constants";
 import type { VoiceLiveInstanceCreate } from "@/types/voice-live";
 
-/* ── Option constants ─────────────────────────────────────────────────── */
-
-const VOICE_NAME_OPTIONS = [
-  { value: "en-US-AvaNeural", label: "Ava (en-US)", gender: "Female" },
-  { value: "en-US-Ava:DragonHDLatestNeural", label: "Ava HD (en-US)", gender: "Female" },
-  { value: "en-US-AndrewNeural", label: "Andrew (en-US)", gender: "Male" },
-  { value: "en-US-JennyNeural", label: "Jenny (en-US)", gender: "Female" },
-  { value: "zh-CN-XiaoxiaoMultilingualNeural", label: "Xiaoxiao ML (zh-CN)", gender: "Female" },
-  { value: "zh-CN-XiaoxiaoNeural", label: "Xiaoxiao (zh-CN)", gender: "Female" },
-  { value: "zh-CN-YunxiNeural", label: "Yunxi (zh-CN)", gender: "Male" },
-  { value: "zh-CN-YunjianNeural", label: "Yunjian (zh-CN)", gender: "Male" },
-] as const;
-
-const TURN_DETECTION_TYPES = [
-  { value: "server_vad", labelKey: "turnServerVad" },
-  { value: "semantic_vad", labelKey: "turnSemanticVad" },
-  { value: "azure_semantic_vad", labelKey: "turnAzureSemanticVad" },
-  { value: "azure_semantic_vad_multilingual", labelKey: "turnAzureSemanticVadMultilingual" },
-] as const;
-
-const RECOGNITION_LANGUAGES = [
-  { value: "auto", label: "Auto-detect" },
-  { value: "zh-CN", label: "中文 (Chinese)" },
-  { value: "en-US", label: "English (US)" },
-  { value: "ja-JP", label: "日本語 (Japanese)" },
-  { value: "ko-KR", label: "한국어 (Korean)" },
-] as const;
-
-const CDN_BASE =
-  "https://learn.microsoft.com/en-us/azure/ai-services/speech-service/text-to-speech-avatar/media";
-
-const DEFAULT_FORM: VoiceLiveInstanceCreate = {
-  name: "",
-  description: "",
-  voice_live_model: "gpt-4o",
-  enabled: true,
-  voice_name: "en-US-AvaNeural",
-  voice_type: "azure-standard",
-  voice_temperature: 0.9,
-  voice_custom: false,
-  avatar_character: "lori",
-  avatar_style: "casual",
-  avatar_customized: false,
-  turn_detection_type: "server_vad",
-  noise_suppression: false,
-  echo_cancellation: false,
-  eou_detection: false,
-  recognition_language: "auto",
-  model_instruction: "",
-  response_temperature: 0.8,
-  proactive_engagement: true,
-  auto_detect_language: true,
-  playback_speed: 1.0,
-  custom_lexicon_enabled: false,
-  custom_lexicon_url: "",
-  avatar_enabled: true,
-};
+const DEFAULT_FORM = createDefaultVlInstanceForm();
 
 type AvatarGridItem = {
   characterId: string;
@@ -156,7 +99,6 @@ export default function VlInstanceEditorPage() {
   const { data: instance, isLoading } = useVoiceLiveInstance(id);
   const createMutation = useCreateVoiceLiveInstance();
   const updateMutation = useUpdateVoiceLiveInstance();
-  const assignMutation = useAssignVoiceLiveInstance();
   const { data: hcpData } = useHcpProfiles();
   const hcpProfiles = hcpData?.items ?? [];
 
@@ -166,17 +108,6 @@ export default function VlInstanceEditorPage() {
     [hcpProfiles, id],
   );
   const testHcp = assignedHcps[0];
-
-  // Available HCPs for assign dialog (not already assigned to this instance)
-  const availableHcps = useMemo(
-    () =>
-      id
-        ? hcpProfiles.filter(
-            (p) => !p.voice_live_instance_id || p.voice_live_instance_id !== id,
-          )
-        : [],
-    [hcpProfiles, id],
-  );
 
   /* ── Form state ────────────────────────────────────────────────────── */
 
@@ -191,7 +122,6 @@ export default function VlInstanceEditorPage() {
 
   // Assign dialog
   const [assignOpen, setAssignOpen] = useState(false);
-  const [selectedHcpId, setSelectedHcpId] = useState("");
 
   // Populate form ONCE when instance first loads
   useEffect(() => {
@@ -319,25 +249,6 @@ export default function VlInstanceEditorPage() {
       });
     }
   }, [form, isEdit, id, createMutation, updateMutation, navigate, t]);
-
-  /* ── Assign handler ─────────────────────────────────────────────────── */
-
-  const handleAssign = useCallback(() => {
-    if (!id || !selectedHcpId) return;
-    assignMutation.mutate(
-      { instanceId: id, hcpProfileId: selectedHcpId },
-      {
-        onSuccess: () => {
-          toast.success(t("voiceLive.assignSuccess"));
-          setAssignOpen(false);
-          setSelectedHcpId("");
-        },
-        onError: () => {
-          toast.error(t("voiceLive.assignError"));
-        },
-      },
-    );
-  }, [id, selectedHcpId, assignMutation, t]);
 
   /* ── Loading state ──────────────────────────────────────────────────── */
 
@@ -495,7 +406,7 @@ export default function VlInstanceEditorPage() {
                 <SelectContent>
                   {RECOGNITION_LANGUAGES.map((opt) => (
                     <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
+                      {t(`hcp.${opt.labelKey}`)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -585,10 +496,7 @@ export default function VlInstanceEditorPage() {
                 <SelectContent>
                   {VOICE_NAME_OPTIONS.map((opt) => (
                     <SelectItem key={opt.value} value={opt.value}>
-                      <span>{opt.label}</span>
-                      <span className="ml-2 text-muted-foreground text-xs">
-                        {opt.gender}
-                      </span>
+                      {t(`hcp.${opt.labelKey}`)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -799,10 +707,7 @@ export default function VlInstanceEditorPage() {
                 variant="outline"
                 size="sm"
                 className="gap-1.5"
-                onClick={() => {
-                  setSelectedHcpId("");
-                  setAssignOpen(true);
-                }}
+                onClick={() => setAssignOpen(true)}
               >
                 <Users className="size-3.5" />
                 {tp("assignToHcp")}
@@ -820,67 +725,14 @@ export default function VlInstanceEditorPage() {
       </div>
 
       {/* ════════════ Assign to HCP Dialog ════════════ */}
-      <Dialog
-        open={assignOpen}
-        onOpenChange={(open) => {
-          if (!open) {
-            setAssignOpen(false);
-            setSelectedHcpId("");
-          }
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t("voiceLive.assignDialogTitle")}</DialogTitle>
-            <DialogDescription>
-              {t("voiceLive.assignDialogDescription", {
-                name: form.name || "this instance",
-              })}
-            </DialogDescription>
-          </DialogHeader>
-
-          {availableHcps.length > 0 ? (
-            <Select value={selectedHcpId} onValueChange={setSelectedHcpId}>
-              <SelectTrigger>
-                <SelectValue
-                  placeholder={t("voiceLive.assignToHcpPlaceholder")}
-                />
-              </SelectTrigger>
-              <SelectContent>
-                {availableHcps.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.name} — {p.specialty}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          ) : (
-            <p className="text-sm text-muted-foreground py-4 text-center">
-              {t("voiceLive.assignDialogEmpty")}
-            </p>
-          )}
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setAssignOpen(false);
-                setSelectedHcpId("");
-              }}
-            >
-              {t("voiceLive.vlDialogCancel")}
-            </Button>
-            <Button
-              disabled={!selectedHcpId || assignMutation.isPending}
-              onClick={handleAssign}
-            >
-              {assignMutation.isPending
-                ? t("voiceLive.vlDialogSaving")
-                : t("voiceLive.assignToHcp")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {id && (
+        <AssignHcpDialog
+          open={assignOpen}
+          onOpenChange={setAssignOpen}
+          instanceId={id}
+          instanceName={form.name ?? ""}
+        />
+      )}
     </div>
   );
 }

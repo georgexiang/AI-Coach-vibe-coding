@@ -224,22 +224,22 @@ Phases execute in numeric order: 01 -> 01.1 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07 
 **Goal:** 前端 Voice Live 功能模块化（提取共享 utils/hooks/components 消除重复），后端 WebSocket proxy 支持双模式（Model + Agent），SDK 升级到 1.2.0b5，HCP 绑定的 voice/avatar 配置完整同步到 AI Foundry Agent（解决 portal 中 agent voice 配置为空的问题）。
 **Requirements**: VL-16-01, VL-16-02, VL-16-03, VL-16-04, VL-16-05, VL-16-06
 **Depends on:** Phase 15
-**Plans:** 0/4 plans executed
+**Plans:** 4/4 plans executed
 
 **Success Criteria** (what must be TRUE):
   1. 前端 Voice Live 重复代码提取为共享模块（voice-utils、useVoiceSessionLifecycle、AssignHcpDialog、voice-constants）
   2. VL Instance Editor 使用 Model 模式连接 Voice Live 并可进行联通测试
   3. HCP 页面 Playground 使用 Agent 模式调用 Voice Live（前提：HCP 已同步且有 agent-id）
-  4. Agent 模式连接失败时自动降级为 Model 模式（fallback chain）
+  4. Agent 模式连接失败时返回错误（不做 silent fallback）— owner decision overrides original fallback design
   5. HCP 绑定的 VoiceLiveInstance 配置（含 avatar）完整同步到 AI Foundry Agent metadata
   6. VL Instance 更新/分配/取消分配时触发关联 HCP agent 重新同步
   7. 前后端测试覆盖 + TypeScript/Ruff 构建通过
 
 Plans:
-- [ ] 16-01-PLAN.md -- Frontend Voice Live modularization: extract voice-utils, useVoiceSessionLifecycle, AssignHcpDialog, voice-constants
-- [ ] 16-02-PLAN.md -- Backend dual-mode WebSocket (Model+Agent), SDK 1.2.0b5 upgrade, agent pre-check, NO fallback
-- [ ] 16-03-PLAN.md -- Voice Live config sync to AI Foundry Agent: fix build_voice_live_metadata, avatar fields, re-sync triggers, agent versioning, clear-on-unassign
-- [ ] 16-04-PLAN.md -- ROADMAP fix (no-fallback), frontend tests, build verification, human visual checkpoint
+- [x] 16-01-PLAN.md -- Frontend Voice Live modularization: extract voice-utils, useVoiceSessionLifecycle, AssignHcpDialog, voice-constants
+- [x] 16-02-PLAN.md -- Backend dual-mode WebSocket (Model+Agent), SDK 1.2.0b5 upgrade, agent pre-check, NO fallback
+- [x] 16-03-PLAN.md -- Voice Live config sync to AI Foundry Agent: fix build_voice_live_metadata, avatar fields, re-sync triggers, agent versioning, clear-on-unassign
+- [x] 16-04-PLAN.md -- ROADMAP fix (no-fallback), frontend tests, build verification, human visual checkpoint
 
 **UI hint**: yes
 
