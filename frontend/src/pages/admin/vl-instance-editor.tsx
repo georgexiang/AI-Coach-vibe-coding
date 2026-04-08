@@ -686,8 +686,7 @@ export default function VlInstanceEditorPage() {
       {/* ════════════ RIGHT PANEL — Test Playground (~70%) ════════════ */}
       <div className="flex-1 flex flex-col">
         <VoiceTestPlayground
-          hcpProfileId={testHcp?.id}
-          vlInstanceId={!testHcp ? id : undefined}
+          vlInstanceId={id}
           systemPrompt={form.model_instruction ?? ""}
           language={form.recognition_language ?? "auto"}
           avatarCharacter={

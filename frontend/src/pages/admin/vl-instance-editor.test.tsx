@@ -62,22 +62,45 @@ vi.mock("@/components/admin/voice-live-model-select", () => ({
   ),
 }));
 
-// Mock VoiceTestPlayground
+// Mock VoiceTestPlayground — capture ALL props so tests can verify correct routing
+let capturedPlaygroundProps: Record<string, unknown> | null = null;
 vi.mock("@/components/voice/voice-test-playground", () => ({
   VoiceTestPlayground: (props: {
+    hcpProfileId?: string;
+    vlInstanceId?: string;
+    systemPrompt?: string;
+    language?: string;
+    avatarCharacter?: string;
+    avatarStyle?: string;
+    avatarEnabled?: boolean;
+    hcpName?: string;
     disabled: boolean;
     disabledMessage?: string;
     title: string;
     headerExtra?: React.ReactNode;
-  }) => (
-    <div data-testid="voice-playground" data-disabled={props.disabled}>
-      {props.title}
-      {props.disabledMessage && (
-        <span data-testid="disabled-msg">{props.disabledMessage}</span>
-      )}
-      {props.headerExtra}
-    </div>
-  ),
+    className?: string;
+  }) => {
+    capturedPlaygroundProps = { ...props };
+    return (
+      <div
+        data-testid="voice-playground"
+        data-disabled={props.disabled}
+        data-vl-instance-id={props.vlInstanceId ?? ""}
+        data-hcp-profile-id={props.hcpProfileId ?? ""}
+        data-system-prompt={props.systemPrompt ?? ""}
+        data-avatar-enabled={String(props.avatarEnabled ?? false)}
+        data-avatar-character={props.avatarCharacter ?? ""}
+        data-avatar-style={props.avatarStyle ?? ""}
+        data-hcp-name={props.hcpName ?? ""}
+      >
+        {props.title}
+        {props.disabledMessage && (
+          <span data-testid="disabled-msg">{props.disabledMessage}</span>
+        )}
+        {props.headerExtra}
+      </div>
+    );
+  },
 }));
 
 // Mock avatar-characters data
@@ -216,6 +239,7 @@ function renderEditor(path = "/admin/voice-live/new") {
 describe("VlInstanceEditorPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    capturedPlaygroundProps = null;
     mockInstanceReturn = { data: undefined, isLoading: false };
     mockHcpReturn = { data: { items: [] } };
   });
@@ -648,5 +672,91 @@ describe("VlInstanceEditorPage", () => {
     renderEditor("/admin/voice-live/vl-1/edit");
 
     expect(screen.getByText("(1)")).toBeInTheDocument();
+  });
+
+  /* ── VoiceTestPlayground props — critical routing tests ──────────── */
+
+  it("always passes vlInstanceId to playground in edit mode, never hcpProfileId", () => {
+    mockInstanceReturn = { data: MOCK_INSTANCE, isLoading: false };
+    mockHcpReturn = { data: { items: [MOCK_HCP] } };
+    renderEditor("/admin/voice-live/vl-1/edit");
+
+    const pg = screen.getByTestId("voice-playground");
+    expect(pg).toHaveAttribute("data-vl-instance-id", "vl-1");
+    expect(pg).toHaveAttribute("data-hcp-profile-id", "");
+  });
+
+  it("passes vlInstanceId even when multiple HCPs assigned (no hcpProfileId leak)", () => {
+    mockInstanceReturn = { data: MOCK_INSTANCE, isLoading: false };
+    const hcp2 = { ...MOCK_HCP, id: "hcp-2", name: "Dr. Jones", agent_id: "asst_jones", agent_sync_status: "synced" as const };
+    mockHcpReturn = { data: { items: [MOCK_HCP, hcp2] } };
+    renderEditor("/admin/voice-live/vl-1/edit");
+
+    const pg = screen.getByTestId("voice-playground");
+    expect(pg).toHaveAttribute("data-vl-instance-id", "vl-1");
+    expect(pg).toHaveAttribute("data-hcp-profile-id", "");
+  });
+
+  it("passes model_instruction as systemPrompt", () => {
+    mockInstanceReturn = { data: { ...MOCK_INSTANCE, model_instruction: "You are an English teacher" }, isLoading: false };
+    renderEditor("/admin/voice-live/vl-1/edit");
+
+    expect(screen.getByTestId("voice-playground")).toHaveAttribute(
+      "data-system-prompt",
+      "You are an English teacher",
+    );
+  });
+
+  it("passes avatar props when avatar is enabled", () => {
+    mockInstanceReturn = { data: MOCK_INSTANCE, isLoading: false };
+    renderEditor("/admin/voice-live/vl-1/edit");
+
+    const pg = screen.getByTestId("voice-playground");
+    expect(pg).toHaveAttribute("data-avatar-enabled", "true");
+    expect(pg).toHaveAttribute("data-avatar-character", "lisa");
+    expect(pg).toHaveAttribute("data-avatar-style", "casual-sitting");
+  });
+
+  it("clears avatar character/style when avatar is disabled", () => {
+    mockInstanceReturn = {
+      data: { ...MOCK_INSTANCE, avatar_enabled: false },
+      isLoading: false,
+    };
+    renderEditor("/admin/voice-live/vl-1/edit");
+
+    const pg = screen.getByTestId("voice-playground");
+    expect(pg).toHaveAttribute("data-avatar-enabled", "false");
+    expect(pg).toHaveAttribute("data-avatar-character", "");
+    expect(pg).toHaveAttribute("data-avatar-style", "");
+  });
+
+  it("uses first assigned HCP name for hcpName, falls back to instance name", () => {
+    mockInstanceReturn = { data: MOCK_INSTANCE, isLoading: false };
+    mockHcpReturn = { data: { items: [MOCK_HCP] } };
+    renderEditor("/admin/voice-live/vl-1/edit");
+
+    expect(screen.getByTestId("voice-playground")).toHaveAttribute(
+      "data-hcp-name",
+      "Dr. Smith",
+    );
+  });
+
+  it("falls back to instance name for hcpName when no HCPs assigned", () => {
+    mockInstanceReturn = { data: MOCK_INSTANCE, isLoading: false };
+    mockHcpReturn = { data: { items: [] } };
+    renderEditor("/admin/voice-live/vl-1/edit");
+
+    expect(screen.getByTestId("voice-playground")).toHaveAttribute(
+      "data-hcp-name",
+      "Test VL Instance",
+    );
+  });
+
+  it("does not pass vlInstanceId in create mode (undefined)", () => {
+    renderEditor("/admin/voice-live/new");
+    expect(screen.getByTestId("voice-playground")).toHaveAttribute(
+      "data-vl-instance-id",
+      "",
+    );
   });
 });
