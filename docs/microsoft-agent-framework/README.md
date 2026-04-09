@@ -12,7 +12,9 @@
 | 02 | [Model 模式 vs Agent 模式](./02-model-vs-agent-mode.md) | 两种调用模式的架构差异、数据流、认证方式实测结果 | 后端开发 |
 | 03 | [Agent Identity 与认证方向](./03-agent-identity-and-auth-direction.md) | Agent 内部 Identity 的作用、入站/出站认证的区别、常见误解澄清 | 架构师 |
 | 04 | [AI Coach 平台集成策略](./04-ai-coach-integration-strategy.md) | 当前实现现状、双模式切换设计、集成方案 | 项目开发 |
-| 05 | [POC 验证测试代码](./tests/test_agent_auth_v2.py) | SDK 1.2.0b5 四种认证方式实测代码（**唯一有效测试**） | 开发/验证 |
+| 05 | [Agent API Metadata 约束](./05-agent-api-metadata-constraints.md) | Endpoint 构造、512 字符限制、metadata 格式、默认值省略策略、重构指南 | 后端开发 / Agent |
+| 06 | [POC 验证测试代码](./tests/test_agent_auth_v2.py) | SDK 1.2.0b5 四种认证方式实测代码（**唯一有效测试**） | 开发/验证 |
+| 07 | [Agent Metadata API 探测测试](./tests/test_agent_metadata_api.py) | 真实 API 连接测试：metadata 读写、512 限制验证、版本追踪 | 开发/验证 |
 
 > **注意**：`tests/` 目录下的 `test_voice_live_auth_modes.py` 和 `test_agent_conversation.py`
 > 是 SDK 1.1.0 时期的早期探索代码，使用了 `session.agent` 字段（服务端不接受）和错误的 API 版本。
