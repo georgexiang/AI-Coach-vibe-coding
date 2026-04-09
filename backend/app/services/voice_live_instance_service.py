@@ -107,9 +107,17 @@ async def update_instance(
         for profile in refreshed.hcp_profiles:
             if profile.agent_id and profile.agent_sync_status == "synced":
                 try:
+                    # Set relationship directly to avoid async lazy-load
+                    # (profile was loaded via selectinload on VoiceLiveInstance,
+                    #  but its own voice_live_instance back-ref is not loaded)
+                    profile.voice_live_instance = refreshed
                     vl_metadata = build_voice_live_metadata(profile)
                     if vl_metadata:
-                        await update_agent_metadata_only(db, profile.agent_id, vl_metadata)
+                        new_version = await update_agent_metadata_only(
+                            db, profile.agent_id, vl_metadata
+                        )
+                        if new_version:
+                            profile.agent_version = new_version
                 except Exception as e:
                     logger.warning(
                         "update_instance: re-sync failed for hcp=%s agent=%s: %s",
@@ -117,6 +125,7 @@ async def update_instance(
                         profile.agent_id,
                         e,
                     )
+        await db.flush()
 
     return refreshed
 
@@ -137,7 +146,11 @@ async def delete_instance(db: AsyncSession, instance_id: str) -> None:
             if profile.agent_id and profile.agent_sync_status == "synced":
                 try:
                     cleared = build_cleared_voice_metadata()
-                    await update_agent_metadata_only(db, profile.agent_id, cleared)
+                    new_version = await update_agent_metadata_only(
+                        db, profile.agent_id, cleared
+                    )
+                    if new_version:
+                        profile.agent_version = new_version
                 except Exception as e:
                     logger.warning(
                         "delete_instance: failed to clear agent metadata for hcp=%s: %s",
@@ -158,8 +171,8 @@ async def assign_to_hcp(
     hcp_profile_id: str,
 ) -> HcpProfile:
     """Assign a Voice Live Instance to an HCP Profile."""
-    # Verify instance exists
-    await get_instance(db, instance_id)
+    # Load the instance (also verifies it exists)
+    instance = await get_instance(db, instance_id)
 
     # Load HCP profile
     result = await db.execute(select(HcpProfile).where(HcpProfile.id == hcp_profile_id))
@@ -170,6 +183,8 @@ async def assign_to_hcp(
     profile.voice_live_instance_id = instance_id
     await db.commit()
     await db.refresh(profile)
+    # Set relationship directly so resolve_voice_config works in async context
+    profile.voice_live_instance = instance
     logger.info("VL instance assigned: instance=%s, hcp=%s", instance_id, hcp_profile_id)
 
     # Trigger agent metadata sync for the assigned HCP
@@ -182,7 +197,12 @@ async def assign_to_hcp(
 
             vl_metadata = build_voice_live_metadata(profile)
             if vl_metadata:
-                await update_agent_metadata_only(db, profile.agent_id, vl_metadata)
+                new_version = await update_agent_metadata_only(
+                    db, profile.agent_id, vl_metadata
+                )
+                if new_version:
+                    profile.agent_version = new_version
+                    await db.flush()
         except Exception as e:
             logger.warning(
                 "assign_to_hcp: agent metadata sync failed for hcp=%s: %s",
@@ -219,7 +239,10 @@ async def unassign_from_hcp(db: AsyncSession, hcp_profile_id: str) -> HcpProfile
             )
 
             cleared = build_cleared_voice_metadata()
-            await update_agent_metadata_only(db, profile.agent_id, cleared)
+            new_version = await update_agent_metadata_only(db, profile.agent_id, cleared)
+            if new_version:
+                profile.agent_version = new_version
+                await db.flush()
         except Exception as e:
             logger.warning(
                 "unassign_from_hcp: failed to clear agent metadata for hcp=%s: %s",

@@ -1723,12 +1723,16 @@ async def test_sync_agent_for_profile_stores_agent_version():
 
 @pytest.mark.asyncio
 async def test_update_agent_metadata_only_success():
-    """update_agent_metadata_only merges new VL metadata into existing agent metadata."""
+    """update_agent_metadata_only merges VL metadata, preserves instructions, returns version."""
     from app.services.agent_sync_service import update_agent_metadata_only
 
     mock_db = AsyncMock()
 
-    # Simulate existing agent with old VL metadata
+    # Simulate existing agent with old VL metadata and full instructions
+    full_instructions = (
+        "You are Dr. Wang Fang, a Neurology specialist.\n\n"
+        "Background:\n- Hospital: Shanghai Huashan Hospital\n- Title: Chief Physician"
+    )
     mock_agent = MagicMock()
     mock_agent.metadata = {
         "microsoft.voice-live.enabled": "true",
@@ -1739,15 +1743,18 @@ async def test_update_agent_metadata_only_success():
         "latest": {
             "version": "3",
             "definition": {
-                "instructions": "You are a doctor.",
+                "instructions": full_instructions,
                 "model": "gpt-4o",
             },
         }
     }
 
+    mock_create_result = MagicMock()
+    mock_create_result.version = "4"
+
     mock_client = MagicMock()
     mock_client.agents.get.return_value = mock_agent
-    mock_client.agents.create_version.return_value = MagicMock()
+    mock_client.agents.create_version.return_value = mock_create_result
 
     new_metadata = {
         "microsoft.voice-live.enabled": "true",
@@ -1767,7 +1774,8 @@ async def test_update_agent_metadata_only_success():
     ):
         result = await update_agent_metadata_only(mock_db, "agent-001", new_metadata)
 
-    assert result is True
+    # Returns new version string (not bool)
+    assert result == "4"
     mock_client.agents.create_version.assert_called_once()
     call_kwargs = mock_client.agents.create_version.call_args[1]
     # Old VL keys removed, new VL keys added, custom-key preserved
@@ -1775,6 +1783,11 @@ async def test_update_agent_metadata_only_success():
     assert merged["microsoft.voice-live.enabled"] == "true"
     assert merged["microsoft.voice-live.configuration"] == '{"new":"config"}'
     assert merged["custom-key"] == "keep-this"
+    # Instructions MUST be preserved through metadata-only update
+    sent_definition = call_kwargs["definition"]
+    assert sent_definition.instructions == full_instructions
+    assert "Background:" in sent_definition.instructions
+    assert "Shanghai Huashan Hospital" in sent_definition.instructions
 
 
 @pytest.mark.asyncio
@@ -1791,9 +1804,12 @@ async def test_update_agent_metadata_only_with_endpoint_override():
         }
     }
 
+    mock_create_result = MagicMock()
+    mock_create_result.version = "5"
+
     mock_client = MagicMock()
     mock_client.agents.get.return_value = mock_agent
-    mock_client.agents.create_version.return_value = MagicMock()
+    mock_client.agents.create_version.return_value = mock_create_result
 
     with patch(
         "app.services.agent_sync_service._get_project_client",
@@ -1807,13 +1823,13 @@ async def test_update_agent_metadata_only_with_endpoint_override():
             key_override="custom-key",
         )
 
-    assert result is True
+    assert result == "5"
     mock_get_client.assert_called_once_with("https://custom-endpoint", "custom-key")
 
 
 @pytest.mark.asyncio
 async def test_update_agent_metadata_only_api_failure():
-    """update_agent_metadata_only returns False when SDK raises exception."""
+    """update_agent_metadata_only returns None when SDK raises exception."""
     from app.services.agent_sync_service import update_agent_metadata_only
 
     mock_db = AsyncMock()
@@ -1833,7 +1849,7 @@ async def test_update_agent_metadata_only_api_failure():
     ):
         result = await update_agent_metadata_only(mock_db, "agent-fail", {"k": "v"})
 
-    assert result is False
+    assert result is None
 
 
 @pytest.mark.asyncio
@@ -1850,9 +1866,12 @@ async def test_update_agent_metadata_only_no_existing_metadata():
         }
     }
 
+    mock_create_result = MagicMock()
+    mock_create_result.version = "2"
+
     mock_client = MagicMock()
     mock_client.agents.get.return_value = mock_agent
-    mock_client.agents.create_version.return_value = MagicMock()
+    mock_client.agents.create_version.return_value = mock_create_result
 
     with (
         patch(
@@ -1867,9 +1886,11 @@ async def test_update_agent_metadata_only_no_existing_metadata():
     ):
         result = await update_agent_metadata_only(mock_db, "agent-no-meta", {"new-key": "val"})
 
-    assert result is True
+    assert result == "2"
     call_kwargs = mock_client.agents.create_version.call_args[1]
     assert call_kwargs["metadata"]["new-key"] == "val"
+    # Instructions preserved even with no existing metadata
+    assert call_kwargs["definition"].instructions == "instruct"
 
 
 def test_api_key_token_credential_get_token():

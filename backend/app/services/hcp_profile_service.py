@@ -145,7 +145,14 @@ async def update_hcp_profile(
         setattr(profile, field, value)
 
     await db.flush()
-    await db.refresh(profile)
+    # Re-query with selectinload so voice_live_instance is available for
+    # build_voice_live_metadata() in async context (plain refresh loses relationships).
+    reload_result = await db.execute(
+        select(HcpProfile)
+        .options(selectinload(HcpProfile.voice_live_instance))
+        .where(HcpProfile.id == profile_id)
+    )
+    profile = reload_result.scalar_one_or_none() or profile
 
     # Re-sync agent instructions on profile update (D-01)
     profile.agent_sync_status = "pending"

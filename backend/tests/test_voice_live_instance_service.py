@@ -64,9 +64,10 @@ async def test_update_instance_triggers_resync():
     mock_profile.agent_sync_status = "synced"
     mock_profile.voice_live_instance = mock_instance
 
-    # Instance returned by get_instance has hcp_profiles
-    mock_refreshed_instance = MagicMock()
-    mock_refreshed_instance.id = "inst-001"
+    # Instance returned by get_instance has hcp_profiles.
+    # Use _make_vl_instance_mock so resolve_voice_config can read voice attributes
+    # (our code now sets profile.voice_live_instance = refreshed instance).
+    mock_refreshed_instance = _make_vl_instance_mock(id="inst-001")
     mock_refreshed_instance.hcp_profiles = [mock_profile]
 
     update_data = VoiceLiveInstanceUpdate(voice_name="zh-CN-XiaoxiaoMultilingualNeural")
@@ -80,7 +81,7 @@ async def test_update_instance_triggers_resync():
         patch(
             "app.services.agent_sync_service.update_agent_metadata_only",
             new_callable=AsyncMock,
-            return_value=True,
+            return_value="10",
         ) as mock_update_meta,
     ):
         from app.services.voice_live_instance_service import update_instance
@@ -101,30 +102,16 @@ async def test_assign_triggers_resync():
     mock_db.refresh = AsyncMock()
     mock_db.expire_all = MagicMock()
 
-    mock_instance = MagicMock()
-    mock_instance.id = "inst-002"
+    # Use _make_vl_instance_mock so resolve_voice_config can read voice attributes
+    # (our code now sets profile.voice_live_instance = loaded instance).
+    mock_instance = _make_vl_instance_mock(id="inst-002")
 
     mock_profile = MagicMock()
     mock_profile.id = "hcp-002"
     mock_profile.agent_id = "agent-002"
     mock_profile.agent_sync_status = "synced"
     mock_profile.voice_live_instance_id = "inst-002"
-    # Fields needed by resolve_voice_config (inline fallback)
-    mock_profile.voice_live_instance = None  # not loaded yet
-    mock_profile.voice_live_enabled = True
-    mock_profile.voice_live_model = "gpt-4o"
-    mock_profile.voice_name = "en-US-AvaNeural"
-    mock_profile.voice_type = "azure-standard"
-    mock_profile.voice_temperature = 0.9
-    mock_profile.voice_custom = False
-    mock_profile.avatar_character = "lori"
-    mock_profile.avatar_style = "casual"
-    mock_profile.avatar_customized = False
-    mock_profile.turn_detection_type = "server_vad"
-    mock_profile.noise_suppression = False
-    mock_profile.echo_cancellation = False
-    mock_profile.eou_detection = False
-    mock_profile.recognition_language = "auto"
+    mock_profile.voice_live_instance = mock_instance
 
     mock_result = MagicMock()
     mock_result.scalar_one_or_none.return_value = mock_profile
@@ -139,7 +126,7 @@ async def test_assign_triggers_resync():
         patch(
             "app.services.agent_sync_service.update_agent_metadata_only",
             new_callable=AsyncMock,
-            return_value=True,
+            return_value="10",
         ) as mock_update_meta,
     ):
         from app.services.voice_live_instance_service import assign_to_hcp
@@ -172,7 +159,7 @@ async def test_unassign_clears_metadata():
     with patch(
         "app.services.agent_sync_service.update_agent_metadata_only",
         new_callable=AsyncMock,
-        return_value=True,
+        return_value="10",
     ) as mock_update_meta:
         from app.services.voice_live_instance_service import unassign_from_hcp
 
@@ -226,7 +213,7 @@ async def test_delete_clears_metadata_for_all_assigned_hcps():
         patch(
             "app.services.agent_sync_service.update_agent_metadata_only",
             new_callable=AsyncMock,
-            return_value=True,
+            return_value="10",
         ) as mock_update_meta,
     ):
         from app.services.voice_live_instance_service import delete_instance
@@ -755,7 +742,7 @@ class TestRealVoiceLiveInstanceService:
         with patch(
             "app.services.agent_sync_service.update_agent_metadata_only",
             new_callable=AsyncMock,
-            return_value=True,
+            return_value="10",
         ) as mock_meta:
             result = await update_instance(db_session, inst.id, update_data)
 
@@ -784,7 +771,7 @@ class TestRealVoiceLiveInstanceService:
         with patch(
             "app.services.agent_sync_service.update_agent_metadata_only",
             new_callable=AsyncMock,
-            return_value=True,
+            return_value="10",
         ) as mock_meta:
             await update_instance(db_session, inst.id, update_data)
 
@@ -857,7 +844,7 @@ class TestRealVoiceLiveInstanceService:
         with patch(
             "app.services.agent_sync_service.update_agent_metadata_only",
             new_callable=AsyncMock,
-            return_value=True,
+            return_value="10",
         ) as mock_meta:
             await delete_instance(db_session, inst.id)
 
@@ -916,7 +903,7 @@ class TestRealVoiceLiveInstanceService:
         with patch(
             "app.services.agent_sync_service.update_agent_metadata_only",
             new_callable=AsyncMock,
-            return_value=True,
+            return_value="10",
         ) as mock_meta:
             await assign_to_hcp(db_session, inst_id, hcp_id)
 
@@ -996,7 +983,7 @@ class TestRealVoiceLiveInstanceService:
         with patch(
             "app.services.agent_sync_service.update_agent_metadata_only",
             new_callable=AsyncMock,
-            return_value=True,
+            return_value="10",
         ) as mock_meta:
             result = await unassign_from_hcp(db_session, hcp.id)
 

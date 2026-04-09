@@ -128,7 +128,7 @@ def build_voice_live_metadata(profile: object) -> dict[str, str] | None:
     ``{"session": {camelCase keys for voice, avatar, turnDetection, etc.}}``
 
     Returns dict[str, str] suitable for agent metadata, or None if voice_live_enabled is False.
-    The config JSON is chunked at 512-char boundaries per Azure metadata limits.
+    Includes ``description`` and ``modified_at`` keys to match Foundry Portal format.
     """
     from app.services.voice_live_instance_service import resolve_voice_config
 
@@ -208,6 +208,14 @@ def build_voice_live_metadata(profile: object) -> dict[str, str] | None:
     config_json = json.dumps(config, separators=(",", ":"))
     result = {VOICE_LIVE_ENABLED_KEY: "true"}
     result.update(_chunk_metadata_value(VOICE_LIVE_CONFIG_KEY, config_json))
+
+    # Add Portal-compatible metadata keys (matches Foundry Portal save format)
+    import time
+
+    name = getattr(profile, "name", "")
+    result["description"] = f"HCP Agent: {name}" if name else "HCP Agent"
+    result["modified_at"] = str(int(time.time()))
+
     return result
 
 
@@ -227,12 +235,15 @@ async def update_agent_metadata_only(
     *,
     endpoint_override: str = "",
     key_override: str = "",
-) -> bool:
+) -> str | None:
     """Update only voice-live metadata keys on an existing agent without touching instructions.
 
     Fetches current agent metadata, removes old microsoft.voice-live.* keys,
     merges in new_metadata, and updates via create_version.
-    Returns True on success, False on failure.
+
+    Returns the new agent version string on success, or None on failure.
+    Callers should update profile.agent_version with the returned value
+    to keep the platform version in sync with Foundry.
     """
     if endpoint_override:
         project_endpoint, api_key = endpoint_override, key_override
@@ -264,21 +275,34 @@ async def update_agent_metadata_only(
         instructions = definition.get("instructions", "")
         model = definition.get("model", "gpt-4o")
 
+        if not instructions:
+            logger.warning(
+                "update_agent_metadata_only: read-back instructions empty for agent %s "
+                "(Foundry may have returned unexpected format). "
+                "Proceeding but instructions may be lost.",
+                agent_id,
+            )
+
         from azure.ai.projects.models import PromptAgentDefinition
 
         new_definition = PromptAgentDefinition(model=model, instructions=instructions)
 
-        await asyncio.to_thread(
+        result = await asyncio.to_thread(
             client.agents.create_version,
             agent_name=agent_id,
             definition=new_definition,
             metadata=current_metadata,
         )
-        logger.info("update_agent_metadata_only: updated metadata for agent %s", agent_id)
-        return True
+        new_version = str(result.version) if hasattr(result, "version") else None
+        logger.info(
+            "update_agent_metadata_only: updated metadata for agent %s, new version=%s",
+            agent_id,
+            new_version,
+        )
+        return new_version
     except Exception as e:
         logger.warning("update_agent_metadata_only failed for agent %s: %s", agent_id, e)
-        return False
+        return None
 
 
 class _ApiKeyTokenCredential:
