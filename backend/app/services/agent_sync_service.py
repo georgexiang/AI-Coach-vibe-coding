@@ -626,9 +626,26 @@ async def sync_agent_for_profile(
             key_override=prefetched_key or "",
         )
 
-    # Store agent version on profile (RD-7)
-    agent_version = result.get("version") or result.get("id", "")
-    profile.agent_version = str(agent_version) if agent_version else None
+    # Store authoritative version from Foundry (RD-7).
+    # We use the version returned by create_version, then verify with
+    # get_agent_latest_version to handle edge cases (concurrent portal
+    # edits, other API callers incrementing version after us).
+    agent_name = result.get("id") or result.get("name", "")
+    api_version = result.get("version")
+    if agent_name:
+        try:
+            latest_version = await get_agent_latest_version(
+                db,
+                agent_name,
+                endpoint_override=prefetched_endpoint or "",
+                key_override=prefetched_key or "",
+            )
+            profile.agent_version = latest_version
+        except Exception:
+            # Fallback: use version from create_version response
+            profile.agent_version = str(api_version) if api_version else None
+    else:
+        profile.agent_version = str(api_version) if api_version else None
 
     return result
 
@@ -698,13 +715,23 @@ async def get_portal_url_components(db: AsyncSession) -> dict:
     return _portal_url_cache
 
 
-async def get_agent_latest_version(db: AsyncSession, agent_name: str) -> str:
+async def get_agent_latest_version(
+    db: AsyncSession,
+    agent_name: str,
+    *,
+    endpoint_override: str = "",
+    key_override: str = "",
+) -> str:
     """Query Azure for the latest version of an agent.
 
     Returns the latest version string, or "1" as fallback.
+    Pass endpoint_override/key_override to skip DB lookup (avoids SQLite locking).
     """
     try:
-        project_endpoint, api_key = await get_project_endpoint(db)
+        if endpoint_override:
+            project_endpoint, api_key = endpoint_override, key_override
+        else:
+            project_endpoint, api_key = await get_project_endpoint(db)
         client = _get_project_client(project_endpoint, api_key)
 
         agent = await asyncio.to_thread(client.agents.get, agent_name=agent_name)

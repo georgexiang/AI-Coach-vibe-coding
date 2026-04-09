@@ -1697,20 +1697,27 @@ async def test_sync_agent_for_profile_stores_agent_version():
     mock_profile.recognition_language = "auto"
     mock_profile.to_prompt_dict.return_value = {"name": "Dr. Version", "specialty": "GP"}
 
-    with patch(
-        "app.services.agent_sync_service.create_agent",
-        new_callable=AsyncMock,
-        return_value={
-            "id": "agent-v-001",
-            "name": "Dr-Version",
-            "version": "3",
-            "model": "gpt-4o",
-        },
+    with (
+        patch(
+            "app.services.agent_sync_service.create_agent",
+            new_callable=AsyncMock,
+            return_value={
+                "id": "agent-v-001",
+                "name": "Dr-Version",
+                "version": "3",
+                "model": "gpt-4o",
+            },
+        ),
+        patch(
+            "app.services.agent_sync_service.get_agent_latest_version",
+            new_callable=AsyncMock,
+            return_value="3",
+        ),
     ):
         result = await sync_agent_for_profile(mock_db, mock_profile, prefetched_model="gpt-4o")
 
     assert result["version"] == "3"
-    # Verify version stored on profile object
+    # Verify version from Foundry stored on profile object
     assert mock_profile.agent_version == "3"
 
 
