@@ -207,7 +207,11 @@ def build_voice_live_metadata(profile: object) -> dict[str, str] | None:
 
     config_json = json.dumps(config, separators=(",", ":"))
     result = {VOICE_LIVE_ENABLED_KEY: "true"}
-    result.update(_chunk_metadata_value(VOICE_LIVE_CONFIG_KEY, config_json))
+    # Send full JSON as a single value — do NOT chunk.
+    # Azure metadata 512-char limit is per-key but Foundry Portal cannot
+    # reassemble chunked keys (.1, .2, etc.), so we send the full value.
+    # Values >512 chars are accepted by the API in practice.
+    result[VOICE_LIVE_CONFIG_KEY] = config_json
 
     # Add Portal-compatible metadata keys (matches Foundry Portal save format)
     import time
