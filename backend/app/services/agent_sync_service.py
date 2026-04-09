@@ -124,8 +124,12 @@ def build_voice_live_metadata(profile: object) -> dict[str, str] | None:
     Uses resolve_voice_config() to get the effective voice/avatar settings,
     respecting VoiceLiveInstance > inline HcpProfile field priority.
 
-    The output format matches Azure AI Foundry Portal's own save format exactly:
+    The output format matches Azure AI Foundry Portal's own save format:
     ``{"session": {camelCase keys for voice, avatar, turnDetection, etc.}}``
+
+    IMPORTANT: Azure Agent metadata values are limited to 512 characters per key.
+    The Portal likely uses an internal API without this limit.  We stay under 512
+    by omitting null fields and false-valued defaults — Foundry fills them in.
 
     Returns dict[str, str] suitable for agent metadata, or None if voice_live_enabled is False.
     Includes ``description`` and ``modified_at`` keys to match Foundry Portal format.
@@ -138,79 +142,84 @@ def build_voice_live_metadata(profile: object) -> dict[str, str] | None:
         return None
 
     # --- Build session config in Foundry Portal's camelCase format ---
+    # Only include non-null, non-default fields to stay within 512-char limit.
     session: dict = {}
 
-    # Voice settings
+    # Voice settings (always required)
     voice_name = vc.get("voice_name", "en-US-AvaNeural")
+    voice: dict = {"name": voice_name}
     voice_type = vc.get("voice_type", "azure-standard")
+    if voice_type and voice_type != "azure-standard":
+        voice["type"] = voice_type
     voice_temp = vc.get("voice_temperature", 0.8)
+    if voice_temp != 0.8:
+        voice["temperature"] = voice_temp
     playback_speed = vc.get("playback_speed", 1.0)
+    if playback_speed != 1.0:
+        voice["rate"] = str(playback_speed)
     is_hd = ":DragonHDLatestNeural" in voice_name or "HD" in voice_name
-    voice: dict = {
-        "name": voice_name,
-        "type": voice_type,
-        "temperature": voice_temp,
-        "rate": str(playback_speed),
-        "isHdVoice": is_hd,
-    }
+    if is_hd:
+        voice["isHdVoice"] = True
     session["voice"] = voice
 
-    # Input audio transcription (Foundry always includes this)
+    # Input audio transcription — omit "model" (always "azure-speech") to save chars.
+    # Only include when language is non-default.
     recognition_lang = vc.get("recognition_language", "auto")
     transcription_lang = (
         "auto-detect" if recognition_lang in ("auto", "auto-detect") else recognition_lang
     )
-    session["inputAudioTranscription"] = {
-        "model": "azure-speech",
-        "language": transcription_lang,
-    }
+    if transcription_lang != "auto-detect":
+        session["inputAudioTranscription"] = {"language": transcription_lang}
 
-    # Turn detection (camelCase keys to match Foundry)
+    # Turn detection — only include non-null, non-default sub-fields
     turn_detection_type = vc.get("turn_detection_type", "azure_semantic_vad")
     turn_detection: dict = {"type": turn_detection_type}
     if vc.get("eou_detection", False):
         turn_detection["endOfUtteranceDetection"] = {"model": "semantic_detection_v1"}
-    else:
-        turn_detection["endOfUtteranceDetection"] = None
-    if vc.get("remove_filler_words", True):
-        turn_detection["removeFillerWords"] = True
+    # Omit removeFillerWords:true — Foundry default is true
     session["turnDetection"] = turn_detection
 
-    # Noise suppression (Foundry uses null when disabled)
+    # Noise suppression — only include when enabled (omit null)
     if vc.get("noise_suppression", False):
         session["inputAudioNoiseReduction"] = {"type": "azure_deep_noise_suppression"}
-    else:
-        session["inputAudioNoiseReduction"] = None
 
-    # Echo cancellation (Foundry uses null when disabled)
+    # Echo cancellation — only include when enabled (omit null)
     if vc.get("echo_cancellation", False):
         session["inputAudioEchoCancellation"] = {"type": "server_echo_cancellation"}
-    else:
-        session["inputAudioEchoCancellation"] = None
 
-    # Filler response (Foundry uses null when not configured)
-    session["fillerResponse"] = None
+    # fillerResponse — omit null (Foundry default is null)
 
-    # Avatar settings (Foundry format — no "enabled" field, presence implies enabled)
-    avatar: dict = {
-        "character": vc.get("avatar_character", "lori"),
-        "style": vc.get("avatar_style", "casual"),
-        "customized": vc.get("avatar_customized", False),
-    }
-    session["avatar"] = avatar
+    # Avatar settings — only include when avatar is enabled
+    avatar_enabled = vc.get("avatar_enabled", True)
+    avatar_char = vc.get("avatar_character", "")
+    if avatar_enabled and avatar_char:
+        avatar: dict = {"character": avatar_char}
+        avatar_style = vc.get("avatar_style", "")
+        if avatar_style:
+            avatar["style"] = avatar_style
+        if vc.get("avatar_customized", False):
+            avatar["customized"] = True
+        session["avatar"] = avatar
 
-    # Proactive engagement
-    session["proactiveEngagement"] = vc.get("proactive_engagement", False)
+    # Proactive engagement — only include when True (default is False)
+    if vc.get("proactive_engagement", False):
+        session["proactiveEngagement"] = True
 
     # Wrap in {"session": {...}} to match Foundry Portal format
     config = {"session": session}
 
     config_json = json.dumps(config, separators=(",", ":"))
+
+    # Safety check: if still >512, log warning (should not happen with defaults omitted)
+    if len(config_json) > 512:
+        logger.warning(
+            "build_voice_live_metadata: config_json=%d chars (>512 limit), "
+            "agent metadata update may fail. Profile=%s",
+            len(config_json),
+            getattr(profile, "id", "?"),
+        )
+
     result = {VOICE_LIVE_ENABLED_KEY: "true"}
-    # Send full JSON as a single value — do NOT chunk.
-    # Azure metadata 512-char limit is per-key but Foundry Portal cannot
-    # reassemble chunked keys (.1, .2, etc.), so we send the full value.
-    # Values >512 chars are accepted by the API in practice.
     result[VOICE_LIVE_CONFIG_KEY] = config_json
 
     # Add Portal-compatible metadata keys (matches Foundry Portal save format)

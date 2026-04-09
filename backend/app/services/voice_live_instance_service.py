@@ -116,6 +116,7 @@ async def update_instance(
                         new_version = await update_agent_metadata_only(
                             db, profile.agent_id, vl_metadata
                         )
+                        # Use Foundry-returned version as authoritative source
                         if new_version:
                             profile.agent_version = new_version
                 except Exception as e:
@@ -149,6 +150,7 @@ async def delete_instance(db: AsyncSession, instance_id: str) -> None:
                     new_version = await update_agent_metadata_only(
                         db, profile.agent_id, cleared
                     )
+                    # Use Foundry-returned version as authoritative source
                     if new_version:
                         profile.agent_version = new_version
                 except Exception as e:
@@ -200,6 +202,7 @@ async def assign_to_hcp(
                 new_version = await update_agent_metadata_only(
                     db, profile.agent_id, vl_metadata
                 )
+                # Use Foundry-returned version as authoritative source
                 if new_version:
                     profile.agent_version = new_version
                     await db.flush()
@@ -240,6 +243,7 @@ async def unassign_from_hcp(db: AsyncSession, hcp_profile_id: str) -> HcpProfile
 
             cleared = build_cleared_voice_metadata()
             new_version = await update_agent_metadata_only(db, profile.agent_id, cleared)
+            # Use Foundry-returned version as authoritative source
             if new_version:
                 profile.agent_version = new_version
                 await db.flush()

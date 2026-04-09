@@ -1584,46 +1584,119 @@ def test_build_voice_live_metadata_uses_resolve_voice_config():
     assert result is not None
     assert result[VOICE_LIVE_ENABLED_KEY] == "true"
 
-    # Parse config JSON (may be chunked, so reassemble)
-    config_parts = []
-    if VOICE_LIVE_CONFIG_KEY in result:
-        config_parts.append(result[VOICE_LIVE_CONFIG_KEY])
-        i = 1
-        while f"{VOICE_LIVE_CONFIG_KEY}.{i}" in result:
-            config_parts.append(result[f"{VOICE_LIVE_CONFIG_KEY}.{i}"])
-            i += 1
-    config_json = "".join(config_parts)
+    # Parse config JSON (single value, no chunking)
+    config_json = result[VOICE_LIVE_CONFIG_KEY]
     config = json.loads(config_json)
+
+    # Azure metadata 512-char limit: verify JSON fits
+    assert len(config_json) <= 512, f"config_json is {len(config_json)} chars, exceeds 512 limit"
 
     # Foundry Portal format: config wrapped in {"session": {...}} with camelCase keys
     assert "session" in config
     session = config["session"]
 
-    # Voice settings
+    # Voice settings — name always present; defaults omitted to save space
     assert session["voice"]["name"] == "zh-CN-XiaoxiaoMultilingualNeural"
-    assert session["voice"]["type"] == "azure-standard"
+    # "type" omitted when "azure-standard" (default)
+    assert "type" not in session["voice"]
+    # Non-default values ARE present
     assert session["voice"]["temperature"] == 0.7
     assert session["voice"]["rate"] == "1.2"
 
-    # Input audio transcription
-    assert session["inputAudioTranscription"]["model"] == "azure-speech"
+    # Input audio transcription — only present when language is non-default
+    # zh-CN is not the default "auto-detect", so it should be present
     assert session["inputAudioTranscription"]["language"] == "zh-CN"
+    # "model" key omitted to save space (always "azure-speech")
+    assert "model" not in session["inputAudioTranscription"]
 
     # Turn detection with EOU (camelCase)
     assert session["turnDetection"]["type"] == "server_vad"
     assert session["turnDetection"]["endOfUtteranceDetection"] == {"model": "semantic_detection_v1"}
+    # removeFillerWords omitted (Foundry default is true)
+    assert "removeFillerWords" not in session["turnDetection"]
 
-    # Noise/echo (non-null when enabled)
+    # Noise/echo — present when enabled (omitted when disabled instead of null)
     assert session["inputAudioNoiseReduction"] is not None
     assert session["inputAudioEchoCancellation"] is not None
 
-    # Avatar settings
+    # Avatar settings — only non-default fields
     assert session["avatar"]["character"] == "lisa"
     assert session["avatar"]["style"] == "formal"
-    assert session["avatar"]["customized"] is False
+    # "customized" omitted when False (default)
+    assert "customized" not in session["avatar"]
 
-    # Proactive engagement
-    assert session["proactiveEngagement"] is False
+    # proactiveEngagement omitted when False (default)
+    assert "proactiveEngagement" not in session
+
+
+def test_build_voice_live_metadata_fits_512_char_limit_worst_case():
+    """Azure metadata values must be ≤512 chars per key.
+
+    This test exercises the WORST-CASE scenario: a long avatar style
+    (casual-sitting), long voice name (XiaoxiaoMultilingualNeural),
+    all optional features enabled (noise, echo, EOU, proactive, customized,
+    non-default temperature/rate).  If this passes, all real configurations
+    will fit within the 512-char Azure metadata limit.
+
+    Rule: We omit null fields and default-value fields from the JSON.
+    The Azure Foundry Portal fills in defaults server-side.
+    See agent_sync_service.build_voice_live_metadata() for details.
+    """
+    import json
+
+    from app.services.agent_sync_service import (
+        VOICE_LIVE_CONFIG_KEY,
+        build_voice_live_metadata,
+    )
+
+    mock_profile = MagicMock()
+    mock_instance = MagicMock()
+    # Worst-case long values
+    mock_instance.enabled = True
+    mock_instance.voice_live_model = "gpt-4o-realtime-preview"
+    mock_instance.voice_name = "zh-CN-XiaoxiaoMultilingualNeural"
+    mock_instance.voice_type = "azure-standard"
+    mock_instance.voice_temperature = 0.65
+    mock_instance.voice_custom = False
+    mock_instance.avatar_character = "lisa"
+    mock_instance.avatar_style = "casual-sitting"
+    mock_instance.avatar_customized = True
+    mock_instance.turn_detection_type = "azure_semantic_vad"
+    mock_instance.noise_suppression = True
+    mock_instance.echo_cancellation = True
+    mock_instance.eou_detection = True
+    mock_instance.recognition_language = "auto-detect"
+    mock_instance.model_instruction = ""
+    mock_instance.response_temperature = 0.9
+    mock_instance.proactive_engagement = True
+    mock_instance.auto_detect_language = True
+    mock_instance.playback_speed = 1.5
+    mock_instance.custom_lexicon_enabled = True
+    mock_instance.custom_lexicon_url = "https://example.com/custom-lexicon.xml"
+    mock_instance.avatar_enabled = True
+
+    mock_profile.voice_live_instance = mock_instance
+
+    result = build_voice_live_metadata(mock_profile)
+    assert result is not None
+
+    config_json = result[VOICE_LIVE_CONFIG_KEY]
+    config = json.loads(config_json)
+
+    # THE critical assertion: must fit within Azure's 512-char per-value limit
+    assert len(config_json) <= 512, (
+        f"Voice config JSON is {len(config_json)} chars, exceeds Azure 512-char "
+        f"metadata limit.  Compact the JSON by omitting null/default fields.\n"
+        f"JSON: {config_json}"
+    )
+
+    # Verify essential fields are still present
+    session = config["session"]
+    assert session["voice"]["name"] == "zh-CN-XiaoxiaoMultilingualNeural"
+    assert session["avatar"]["character"] == "lisa"
+    assert session["avatar"]["style"] == "casual-sitting"
+    assert "inputAudioNoiseReduction" in session
+    assert "inputAudioEchoCancellation" in session
 
 
 def test_build_cleared_voice_metadata_returns_disabled_state():
@@ -2318,21 +2391,14 @@ def test_build_voice_live_metadata_semantic_vad():
     result = build_voice_live_metadata(mock_profile)
     assert result is not None
 
-    # Parse config JSON
-    config_parts = []
-    if VOICE_LIVE_CONFIG_KEY in result:
-        config_parts.append(result[VOICE_LIVE_CONFIG_KEY])
-        i = 1
-        while f"{VOICE_LIVE_CONFIG_KEY}.{i}" in result:
-            config_parts.append(result[f"{VOICE_LIVE_CONFIG_KEY}.{i}"])
-            i += 1
-    config = json.loads("".join(config_parts))
+    # Parse config JSON (single value, no chunking)
+    config = json.loads(result[VOICE_LIVE_CONFIG_KEY])
 
     # Foundry format: config["session"]["turnDetection"]
     session = config["session"]
     assert session["turnDetection"]["type"] == "semantic_vad"
-    # No EOU since eou_detection=False
-    assert session["turnDetection"]["endOfUtteranceDetection"] is None
+    # No EOU since eou_detection=False — key omitted (not null) to save space
+    assert "endOfUtteranceDetection" not in session["turnDetection"]
 
 
 def test_build_voice_live_metadata_non_azure_standard_voice():
