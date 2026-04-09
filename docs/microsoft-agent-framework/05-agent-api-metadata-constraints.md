@@ -252,6 +252,32 @@ def test_build_voice_live_metadata_fits_512_char_limit_worst_case():
 
 **任何新增字段**必须同时更新此测试的 mock 数据，确保最坏情况仍在 512 字符以内。
 
+### 5.2 Postman 测试集合
+
+提供了预配置好 endpoint、API Key 和测试 payload 的 Postman Collection，可快速手动验证 API 行为：
+
+```
+docs/microsoft-agent-framework/tests/agent-metadata-api.postman_collection.json
+```
+
+**包含 5 组测试**：
+
+| # | 测试组 | 用途 |
+|---|-------|------|
+| 01 | Metadata Round-Trip | 创建→读回→验证 metadata 一致性 |
+| 02 | 512-Char Limit | 512/513/1024 字符边界测试 |
+| 03 | Voice Live Format | 精简 vs 完整格式对比（≤512 vs >512） |
+| 04 | Version Tracking | 版本号递增验证 |
+| 05 | Error Cases | 认证错误、404、缺字段等异常场景 |
+
+**使用方法**：
+1. 导入 Postman Collection JSON
+2. 检查 Collection Variables 中的 `base_endpoint`、`api_key`、`project_name` 是否正确
+3. 按序号依次运行，或使用 Collection Runner 批量执行
+4. 每组测试自带 test script，自动验证响应
+
+> **安全提示**：Collection 中包含真实 API Key，分享前请替换为占位符或使用 Postman Environment 变量。
+
 ---
 
 ## 6. 未来重构指南

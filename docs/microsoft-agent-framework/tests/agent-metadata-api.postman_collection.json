@@ -1,0 +1,1067 @@
+{
+	"info": {
+		"_postman_id": "azure-agent-metadata-api-tests",
+		"name": "Azure Agent Metadata API Tests",
+		"description": "Azure AI Foundry Agent Registry API 测试集合\n\n验证 metadata 读写、512 字符限制、版本追踪、Voice Live 格式等。\n\n**使用前**：确认 Collection Variables 中的 endpoint、api-key、project 已正确配置。\n\n**API 版本**：2025-05-01（azure-ai-projects SDK 2.0.1+）",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{
+			"key": "base_endpoint",
+			"value": "https://<your-resource>.services.ai.azure.com",
+			"description": "Azure AI Foundry resource endpoint (不含 /api/projects/)。替换 <your-resource> 为实际资源名。"
+		},
+		{
+			"key": "project_name",
+			"value": "<your-project-name>",
+			"description": "AI Foundry project name。替换为实际项目名。"
+		},
+		{
+			"key": "api_key",
+			"value": "<your-api-key>",
+			"description": "AI Foundry API Key。替换为实际 API Key（从 Azure Portal → AI Foundry → Keys 获取）。"
+		},
+		{
+			"key": "api_version",
+			"value": "2025-05-01",
+			"description": "Agent Registry API version"
+		},
+		{
+			"key": "test_agent_name",
+			"value": "",
+			"description": "自动设置 — 由 Create Agent 请求的 test script 填充"
+		},
+		{
+			"key": "test_agent_version",
+			"value": "",
+			"description": "自动设置 — 由 Create Agent 请求的 test script 填充"
+		}
+	],
+	"item": [
+		{
+			"name": "01 — Create Agent with Metadata",
+			"item": [
+				{
+					"name": "01a. Create Agent（基本 metadata）",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"// 生成唯一 agent 名称",
+									"const ts = Date.now();",
+									"pm.collectionVariables.set('test_agent_name', `postman-test-${ts}`);"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200/201', function () {",
+									"    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+									"});",
+									"",
+									"pm.test('Response contains version', function () {",
+									"    const json = pm.response.json();",
+									"    pm.expect(json).to.have.property('version');",
+									"    pm.collectionVariables.set('test_agent_version', json.version);",
+									"    console.log('Created agent version:', json.version);",
+									"});",
+									"",
+									"pm.test('Response contains agent name', function () {",
+									"    const json = pm.response.json();",
+									"    pm.expect(json).to.have.property('name');",
+									"    console.log('Agent name:', json.name);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "api-key",
+								"value": "{{api_key}}",
+								"description": "Azure AI Foundry API Key"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"definition\": {\n    \"type\": \"prompt\",\n    \"model\": \"gpt-4o\",\n    \"instructions\": \"You are a test agent for metadata API verification.\"\n  },\n  \"description\": \"Postman metadata test agent\",\n  \"metadata\": {\n    \"custom-key-1\": \"hello\",\n    \"custom-key-2\": \"world\",\n    \"number-as-string\": \"42\"\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_endpoint}}/api/projects/{{project_name}}/agents/{{test_agent_name}}/versions?api-version={{api_version}}",
+							"host": ["{{base_endpoint}}"],
+							"path": ["api", "projects", "{{project_name}}", "agents", "{{test_agent_name}}", "versions"],
+							"query": [
+								{
+									"key": "api-version",
+									"value": "{{api_version}}"
+								}
+							]
+						},
+						"description": "创建带有基本 metadata 的临时 Agent。\n\n**验证点**：\n- 返回 200/201 + version 号\n- metadata 中的 key-value 对被接受"
+					}
+				},
+				{
+					"name": "01b. Read Agent（验证 metadata round-trip）",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.expect(pm.response.code).to.eql(200);",
+									"});",
+									"",
+									"pm.test('Agent has versions.latest', function () {",
+									"    const json = pm.response.json();",
+									"    pm.expect(json).to.have.property('versions');",
+									"    pm.expect(json.versions).to.have.property('latest');",
+									"});",
+									"",
+									"pm.test('Metadata round-trip correct', function () {",
+									"    const json = pm.response.json();",
+									"    const meta = json.versions.latest.metadata || {};",
+									"    pm.expect(meta['custom-key-1']).to.eql('hello');",
+									"    pm.expect(meta['custom-key-2']).to.eql('world');",
+									"    pm.expect(meta['number-as-string']).to.eql('42');",
+									"    console.log('Metadata:', JSON.stringify(meta, null, 2));",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "api-key",
+								"value": "{{api_key}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_endpoint}}/api/projects/{{project_name}}/agents/{{test_agent_name}}?api-version={{api_version}}",
+							"host": ["{{base_endpoint}}"],
+							"path": ["api", "projects", "{{project_name}}", "agents", "{{test_agent_name}}"],
+							"query": [
+								{
+									"key": "api-version",
+									"value": "{{api_version}}"
+								}
+							]
+						},
+						"description": "读回刚创建的 Agent，验证 metadata 是否完整返回。\n\n**验证点**：\n- metadata 在 `versions.latest.metadata` 路径下（不是顶层 `metadata`）\n- 所有写入的 key-value 完整返回"
+					}
+				},
+				{
+					"name": "01c. Delete Agent（清理）",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200 or 204', function () {",
+									"    pm.expect(pm.response.code).to.be.oneOf([200, 204]);",
+									"    console.log('Agent deleted:', pm.collectionVariables.get('test_agent_name'));",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "api-key",
+								"value": "{{api_key}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_endpoint}}/api/projects/{{project_name}}/agents/{{test_agent_name}}?api-version={{api_version}}",
+							"host": ["{{base_endpoint}}"],
+							"path": ["api", "projects", "{{project_name}}", "agents", "{{test_agent_name}}"],
+							"query": [
+								{
+									"key": "api-version",
+									"value": "{{api_version}}"
+								}
+							]
+						},
+						"description": "删除测试用临时 Agent。"
+					}
+				}
+			],
+			"description": "### 测试 1：Metadata 基本读写 Round-Trip\n\n创建 Agent → 读回 → 验证 metadata 一致 → 删除。"
+		},
+		{
+			"name": "02 — 512-Char Limit Validation",
+			"item": [
+				{
+					"name": "02a. 512 chars — 应该成功 ✅",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"const ts = Date.now();",
+									"pm.collectionVariables.set('test_agent_name', `postman-512ok-${ts}`);"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('512 chars accepted (200/201)', function () {",
+									"    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+									"    console.log('✅ 512 chars — accepted as expected');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "api-key",
+								"value": "{{api_key}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"definition\": {\n    \"type\": \"prompt\",\n    \"model\": \"gpt-4o\",\n    \"instructions\": \"Test 512 char limit.\"\n  },\n  \"metadata\": {\n    \"test-key\": \"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\"\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_endpoint}}/api/projects/{{project_name}}/agents/{{test_agent_name}}/versions?api-version={{api_version}}",
+							"host": ["{{base_endpoint}}"],
+							"path": ["api", "projects", "{{project_name}}", "agents", "{{test_agent_name}}", "versions"],
+							"query": [
+								{
+									"key": "api-version",
+									"value": "{{api_version}}"
+								}
+							]
+						},
+						"description": "发送正好 **512 字符** 的 metadata value。\n\n**预期**：成功（200/201）"
+					}
+				},
+				{
+					"name": "02b. 513 chars — 应该失败 ❌",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"const ts = Date.now();",
+									"pm.collectionVariables.set('test_agent_name', `postman-513fail-${ts}`);"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code >= 400) {",
+									"    pm.test('513 chars rejected (4xx error)', function () {",
+									"        pm.expect(pm.response.code).to.be.within(400, 499);",
+									"        const body = pm.response.text();",
+									"        console.log('✅ 513 chars rejected:', body.substring(0, 300));",
+									"    });",
+									"    pm.test('Error mentions 512 limit', function () {",
+									"        const body = pm.response.text().toLowerCase();",
+									"        pm.expect(body).to.include('512');",
+									"    });",
+									"} else {",
+									"    pm.test('⚠️ 513 chars ACCEPTED — limit may have been raised', function () {",
+									"        console.log('⚠️ Azure may have raised the 512 limit!');",
+									"        pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+									"    });",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "api-key",
+								"value": "{{api_key}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"definition\": {\n    \"type\": \"prompt\",\n    \"model\": \"gpt-4o\",\n    \"instructions\": \"Test 513 char limit.\"\n  },\n  \"metadata\": {\n    \"test-key\": \"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\"\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_endpoint}}/api/projects/{{project_name}}/agents/{{test_agent_name}}/versions?api-version={{api_version}}",
+							"host": ["{{base_endpoint}}"],
+							"path": ["api", "projects", "{{project_name}}", "agents", "{{test_agent_name}}", "versions"],
+							"query": [
+								{
+									"key": "api-version",
+									"value": "{{api_version}}"
+								}
+							]
+						},
+						"description": "发送 **513 字符** 的 metadata value。\n\n**预期**：被 API 拒绝（400/422），错误消息包含 \"512\"。\n\n如果成功 → Azure 可能已放宽限制。"
+					}
+				},
+				{
+					"name": "02c. 1024 chars — 应该失败 ❌",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"const ts = Date.now();",
+									"pm.collectionVariables.set('test_agent_name', `postman-1024-${ts}`);"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code >= 400) {",
+									"    pm.test('1024 chars rejected', function () {",
+									"        pm.expect(pm.response.code).to.be.within(400, 499);",
+									"        console.log('✅ 1024 chars rejected as expected');",
+									"    });",
+									"} else {",
+									"    pm.test('⚠️ 1024 chars ACCEPTED — limit fully removed?', function () {",
+									"        console.log('⚠️ Azure 512 limit fully removed!');",
+									"    });",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "api-key",
+								"value": "{{api_key}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"definition\": {\n    \"type\": \"prompt\",\n    \"model\": \"gpt-4o\",\n    \"instructions\": \"Test 1024 char limit.\"\n  },\n  \"metadata\": {\n    \"test-key\": \"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\"\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_endpoint}}/api/projects/{{project_name}}/agents/{{test_agent_name}}/versions?api-version={{api_version}}",
+							"host": ["{{base_endpoint}}"],
+							"path": ["api", "projects", "{{project_name}}", "agents", "{{test_agent_name}}", "versions"],
+							"query": [
+								{
+									"key": "api-version",
+									"value": "{{api_version}}"
+								}
+							]
+						},
+						"description": "发送 **1024 字符** 的 metadata value。\n\n**预期**：被拒绝。如果成功 → 512 限制已完全取消。"
+					}
+				},
+				{
+					"name": "02d. Cleanup 512 test agent",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"// Best-effort cleanup — ignore errors",
+									"console.log('Cleanup attempted for:', pm.collectionVariables.get('test_agent_name'));"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "api-key",
+								"value": "{{api_key}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_endpoint}}/api/projects/{{project_name}}/agents/{{test_agent_name}}?api-version={{api_version}}",
+							"host": ["{{base_endpoint}}"],
+							"path": ["api", "projects", "{{project_name}}", "agents", "{{test_agent_name}}"],
+							"query": [
+								{
+									"key": "api-version",
+									"value": "{{api_version}}"
+								}
+							]
+						},
+						"description": "清理 512 测试创建的 Agent。"
+					}
+				}
+			],
+			"description": "### 测试 2：512 字符限制验证\n\n分别测试 512（边界成功）、513（边界失败）、1024（明显超限）。\n\n如果 513 或 1024 成功 → Azure 已放宽限制，可以考虑简化代码。"
+		},
+		{
+			"name": "03 — Voice Live Metadata Format",
+			"item": [
+				{
+					"name": "03a. Create Agent with VL metadata（精简格式）",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"const ts = Date.now();",
+									"pm.collectionVariables.set('test_agent_name', `postman-vl-${ts}`);"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('VL metadata accepted (200/201)', function () {",
+									"    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+									"});",
+									"",
+									"pm.test('Version returned', function () {",
+									"    const json = pm.response.json();",
+									"    pm.expect(json).to.have.property('version');",
+									"    pm.collectionVariables.set('test_agent_version', json.version);",
+									"    console.log('VL Agent created, version:', json.version);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "api-key",
+								"value": "{{api_key}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"definition\": {\n    \"type\": \"prompt\",\n    \"model\": \"gpt-4o\",\n    \"instructions\": \"You are a Voice Live test agent.\"\n  },\n  \"description\": \"VL Postman Test Agent\",\n  \"metadata\": {\n    \"microsoft.voice-live.enabled\": \"true\",\n    \"microsoft.voice-live.configuration\": \"{\\\"session\\\":{\\\"voice\\\":{\\\"name\\\":\\\"zh-CN-XiaoxiaoMultilingualNeural\\\"},\\\"turnDetection\\\":{\\\"type\\\":\\\"azure_semantic_vad\\\"},\\\"avatar\\\":{\\\"character\\\":\\\"lisa\\\",\\\"style\\\":\\\"casual-sitting\\\"}}}\",\n    \"description\": \"VL Test Agent\",\n    \"modified_at\": \"1712700000\"\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_endpoint}}/api/projects/{{project_name}}/agents/{{test_agent_name}}/versions?api-version={{api_version}}",
+							"host": ["{{base_endpoint}}"],
+							"path": ["api", "projects", "{{project_name}}", "agents", "{{test_agent_name}}", "versions"],
+							"query": [
+								{
+									"key": "api-version",
+									"value": "{{api_version}}"
+								}
+							]
+						},
+						"description": "创建带有 **Voice Live 精简格式** metadata 的 Agent。\n\n**精简格式**（省略 null 和默认值）：\n```json\n{\"session\":{\"voice\":{\"name\":\"zh-CN-XiaoxiaoMultilingualNeural\"},\"turnDetection\":{\"type\":\"azure_semantic_vad\"},\"avatar\":{\"character\":\"lisa\",\"style\":\"casual-sitting\"}}}\n```\n\nconfig JSON = **167 字符** ✅（远低于 512 限制）\n\n**验证后**：去 AI Foundry Portal 查看该 Agent 的 Voice mode 是否显示为 ON。"
+					}
+				},
+				{
+					"name": "03b. Read VL Agent（验证 config round-trip）",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status is 200', function () {",
+									"    pm.expect(pm.response.code).to.eql(200);",
+									"});",
+									"",
+									"pm.test('voice-live.enabled is true', function () {",
+									"    const json = pm.response.json();",
+									"    const meta = json.versions.latest.metadata || {};",
+									"    pm.expect(meta['microsoft.voice-live.enabled']).to.eql('true');",
+									"});",
+									"",
+									"pm.test('voice-live.configuration is valid JSON', function () {",
+									"    const json = pm.response.json();",
+									"    const meta = json.versions.latest.metadata || {};",
+									"    const config = JSON.parse(meta['microsoft.voice-live.configuration']);",
+									"    pm.expect(config.session.voice.name).to.eql('zh-CN-XiaoxiaoMultilingualNeural');",
+									"    pm.expect(config.session.avatar.character).to.eql('lisa');",
+									"    pm.expect(config.session.avatar.style).to.eql('casual-sitting');",
+									"    console.log('VL config round-trip OK:', JSON.stringify(config, null, 2));",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "api-key",
+								"value": "{{api_key}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_endpoint}}/api/projects/{{project_name}}/agents/{{test_agent_name}}?api-version={{api_version}}",
+							"host": ["{{base_endpoint}}"],
+							"path": ["api", "projects", "{{project_name}}", "agents", "{{test_agent_name}}"],
+							"query": [
+								{
+									"key": "api-version",
+									"value": "{{api_version}}"
+								}
+							]
+						},
+						"description": "读回 VL Agent 并验证：\n- `microsoft.voice-live.enabled` = `\"true\"`\n- `microsoft.voice-live.configuration` 是有效 JSON\n- avatar.character = lisa, avatar.style = casual-sitting"
+					}
+				},
+				{
+					"name": "03c. Create with FULL config（超出 512）— 应该失败 ❌",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"const ts = Date.now();",
+									"pm.collectionVariables.set('test_agent_name', `postman-vl-full-${ts}`);"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code >= 400) {",
+									"    pm.test('Full VL config rejected (>512 chars)', function () {",
+									"        pm.expect(pm.response.code).to.be.within(400, 499);",
+									"        console.log('✅ Full config rejected (expected — 607 chars > 512)');",
+									"    });",
+									"} else {",
+									"    pm.test('⚠️ Full config ACCEPTED — limit raised?', function () {",
+									"        console.log('⚠️ 607-char config accepted! Azure limit may have changed.');",
+									"    });",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "api-key",
+								"value": "{{api_key}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"definition\": {\n    \"type\": \"prompt\",\n    \"model\": \"gpt-4o\",\n    \"instructions\": \"Test full VL config.\"\n  },\n  \"metadata\": {\n    \"microsoft.voice-live.enabled\": \"true\",\n    \"microsoft.voice-live.configuration\": \"{\\\"session\\\":{\\\"voice\\\":{\\\"name\\\":\\\"zh-CN-XiaoxiaoMultilingualNeural\\\",\\\"type\\\":\\\"azure-standard\\\",\\\"temperature\\\":0.8,\\\"rate\\\":\\\"1.0\\\",\\\"isHdVoice\\\":false},\\\"inputAudioTranscription\\\":{\\\"model\\\":\\\"azure-speech\\\",\\\"language\\\":\\\"auto-detect\\\"},\\\"turnDetection\\\":{\\\"type\\\":\\\"azure_semantic_vad\\\",\\\"endOfUtteranceDetection\\\":null,\\\"removeFillerWords\\\":true},\\\"inputAudioNoiseReduction\\\":null,\\\"inputAudioEchoCancellation\\\":null,\\\"fillerResponse\\\":null,\\\"avatar\\\":{\\\"character\\\":\\\"lisa\\\",\\\"style\\\":\\\"casual-sitting\\\",\\\"customized\\\":false},\\\"proactiveEngagement\\\":false}}\"\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_endpoint}}/api/projects/{{project_name}}/agents/{{test_agent_name}}/versions?api-version={{api_version}}",
+							"host": ["{{base_endpoint}}"],
+							"path": ["api", "projects", "{{project_name}}", "agents", "{{test_agent_name}}", "versions"],
+							"query": [
+								{
+									"key": "api-version",
+									"value": "{{api_version}}"
+								}
+							]
+						},
+						"description": "发送**完整格式**（含所有 null 和默认值）的 VL config。\n\n**config JSON = ~607 字符** ❌ 超出 512 限制。\n\n**预期**：被 API 拒绝。如果成功 → Azure 已放宽限制，可以恢复完整格式。"
+					}
+				},
+				{
+					"name": "03d. Cleanup VL test agents",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"console.log('VL test agent cleanup attempted');"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "api-key",
+								"value": "{{api_key}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_endpoint}}/api/projects/{{project_name}}/agents/{{test_agent_name}}?api-version={{api_version}}",
+							"host": ["{{base_endpoint}}"],
+							"path": ["api", "projects", "{{project_name}}", "agents", "{{test_agent_name}}"],
+							"query": [
+								{
+									"key": "api-version",
+									"value": "{{api_version}}"
+								}
+							]
+						},
+						"description": "清理 VL 测试 Agent。"
+					}
+				}
+			],
+			"description": "### 测试 3：Voice Live Metadata 格式\n\n对比精简格式（省略默认值，≤512）和完整格式（含所有字段，>512）。\n\n精简格式应被 Portal 正确识别为 Voice mode ON。"
+		},
+		{
+			"name": "04 — Version Tracking",
+			"item": [
+				{
+					"name": "04a. Create Agent v1",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"const ts = Date.now();",
+									"pm.collectionVariables.set('test_agent_name', `postman-version-${ts}`);"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('v1 created', function () {",
+									"    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+									"    const json = pm.response.json();",
+									"    pm.collectionVariables.set('test_agent_version', json.version);",
+									"    console.log('v1:', json.version);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "api-key",
+								"value": "{{api_key}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"definition\": {\n    \"type\": \"prompt\",\n    \"model\": \"gpt-4o\",\n    \"instructions\": \"Version 1 instructions.\"\n  },\n  \"metadata\": {\n    \"step\": \"1\"\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_endpoint}}/api/projects/{{project_name}}/agents/{{test_agent_name}}/versions?api-version={{api_version}}",
+							"host": ["{{base_endpoint}}"],
+							"path": ["api", "projects", "{{project_name}}", "agents", "{{test_agent_name}}", "versions"],
+							"query": [
+								{
+									"key": "api-version",
+									"value": "{{api_version}}"
+								}
+							]
+						},
+						"description": "创建 Agent 版本 1。"
+					}
+				},
+				{
+					"name": "04b. Create v2（改 instructions + metadata）",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('v2 created with higher version', function () {",
+									"    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+									"    const json = pm.response.json();",
+									"    const v1 = parseInt(pm.collectionVariables.get('test_agent_version'));",
+									"    const v2 = parseInt(json.version);",
+									"    pm.expect(v2).to.be.above(v1);",
+									"    pm.collectionVariables.set('test_agent_version', json.version);",
+									"    console.log('v2:', json.version, '(v1 was:', v1, ')');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "api-key",
+								"value": "{{api_key}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"definition\": {\n    \"type\": \"prompt\",\n    \"model\": \"gpt-4o\",\n    \"instructions\": \"Version 2 — updated instructions.\"\n  },\n  \"metadata\": {\n    \"step\": \"2\",\n    \"extra\": \"data\"\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_endpoint}}/api/projects/{{project_name}}/agents/{{test_agent_name}}/versions?api-version={{api_version}}",
+							"host": ["{{base_endpoint}}"],
+							"path": ["api", "projects", "{{project_name}}", "agents", "{{test_agent_name}}", "versions"],
+							"query": [
+								{
+									"key": "api-version",
+									"value": "{{api_version}}"
+								}
+							]
+						},
+						"description": "创建版本 2（修改 instructions 和 metadata）。\n\n**验证点**：version 号严格递增。"
+					}
+				},
+				{
+					"name": "04c. Create v3（只改 metadata）",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('v3 created with higher version', function () {",
+									"    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+									"    const json = pm.response.json();",
+									"    const v2 = parseInt(pm.collectionVariables.get('test_agent_version'));",
+									"    const v3 = parseInt(json.version);",
+									"    pm.expect(v3).to.be.above(v2);",
+									"    console.log('v3:', json.version, '(v2 was:', v2, ')');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "api-key",
+								"value": "{{api_key}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"definition\": {\n    \"type\": \"prompt\",\n    \"model\": \"gpt-4o\",\n    \"instructions\": \"Version 2 — updated instructions.\"\n  },\n  \"metadata\": {\n    \"step\": \"3\",\n    \"extra\": \"more-data\",\n    \"new-key\": \"appears\"\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_endpoint}}/api/projects/{{project_name}}/agents/{{test_agent_name}}/versions?api-version={{api_version}}",
+							"host": ["{{base_endpoint}}"],
+							"path": ["api", "projects", "{{project_name}}", "agents", "{{test_agent_name}}", "versions"],
+							"query": [
+								{
+									"key": "api-version",
+									"value": "{{api_version}}"
+								}
+							]
+						},
+						"description": "创建版本 3（只改 metadata，不改 instructions）。\n\n**验证点**：即使只改 metadata，版本号仍然递增。"
+					}
+				},
+				{
+					"name": "04d. GET latest version",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Latest version returned', function () {",
+									"    const json = pm.response.json();",
+									"    const latest = json.versions.latest;",
+									"    pm.expect(latest).to.have.property('version');",
+									"    pm.expect(latest).to.have.property('metadata');",
+									"    console.log('Latest version:', latest.version);",
+									"    console.log('Latest metadata:', JSON.stringify(latest.metadata, null, 2));",
+									"});",
+									"",
+									"pm.test('Metadata is from v3 (replace, not merge)', function () {",
+									"    const json = pm.response.json();",
+									"    const meta = json.versions.latest.metadata || {};",
+									"    pm.expect(meta['step']).to.eql('3');",
+									"    console.log('Has step=3:', meta['step']);",
+									"    // Check if merge or replace behavior",
+									"    if (meta['step'] === '3' && !meta.hasOwnProperty('old-key')) {",
+									"        console.log('Metadata behavior: REPLACE (each version gets only its own metadata)');",
+									"    }",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "api-key",
+								"value": "{{api_key}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_endpoint}}/api/projects/{{project_name}}/agents/{{test_agent_name}}?api-version={{api_version}}",
+							"host": ["{{base_endpoint}}"],
+							"path": ["api", "projects", "{{project_name}}", "agents", "{{test_agent_name}}"],
+							"query": [
+								{
+									"key": "api-version",
+									"value": "{{api_version}}"
+								}
+							]
+						},
+						"description": "读取 Agent 最新版本，验证：\n- version 是 v3 的版本号\n- metadata 包含 v3 的数据\n- 观察 metadata 是「替换」还是「合并」模式"
+					}
+				},
+				{
+					"name": "04e. Cleanup version test agent",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "api-key",
+								"value": "{{api_key}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_endpoint}}/api/projects/{{project_name}}/agents/{{test_agent_name}}?api-version={{api_version}}",
+							"host": ["{{base_endpoint}}"],
+							"path": ["api", "projects", "{{project_name}}", "agents", "{{test_agent_name}}"],
+							"query": [
+								{
+									"key": "api-version",
+									"value": "{{api_version}}"
+								}
+							]
+						},
+						"description": "清理版本追踪测试 Agent。"
+					}
+				}
+			],
+			"description": "### 测试 4：版本号追踪\n\n验证每次 `create_version` 后版本号严格递增。\n\n**关键原则**：永远使用 API 返回的 `version` 作为权威来源，不要自行 +1。"
+		},
+		{
+			"name": "05 — Error Cases",
+			"item": [
+				{
+					"name": "05a. Missing api-key header",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Rejected without api-key (401)', function () {",
+									"    pm.expect(pm.response.code).to.eql(401);",
+									"    console.log('✅ Correctly rejected without api-key');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_endpoint}}/api/projects/{{project_name}}/agents/nonexistent-agent?api-version={{api_version}}",
+							"host": ["{{base_endpoint}}"],
+							"path": ["api", "projects", "{{project_name}}", "agents", "nonexistent-agent"],
+							"query": [
+								{
+									"key": "api-version",
+									"value": "{{api_version}}"
+								}
+							]
+						},
+						"description": "不带 api-key header 的请求。\n\n**预期**：401 Unauthorized。"
+					}
+				},
+				{
+					"name": "05b. Wrong api-key",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Rejected with wrong api-key (401)', function () {",
+									"    pm.expect(pm.response.code).to.eql(401);",
+									"    console.log('✅ Correctly rejected with wrong api-key');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "api-key",
+								"value": "wrong-key-12345"
+							}
+						],
+						"url": {
+							"raw": "{{base_endpoint}}/api/projects/{{project_name}}/agents/nonexistent-agent?api-version={{api_version}}",
+							"host": ["{{base_endpoint}}"],
+							"path": ["api", "projects", "{{project_name}}", "agents", "nonexistent-agent"],
+							"query": [
+								{
+									"key": "api-version",
+									"value": "{{api_version}}"
+								}
+							]
+						},
+						"description": "使用错误的 api-key。\n\n**预期**：401 Unauthorized。"
+					}
+				},
+				{
+					"name": "05c. GET nonexistent agent",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Nonexistent agent returns 404', function () {",
+									"    pm.expect(pm.response.code).to.eql(404);",
+									"    console.log('✅ Correctly returned 404 for nonexistent agent');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "api-key",
+								"value": "{{api_key}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_endpoint}}/api/projects/{{project_name}}/agents/definitely-nonexistent-agent-xyz?api-version={{api_version}}",
+							"host": ["{{base_endpoint}}"],
+							"path": ["api", "projects", "{{project_name}}", "agents", "definitely-nonexistent-agent-xyz"],
+							"query": [
+								{
+									"key": "api-version",
+									"value": "{{api_version}}"
+								}
+							]
+						},
+						"description": "请求不存在的 Agent。\n\n**预期**：404 Not Found。"
+					}
+				},
+				{
+					"name": "05d. Missing definition field",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"const ts = Date.now();",
+									"pm.collectionVariables.set('test_agent_name', `postman-nodef-${ts}`);"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Missing definition rejected (4xx)', function () {",
+									"    pm.expect(pm.response.code).to.be.within(400, 499);",
+									"    console.log('✅ Missing definition rejected:', pm.response.code);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "api-key",
+								"value": "{{api_key}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"metadata\": {\n    \"test-key\": \"no definition provided\"\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_endpoint}}/api/projects/{{project_name}}/agents/{{test_agent_name}}/versions?api-version={{api_version}}",
+							"host": ["{{base_endpoint}}"],
+							"path": ["api", "projects", "{{project_name}}", "agents", "{{test_agent_name}}", "versions"],
+							"query": [
+								{
+									"key": "api-version",
+									"value": "{{api_version}}"
+								}
+							]
+						},
+						"description": "缺少 `definition` 字段的创建请求。\n\n**预期**：400/422 错误。"
+					}
+				}
+			],
+			"description": "### 测试 5：错误用例\n\n验证 API 对各种错误输入的响应：\n- 缺少认证\n- 错误的 api-key\n- 不存在的 Agent\n- 缺少必填字段"
+		}
+	]
+}
