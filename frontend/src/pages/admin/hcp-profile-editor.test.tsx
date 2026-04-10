@@ -115,6 +115,7 @@ const MOCK_PROFILE: HcpProfile = {
   eou_detection: false,
   recognition_language: "auto",
   agent_instructions_override: "",
+  knowledge_config_count: 0,
 };
 
 function renderEditor(path = "/admin/hcp-profiles/new") {

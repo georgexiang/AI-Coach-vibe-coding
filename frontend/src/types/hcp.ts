@@ -45,6 +45,8 @@ export interface HcpProfile {
   recognition_language: string;
   // Agent override (D-02)
   agent_instructions_override: string;
+  // Knowledge Base config count (Phase 17)
+  knowledge_config_count: number;
 }
 
 export interface HcpProfileCreate {

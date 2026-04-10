@@ -6,7 +6,10 @@ import { toast } from "sonner";
 import {
   ChevronRight,
   ChevronDown,
+  Database,
   FileText,
+  Plus,
+  Trash2,
   Wrench,
   X,
   ExternalLink,
@@ -33,6 +36,11 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { VoiceLiveModelSelect } from "@/components/admin/voice-live-model-select";
 import { InstructionsSection } from "@/components/admin/instructions-section";
+import { ConnectKbDialog } from "@/components/admin/connect-kb-dialog";
+import {
+  useHcpKnowledgeConfigs,
+  useRemoveKnowledgeConfig,
+} from "@/hooks/use-knowledge-base";
 import {
   useVoiceLiveInstances,
   useAssignVoiceLiveInstance,
@@ -71,6 +79,10 @@ export function AgentConfigLeftPanel({
 
   const [knowledgeToolsExpanded, setKnowledgeToolsExpanded] = useState(false);
   const [showRemoveDialog, setShowRemoveDialog] = useState(false);
+  const [connectKbDialogOpen, setConnectKbDialogOpen] = useState(false);
+
+  const { data: kbConfigs } = useHcpKnowledgeConfigs(profile?.id);
+  const removeKbMutation = useRemoveKnowledgeConfig();
 
   // --- VL Instance assign/unassign logic (migrated from voice-avatar-tab.tsx) ---
   const handleInstanceChange = (value: string) => {
@@ -251,10 +263,57 @@ export function AgentConfigLeftPanel({
         </CardHeader>
         {knowledgeToolsExpanded && (
           <CardContent className="space-y-3 pt-0">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <FileText className="size-4" />
-              <span>{t("admin:hcp.knowledgePlaceholder")}</span>
+            {/* Knowledge Bases */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-muted-foreground">
+                  <FileText className="inline size-3.5 mr-1" />
+                  {t("admin:hcp.knowledgeTitle")}
+                </span>
+                {profile?.id && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-2 text-xs"
+                    onClick={() => setConnectKbDialogOpen(true)}
+                  >
+                    <Plus className="size-3 mr-1" />
+                    {t("admin:hcp.addKnowledgeBase")}
+                  </Button>
+                )}
+              </div>
+              {kbConfigs && kbConfigs.length > 0 ? (
+                <div className="space-y-1.5">
+                  {kbConfigs.map((cfg) => (
+                    <div
+                      key={cfg.id}
+                      className="flex items-center justify-between rounded border px-2 py-1.5"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Database className="size-3.5 shrink-0 text-muted-foreground" />
+                        <span className="text-xs truncate">{cfg.index_name}</span>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-6 shrink-0 text-muted-foreground hover:text-destructive"
+                        onClick={() => removeKbMutation.mutate(cfg.id)}
+                        disabled={removeKbMutation.isPending}
+                      >
+                        <Trash2 className="size-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-[10px] text-muted-foreground">
+                  {profile?.id
+                    ? t("admin:hcp.noKnowledgeBases")
+                    : t("admin:hcp.playgroundDisabledNew")}
+                </p>
+              )}
             </div>
+            {/* Tools placeholder */}
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Wrench className="size-4" />
               <span>{t("admin:hcp.toolsPlaceholder")}</span>
@@ -262,6 +321,15 @@ export function AgentConfigLeftPanel({
           </CardContent>
         )}
       </Card>
+
+      {/* Connect Knowledge Base Dialog */}
+      {profile?.id && (
+        <ConnectKbDialog
+          hcpId={profile.id}
+          open={connectKbDialogOpen}
+          onOpenChange={setConnectKbDialogOpen}
+        />
+      )}
 
       {/* Remove Confirm Dialog (migrated from voice-avatar-tab.tsx) */}
       <Dialog open={showRemoveDialog} onOpenChange={setShowRemoveDialog}>

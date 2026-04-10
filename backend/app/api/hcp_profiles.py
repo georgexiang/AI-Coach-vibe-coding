@@ -62,6 +62,9 @@ class HcpProfileOut(BaseModel):
     recognition_language: str = "auto"
     agent_instructions_override: str = ""
 
+    # Knowledge Base config count (Phase 17)
+    knowledge_config_count: int = 0
+
     created_by: str
     created_at: str
     updated_at: str

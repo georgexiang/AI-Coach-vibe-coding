@@ -2,12 +2,12 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: Phase 16 Complete
-stopped_at: All phases through 16 complete
+status: Phase 17 Pending
+stopped_at: Phase 17 added, pending discuss/plan
 last_updated: "2026-04-08T18:00:00.000Z"
 last_activity: 2026-04-08
 progress:
-  total_phases: 17
+  total_phases: 18
   completed_phases: 17
   total_plans: 80
   completed_plans: 80
@@ -21,12 +21,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-24)
 
 **Core value:** MRs can practice realistic conversations with AI-powered digital HCPs and receive immediate, multi-dimensional feedback to improve their communication skills -- anytime, without needing a real HCP or trainer.
-**Current focus:** All phases 01-16 complete. Ready for new phase.
+**Current focus:** Phase 17 — Agent Knowledge Base (Foundry IQ) Integration
 
 ## Current Position
 
-Phase: 16 (voice-live-refactor-modularize-agent-mode-sync) — COMPLETE
-All 80/80 plans complete across 17 phases (01 through 16 inclusive).
+Phase: 17 (agent-knowledge-base-foundry-iq) — PENDING
+All 80/80 plans complete across 17 phases (01 through 16 inclusive). Phase 17 added.
 
 ## Performance Metrics
 
@@ -245,6 +245,7 @@ None yet.
 - Phase 11 added: HCP Profile Agent Integration — Auto-create AI Foundry agent when adding HCP profiles
 - Phase 12 added: voice realtime api & agent模式联调
 - Phase 14 added: HCP Agent Refactor — VL Instance Read-Only Reference + Knowledge/Tools Config
+- Phase 17 added: Agent Knowledge Base — Foundry IQ Integration (HCP Agent 知识库管理，Azure AI Search / Foundry IQ 连接，材料自动索引)
 
 ### Quick Tasks Completed
 

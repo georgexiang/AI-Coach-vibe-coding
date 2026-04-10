@@ -80,6 +80,17 @@ class HcpProfile(Base, TimestampMixin):
     # Relationships
     scenarios = relationship("Scenario", back_populates="hcp_profile")
     voice_live_instance = relationship("VoiceLiveInstance", back_populates="hcp_profiles")
+    knowledge_configs = relationship(
+        "HcpKnowledgeConfig", back_populates="hcp_profile", cascade="all, delete-orphan"
+    )
+
+    @property
+    def knowledge_config_count(self) -> int:
+        """Count of associated knowledge base configs (Phase 17)."""
+        try:
+            return len(self.knowledge_configs)
+        except Exception:
+            return 0
 
     def to_prompt_dict(self) -> dict:
         """Return all personality/knowledge fields as a dict for system prompt construction."""

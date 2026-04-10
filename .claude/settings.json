@@ -8,14 +8,6 @@
             "command": "node .claude/hooks/gsd-check-update.js"
           }
         ]
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/gsd-session-state.sh"
-          }
-        ]
       }
     ],
     "PostToolUse": [
@@ -30,11 +22,11 @@
         ]
       },
       {
-        "matcher": "Write|Edit",
+        "matcher": "Bash|Edit|Write|Read|Glob|Grep|Agent|Task",
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/gsd-phase-boundary.sh",
+            "command": "node .claude/hooks/tool-tracker.js",
             "timeout": 5
           }
         ]
@@ -57,16 +49,6 @@
           {
             "type": "command",
             "command": "node .claude/hooks/gsd-read-guard.js",
-            "timeout": 5
-          }
-        ]
-      },
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/gsd-validate-commit.sh",
             "timeout": 5
           }
         ]

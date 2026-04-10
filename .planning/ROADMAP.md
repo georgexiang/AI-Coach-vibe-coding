@@ -27,7 +27,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 13: Voice Live Instance & Agent Voice Management** - Create/manage Voice Live instances, bind to HCP Agents, enable Voice mode, configure speech/avatar — matching AI Foundry portal workflow (completed 2026-04-08)
 - [x] **Phase 14: HCP Agent Refactor** - VL Instance read-only reference in HCP editor, VL Management rewrite with rich CRUD, Knowledge/Tools placeholder tabs (completed 2026-04-08)
 - [x] **Phase 15: HCP Editor Agent Config Center** - 重构 HCP 编辑器为 Agent 配置中心：移除空 Knowledge/Tools tab，Voice & Avatar tab 升级为 Model Deployment + Instructions + Playground 预览布局，对齐 Azure AI Foundry Agent 编辑体验 (completed 2026-04-07)
-- [ ] **Phase 16: Voice Live Refactor — Modularize, Agent Mode, Sync** - 前端 Voice Live 模块化复用，后端 WebSocket 双模式（Model+Agent），SDK 升级 1.2.0b5，HCP voice 配置同步到 AI Foundry Agent
+- [x] **Phase 16: Voice Live Refactor — Modularize, Agent Mode, Sync** - 前端 Voice Live 模块化复用，后端 WebSocket 双模式（Model+Agent），SDK 升级 1.2.0b5，HCP voice 配置同步到 AI Foundry Agent (completed 2026-04-10)
+- [ ] **Phase 17: Agent Knowledge Base — Foundry IQ Integration** - HCP Agent 知识库管理：连接 Azure AI Search / Foundry IQ，上传训练材料自动创建知识库索引，知识库配置同步到 AI Foundry Agent
 
 ## Phase Details
 
@@ -197,7 +198,7 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 01 -> 01.1 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07 -> 08 -> 09 -> 10 -> 11 -> 12 -> 13 -> 14 -> 15 -> 16
+Phases execute in numeric order: 01 -> 01.1 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07 -> 08 -> 09 -> 10 -> 11 -> 12 -> 13 -> 14 -> 15 -> 16 (all complete) -> 17 (next)
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -217,7 +218,8 @@ Phases execute in numeric order: 01 -> 01.1 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07 
 | 13. Voice Live Instance & Agent Voice Management | 3/3 | Complete   | 2026-04-08 |
 | 14. HCP Agent Refactor | 4/4 | Complete   | 2026-04-08 |
 | 15. HCP Editor Agent Config Center | 3/3 | Complete   | 2026-04-07 |
-| 16. Voice Live Refactor — Modularize, Agent Mode, Sync | 0/4 | Planned    |  |
+| 16. Voice Live Refactor — Modularize, Agent Mode, Sync | 4/4 | Complete   | 2026-04-10 |
+| 17. Agent Knowledge Base — Foundry IQ Integration | 0/3 | Planned    | - |
 
 ### Phase 16: Voice Live Refactor — Modularize, Agent Mode, Sync
 
@@ -425,5 +427,26 @@ Plans:
   3. Voice & Avatar tab 右侧为 Playground 预览面板，根据 avatar 配置显示数字人形象或音波球，含 Start 测试按钮
   4. Instructions 区域可通过魔法棒按钮调用 build_agent_instructions 重新生成
   5. 前后端测试覆盖 + i18n（en-US + zh-CN）+ TypeScript 编译通过
+
+**UI hint**: yes
+
+### Phase 17: Agent Knowledge Base — Foundry IQ Integration
+
+**Goal:** HCP Agent 知识库配置（Agent 能力定义范畴），对齐 Azure AI Foundry Knowledge 配置体验。Admin 可在 HCP 编辑器中列出 AI Foundry Project 的 AI Search Connections 和已有 Knowledge Base，选择并绑定到 HCP Agent。知识库配置通过 MCPTool 同步到 AI Foundry Agent，使 Agent 在对话中自动使用 Foundry IQ RAG 检索知识。KB 的创建/维护/文档上传属于知识管理模块职责，不在本 phase 范围。
+**Requirements**: KB-17-01, KB-17-02, KB-17-03, KB-17-04, KB-17-05
+**Depends on:** Phase 16
+**Plans:** 3 plans
+
+Plans:
+- [ ] 17-01-PLAN.md -- Backend foundation: Alembic migration (hcp_knowledge_configs), ORM model, Pydantic schemas, knowledge_base_service, API router, agent_sync tools extension
+- [ ] 17-02-PLAN.md -- Frontend: TypeScript types, API client, TanStack Query hooks, i18n keys, ConnectKbDialog, KnowledgeTab, HCP editor integration
+- [ ] 17-03-PLAN.md -- Integration wiring: agent sync e2e test, frontend component tests, build verification, visual checkpoint
+
+**Success Criteria** (what must be TRUE):
+  1. Admin 可在 HCP 编辑器 Knowledge tab 中列出 AI Foundry Project 的 AI Search Connections，选择 Connection 后列出其中已有的 Knowledge Base（对齐 AI Foundry "Connect to Foundry IQ" 流程）
+  2. Admin 选择 Connection + KB 后绑定到 HCP Agent，一个 Agent 可绑定多个 KB
+  3. 知识库配置通过 MCPTool 同步到 AI Foundry Agent definition 的 tools 参数，Agent 在对话中自动使用 Foundry IQ RAG 检索知识
+  4. HCP 编辑器 Knowledge tab 显示已绑定的知识库列表（名称、connection、状态），支持解绑操作
+  5. 前后端测试覆盖 + i18n（en-US + zh-CN）+ TypeScript/Ruff 构建通过
 
 **UI hint**: yes

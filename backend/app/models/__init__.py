@@ -1,5 +1,6 @@
 from app.models.base import Base, TimestampMixin
 from app.models.conference import ConferenceAudienceHcp
+from app.models.hcp_knowledge_config import HcpKnowledgeConfig
 from app.models.hcp_profile import HcpProfile
 from app.models.material import MaterialChunk, MaterialVersion, TrainingMaterial
 from app.models.message import SessionMessage
@@ -15,6 +16,7 @@ __all__ = [
     "Base",
     "TimestampMixin",
     "User",
+    "HcpKnowledgeConfig",
     "HcpProfile",
     "VoiceLiveInstance",
     "Scenario",

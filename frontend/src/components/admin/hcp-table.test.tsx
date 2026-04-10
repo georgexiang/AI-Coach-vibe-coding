@@ -72,6 +72,7 @@ function makeProfile(overrides: Partial<HcpProfile> = {}): HcpProfile {
     eou_detection: false,
     recognition_language: "auto",
     agent_instructions_override: "",
+    knowledge_config_count: 0,
     ...overrides,
   };
 }
@@ -97,6 +98,7 @@ describe("HcpTable", () => {
     expect(screen.getByText("hcp.personalityType")).toBeInTheDocument();
     expect(screen.getByText("hcp.communicationStyleCol")).toBeInTheDocument();
     expect(screen.getByText("hcp.agentStatus")).toBeInTheDocument();
+    expect(screen.getByText("hcp.knowledgeBaseCol")).toBeInTheDocument();
     expect(screen.getByText("hcp.voiceAvatarCol")).toBeInTheDocument();
     expect(screen.getByText("hcp.actions")).toBeInTheDocument();
   });

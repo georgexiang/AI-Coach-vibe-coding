@@ -5,6 +5,7 @@ import {
   Trash2,
   ArrowUpDown,
   RefreshCw,
+  BookOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -184,6 +185,9 @@ export function HcpTable({
                 {t("hcp.agentStatus")}
               </th>
               <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                {t("hcp.knowledgeBaseCol")}
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 {t("hcp.voiceAvatarCol")}
               </th>
               <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">
@@ -214,6 +218,9 @@ export function HcpTable({
                     <Skeleton className="h-5 w-[60px] rounded-full" />
                   </td>
                   <td className="px-4 py-3">
+                    <Skeleton className="h-5 w-[50px] rounded" />
+                  </td>
+                  <td className="px-4 py-3">
                     <Skeleton className="h-5 w-[100px] rounded" />
                   </td>
                   <td className="px-4 py-3">
@@ -223,7 +230,7 @@ export function HcpTable({
               ))
             ) : paged.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-8">
+                <td colSpan={8} className="px-4 py-8">
                   <EmptyState
                     title={t("hcp.emptyTitle")}
                     body={t("hcp.emptyBody")}
@@ -270,6 +277,18 @@ export function HcpTable({
                       status={profile.agent_sync_status}
                       error={profile.agent_sync_error}
                     />
+                  </td>
+                  <td className="px-4 py-3">
+                    {profile.knowledge_config_count > 0 ? (
+                      <Badge variant="outline" className="text-xs gap-1">
+                        <BookOpen className="size-3" />
+                        {profile.knowledge_config_count} KB
+                      </Badge>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">
+                        {t("hcp.noKb")}
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     {profile.voice_name ? (

@@ -99,8 +99,11 @@ async def get_hcp_profiles(
     total_result = await db.execute(count_query)
     total = total_result.scalar() or 0
 
-    # Paginate with eager-loaded voice_live_instance for FK display
-    query = query.options(selectinload(HcpProfile.voice_live_instance))
+    # Paginate with eager-loaded voice_live_instance for FK display + KB configs for count
+    query = query.options(
+        selectinload(HcpProfile.voice_live_instance),
+        selectinload(HcpProfile.knowledge_configs),
+    )
     query = query.order_by(HcpProfile.created_at.desc())
     query = query.offset((page - 1) * page_size).limit(page_size)
     result = await db.execute(query)
@@ -113,7 +116,10 @@ async def get_hcp_profile(db: AsyncSession, profile_id: str) -> HcpProfile:
     """Get a single HCP profile by ID. Raises 404 if not found."""
     result = await db.execute(
         select(HcpProfile)
-        .options(selectinload(HcpProfile.voice_live_instance))
+        .options(
+            selectinload(HcpProfile.voice_live_instance),
+            selectinload(HcpProfile.knowledge_configs),
+        )
         .where(HcpProfile.id == profile_id)
     )
     profile = result.scalar_one_or_none()
@@ -218,37 +224,25 @@ async def delete_hcp_profile(db: AsyncSession, profile_id: str) -> None:
             )
             score_ids = [row[0] for row in score_rows.all()]
             if score_ids:
-                await db.execute(
-                    delete(ScoreDetail).where(ScoreDetail.score_id.in_(score_ids))
-                )
-            await db.execute(
-                delete(SessionScore).where(SessionScore.session_id.in_(session_ids))
-            )
+                await db.execute(delete(ScoreDetail).where(ScoreDetail.score_id.in_(score_ids)))
+            await db.execute(delete(SessionScore).where(SessionScore.session_id.in_(session_ids)))
             await db.execute(
                 delete(SessionMessage).where(SessionMessage.session_id.in_(session_ids))
             )
             # 3b. Delete coaching sessions
-            await db.execute(
-                delete(CoachingSession).where(CoachingSession.id.in_(session_ids))
-            )
+            await db.execute(delete(CoachingSession).where(CoachingSession.id.in_(session_ids)))
 
         # 4. Delete conference_audience_hcps referencing these scenarios
         await db.execute(
-            delete(ConferenceAudienceHcp).where(
-                ConferenceAudienceHcp.scenario_id.in_(scenario_ids)
-            )
+            delete(ConferenceAudienceHcp).where(ConferenceAudienceHcp.scenario_id.in_(scenario_ids))
         )
 
         # 5. Delete scenarios
-        await db.execute(
-            delete(Scenario).where(Scenario.hcp_profile_id == profile_id)
-        )
+        await db.execute(delete(Scenario).where(Scenario.hcp_profile_id == profile_id))
 
     # 6. Delete conference_audience_hcps directly referencing this HCP profile
     await db.execute(
-        delete(ConferenceAudienceHcp).where(
-            ConferenceAudienceHcp.hcp_profile_id == profile_id
-        )
+        delete(ConferenceAudienceHcp).where(ConferenceAudienceHcp.hcp_profile_id == profile_id)
     )
 
     await db.delete(profile)

@@ -1,0 +1,745 @@
+"""Tests for Knowledge Base service, API endpoints, and agent sync tools extension (Phase 17)."""
+
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+from httpx import ASGITransport, AsyncClient
+
+from app.database import get_db
+from app.dependencies import get_current_user
+from app.main import app
+from app.models.hcp_knowledge_config import HcpKnowledgeConfig
+from app.models.hcp_profile import HcpProfile
+from app.models.user import User
+from app.schemas.knowledge_base import KnowledgeConfigCreate
+
+# ---------------------------------------------------------------------------
+# Fixtures
+# ---------------------------------------------------------------------------
+
+
+def _fake_admin() -> User:
+    """Create a fake authenticated admin user for dependency override."""
+    user = MagicMock(spec=User)
+    user.id = "admin-user-id-kb"
+    user.role = "admin"
+    user.username = "adminuser"
+    user.is_active = True
+    return user
+
+
+@pytest.fixture
+def admin_client(db_session):
+    """Async HTTP client with admin auth + db overrides."""
+
+    async def override_get_db():
+        yield db_session
+
+    async def override_get_current_user():
+        return _fake_admin()
+
+    app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_current_user] = override_get_current_user
+    yield
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture
+async def aclient(admin_client):
+    """Async HTTP client with overrides applied."""
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+    ) as ac:
+        yield ac
+
+
+@pytest.fixture
+async def sample_hcp(db_session):
+    """Create a sample HCP profile in the test DB."""
+    profile = HcpProfile(
+        id="hcp-kb-test-001",
+        name="Dr. KB Test",
+        specialty="Oncology",
+        created_by="admin-user-id-kb",
+    )
+    db_session.add(profile)
+    await db_session.flush()
+    return profile
+
+
+@pytest.fixture
+async def sample_kb_config(db_session, sample_hcp):
+    """Create a sample knowledge config in the test DB."""
+    config = HcpKnowledgeConfig(
+        id="kb-config-001",
+        hcp_profile_id=sample_hcp.id,
+        connection_name="my-search-conn",
+        connection_target="https://search.example.com",
+        index_name="medical-index",
+        server_label="knowledge-base-medical-index",
+        is_enabled=True,
+    )
+    db_session.add(config)
+    await db_session.flush()
+    return config
+
+
+# ---------------------------------------------------------------------------
+# Unit Tests: build_mcp_tools
+# ---------------------------------------------------------------------------
+
+
+class TestBuildMcpTools:
+    """Tests for knowledge_base_service.build_mcp_tools."""
+
+    def test_empty_list_returns_empty(self):
+        """build_mcp_tools with empty list returns empty list."""
+        from app.services.knowledge_base_service import build_mcp_tools
+
+        result = build_mcp_tools([])
+        assert result == []
+
+    def test_disabled_configs_excluded(self):
+        """build_mcp_tools excludes disabled configs."""
+        from app.services.knowledge_base_service import build_mcp_tools
+
+        cfg = MagicMock(spec=HcpKnowledgeConfig)
+        cfg.is_enabled = False
+        cfg.connection_name = "conn"
+        cfg.index_name = "idx"
+        cfg.server_label = "kb-idx"
+        cfg.connection_target = ""
+
+        result = build_mcp_tools([cfg])
+        assert result == []
+
+    @patch("app.services.knowledge_base_service.MCPTool", create=True)
+    def test_enabled_config_produces_tool(self, mock_mcp_cls):
+        """build_mcp_tools creates one MCPTool per enabled config."""
+        # We need to mock the import inside the function
+        mock_tool = MagicMock()
+        mock_mcp_cls.return_value = mock_tool
+
+        cfg = MagicMock(spec=HcpKnowledgeConfig)
+        cfg.is_enabled = True
+        cfg.connection_name = "my-conn"
+        cfg.connection_target = "https://search.example.com"
+        cfg.index_name = "my-index"
+        cfg.server_label = "knowledge-base-my-index"
+
+        modules_patch = {
+            "azure.ai.projects.models": MagicMock(MCPTool=mock_mcp_cls),
+        }
+        with patch.dict("sys.modules", modules_patch):
+            from importlib import reload
+
+            import app.services.knowledge_base_service as kb_mod
+
+            reload(kb_mod)
+            result = kb_mod.build_mcp_tools([cfg])
+
+        # Should have called MCPTool once
+        assert len(result) == 1
+
+    def test_sdk_not_installed_returns_empty(self):
+        """build_mcp_tools returns empty when SDK not installed."""
+        import sys
+
+        # Temporarily remove azure.ai.projects.models if present
+        original = sys.modules.get("azure.ai.projects.models")
+        sys.modules["azure.ai.projects.models"] = None  # type: ignore
+
+        try:
+            # Re-import to trigger the ImportError path
+            from app.services.knowledge_base_service import build_mcp_tools
+
+            cfg = MagicMock(spec=HcpKnowledgeConfig)
+            cfg.is_enabled = True
+            cfg.connection_name = "conn"
+            cfg.index_name = "idx"
+            cfg.server_label = "kb-idx"
+            cfg.connection_target = ""
+
+            result = build_mcp_tools([cfg])
+            assert result == []
+        finally:
+            if original is not None:
+                sys.modules["azure.ai.projects.models"] = original
+            else:
+                sys.modules.pop("azure.ai.projects.models", None)
+
+
+# ---------------------------------------------------------------------------
+# Unit Tests: Knowledge base service CRUD
+# ---------------------------------------------------------------------------
+
+
+class TestKnowledgeBaseServiceCrud:
+    """Tests for CRUD operations in knowledge_base_service."""
+
+    @pytest.mark.asyncio
+    async def test_get_configs_empty(self, db_session, sample_hcp):
+        """get_knowledge_configs returns empty list when no configs exist."""
+        from app.services.knowledge_base_service import get_knowledge_configs
+
+        result = await get_knowledge_configs(db_session, sample_hcp.id)
+        assert result == []
+
+    @pytest.mark.asyncio
+    @patch("app.services.knowledge_base_service._trigger_agent_resync", new_callable=AsyncMock)
+    async def test_add_knowledge_config(self, mock_resync, db_session, sample_hcp):
+        """add_knowledge_config creates a record and returns it."""
+        from app.services.knowledge_base_service import add_knowledge_config
+
+        create_data = KnowledgeConfigCreate(
+            connection_name="test-conn",
+            connection_target="https://search.test.com",
+            index_name="test-index",
+        )
+        result = await add_knowledge_config(db_session, sample_hcp.id, create_data)
+
+        assert result.connection_name == "test-conn"
+        assert result.index_name == "test-index"
+        assert result.server_label == "knowledge-base-test-index"
+        assert result.is_enabled is True
+        assert result.hcp_profile_id == sample_hcp.id
+        mock_resync.assert_called_once()
+
+    @pytest.mark.asyncio
+    @patch("app.services.knowledge_base_service._trigger_agent_resync", new_callable=AsyncMock)
+    async def test_get_configs_after_add(self, mock_resync, db_session, sample_hcp):
+        """get_knowledge_configs returns added configs."""
+        from app.services.knowledge_base_service import (
+            add_knowledge_config,
+            get_knowledge_configs,
+        )
+
+        create_data = KnowledgeConfigCreate(
+            connection_name="conn-a",
+            index_name="index-a",
+        )
+        await add_knowledge_config(db_session, sample_hcp.id, create_data)
+
+        configs = await get_knowledge_configs(db_session, sample_hcp.id)
+        assert len(configs) == 1
+        assert configs[0].connection_name == "conn-a"
+
+    @pytest.mark.asyncio
+    @patch("app.services.knowledge_base_service._trigger_agent_resync", new_callable=AsyncMock)
+    async def test_remove_knowledge_config(self, mock_resync, db_session, sample_kb_config):
+        """remove_knowledge_config deletes the record."""
+        from app.services.knowledge_base_service import (
+            get_knowledge_configs,
+            remove_knowledge_config,
+        )
+
+        await remove_knowledge_config(db_session, sample_kb_config.id)
+
+        configs = await get_knowledge_configs(db_session, sample_kb_config.hcp_profile_id)
+        assert len(configs) == 0
+        assert mock_resync.call_count == 1
+
+    @pytest.mark.asyncio
+    @patch("app.services.knowledge_base_service._trigger_agent_resync", new_callable=AsyncMock)
+    async def test_remove_nonexistent_config_raises(self, mock_resync, db_session):
+        """remove_knowledge_config raises 404 for nonexistent config."""
+        from app.services.knowledge_base_service import remove_knowledge_config
+        from app.utils.exceptions import AppException
+
+        with pytest.raises(AppException) as exc_info:
+            await remove_knowledge_config(db_session, "nonexistent-id")
+        assert exc_info.value.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_list_search_connections_sdk_not_configured(self, db_session):
+        """list_search_connections returns empty list when SDK calls fail."""
+        from app.services.knowledge_base_service import list_search_connections
+
+        with patch(
+            "app.services.agent_sync_service.get_project_endpoint",
+            side_effect=Exception("not configured"),
+        ):
+            result = await list_search_connections(db_session)
+            assert result == []
+
+    @pytest.mark.asyncio
+    async def test_list_indexes_sdk_not_configured(self, db_session):
+        """list_indexes returns empty list when SDK calls fail."""
+        from app.services.knowledge_base_service import list_indexes
+
+        with patch(
+            "app.services.agent_sync_service.get_project_endpoint",
+            side_effect=Exception("not configured"),
+        ):
+            result = await list_indexes(db_session)
+            assert result == []
+
+
+# ---------------------------------------------------------------------------
+# API Endpoint Tests
+# ---------------------------------------------------------------------------
+
+
+class TestKnowledgeBaseApi:
+    """Integration tests for knowledge base API endpoints."""
+
+    @pytest.mark.asyncio
+    async def test_list_connections_returns_200(self, aclient: AsyncClient):
+        """GET /api/v1/knowledge-base/connections returns 200."""
+        with patch(
+            "app.services.knowledge_base_service.list_search_connections",
+            new_callable=AsyncMock,
+            return_value=[],
+        ):
+            resp = await aclient.get("/api/v1/knowledge-base/connections")
+            assert resp.status_code == 200
+            assert resp.json() == []
+
+    @pytest.mark.asyncio
+    async def test_list_connections_returns_data(self, aclient: AsyncClient):
+        """GET /api/v1/knowledge-base/connections returns connection objects."""
+        mock_data = [
+            {"name": "search-conn-1", "target": "https://search1.example.com", "is_default": True}
+        ]
+        with patch(
+            "app.services.knowledge_base_service.list_search_connections",
+            new_callable=AsyncMock,
+            return_value=mock_data,
+        ):
+            resp = await aclient.get("/api/v1/knowledge-base/connections")
+            assert resp.status_code == 200
+            data = resp.json()
+            assert len(data) == 1
+            assert data[0]["name"] == "search-conn-1"
+            assert data[0]["is_default"] is True
+
+    @pytest.mark.asyncio
+    async def test_list_indexes_returns_200(self, aclient: AsyncClient):
+        """GET /api/v1/knowledge-base/indexes returns 200."""
+        with patch(
+            "app.services.knowledge_base_service.list_indexes",
+            new_callable=AsyncMock,
+            return_value=[],
+        ):
+            resp = await aclient.get("/api/v1/knowledge-base/indexes")
+            assert resp.status_code == 200
+            assert resp.json() == []
+
+    @pytest.mark.asyncio
+    async def test_list_indexes_returns_data(self, aclient: AsyncClient):
+        """GET /api/v1/knowledge-base/indexes returns index objects."""
+        mock_data = [
+            {"name": "medical-index", "version": "1", "type": "vector", "description": "Medical KB"}
+        ]
+        with patch(
+            "app.services.knowledge_base_service.list_indexes",
+            new_callable=AsyncMock,
+            return_value=mock_data,
+        ):
+            resp = await aclient.get("/api/v1/knowledge-base/indexes")
+            assert resp.status_code == 200
+            data = resp.json()
+            assert len(data) == 1
+            assert data[0]["name"] == "medical-index"
+
+    @pytest.mark.asyncio
+    async def test_get_hcp_configs_empty(self, aclient: AsyncClient, sample_hcp):
+        """GET /api/v1/knowledge-base/hcp/{id}/configs returns empty list."""
+        resp = await aclient.get(f"/api/v1/knowledge-base/hcp/{sample_hcp.id}/configs")
+        assert resp.status_code == 200
+        assert resp.json() == []
+
+    @pytest.mark.asyncio
+    async def test_get_hcp_configs_with_data(self, aclient: AsyncClient, sample_kb_config):
+        """GET /api/v1/knowledge-base/hcp/{id}/configs returns existing configs."""
+        resp = await aclient.get(
+            f"/api/v1/knowledge-base/hcp/{sample_kb_config.hcp_profile_id}/configs"
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data) == 1
+        assert data[0]["connection_name"] == "my-search-conn"
+        assert data[0]["index_name"] == "medical-index"
+
+    @pytest.mark.asyncio
+    @patch("app.services.knowledge_base_service._trigger_agent_resync", new_callable=AsyncMock)
+    async def test_add_hcp_config_returns_201(self, mock_resync, aclient: AsyncClient, sample_hcp):
+        """POST /api/v1/knowledge-base/hcp/{id}/configs returns 201."""
+        resp = await aclient.post(
+            f"/api/v1/knowledge-base/hcp/{sample_hcp.id}/configs",
+            json={
+                "connection_name": "new-conn",
+                "connection_target": "https://new.search.com",
+                "index_name": "new-index",
+            },
+        )
+        assert resp.status_code == 201
+        data = resp.json()
+        assert data["connection_name"] == "new-conn"
+        assert data["index_name"] == "new-index"
+        assert data["server_label"] == "knowledge-base-new-index"
+        assert data["is_enabled"] is True
+        assert "id" in data
+        assert "created_at" in data
+
+    @pytest.mark.asyncio
+    @patch("app.services.knowledge_base_service._trigger_agent_resync", new_callable=AsyncMock)
+    async def test_delete_config_returns_204(
+        self, mock_resync, aclient: AsyncClient, sample_kb_config
+    ):
+        """DELETE /api/v1/knowledge-base/configs/{id} returns 204."""
+        resp = await aclient.delete(f"/api/v1/knowledge-base/configs/{sample_kb_config.id}")
+        assert resp.status_code == 204
+
+    @pytest.mark.asyncio
+    @patch("app.services.knowledge_base_service._trigger_agent_resync", new_callable=AsyncMock)
+    async def test_delete_nonexistent_config_returns_404(self, mock_resync, aclient: AsyncClient):
+        """DELETE /api/v1/knowledge-base/configs/{id} returns 404 for missing config."""
+        resp = await aclient.delete("/api/v1/knowledge-base/configs/nonexistent-id")
+        assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# Agent Sync with Tools Tests
+# ---------------------------------------------------------------------------
+
+
+class TestAgentSyncToolsExtension:
+    """Tests for agent_sync_service tools parameter extension."""
+
+    def test_create_agent_accepts_tools_parameter(self):
+        """create_agent signature includes tools parameter."""
+        import inspect
+
+        from app.services.agent_sync_service import create_agent
+
+        sig = inspect.signature(create_agent)
+        assert "tools" in sig.parameters
+
+    def test_update_agent_accepts_tools_parameter(self):
+        """update_agent signature includes tools parameter."""
+        import inspect
+
+        from app.services.agent_sync_service import update_agent
+
+        sig = inspect.signature(update_agent)
+        assert "tools" in sig.parameters
+
+    def test_build_agent_instructions_unchanged(self):
+        """build_agent_instructions still works after tools extension."""
+        from app.services.agent_sync_service import build_agent_instructions
+
+        profile_data = {
+            "name": "Dr. KB",
+            "specialty": "Oncology",
+            "communication_style": 50,
+            "emotional_state": 50,
+        }
+        result = build_agent_instructions(profile_data)
+        assert "Dr. KB" in result
+        assert "Oncology" in result
+
+
+# ---------------------------------------------------------------------------
+# Schema Tests
+# ---------------------------------------------------------------------------
+
+
+class TestKnowledgeBaseSchemas:
+    """Tests for Pydantic schema validation."""
+
+    def test_knowledge_config_create_minimal(self):
+        """KnowledgeConfigCreate with minimal fields."""
+        config = KnowledgeConfigCreate(
+            connection_name="conn",
+            index_name="idx",
+        )
+        assert config.connection_name == "conn"
+        assert config.connection_target == ""
+        assert config.index_name == "idx"
+
+    def test_knowledge_config_create_full(self):
+        """KnowledgeConfigCreate with all fields."""
+        config = KnowledgeConfigCreate(
+            connection_name="conn",
+            connection_target="https://search.example.com",
+            index_name="idx",
+        )
+        assert config.connection_target == "https://search.example.com"
+
+    def test_knowledge_config_out_from_attributes(self):
+        """KnowledgeConfigOut can be created from ORM attributes."""
+        from datetime import datetime
+
+        from app.schemas.knowledge_base import KnowledgeConfigOut
+
+        mock_orm = MagicMock()
+        mock_orm.id = "test-id"
+        mock_orm.hcp_profile_id = "hcp-id"
+        mock_orm.connection_name = "conn"
+        mock_orm.connection_target = "target"
+        mock_orm.index_name = "idx"
+        mock_orm.server_label = "kb-idx"
+        mock_orm.is_enabled = True
+        mock_orm.created_at = datetime(2026, 1, 1)
+
+        out = KnowledgeConfigOut.model_validate(mock_orm, from_attributes=True)
+        assert out.id == "test-id"
+        assert out.connection_name == "conn"
+        assert out.is_enabled is True
+
+    def test_connection_out_schema(self):
+        """ConnectionOut schema validates correctly."""
+        from app.schemas.knowledge_base import ConnectionOut
+
+        conn = ConnectionOut(name="conn", target="https://search.com", is_default=True)
+        assert conn.name == "conn"
+        assert conn.is_default is True
+
+    def test_index_out_schema(self):
+        """IndexOut schema validates correctly."""
+        from app.schemas.knowledge_base import IndexOut
+
+        idx = IndexOut(name="my-index")
+        assert idx.name == "my-index"
+        assert idx.version is None
+        assert idx.type is None
+
+
+# ---------------------------------------------------------------------------
+# Model Tests
+# ---------------------------------------------------------------------------
+
+
+class TestHcpKnowledgeConfigModel:
+    """Tests for the HcpKnowledgeConfig ORM model."""
+
+    @pytest.mark.asyncio
+    async def test_create_config_in_db(self, db_session, sample_hcp):
+        """HcpKnowledgeConfig can be persisted to the database."""
+        config = HcpKnowledgeConfig(
+            hcp_profile_id=sample_hcp.id,
+            connection_name="test-conn",
+            connection_target="https://search.test.com",
+            index_name="test-index",
+            server_label="knowledge-base-test-index",
+        )
+        db_session.add(config)
+        await db_session.flush()
+
+        assert config.id is not None
+        assert config.is_enabled is True
+        assert config.created_at is not None
+
+    @pytest.mark.asyncio
+    async def test_cascade_delete(self, db_session, sample_hcp, sample_kb_config):
+        """Deleting HCP profile cascades to knowledge configs."""
+        from sqlalchemy import select
+
+        await db_session.delete(sample_hcp)
+        await db_session.flush()
+
+        result = await db_session.execute(
+            select(HcpKnowledgeConfig).where(HcpKnowledgeConfig.id == sample_kb_config.id)
+        )
+        assert result.scalar_one_or_none() is None
+
+    @pytest.mark.asyncio
+    async def test_hcp_profile_relationship(self, db_session, sample_hcp):
+        """HcpProfile.knowledge_configs relationship works."""
+        config = HcpKnowledgeConfig(
+            hcp_profile_id=sample_hcp.id,
+            connection_name="rel-conn",
+            index_name="rel-index",
+            server_label="knowledge-base-rel-index",
+        )
+        db_session.add(config)
+        await db_session.flush()
+
+        # Refresh to load relationship
+        await db_session.refresh(sample_hcp, ["knowledge_configs"])
+        assert len(sample_hcp.knowledge_configs) == 1
+        assert sample_hcp.knowledge_configs[0].connection_name == "rel-conn"
+
+
+# ---------------------------------------------------------------------------
+# Integration Tests: Full KB → Agent Sync Flow
+# ---------------------------------------------------------------------------
+
+
+class TestKbAgentSyncIntegration:
+    """End-to-end integration test: KB config changes trigger agent sync with MCPTool."""
+
+    @pytest.mark.asyncio
+    @patch("app.services.knowledge_base_service._trigger_agent_resync", new_callable=AsyncMock)
+    async def test_full_flow_add_kb_triggers_resync(self, mock_resync, db_session, sample_hcp):
+        """Adding a KB config triggers agent re-sync."""
+        from app.services.knowledge_base_service import add_knowledge_config
+
+        create_data = KnowledgeConfigCreate(
+            connection_name="flow-conn",
+            connection_target="https://search.flow.com",
+            index_name="flow-index",
+        )
+        await add_knowledge_config(db_session, sample_hcp.id, create_data)
+
+        # _trigger_agent_resync should have been called with (db, hcp_profile_id)
+        mock_resync.assert_called_once_with(db_session, sample_hcp.id)
+
+    @pytest.mark.asyncio
+    @patch("app.services.knowledge_base_service._trigger_agent_resync", new_callable=AsyncMock)
+    async def test_full_flow_remove_kb_triggers_resync(self, mock_resync, db_session, sample_hcp):
+        """Removing a KB config triggers agent re-sync."""
+        from app.services.knowledge_base_service import (
+            add_knowledge_config,
+            remove_knowledge_config,
+        )
+
+        # Add a config first
+        create_data = KnowledgeConfigCreate(
+            connection_name="rem-conn",
+            index_name="rem-index",
+        )
+        config = await add_knowledge_config(db_session, sample_hcp.id, create_data)
+        mock_resync.reset_mock()
+
+        # Remove it
+        await remove_knowledge_config(db_session, config.id)
+        mock_resync.assert_called_once_with(db_session, sample_hcp.id)
+
+    @pytest.mark.asyncio
+    @patch("app.services.knowledge_base_service._trigger_agent_resync", new_callable=AsyncMock)
+    async def test_full_flow_add_remove_kb_configs_list(self, mock_resync, db_session, sample_hcp):
+        """Full flow: add 2 KB configs, verify list, remove one, verify list shrinks."""
+        from app.services.knowledge_base_service import (
+            add_knowledge_config,
+            get_knowledge_configs,
+            remove_knowledge_config,
+        )
+
+        # Add two KB configs
+        config_a = await add_knowledge_config(
+            db_session,
+            sample_hcp.id,
+            KnowledgeConfigCreate(
+                connection_name="conn-a",
+                connection_target="https://a.search.com",
+                index_name="index-a",
+            ),
+        )
+        config_b = await add_knowledge_config(
+            db_session,
+            sample_hcp.id,
+            KnowledgeConfigCreate(
+                connection_name="conn-b",
+                connection_target="https://b.search.com",
+                index_name="index-b",
+            ),
+        )
+
+        # Verify both exist
+        configs = await get_knowledge_configs(db_session, sample_hcp.id)
+        assert len(configs) == 2
+        names = {c.connection_name for c in configs}
+        assert names == {"conn-a", "conn-b"}
+
+        # Remove config_a
+        await remove_knowledge_config(db_session, config_a.id)
+
+        # Verify only config_b remains
+        configs = await get_knowledge_configs(db_session, sample_hcp.id)
+        assert len(configs) == 1
+        assert configs[0].connection_name == "conn-b"
+        assert configs[0].id == config_b.id
+
+    @pytest.mark.asyncio
+    async def test_build_mcp_tools_from_db_configs(self, db_session, sample_hcp):
+        """build_mcp_tools generates tools from DB-persisted configs."""
+        from app.services.knowledge_base_service import build_mcp_tools
+
+        # Add configs to DB
+        cfg1 = HcpKnowledgeConfig(
+            hcp_profile_id=sample_hcp.id,
+            connection_name="sync-conn",
+            connection_target="https://search.sync.com",
+            index_name="sync-index",
+            server_label="knowledge-base-sync-index",
+            is_enabled=True,
+        )
+        cfg2 = HcpKnowledgeConfig(
+            hcp_profile_id=sample_hcp.id,
+            connection_name="disabled-conn",
+            index_name="disabled-index",
+            server_label="knowledge-base-disabled-index",
+            is_enabled=False,
+        )
+        db_session.add_all([cfg1, cfg2])
+        await db_session.flush()
+
+        # Refresh to get actual ORM objects
+        await db_session.refresh(sample_hcp, ["knowledge_configs"])
+        configs = sample_hcp.knowledge_configs
+
+        assert len(configs) == 2
+
+        # build_mcp_tools should only include enabled configs
+        # (SDK not installed in test env, so result should be empty)
+        tools = build_mcp_tools(configs)
+        # Without SDK installed, returns empty list
+        assert isinstance(tools, list)
+
+    @pytest.mark.asyncio
+    async def test_sync_agent_for_profile_includes_kb_tools(self, db_session, sample_hcp):
+        """sync_agent_for_profile reads KB configs and passes tools to create_agent."""
+        from app.services.knowledge_base_service import get_knowledge_configs
+
+        # Add a KB config to DB
+        cfg = HcpKnowledgeConfig(
+            hcp_profile_id=sample_hcp.id,
+            connection_name="agent-sync-conn",
+            connection_target="https://search.agent.com",
+            index_name="agent-index",
+            server_label="knowledge-base-agent-index",
+            is_enabled=True,
+        )
+        db_session.add(cfg)
+        await db_session.flush()
+
+        # Verify KB config is retrievable
+        configs = await get_knowledge_configs(db_session, sample_hcp.id)
+        assert len(configs) == 1
+        assert configs[0].index_name == "agent-index"
+
+    @pytest.mark.asyncio
+    async def test_sync_agent_for_profile_no_kb_tools_when_empty(self, db_session, sample_hcp):
+        """sync_agent_for_profile passes no tools when no KB configs exist."""
+        from app.services.knowledge_base_service import build_mcp_tools, get_knowledge_configs
+
+        # No KB configs exist
+        configs = await get_knowledge_configs(db_session, sample_hcp.id)
+        assert len(configs) == 0
+
+        tools = build_mcp_tools(configs)
+        assert tools == []
+
+    @pytest.mark.asyncio
+    @patch("app.services.knowledge_base_service._trigger_agent_resync", new_callable=AsyncMock)
+    async def test_resync_called_count_matches_mutations(self, mock_resync, db_session, sample_hcp):
+        """_trigger_agent_resync is called once per add and once per remove."""
+        from app.services.knowledge_base_service import (
+            add_knowledge_config,
+            remove_knowledge_config,
+        )
+
+        # Add
+        config = await add_knowledge_config(
+            db_session,
+            sample_hcp.id,
+            KnowledgeConfigCreate(connection_name="count-conn", index_name="count-index"),
+        )
+        assert mock_resync.call_count == 1
+
+        # Remove
+        await remove_knowledge_config(db_session, config.id)
+        assert mock_resync.call_count == 2

@@ -5,6 +5,7 @@ from app.api.azure_config import router as azure_config_router
 from app.api.conference import router as conference_router
 from app.api.config import router as config_router
 from app.api.hcp_profiles import router as hcp_profiles_router
+from app.api.knowledge_base import router as knowledge_base_router
 from app.api.materials import router as materials_router
 from app.api.rubrics import router as rubrics_router
 from app.api.scenarios import router as scenarios_router
@@ -21,6 +22,7 @@ __all__ = [
     "conference_router",
     "config_router",
     "hcp_profiles_router",
+    "knowledge_base_router",
     "materials_router",
     "rubrics_router",
     "scenarios_router",

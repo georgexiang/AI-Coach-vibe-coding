@@ -65,6 +65,7 @@ const mockScenario: Scenario = {
     eou_detection: false,
     recognition_language: "auto",
     agent_instructions_override: "",
+    knowledge_config_count: 0,
     voice_live_enabled: true,
     voice_live_model: "gpt-4o",
     voice_live_instance_id: null,

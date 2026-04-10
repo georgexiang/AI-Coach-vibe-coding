@@ -566,6 +566,7 @@ describe("VoiceLiveManagementPage", () => {
       eou_detection: false,
       recognition_language: "auto",
       agent_instructions_override: "",
+      knowledge_config_count: 0,
     };
     mockInstancesReturn = {
       data: { items: [makeInstance()] },
@@ -628,6 +629,7 @@ describe("VoiceLiveManagementPage", () => {
       eou_detection: false,
       recognition_language: "auto",
       agent_instructions_override: "",
+      knowledge_config_count: 0,
     };
     mockInstancesReturn = {
       data: { items: [makeInstance()] },

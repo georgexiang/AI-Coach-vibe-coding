@@ -6,29 +6,27 @@
       "Bash(.venv/bin/python3 ../docs/microsoft-agent-framework/tests/test_agent_auth_v2.py)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(git push:*)"
-    ]
-  },
-  "hooks": {
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/opt/homebrew/bin/terminal-notifier -title \"Claude Code\" -message \"Task finished\" -sound Glass"
-          }
-        ]
-      }
-    ],
-    "PermissionRequest": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/opt/homebrew/bin/terminal-notifier -title \"Claude Code\" -message \"Waiting for permission\""
-          }
-        ]
-      }
+      "Bash(git push:*)",
+      "Bash(source .venv/bin/activate)",
+      "Bash(python3 -m pytest tests/test_agent_sync_service.py -x -q --timeout=30)",
+      "Bash(python3 -m pytest tests/test_voice_live_instance_service.py tests/test_agent_sync_service.py -x -q --timeout=30)",
+      "Bash(python3 -m pytest tests/test_voice_live_instance_service.py::test_update_instance_triggers_resync -x -q --timeout=30 -s)",
+      "Bash(python3 -m pytest tests/test_voice_live_instance_service.py tests/test_agent_sync_service.py -x -q --timeout=60)",
+      "Bash(python3 -m pytest tests/test_voice_live_instance_service.py::test_assign_triggers_resync -x -q --timeout=30 -s)",
+      "Bash(source backend/.venv/bin/activate)",
+      "Bash(python3 -m pytest tests/test_agent_sync_service.py tests/test_voice_live_instance_service.py tests/test_hcp_agent_sync_integration.py -v --tb=short)",
+      "Bash(python3 -m pytest -v --tb=short -q)",
+      "Bash(ruff check:*)",
+      "WebSearch",
+      "Bash(source /Users/huqianghui/Downloads/1.github/AI-Coach-vibe-coding/backend/.venv/bin/activate)",
+      "Bash(python3 -c \":*)",
+      "Bash(.venv/bin/python3 -m pytest tests/test_agent_sync_service.py -x -q --tb=short)",
+      "Bash(.venv/bin/python3 -m pytest tests/test_agent_sync_service.py::test_build_voice_live_metadata_fits_512_char_limit_worst_case -x -q --tb=long)",
+      "Bash(.venv/bin/python3 -m pytest tests/test_agent_sync_service.py -x -q --tb=short -k \"voice_live_metadata\")",
+      "Bash(.venv/bin/python3 -m pytest tests/test_voice_live_instance_service.py -x -q --tb=short)",
+      "Bash(.venv/bin/ruff check:*)",
+      "Bash(.venv/bin/python3 -m pytest tests/test_agent_sync_service.py tests/test_voice_live_instance_service.py -x -q --tb=short)",
+      "mcp__tavily__search"
     ]
   },
   "enabledPlugins": {

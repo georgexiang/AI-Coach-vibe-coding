@@ -296,9 +296,14 @@ async def update_agent_metadata_only(
                 agent_id,
             )
 
+        # Preserve existing tools from the current agent definition (Phase 17)
+        existing_tools = definition.get("tools", [])
+
         from azure.ai.projects.models import PromptAgentDefinition
 
-        new_definition = PromptAgentDefinition(model=model, instructions=instructions)
+        new_definition = PromptAgentDefinition(
+            model=model, instructions=instructions, tools=existing_tools or []
+        )
 
         result = await asyncio.to_thread(
             client.agents.create_version,
@@ -440,6 +445,7 @@ async def create_agent(
     model: str | None = None,
     *,
     metadata: dict[str, str] | None = None,
+    tools: list | None = None,
     endpoint_override: str = "",
     key_override: str = "",
 ) -> dict:
@@ -466,7 +472,7 @@ async def create_agent(
     client = _get_project_client(project_endpoint, api_key)
 
     agent_name = _sanitize_agent_name(name)
-    definition = PromptAgentDefinition(model=model, instructions=instructions)
+    definition = PromptAgentDefinition(model=model, instructions=instructions, tools=tools or [])
 
     try:
         result = await asyncio.to_thread(
@@ -500,6 +506,7 @@ async def update_agent(
     model: str | None = None,
     *,
     metadata: dict[str, str] | None = None,
+    tools: list | None = None,
     endpoint_override: str = "",
     key_override: str = "",
 ) -> dict:
@@ -525,7 +532,7 @@ async def update_agent(
     logger.info("update_agent: endpoint=%s, agent_id=%s", project_endpoint, agent_id)
     client = _get_project_client(project_endpoint, api_key)
 
-    definition = PromptAgentDefinition(model=model, instructions=instructions)
+    definition = PromptAgentDefinition(model=model, instructions=instructions, tools=tools or [])
 
     try:
         result = await asyncio.to_thread(
@@ -617,6 +624,16 @@ async def sync_agent_for_profile(
     # Build Voice Live metadata if enabled on the profile
     vl_metadata = build_voice_live_metadata(profile)
 
+    # Build knowledge base tools from KB configs (Phase 17)
+    kb_tools: list = []
+    try:
+        from app.services import knowledge_base_service
+
+        kb_configs = await knowledge_base_service.get_knowledge_configs(db, profile.id)
+        kb_tools = knowledge_base_service.build_mcp_tools(kb_configs)
+    except Exception as e:
+        logger.warning("Failed to build KB tools for profile %s: %s", profile.id, e)
+
     if profile.agent_id:
         result = await update_agent(
             db,
@@ -625,6 +642,7 @@ async def sync_agent_for_profile(
             instructions,
             prefetched_model,
             metadata=vl_metadata,
+            tools=kb_tools or None,
             endpoint_override=prefetched_endpoint or "",
             key_override=prefetched_key or "",
         )
@@ -635,6 +653,7 @@ async def sync_agent_for_profile(
             instructions,
             prefetched_model,
             metadata=vl_metadata,
+            tools=kb_tools or None,
             endpoint_override=prefetched_endpoint or "",
             key_override=prefetched_key or "",
         )

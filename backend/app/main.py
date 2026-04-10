@@ -22,6 +22,7 @@ from app.api import (
     conference_router,
     config_router,
     hcp_profiles_router,
+    knowledge_base_router,
     materials_router,
     rubrics_router,
     scenarios_router,
@@ -97,6 +98,7 @@ app.include_router(sessions_router, prefix=settings.api_prefix)
 app.include_router(scoring_router, prefix=settings.api_prefix)
 app.include_router(rubrics_router, prefix=settings.api_prefix)
 app.include_router(azure_config_router, prefix=settings.api_prefix)
+app.include_router(knowledge_base_router, prefix=settings.api_prefix)
 app.include_router(materials_router, prefix=settings.api_prefix)
 app.include_router(conference_router, prefix=settings.api_prefix)
 app.include_router(analytics_router, prefix=settings.api_prefix)
