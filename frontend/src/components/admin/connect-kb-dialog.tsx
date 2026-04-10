@@ -91,7 +91,7 @@ export function ConnectKbDialog({
         <div className="space-y-4 py-2">
           {/* Step 1: Select Connection */}
           <div className="space-y-2">
-            <Label>{t("hcp.selectConnection")}</Label>
+            <Label>{t("hcp.connectionLabel")}</Label>
             <Select
               value={selectedConnection}
               onValueChange={setSelectedConnection}
@@ -119,7 +119,7 @@ export function ConnectKbDialog({
 
           {/* Step 2: Select Knowledge Base / Index */}
           <div className="space-y-2">
-            <Label>{t("hcp.selectKnowledgeBase")}</Label>
+            <Label>{t("hcp.knowledgeBaseLabel")}</Label>
             <Select
               value={selectedIndex}
               onValueChange={setSelectedIndex}

@@ -114,18 +114,20 @@ class TestBuildSearchTools:
         result = build_search_tools([cfg])
         assert result == []
 
-    def test_enabled_config_produces_tool(self):
-        """build_search_tools creates MCPTool pointing to KB MCP endpoint."""
+    def test_enabled_config_produces_tool_with_remote_tool_map(self):
+        """build_search_tools creates MCPTool with RemoteTool connection for auth."""
         from app.services.knowledge_base_service import build_search_tools
 
         cfg = MagicMock(spec=HcpKnowledgeConfig)
         cfg.is_enabled = True
-        cfg.connection_name = "my-conn"
+        cfg.connection_name = "my-cognitive-search-conn"
         cfg.connection_target = "https://search.example.com"
         cfg.index_name = "my-index"
         cfg.server_label = "knowledge-base-my-index"
 
-        result = build_search_tools([cfg])
+        # RemoteTool connection map: KB index_name -> RemoteTool connection name
+        rt_map = {"my-index": "kb-my-index-rt-conn"}
+        result = build_search_tools([cfg], remote_tool_map=rt_map)
         assert len(result) == 1
         tool = result[0]
         assert tool.type == "mcp"
@@ -136,6 +138,68 @@ class TestBuildSearchTools:
         assert tool_dict["require_approval"] == "never"
         allowed = tool_dict.get("allowed_tools", {})
         assert allowed.get("tool_names") == ["knowledge_base_retrieve"]
+        # project_connection_id must be RemoteTool connection (CustomKeys),
+        # NOT CognitiveSearch connection (ApiKey) which causes 403
+        assert tool_dict["project_connection_id"] == "kb-my-index-rt-conn"
+
+    def test_project_connection_id_uses_remote_tool_not_cognitive_search(self):
+        """build_search_tools uses RemoteTool connection, not CognitiveSearch (403 fix)."""
+        from app.services.knowledge_base_service import build_search_tools
+
+        cfg = MagicMock(spec=HcpKnowledgeConfig)
+        cfg.is_enabled = True
+        cfg.connection_name = "aisearch-prod-conn"  # CognitiveSearch connection
+        cfg.connection_target = "https://search.prod.com"
+        cfg.index_name = "prod-kb"
+        cfg.server_label = "knowledge-base-prod-kb"
+
+        # RemoteTool connection for this KB
+        rt_map = {"prod-kb": "kb-prod-kb-remote-tool"}
+        result = build_search_tools([cfg], remote_tool_map=rt_map)
+        assert len(result) == 1
+        tool_dict = result[0].as_dict()
+        # Must use RemoteTool connection (CustomKeys type) for correct MCP auth.
+        # CognitiveSearch connection (ApiKey type) causes 403 Forbidden.
+        assert tool_dict["project_connection_id"] == "kb-prod-kb-remote-tool"
+        # Verify it's NOT the CognitiveSearch connection name
+        assert tool_dict["project_connection_id"] != "aisearch-prod-conn"
+
+    def test_no_remote_tool_map_sets_none_connection_id(self):
+        """build_search_tools without remote_tool_map sets project_connection_id=None."""
+        from app.services.knowledge_base_service import build_search_tools
+
+        cfg = MagicMock(spec=HcpKnowledgeConfig)
+        cfg.is_enabled = True
+        cfg.connection_name = "aisearch-conn"
+        cfg.connection_target = "https://search.example.com"
+        cfg.index_name = "some-kb"
+        cfg.server_label = "knowledge-base-some-kb"
+
+        # No remote_tool_map provided
+        result = build_search_tools([cfg])
+        assert len(result) == 1
+        tool_dict = result[0].as_dict()
+        # Without RemoteTool map, project_connection_id should be None
+        # (relies on Portal auto-URL-matching, like Portal v31)
+        assert tool_dict.get("project_connection_id") is None
+
+    def test_missing_kb_in_remote_tool_map_sets_none(self):
+        """build_search_tools sets None when KB not found in remote_tool_map."""
+        from app.services.knowledge_base_service import build_search_tools
+
+        cfg = MagicMock(spec=HcpKnowledgeConfig)
+        cfg.is_enabled = True
+        cfg.connection_name = "aisearch-conn"
+        cfg.connection_target = "https://search.example.com"
+        cfg.index_name = "unknown-kb"
+        cfg.server_label = "knowledge-base-unknown-kb"
+
+        # remote_tool_map exists but doesn't contain this KB
+        rt_map = {"other-kb": "kb-other-rt-conn"}
+        result = build_search_tools([cfg], remote_tool_map=rt_map)
+        assert len(result) == 1
+        tool_dict = result[0].as_dict()
+        assert tool_dict.get("project_connection_id") is None
 
     def test_sdk_not_installed_returns_empty(self):
         """build_search_tools returns empty when SDK not installed."""
@@ -717,6 +781,46 @@ class TestKbAgentSyncIntegration:
 
         tools = build_search_tools(configs)
         assert tools == []
+
+    @pytest.mark.asyncio
+    async def test_omada_product_parameters_kb_uses_remote_tool(self, db_session, sample_hcp):
+        """Regression: omada-product-parameters-kb must use RemoteTool connection (403 fix).
+
+        Real-world scenario: KB 'omada-product-parameters-kb' on AI Search endpoint
+        'ai-search-southeast-asia.search.windows.net'. CognitiveSearch connection
+        'aisearchsoutheastasia5e88p4' causes 403; RemoteTool connection
+        'kb-omada-product-param-e88p4' (CustomKeys) works correctly.
+        """
+        from app.services.knowledge_base_service import build_search_tools
+
+        cfg = HcpKnowledgeConfig(
+            hcp_profile_id=sample_hcp.id,
+            connection_name="aisearchsoutheastasia5e88p4",
+            connection_target="https://ai-search-southeast-asia.search.windows.net",
+            index_name="omada-product-parameters-kb",
+            server_label="knowledge-base-omada-product-parameters-kb",
+            is_enabled=True,
+        )
+        db_session.add(cfg)
+        await db_session.flush()
+
+        await db_session.refresh(sample_hcp, ["knowledge_configs"])
+
+        # Simulate RemoteTool connections from Foundry project
+        rt_map = {"omada-product-parameters-kb": "kb-omada-product-param-e88p4"}
+
+        tools = build_search_tools(sample_hcp.knowledge_configs, remote_tool_map=rt_map)
+        assert len(tools) == 1
+        tool_dict = tools[0].as_dict()
+
+        # Must use RemoteTool connection (CustomKeys), NOT CognitiveSearch (ApiKey)
+        assert tool_dict["project_connection_id"] == "kb-omada-product-param-e88p4"
+        assert tool_dict["project_connection_id"] != "aisearchsoutheastasia5e88p4"
+
+        # Verify MCP URL is correct
+        assert "knowledgebases/omada-product-parameters-kb/mcp" in tool_dict["server_url"]
+        assert "ai-search-southeast-asia.search.windows.net" in tool_dict["server_url"]
+        assert tool_dict["require_approval"] == "never"
 
     @pytest.mark.asyncio
     @patch("app.services.knowledge_base_service._trigger_agent_resync", new_callable=AsyncMock)

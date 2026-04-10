@@ -67,11 +67,15 @@ kb_name = "omada-product-parameters-kb"
 mcp_url = f"{search_endpoint}/knowledgebases/{kb_name}/mcp?api-version=2025-11-01-preview"
 
 # 创建 MCPTool（Portal Knowledge 区域格式）
+# IMPORTANT: project_connection_id 是必须的，Agent runtime 需要它来获取 API key 认证 MCP 端点
+# 不传此参数会导致 401 Unauthorized
+connection_name = "aisearchsoutheastasia5e88p4"  # AI Search 连接名
 tool = MCPTool(
     server_label=f"knowledge-base-{kb_name}",
     server_url=mcp_url,
     require_approval="never",
     allowed_tools=MCPToolFilter(tool_names=["knowledge_base_retrieve"]),
+    project_connection_id=connection_name,
 )
 
 # 传入 Agent definition
@@ -95,7 +99,8 @@ client.agents.create_version(
   "server_label": "knowledge-base-omada-product-parameters-kb",
   "server_url": "https://...search.windows.net/knowledgebases/omada-product-parameters-kb/mcp?api-version=2025-11-01-preview",
   "allowed_tools": { "tool_names": ["knowledge_base_retrieve"] },
-  "require_approval": "never"
+  "require_approval": "never",
+  "project_connection_id": "aisearchsoutheastasia5e88p4"
 }
 ```
 
@@ -107,6 +112,7 @@ client.agents.create_version(
 | `server_url` | `"{search_endpoint}/knowledgebases/{kb_name}/mcp?api-version=2025-11-01-preview"` | KB MCP 端点 |
 | `require_approval` | `"never"` | 无需人工审批 |
 | `allowed_tools` | `MCPToolFilter(tool_names=["knowledge_base_retrieve"])` | 仅允许检索工具 |
+| `project_connection_id` | `"{ai_search_connection_name}"` | **必须** — Agent runtime 通过此连接获取 API key 认证 MCP 端点。不传会导致 401 |
 
 ### 2.5 多知识库支持
 
@@ -114,6 +120,7 @@ client.agents.create_version(
 
 ```python
 tools = []
+connection_name = "aisearchsoutheastasia5e88p4"  # AI Search 连接名
 for kb_name in ["product-kb", "clinical-trials-kb"]:
     mcp_url = f"{search_endpoint}/knowledgebases/{kb_name}/mcp?api-version=2025-11-01-preview"
     tools.append(MCPTool(
@@ -121,6 +128,7 @@ for kb_name in ["product-kb", "clinical-trials-kb"]:
         server_url=mcp_url,
         require_approval="never",
         allowed_tools=MCPToolFilter(tool_names=["knowledge_base_retrieve"]),
+        project_connection_id=connection_name,
     ))
 ```
 
@@ -221,6 +229,7 @@ def build_search_tools(configs: list[HcpKnowledgeConfig]) -> list:
             server_url=mcp_url,
             require_approval="never",
             allowed_tools=MCPToolFilter(tool_names=["knowledge_base_retrieve"]),
+            project_connection_id=cfg.connection_name,
         )
         tools.append(tool)
     return tools
@@ -238,6 +247,7 @@ def build_search_tools(configs: list[HcpKnowledgeConfig]) -> list:
 | 4 | KB 下拉框显示超长描述 | 只显示 KB `name`，描述另行展示 |
 | 5 | MCPTool 缺少 `allowed_tools` | 必须传 `MCPToolFilter(tool_names=["knowledge_base_retrieve"])` |
 | 6 | MCP URL api-version 错误 | 必须是 `2025-11-01-preview`（不是 `2024-07-01`） |
+| 7 | MCPTool 缺少 `project_connection_id` | Agent runtime 无法认证 MCP 端点，报 401。必须传 AI Search 连接名 |
 
 ---
 

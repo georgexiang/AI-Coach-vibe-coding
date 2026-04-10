@@ -119,7 +119,8 @@ async def list_indexes(db: AsyncSession, connection_name: str = "") -> list[dict
             if resp.status_code != 200:
                 logger.warning(
                     "Foundry IQ knowledgebases API returned %d: %s",
-                    resp.status_code, resp.text,
+                    resp.status_code,
+                    resp.text,
                 )
                 return []
             data = resp.json()
@@ -192,7 +193,55 @@ async def remove_knowledge_config(db: AsyncSession, config_id: str) -> None:
     await _trigger_agent_resync(db, hcp_profile_id)
 
 
-def build_search_tools(configs: list[HcpKnowledgeConfig]) -> list:
+async def resolve_kb_remote_tool_connections(db: AsyncSession) -> dict[str, str]:
+    """Look up RemoteTool connections for Knowledge Bases from the Foundry project.
+
+    Portal auto-creates RemoteTool connections when a KB is added via the UI.
+    These connections have metadata.knowledgeBaseName matching the KB index name
+    and credentials type=CustomKeys (required for MCP endpoint auth).
+
+    Returns a dict mapping KB index_name -> RemoteTool connection name.
+    Returns empty dict if SDK not installed, not configured, or no RemoteTool connections exist.
+    """
+    try:
+        import asyncio
+
+        from app.services.agent_sync_service import _get_project_client, get_project_endpoint
+
+        project_endpoint, api_key = await get_project_endpoint(db)
+        client = _get_project_client(project_endpoint, api_key)
+
+        connections = await asyncio.to_thread(client.connections.list)
+
+        result: dict[str, str] = {}
+        for conn in connections:
+            conn_type = conn.get("type", "") if hasattr(conn, "get") else getattr(conn, "type", "")
+            if conn_type != "RemoteTool":
+                continue
+            metadata = (
+                conn.get("metadata", {}) if hasattr(conn, "get") else getattr(conn, "metadata", {})
+            )
+            kb_name = metadata.get("knowledgeBaseName", "") if metadata else ""
+            conn_name = conn.get("name", "") if hasattr(conn, "get") else getattr(conn, "name", "")
+            if kb_name and conn_name:
+                result[kb_name] = conn_name
+
+        logger.info(
+            "resolve_kb_remote_tool_connections: found %d RemoteTool KB connections", len(result)
+        )
+        return result
+    except ImportError:
+        logger.info("Azure AI Projects SDK not installed, cannot resolve RemoteTool connections")
+        return {}
+    except Exception as e:
+        logger.warning("Failed to resolve RemoteTool connections: %s", e)
+        return {}
+
+
+def build_search_tools(
+    configs: list[HcpKnowledgeConfig],
+    remote_tool_map: dict[str, str] | None = None,
+) -> list:
     """Build MCPTool list from KB configs for agent definition.
 
     Each enabled config creates an MCPTool pointing to the KB's MCP endpoint.
@@ -203,6 +252,13 @@ def build_search_tools(configs: list[HcpKnowledgeConfig]) -> list:
     - MCPTool with server_url pointing to /knowledgebases/{name}/mcp
     - allowed_tools = {"tool_names": ["knowledge_base_retrieve"]}
     - Shows in Portal 'Knowledge' section, not 'Tools' section.
+
+    Authentication: MCPTool requires project_connection_id pointing to a RemoteTool
+    connection (credentials type=CustomKeys), NOT a CognitiveSearch connection
+    (credentials type=ApiKey). Portal auto-creates RemoteTool connections when KBs
+    are added. Pass remote_tool_map (from resolve_kb_remote_tool_connections) to
+    look up the correct connection name for each KB. If no match found, omit
+    project_connection_id to rely on Portal's auto-URL-matching.
 
     Returns empty list if SDK is not installed or no enabled configs exist.
     """
@@ -216,18 +272,39 @@ def build_search_tools(configs: list[HcpKnowledgeConfig]) -> list:
         logger.info("Azure AI Projects SDK not installed, cannot build search tools")
         return []
 
+    rt_map = remote_tool_map or {}
+
     tools = []
     for cfg in enabled:
         search_endpoint = cfg.connection_target.rstrip("/")
         mcp_url = (
-            f"{search_endpoint}/knowledgebases/{cfg.index_name}"
-            f"/mcp?api-version=2025-11-01-preview"
+            f"{search_endpoint}/knowledgebases/{cfg.index_name}/mcp?api-version=2025-11-01-preview"
         )
+
+        # Use RemoteTool connection (CustomKeys) for MCP auth, NOT CognitiveSearch (ApiKey).
+        # CognitiveSearch connection causes 403 because its ApiKey credential type is
+        # handled differently by the runtime than RemoteTool's CustomKeys type.
+        rt_connection_name = rt_map.get(cfg.index_name)
+        if rt_connection_name:
+            logger.info(
+                "build_search_tools: KB '%s' -> RemoteTool connection '%s'",
+                cfg.index_name,
+                rt_connection_name,
+            )
+        else:
+            logger.warning(
+                "build_search_tools: no RemoteTool connection found for KB '%s'. "
+                "MCP auth will rely on Portal auto-URL-matching. "
+                "Add the KB via AI Foundry Portal to create the required RemoteTool connection.",
+                cfg.index_name,
+            )
+
         tool = MCPTool(
             server_label=cfg.server_label or f"knowledge-base-{cfg.index_name}",
             server_url=mcp_url,
             require_approval="never",
             allowed_tools=MCPToolFilter(tool_names=["knowledge_base_retrieve"]),
+            project_connection_id=rt_connection_name,
         )
         tools.append(tool)
     return tools

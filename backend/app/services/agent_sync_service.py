@@ -625,12 +625,16 @@ async def sync_agent_for_profile(
     vl_metadata = build_voice_live_metadata(profile)
 
     # Build knowledge base tools from KB configs (Phase 17)
+    # Resolve RemoteTool connections for MCP auth (403 fix: must use RemoteTool
+    # connection, not CognitiveSearch connection, for correct credentials type).
     kb_tools: list = []
     try:
         from app.services import knowledge_base_service
 
         kb_configs = await knowledge_base_service.get_knowledge_configs(db, profile.id)
-        kb_tools = knowledge_base_service.build_search_tools(kb_configs)
+        if kb_configs:
+            rt_map = await knowledge_base_service.resolve_kb_remote_tool_connections(db)
+            kb_tools = knowledge_base_service.build_search_tools(kb_configs, rt_map)
     except Exception as e:
         logger.warning("Failed to build KB tools for profile %s: %s", profile.id, e)
 
