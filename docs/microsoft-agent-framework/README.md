@@ -15,7 +15,8 @@
 | 05 | [Agent API Metadata 约束](./05-agent-api-metadata-constraints.md) | Endpoint 构造、512 字符限制、metadata 格式、默认值省略策略、重构指南 | 后端开发 / Agent |
 | 06 | [POC 验证测试代码](./tests/test_agent_auth_v2.py) | SDK 1.2.0b5 四种认证方式实测代码（**唯一有效测试**） | 开发/验证 |
 | 07 | [Agent Metadata API 探测测试](./tests/test_agent_metadata_api.py) | 真实 API 连接测试：metadata 读写、512 限制验证、版本追踪 | 开发/验证 |
-| 08 | [Postman 测试集合](./tests/agent-metadata-api.postman_collection.json) | 预配置 endpoint/key 的 Postman Collection：5 组测试含自动验证脚本 | 开发/验证 |
+| 08 | [REST Client 测试](./tests/agent-metadata-api.http) | VS Code 点击运行：6 组 API 测试（metadata、512 限制、VL 格式、版本、错误、合并） | 开发/验证 |
+| 09 | [Postman 测试集合](./tests/agent-metadata-api.postman_collection.json) | Postman Collection JSON：5 组测试含自动验证脚本 | 开发/验证 |
 
 > **注意**：`tests/` 目录下的 `test_voice_live_auth_modes.py` 和 `test_agent_conversation.py`
 > 是 SDK 1.1.0 时期的早期探索代码，使用了 `session.agent` 字段（服务端不接受）和错误的 API 版本。

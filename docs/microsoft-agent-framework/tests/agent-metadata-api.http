@@ -1,0 +1,315 @@
+###############################################################################
+# Azure AI Foundry Agent Metadata API Tests
+#
+# VS Code REST Client 格式 — 点击每个请求上方的 "Send Request" 即可运行
+#
+# 前置：
+#   1. 安装 VS Code 扩展 "REST Client" (humao.rest-client)
+#   2. 在同目录创建 .env 文件（已被 .gitignore 忽略），内容如下：
+#      AZURE_FOUNDRY_ENDPOINT=https://your-resource.services.ai.azure.com
+#      AZURE_FOUNDRY_API_KEY=your-api-key-here
+#      AZURE_FOUNDRY_PROJECT=your-project-name
+#
+# 使用：按序号从上到下依次点击 "Send Request" 运行
+###############################################################################
+
+### ===== 配置区（从 .env 读取，无需硬编码） =====
+
+@baseEndpoint = {{$dotenv AZURE_FOUNDRY_ENDPOINT}}
+@projectName = {{$dotenv AZURE_FOUNDRY_PROJECT}}
+@apiKey = {{$dotenv AZURE_FOUNDRY_API_KEY}}
+@apiVersion = 2025-05-01
+
+### ===== 动态变量 =====
+@projectUrl = {{baseEndpoint}}/api/projects/{{projectName}}
+
+###############################################################################
+# 测试 1：Metadata 基本读写 Round-Trip
+###############################################################################
+
+### 1a. 创建 Agent（带 metadata）
+# @name createBasic
+POST {{projectUrl}}/agents/postman-test-basic/versions?api-version={{apiVersion}}
+api-key: {{apiKey}}
+Content-Type: application/json
+
+{
+  "definition": {
+    "type": "prompt",
+    "model": "gpt-4o",
+    "instructions": "You are a test agent for metadata API verification."
+  },
+  "description": "Postman metadata test agent",
+  "metadata": {
+    "custom-key-1": "hello",
+    "custom-key-2": "world",
+    "number-as-string": "42"
+  }
+}
+
+### 1b. 读回 Agent（验证 metadata）
+# 检查 versions.latest.metadata 中的 key-value 是否一致
+GET {{projectUrl}}/agents/postman-test-basic?api-version={{apiVersion}}
+api-key: {{apiKey}}
+
+### 1c. 删除 Agent（清理）
+DELETE {{projectUrl}}/agents/postman-test-basic?api-version={{apiVersion}}
+api-key: {{apiKey}}
+
+
+###############################################################################
+# 测试 2：512 字符限制验证
+###############################################################################
+
+### 2a. 512 字符 — 应该成功 ✅
+POST {{projectUrl}}/agents/postman-test-512ok/versions?api-version={{apiVersion}}
+api-key: {{apiKey}}
+Content-Type: application/json
+
+{
+  "definition": {
+    "type": "prompt",
+    "model": "gpt-4o",
+    "instructions": "Test 512 char limit."
+  },
+  "metadata": {
+    "test-key": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+  }
+}
+
+### 2a-cleanup. 删除 512 测试 Agent
+DELETE {{projectUrl}}/agents/postman-test-512ok?api-version={{apiVersion}}
+api-key: {{apiKey}}
+
+### 2b. 513 字符 — 应该失败 ❌（错误消息含 "512"）
+POST {{projectUrl}}/agents/postman-test-513fail/versions?api-version={{apiVersion}}
+api-key: {{apiKey}}
+Content-Type: application/json
+
+{
+  "definition": {
+    "type": "prompt",
+    "model": "gpt-4o",
+    "instructions": "Test 513 char limit."
+  },
+  "metadata": {
+    "test-key": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+  }
+}
+
+### 2c. 1024 字符 — 应该失败 ❌
+POST {{projectUrl}}/agents/postman-test-1024/versions?api-version={{apiVersion}}
+api-key: {{apiKey}}
+Content-Type: application/json
+
+{
+  "definition": {
+    "type": "prompt",
+    "model": "gpt-4o",
+    "instructions": "Test 1024 char limit."
+  },
+  "metadata": {
+    "test-key": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+  }
+}
+
+
+###############################################################################
+# 测试 3：Voice Live Metadata 格式
+###############################################################################
+
+### 3a. 精简格式（省略默认值）— 应该成功 ✅ (167 chars)
+# 创建后可去 AI Foundry Portal 查看 Voice mode 是否显示为 ON
+POST {{projectUrl}}/agents/postman-test-vl-compact/versions?api-version={{apiVersion}}
+api-key: {{apiKey}}
+Content-Type: application/json
+
+{
+  "definition": {
+    "type": "prompt",
+    "model": "gpt-4o",
+    "instructions": "You are a Voice Live test agent."
+  },
+  "description": "VL Postman Test Agent",
+  "metadata": {
+    "microsoft.voice-live.enabled": "true",
+    "microsoft.voice-live.configuration": "{\"session\":{\"voice\":{\"name\":\"zh-CN-XiaoxiaoMultilingualNeural\"},\"turnDetection\":{\"type\":\"azure_semantic_vad\"},\"avatar\":{\"character\":\"lisa\",\"style\":\"casual-sitting\"}}}",
+    "description": "VL Test Agent",
+    "modified_at": "1712700000"
+  }
+}
+
+### 3b. 读回 VL Agent（验证 config round-trip）
+# 检查 microsoft.voice-live.enabled = "true"
+# 检查 microsoft.voice-live.configuration 解析后 avatar.character = "lisa"
+GET {{projectUrl}}/agents/postman-test-vl-compact?api-version={{apiVersion}}
+api-key: {{apiKey}}
+
+### 3c. 完整格式（含所有 null 和默认值）— 应该失败 ❌ (~607 chars > 512)
+# 如果成功 → Azure 已放宽 512 限制，可以恢复完整格式
+POST {{projectUrl}}/agents/postman-test-vl-full/versions?api-version={{apiVersion}}
+api-key: {{apiKey}}
+Content-Type: application/json
+
+{
+  "definition": {
+    "type": "prompt",
+    "model": "gpt-4o",
+    "instructions": "Test full VL config."
+  },
+  "metadata": {
+    "microsoft.voice-live.enabled": "true",
+    "microsoft.voice-live.configuration": "{\"session\":{\"voice\":{\"name\":\"zh-CN-XiaoxiaoMultilingualNeural\",\"type\":\"azure-standard\",\"temperature\":0.8,\"rate\":\"1.0\",\"isHdVoice\":false},\"inputAudioTranscription\":{\"model\":\"azure-speech\",\"language\":\"auto-detect\"},\"turnDetection\":{\"type\":\"azure_semantic_vad\",\"endOfUtteranceDetection\":null,\"removeFillerWords\":true},\"inputAudioNoiseReduction\":null,\"inputAudioEchoCancellation\":null,\"fillerResponse\":null,\"avatar\":{\"character\":\"lisa\",\"style\":\"casual-sitting\",\"customized\":false},\"proactiveEngagement\":false}}"
+  }
+}
+
+### 3d. 清理 VL 测试 Agents
+DELETE {{projectUrl}}/agents/postman-test-vl-compact?api-version={{apiVersion}}
+api-key: {{apiKey}}
+
+### 3e. 清理完整格式 Agent（如果创建成功了的话）
+DELETE {{projectUrl}}/agents/postman-test-vl-full?api-version={{apiVersion}}
+api-key: {{apiKey}}
+
+
+###############################################################################
+# 测试 4：版本号追踪
+###############################################################################
+
+### 4a. 创建 Agent v1
+# @name createV1
+POST {{projectUrl}}/agents/postman-test-version/versions?api-version={{apiVersion}}
+api-key: {{apiKey}}
+Content-Type: application/json
+
+{
+  "definition": {
+    "type": "prompt",
+    "model": "gpt-4o",
+    "instructions": "Version 1 instructions."
+  },
+  "metadata": {
+    "step": "1"
+  }
+}
+
+### 4b. 创建 v2（改 instructions + metadata）— version 应该 > v1
+# @name createV2
+POST {{projectUrl}}/agents/postman-test-version/versions?api-version={{apiVersion}}
+api-key: {{apiKey}}
+Content-Type: application/json
+
+{
+  "definition": {
+    "type": "prompt",
+    "model": "gpt-4o",
+    "instructions": "Version 2 — updated instructions."
+  },
+  "metadata": {
+    "step": "2",
+    "extra": "data"
+  }
+}
+
+### 4c. 创建 v3（只改 metadata）— version 应该 > v2
+# @name createV3
+POST {{projectUrl}}/agents/postman-test-version/versions?api-version={{apiVersion}}
+api-key: {{apiKey}}
+Content-Type: application/json
+
+{
+  "definition": {
+    "type": "prompt",
+    "model": "gpt-4o",
+    "instructions": "Version 2 — updated instructions."
+  },
+  "metadata": {
+    "step": "3",
+    "extra": "more-data",
+    "new-key": "appears"
+  }
+}
+
+### 4d. GET 最新版本 — 验证 metadata 是 v3 的
+# 注意：metadata 在 versions.latest.metadata 路径下
+GET {{projectUrl}}/agents/postman-test-version?api-version={{apiVersion}}
+api-key: {{apiKey}}
+
+### 4e. 清理
+DELETE {{projectUrl}}/agents/postman-test-version?api-version={{apiVersion}}
+api-key: {{apiKey}}
+
+
+###############################################################################
+# 测试 5：错误用例
+###############################################################################
+
+### 5a. 缺少 api-key — 应该 401
+GET {{projectUrl}}/agents/nonexistent-agent?api-version={{apiVersion}}
+
+### 5b. 错误的 api-key — 应该 401
+GET {{projectUrl}}/agents/nonexistent-agent?api-version={{apiVersion}}
+api-key: wrong-key-12345
+
+### 5c. 不存在的 Agent — 应该 404
+GET {{projectUrl}}/agents/definitely-nonexistent-agent-xyz?api-version={{apiVersion}}
+api-key: {{apiKey}}
+
+### 5d. 缺少 definition 字段 — 应该 400/422
+POST {{projectUrl}}/agents/postman-test-nodef/versions?api-version={{apiVersion}}
+api-key: {{apiKey}}
+Content-Type: application/json
+
+{
+  "metadata": {
+    "test-key": "no definition provided"
+  }
+}
+
+
+###############################################################################
+# 测试 6：Metadata 合并行为（Replace vs Merge）
+###############################################################################
+
+### 6a. 创建 v1（key-a + key-b）
+POST {{projectUrl}}/agents/postman-test-merge/versions?api-version={{apiVersion}}
+api-key: {{apiKey}}
+Content-Type: application/json
+
+{
+  "definition": {
+    "type": "prompt",
+    "model": "gpt-4o",
+    "instructions": "Test merge behavior."
+  },
+  "metadata": {
+    "key-a": "alpha",
+    "key-b": "beta"
+  }
+}
+
+### 6b. 创建 v2（只传 key-c）— 看 key-a/key-b 是否保留
+POST {{projectUrl}}/agents/postman-test-merge/versions?api-version={{apiVersion}}
+api-key: {{apiKey}}
+Content-Type: application/json
+
+{
+  "definition": {
+    "type": "prompt",
+    "model": "gpt-4o",
+    "instructions": "Test merge behavior."
+  },
+  "metadata": {
+    "key-c": "gamma"
+  }
+}
+
+### 6c. 读回 — 检查 metadata 是 replace 还是 merge
+# 如果只有 key-c → replace 模式（每个版本独立 metadata）
+# 如果有 key-a + key-b + key-c → merge 模式
+GET {{projectUrl}}/agents/postman-test-merge?api-version={{apiVersion}}
+api-key: {{apiKey}}
+
+### 6d. 清理
+DELETE {{projectUrl}}/agents/postman-test-merge?api-version={{apiVersion}}
+api-key: {{apiKey}}

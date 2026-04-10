@@ -252,15 +252,25 @@ def test_build_voice_live_metadata_fits_512_char_limit_worst_case():
 
 **任何新增字段**必须同时更新此测试的 mock 数据，确保最坏情况仍在 512 字符以内。
 
-### 5.2 Postman 测试集合
+### 5.2 VS Code REST Client 测试文件
 
-提供了预配置好 endpoint、API Key 和测试 payload 的 Postman Collection，可快速手动验证 API 行为：
+在 VS Code 中点击 "Send Request" 即可逐条运行 API 测试：
 
 ```
-docs/microsoft-agent-framework/tests/agent-metadata-api.postman_collection.json
+docs/microsoft-agent-framework/tests/agent-metadata-api.http
 ```
 
-**包含 5 组测试**：
+**前置**：
+1. 安装 VS Code 扩展 [REST Client](https://marketplace.visualstudio.com/items?itemName=humao.rest-client)
+2. 在 `tests/` 目录创建 `.env`（已被 `.gitignore` 忽略）：
+   ```
+   AZURE_FOUNDRY_ENDPOINT=https://<your-resource>.services.ai.azure.com
+   AZURE_FOUNDRY_API_KEY=<your-api-key>
+   AZURE_FOUNDRY_PROJECT=<your-project-name>
+   ```
+3. 打开 `.http` 文件，点击每个请求上方的 "Send Request" 运行
+
+**包含 6 组测试**：
 
 | # | 测试组 | 用途 |
 |---|-------|------|
@@ -269,12 +279,12 @@ docs/microsoft-agent-framework/tests/agent-metadata-api.postman_collection.json
 | 03 | Voice Live Format | 精简 vs 完整格式对比（≤512 vs >512） |
 | 04 | Version Tracking | 版本号递增验证 |
 | 05 | Error Cases | 认证错误、404、缺字段等异常场景 |
+| 06 | Metadata Merge | Replace vs Merge 行为验证 |
 
-**使用方法**：
-1. 导入 Postman Collection JSON
-2. 检查 Collection Variables 中的 `base_endpoint`、`api_key`、`project_name` 是否正确
-3. 按序号依次运行，或使用 Collection Runner 批量执行
-4. 每组测试自带 test script，自动验证响应
+同时提供了 Postman Collection JSON 供需要 Postman 的用户使用：
+```
+docs/microsoft-agent-framework/tests/agent-metadata-api.postman_collection.json
+```
 
 > **安全提示**：Collection 中包含真实 API Key，分享前请替换为占位符或使用 Postman Environment 变量。
 
