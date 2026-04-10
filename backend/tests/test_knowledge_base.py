@@ -115,7 +115,7 @@ class TestBuildSearchTools:
         assert result == []
 
     def test_enabled_config_produces_tool(self):
-        """build_search_tools creates AzureAISearchTool with index resources."""
+        """build_search_tools creates MCPTool pointing to KB MCP endpoint."""
         from app.services.knowledge_base_service import build_search_tools
 
         cfg = MagicMock(spec=HcpKnowledgeConfig)
@@ -128,12 +128,14 @@ class TestBuildSearchTools:
         result = build_search_tools([cfg])
         assert len(result) == 1
         tool = result[0]
-        assert tool.type == "azure_ai_search"
+        assert tool.type == "mcp"
         tool_dict = tool.as_dict()
-        indexes = tool_dict.get("azure_ai_search", {}).get("indexes", [])
-        assert len(indexes) == 1
-        assert indexes[0]["project_connection_id"] == "my-conn"
-        assert indexes[0]["index_name"] == "my-index"
+        assert tool_dict["server_label"] == "knowledge-base-my-index"
+        assert "knowledgebases/my-index/mcp" in tool_dict["server_url"]
+        assert "2025-11-01-preview" in tool_dict["server_url"]
+        assert tool_dict["require_approval"] == "never"
+        allowed = tool_dict.get("allowed_tools", {})
+        assert allowed.get("tool_names") == ["knowledge_base_retrieve"]
 
     def test_sdk_not_installed_returns_empty(self):
         """build_search_tools returns empty when SDK not installed."""

@@ -1,8 +1,8 @@
-"""Knowledge base service: Azure AI Search connections and indexes for HCP Agents.
+"""Knowledge base service: Foundry IQ Knowledge Base integration for HCP Agents.
 
-Lists available search connections and indexes from the AI Foundry project,
+Lists available search connections and knowledge bases from the AI Foundry project,
 manages per-HCP knowledge base configurations, and builds MCPTool definitions
-for agent sync.
+that appear in the Portal 'Knowledge' section (not 'Tools').
 """
 
 import logging
@@ -193,10 +193,17 @@ async def remove_knowledge_config(db: AsyncSession, config_id: str) -> None:
 
 
 def build_search_tools(configs: list[HcpKnowledgeConfig]) -> list:
-    """Build AzureAISearchTool list from KB configs for agent definition.
+    """Build MCPTool list from KB configs for agent definition.
 
-    Each enabled config adds an AISearchIndexResource to a single AzureAISearchTool.
-    This matches how AI Foundry Portal stores Knowledge Base references on agents.
+    Each enabled config creates an MCPTool pointing to the KB's MCP endpoint.
+    This matches how AI Foundry Portal connects Knowledge Bases to agents
+    via the 'Knowledge' section (Preview), using the knowledgebases MCP protocol.
+
+    The key difference from AzureAISearchTool (which shows under 'Tools'):
+    - MCPTool with server_url pointing to /knowledgebases/{name}/mcp
+    - allowed_tools = {"tool_names": ["knowledge_base_retrieve"]}
+    - Shows in Portal 'Knowledge' section, not 'Tools' section.
+
     Returns empty list if SDK is not installed or no enabled configs exist.
     """
     enabled = [c for c in configs if c.is_enabled]
@@ -204,27 +211,26 @@ def build_search_tools(configs: list[HcpKnowledgeConfig]) -> list:
         return []
 
     try:
-        from azure.ai.projects.models import (
-            AISearchIndexResource,
-            AzureAISearchTool,
-            AzureAISearchToolResource,
-        )
+        from azure.ai.projects.models import MCPTool, MCPToolFilter
     except ImportError:
         logger.info("Azure AI Projects SDK not installed, cannot build search tools")
         return []
 
-    indexes = []
+    tools = []
     for cfg in enabled:
-        idx = AISearchIndexResource(
-            project_connection_id=cfg.connection_name,
-            index_name=cfg.index_name,
+        search_endpoint = cfg.connection_target.rstrip("/")
+        mcp_url = (
+            f"{search_endpoint}/knowledgebases/{cfg.index_name}"
+            f"/mcp?api-version=2025-11-01-preview"
         )
-        indexes.append(idx)
-
-    resource = AzureAISearchToolResource(indexes=indexes)
-    tool = AzureAISearchTool()
-    tool.azure_ai_search = resource
-    return [tool]
+        tool = MCPTool(
+            server_label=cfg.server_label or f"knowledge-base-{cfg.index_name}",
+            server_url=mcp_url,
+            require_approval="never",
+            allowed_tools=MCPToolFilter(tool_names=["knowledge_base_retrieve"]),
+        )
+        tools.append(tool)
+    return tools
 
 
 async def _trigger_agent_resync(db: AsyncSession, hcp_profile_id: str) -> None:
