@@ -107,27 +107,30 @@ async def list_indexes(db: AsyncSession, connection_name: str = "") -> list[dict
             logger.warning("AI Search connection missing endpoint or key")
             return []
 
-        # Call AI Search REST API directly (same as AI Foundry portal)
+        # Call Foundry IQ knowledgebases API (same as AI Foundry portal)
         import httpx
 
         async with httpx.AsyncClient(timeout=15) as http:
             resp = await http.get(
-                f"{search_endpoint}/indexes",
-                params={"api-version": "2024-07-01"},
+                f"{search_endpoint}/knowledgebases",
+                params={"api-version": "2025-11-01-preview"},
                 headers={"api-key": search_key},
             )
             if resp.status_code != 200:
-                logger.warning("AI Search indexes API returned %d: %s", resp.status_code, resp.text)
+                logger.warning(
+                    "Foundry IQ knowledgebases API returned %d: %s",
+                    resp.status_code, resp.text,
+                )
                 return []
             data = resp.json()
             return [
                 {
-                    "name": idx.get("name", ""),
-                    "version": None,
-                    "type": None,
-                    "description": idx.get("name", ""),
+                    "name": kb.get("name", ""),
+                    "version": kb.get("version", None),
+                    "type": kb.get("type", None),
+                    "description": kb.get("description", kb.get("name", "")),
                 }
-                for idx in data.get("value", [])
+                for kb in data.get("value", [])
             ]
     except ImportError:
         logger.info("Azure AI Projects SDK not installed, returning empty indexes list")
