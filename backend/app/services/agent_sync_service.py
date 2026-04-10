@@ -630,7 +630,7 @@ async def sync_agent_for_profile(
         from app.services import knowledge_base_service
 
         kb_configs = await knowledge_base_service.get_knowledge_configs(db, profile.id)
-        kb_tools = knowledge_base_service.build_mcp_tools(kb_configs)
+        kb_tools = knowledge_base_service.build_search_tools(kb_configs)
     except Exception as e:
         logger.warning("Failed to build KB tools for profile %s: %s", profile.id, e)
 

@@ -192,10 +192,11 @@ async def remove_knowledge_config(db: AsyncSession, config_id: str) -> None:
     await _trigger_agent_resync(db, hcp_profile_id)
 
 
-def build_mcp_tools(configs: list[HcpKnowledgeConfig]) -> list:
-    """Build MCPTool list from KB configs for agent definition.
+def build_search_tools(configs: list[HcpKnowledgeConfig]) -> list:
+    """Build AzureAISearchTool list from KB configs for agent definition.
 
-    Each enabled config generates one MCPTool with an azure_ai_search server type.
+    Each enabled config adds an AISearchIndexResource to a single AzureAISearchTool.
+    This matches how AI Foundry Portal stores Knowledge Base references on agents.
     Returns empty list if SDK is not installed or no enabled configs exist.
     """
     enabled = [c for c in configs if c.is_enabled]
@@ -203,33 +204,27 @@ def build_mcp_tools(configs: list[HcpKnowledgeConfig]) -> list:
         return []
 
     try:
-        from azure.ai.projects.models import MCPTool
+        from azure.ai.projects.models import (
+            AISearchIndexResource,
+            AzureAISearchTool,
+            AzureAISearchToolResource,
+        )
     except ImportError:
-        logger.info("Azure AI Projects SDK not installed, cannot build MCPTools")
+        logger.info("Azure AI Projects SDK not installed, cannot build search tools")
         return []
 
-    tools = []
+    indexes = []
     for cfg in enabled:
-        server_label = cfg.server_label or f"knowledge-base-{cfg.index_name}"
-        # Build Foundry IQ MCP endpoint URL from connection target (AI Search endpoint)
-        search_endpoint = cfg.connection_target.rstrip("/") if cfg.connection_target else ""
-        if search_endpoint:
-            server_url = (
-                f"{search_endpoint}/knowledgebases/{cfg.index_name}"
-                "/mcp?api-version=2025-11-01-preview"
-            )
-        else:
-            # Fallback: use connection_name as project_connection_id reference
-            server_url = ""
-
-        tool = MCPTool(
-            server_label=server_label,
-            server_url=server_url,
-            require_approval="never",
-            allowed_tools=["knowledge_base_retrieve"],
+        idx = AISearchIndexResource(
+            project_connection_id=cfg.connection_name,
+            index_name=cfg.index_name,
         )
-        tools.append(tool)
-    return tools
+        indexes.append(idx)
+
+    resource = AzureAISearchToolResource(indexes=indexes)
+    tool = AzureAISearchTool()
+    tool.azure_ai_search = resource
+    return [tool]
 
 
 async def _trigger_agent_resync(db: AsyncSession, hcp_profile_id: str) -> None:

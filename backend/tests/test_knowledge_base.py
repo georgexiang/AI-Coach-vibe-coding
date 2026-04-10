@@ -86,23 +86,23 @@ async def sample_kb_config(db_session, sample_hcp):
 
 
 # ---------------------------------------------------------------------------
-# Unit Tests: build_mcp_tools
+# Unit Tests: build_search_tools
 # ---------------------------------------------------------------------------
 
 
-class TestBuildMcpTools:
-    """Tests for knowledge_base_service.build_mcp_tools."""
+class TestBuildSearchTools:
+    """Tests for knowledge_base_service.build_search_tools."""
 
     def test_empty_list_returns_empty(self):
-        """build_mcp_tools with empty list returns empty list."""
-        from app.services.knowledge_base_service import build_mcp_tools
+        """build_search_tools with empty list returns empty list."""
+        from app.services.knowledge_base_service import build_search_tools
 
-        result = build_mcp_tools([])
+        result = build_search_tools([])
         assert result == []
 
     def test_disabled_configs_excluded(self):
-        """build_mcp_tools excludes disabled configs."""
-        from app.services.knowledge_base_service import build_mcp_tools
+        """build_search_tools excludes disabled configs."""
+        from app.services.knowledge_base_service import build_search_tools
 
         cfg = MagicMock(spec=HcpKnowledgeConfig)
         cfg.is_enabled = False
@@ -111,15 +111,12 @@ class TestBuildMcpTools:
         cfg.server_label = "kb-idx"
         cfg.connection_target = ""
 
-        result = build_mcp_tools([cfg])
+        result = build_search_tools([cfg])
         assert result == []
 
-    @patch("app.services.knowledge_base_service.MCPTool", create=True)
-    def test_enabled_config_produces_tool(self, mock_mcp_cls):
-        """build_mcp_tools creates one MCPTool per enabled config."""
-        # We need to mock the import inside the function
-        mock_tool = MagicMock()
-        mock_mcp_cls.return_value = mock_tool
+    def test_enabled_config_produces_tool(self):
+        """build_search_tools creates AzureAISearchTool with index resources."""
+        from app.services.knowledge_base_service import build_search_tools
 
         cfg = MagicMock(spec=HcpKnowledgeConfig)
         cfg.is_enabled = True
@@ -128,22 +125,18 @@ class TestBuildMcpTools:
         cfg.index_name = "my-index"
         cfg.server_label = "knowledge-base-my-index"
 
-        modules_patch = {
-            "azure.ai.projects.models": MagicMock(MCPTool=mock_mcp_cls),
-        }
-        with patch.dict("sys.modules", modules_patch):
-            from importlib import reload
-
-            import app.services.knowledge_base_service as kb_mod
-
-            reload(kb_mod)
-            result = kb_mod.build_mcp_tools([cfg])
-
-        # Should have called MCPTool once
+        result = build_search_tools([cfg])
         assert len(result) == 1
+        tool = result[0]
+        assert tool.type == "azure_ai_search"
+        tool_dict = tool.as_dict()
+        indexes = tool_dict.get("azure_ai_search", {}).get("indexes", [])
+        assert len(indexes) == 1
+        assert indexes[0]["project_connection_id"] == "my-conn"
+        assert indexes[0]["index_name"] == "my-index"
 
     def test_sdk_not_installed_returns_empty(self):
-        """build_mcp_tools returns empty when SDK not installed."""
+        """build_search_tools returns empty when SDK not installed."""
         import sys
 
         # Temporarily remove azure.ai.projects.models if present
@@ -152,7 +145,7 @@ class TestBuildMcpTools:
 
         try:
             # Re-import to trigger the ImportError path
-            from app.services.knowledge_base_service import build_mcp_tools
+            from app.services.knowledge_base_service import build_search_tools
 
             cfg = MagicMock(spec=HcpKnowledgeConfig)
             cfg.is_enabled = True
@@ -161,7 +154,7 @@ class TestBuildMcpTools:
             cfg.server_label = "kb-idx"
             cfg.connection_target = ""
 
-            result = build_mcp_tools([cfg])
+            result = build_search_tools([cfg])
             assert result == []
         finally:
             if original is not None:
@@ -654,9 +647,9 @@ class TestKbAgentSyncIntegration:
         assert configs[0].id == config_b.id
 
     @pytest.mark.asyncio
-    async def test_build_mcp_tools_from_db_configs(self, db_session, sample_hcp):
-        """build_mcp_tools generates tools from DB-persisted configs."""
-        from app.services.knowledge_base_service import build_mcp_tools
+    async def test_build_search_tools_from_db_configs(self, db_session, sample_hcp):
+        """build_search_tools generates tools from DB-persisted configs."""
+        from app.services.knowledge_base_service import build_search_tools
 
         # Add configs to DB
         cfg1 = HcpKnowledgeConfig(
@@ -683,9 +676,9 @@ class TestKbAgentSyncIntegration:
 
         assert len(configs) == 2
 
-        # build_mcp_tools should only include enabled configs
+        # build_search_tools should only include enabled configs
         # (SDK not installed in test env, so result should be empty)
-        tools = build_mcp_tools(configs)
+        tools = build_search_tools(configs)
         # Without SDK installed, returns empty list
         assert isinstance(tools, list)
 
@@ -714,13 +707,13 @@ class TestKbAgentSyncIntegration:
     @pytest.mark.asyncio
     async def test_sync_agent_for_profile_no_kb_tools_when_empty(self, db_session, sample_hcp):
         """sync_agent_for_profile passes no tools when no KB configs exist."""
-        from app.services.knowledge_base_service import build_mcp_tools, get_knowledge_configs
+        from app.services.knowledge_base_service import build_search_tools, get_knowledge_configs
 
         # No KB configs exist
         configs = await get_knowledge_configs(db_session, sample_hcp.id)
         assert len(configs) == 0
 
-        tools = build_mcp_tools(configs)
+        tools = build_search_tools(configs)
         assert tools == []
 
     @pytest.mark.asyncio
