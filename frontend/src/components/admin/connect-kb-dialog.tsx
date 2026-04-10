@@ -138,7 +138,6 @@ export function ConnectKbDialog({
                 {indexes?.map((idx) => (
                   <SelectItem key={idx.name} value={idx.name}>
                     {idx.name}
-                    {idx.description ? ` - ${idx.description}` : ""}
                   </SelectItem>
                 ))}
               </SelectContent>
