@@ -1,0 +1,26 @@
+kind: hosted
+name: agent-with-skills
+protocols:
+    - protocol: responses
+      version: v1
+environment_variables:
+    - name: AZURE_OPENAI_ENDPOINT
+      value: ${AZURE_OPENAI_ENDPOINT}
+    - name: AZURE_AI_PROJECT_ENDPOINT
+      value: ${AZURE_AI_PROJECT_ENDPOINT}
+    - name: AZURE_OPENAI_CHAT_DEPLOYMENT_NAME
+      value: ${AZURE_OPENAI_CHAT_DEPLOYMENT_NAME}
+    - name: AGENT_SKILLS
+      value: ${AGENT_SKILLS}
+    - name: APPLICATIONINSIGHTS_CONNECTION_STRING
+      value: ${APPLICATIONINSIGHTS_CONNECTION_STRING}
+    - name: AZURE_AI_FOUNDRY_PROJECT_ID
+      value: ${AZURE_AI_FOUNDRY_PROJECT_ID}
+    - name: AZURE_SUBSCRIPTION_ID
+      value: ${AZURE_SUBSCRIPTION_ID}
+    - name: AZURE_RESOURCE_GROUP
+      value: ${AZURE_RESOURCE_GROUP}
+    - name: ENABLE_SESSION_PERSISTENCE
+      value: ${ENABLE_SESSION_PERSISTENCE}
+    - name: SESSION_STORAGE_PATH
+      value: ${SESSION_STORAGE_PATH}

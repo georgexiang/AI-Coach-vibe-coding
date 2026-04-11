@@ -1,0 +1,9 @@
+{
+  "hostedAgentDeployOptions": {
+    "dockerContextPath": "/Users/huqianghui/Downloads/0.Customers-openAI/tp_link/azure_foundary_hosted_agents/langgraph/human-in-the-loop",
+    "dockerfilePath": "/Users/huqianghui/Downloads/0.Customers-openAI/tp_link/azure_foundary_hosted_agents/langgraph/human-in-the-loop/Dockerfile",
+    "agentName": "langgraph-human-in-the-loop-agent",
+    "cpu": "1.0",
+    "memory": "2.0Gi"
+  }
+}

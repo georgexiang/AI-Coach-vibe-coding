@@ -1,0 +1,4 @@
+.env
+.azure/
+thread_storage/
+__pycache__/

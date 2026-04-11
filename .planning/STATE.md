@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Ready to execute
-stopped_at: Completed 19-02-PLAN.md
-last_updated: "2026-04-11T07:08:48.853Z"
+stopped_at: Completed 19-03-PLAN.md
+last_updated: "2026-04-11T07:19:39.499Z"
 last_activity: 2026-04-11
 progress:
   total_phases: 21
@@ -107,6 +107,7 @@ All 80/80 plans complete across 17 phases (01 through 16 inclusive). Phase 17 ad
 | Phase 14 P03 | 7min | 2 tasks | 2 files |
 | Phase 19 P01 | 12min | 2 tasks | 10 files |
 | Phase 19 P02 | 5min | 2 tasks | 3 files |
+| Phase 19 P03 | 7min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -236,6 +237,8 @@ Recent decisions affecting current work:
 - [Phase 14]: VoiceAvatarTab rewritten from 1076 to 303 lines as read-only VL preview; voice/avatar editing moved to VL Management
 - [Phase 19]: VALID_TRANSITIONS dict as sole state machine source of truth for Skill lifecycle
 - [Phase 19]: is_published flag on SkillVersion for single-published-version invariant; file security with defense-in-depth (extension whitelist + size limit + path sanitization + resource cap)
+- [Phase 19]: Content hash (SHA256[:16]) binds evaluations to content version for staleness detection
+- [Phase 19]: L2 uses durable background task pattern with own DB session for async AI evaluation
 
 ### Pending Todos
 
@@ -261,6 +264,6 @@ None yet.
 ## Session Continuity
 
 Last activity: 2026-04-11
-Last session: 2026-04-11T07:08:48.848Z
-Stopped at: Completed 19-02-PLAN.md
+Last session: 2026-04-11T07:19:39.495Z
+Stopped at: Completed 19-03-PLAN.md
 Resume file: None

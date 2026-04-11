@@ -135,6 +135,168 @@
 
 ---
 
+## Skill 生命周期状态机（补充讨论）
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| 四态流转 | draft → published → archived + failed | |
+| 五态流转（含 review） | draft → review → published → archived + failed | ✓ |
+| 你来决定 | Claude 自行决定 | |
+
+**User's choice:** 五态流转（含 review）
+**Notes:** review 状态明确表示"待审核"，reject 后回到 draft，编辑已发布 Skill 回到 draft，归档可恢复
+
+---
+
+## Skill 版本管理策略（补充讨论）
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| 版本化管理 | 编辑已发布 Skill 创建新版本（draft），原版本仍生效，新版本发布后自动替换 | ✓ |
+| 简化编辑（回 draft） | 直接修改，状态回 draft，不保留历史版本 | |
+| 你来决定 | Claude 自行决定 | |
+
+**User's choice:** 版本化管理，复用 MaterialVersion 模式
+
+---
+
+## Skill 与 Training Materials 关系（补充讨论）
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| 独立存储 | Skill 有自己的 SkillMaterial，与 TrainingMaterial 不交叉引用 | ✓ |
+| 复用+关联 | 上传到 Skill 的材料同时创建 TrainingMaterial 记录 | |
+| 你来决定 | Claude 自行决定 | |
+
+**User's choice:** 独立存储
+
+---
+
+## 材料转换文件类型（补充讨论）
+
+**User's choice:** PPTX、PDF、DOCX + 所有文本文件（TXT、MD 等）
+
+---
+
+## Skill 运行时注入方式（补充讨论）
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| 官方 SkillsProvider | 从 DB 加载 → Skill 对象 → SkillsProvider → context_providers 注入 Agent | ✓ |
+| 简化 prompt 拼接 | 直接拼入 system prompt | |
+| 你来决定 | Claude 自行决定 | |
+
+**User's choice:** 官方 SkillsProvider
+**User's key input:** 底层使用 Microsoft Agent Framework，有标准接口和模式。参考：https://learn.microsoft.com/en-us/agent-framework/agents/skills
+**Notes:** 官方支持 Progressive Disclosure（渐进加载），通过 load_skill/read_skill_resource/run_skill_script 按需加载
+
+---
+
+## Scenario-Skill 关联约束（补充讨论）
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| 仅关联 published | 编辑时只显示 published Skill，归档后保留关联+警告，删除时置 null | ✓ |
+| 严格锁定 | 归档时强制解除关联，无 Skill 则拒绝训练 | |
+| 你来决定 | Claude 自行决定 | |
+
+**User's choice:** 仅关联 published（宽松模式）
+
+---
+
+## Skill Script 管理策略（补充讨论）
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| 轻量 Script + Backend 服务 | scripts/ 仅轻逻辑，复杂操作走 Backend API。subprocess + timeout，不需要 Docker | ✓ |
+| Docker 隔离执行 | 每个 Skill 的 scripts 通过 Docker container 执行，完全隔离 | |
+| 不支持 Script 执行 | Phase 19 暂不实现，scripts/ 仅存储 | |
+| 你来决定 | Claude 自行决定 | |
+
+**User's choice:** 轻量 Script + Backend 服务
+**User's key input:** 参考与 ChatGPT 的讨论（https://chatgpt.com/share/69d9cfbc-9018-8321-93a5-385354b6174f）。核心结论：Skill 只做决策层（routing/prompt/decision），执行层独立出去走 Backend Service API
+**Notes:** script_runner 用 subprocess + timeout=30s；assets/ 目录存放模板和静态资源，通过 read_skill_resource 按需加载
+
+---
+
+## Code Review 补充讨论（审查修正）
+
+### RESEARCH.md 与 CONTEXT.md 一致性
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| 更新 RESEARCH.md | 修正 RESEARCH.md 中与 CONTEXT.md 冲突的内容 | ✓ |
+| 保持现状 | 视为不同阶段的参考，不修正 | |
+
+**User's choice:** 更新 RESEARCH.md
+
+### SkillsProvider vs SkillManager
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| 直接用 SkillManager | 参考代码已验证，compose_instructions() 更直接稳定 | ✓ |
+| 封装 SkillsProvider | 按官方 SDK 接口适配 | |
+
+**User's choice:** 直接用 SkillManager
+**Notes:** 参考代码 `skill_manager.py` 已验证可用，SkillsProvider 是更高层抽象但参考代码未使用
+
+### 数据库存储策略
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| 拆分存储 | frontmatter→DB字段，body→content Text，resources→SkillResource表 | ✓ |
+| 整体存储 | 完整 SKILL.md 存为一个 Text 字段 | |
+
+**User's choice:** 拆分存储
+
+### Alembic Migration 策略
+
+**User's choice:** 留给 Claude's Discretion
+
+### 决策编号重排
+
+**User's choice:** 按主题重新排序所有决策编号（D-01~D-27）
+
+### PDF 解析库
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| pdfplumber | 表格支持好，适合培训材料 | ✓ |
+| pypdf | 轻量但表格支持差 | |
+
+**User's choice:** pdfplumber
+
+### 转换失败重试策略
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| 支持重试 | 基于已上传材料重试，不需重新上传 | ✓ |
+| 不支持重试 | 失败后必须重新上传 | |
+
+**User's choice:** 支持重试
+
+### AI Prompt 长文档策略
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| 增加分段策略决策 | 格式统一→Markdown→语义+大小切割→逐段提取→合并去重 | ✓ |
+| 引用 coaching-skill-creator 即可 | 留给实现阶段 | |
+
+**User's choice:** 增加分段策略决策
+**Notes:** 所有格式先转为 Markdown，再按语义和大小考虑切割。Token 上限作为可配置参数，Admin 可调整
+
+### Skill 文件树 UI 展示
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| 只读文件树+点击预览 | 类 VSCode 资源管理器，点击叶子节点右侧预览 | ✓ |
+| 文件树+可编辑 | 支持拖拽上传和删除 | |
+| 简化列表+标签分组 | 按类型分组，不用树形 | |
+
+**User's choice:** 只读文件树+点击预览
+
+---
+
 ## Claude's Discretion
 
 - SOP 步骤层级的自适应策略
@@ -142,6 +304,8 @@
 - L1 结构检查规则集
 - Skill 卡片信息密度
 - ZIP 包目录结构
+- Alembic migration 字段定义和迁移策略
+- 文件树组件的具体实现方式
 
 ## Deferred Ideas
 

@@ -1,0 +1,18 @@
+kind: hosted
+name: coaching-skill-creator
+protocols:
+    - protocol: responses
+      version: v1
+environment_variables:
+    - name: AZURE_OPENAI_ENDPOINT
+      value: ${AZURE_OPENAI_ENDPOINT}
+    - name: AZURE_AI_PROJECT_ENDPOINT
+      value: ${AZURE_AI_PROJECT_ENDPOINT}
+    - name: AZURE_OPENAI_CHAT_DEPLOYMENT_NAME
+      value: ${AZURE_OPENAI_CHAT_DEPLOYMENT_NAME}
+    - name: ENABLE_SESSION_PERSISTENCE
+      value: "true"
+    - name: SESSION_STORAGE_PATH
+      value: "/app/thread_storage"
+    - name: AGENT_MAX_SKILL_TOKENS
+      value: "8000"
