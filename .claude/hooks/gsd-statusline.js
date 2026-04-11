@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// gsd-hook-version: 1.32.0
+// gsd-hook-version: 1.34.2
 // Claude Code Statusline - GSD Edition
 // Shows: model | current task | directory | context usage
 
@@ -94,31 +94,31 @@ process.stdin.on('end', () => {
       }
     }
 
-    // GSD version + update check
+    // GSD update available?
     // Check shared cache first (#1421), fall back to runtime-specific cache for
     // backward compatibility with older gsd-check-update.js versions.
-    let gsdVersion = 'unknown';
-    let gsdExtra = '';
+    let gsdUpdate = '';
     const sharedCacheFile = path.join(homeDir, '.cache', 'gsd', 'gsd-update-check.json');
     const legacyCacheFile = path.join(claudeDir, 'cache', 'gsd-update-check.json');
     const cacheFile = fs.existsSync(sharedCacheFile) ? sharedCacheFile : legacyCacheFile;
     if (fs.existsSync(cacheFile)) {
       try {
         const cache = JSON.parse(fs.readFileSync(cacheFile, 'utf8'));
-        if (cache.installed && cache.installed !== '0.0.0') gsdVersion = cache.installed;
         if (cache.update_available) {
-          gsdExtra = ' \x1b[33m⬆\x1b[0m';
+          gsdUpdate = '\x1b[33m⬆ /gsd-update\x1b[0m │ ';
+        }
+        if (cache.stale_hooks && cache.stale_hooks.length > 0) {
+          gsdUpdate += '\x1b[31m⚠ stale hooks — run /gsd-update\x1b[0m │ ';
         }
       } catch (e) {}
     }
-    const gsdLabel = `\x1b[1;35mGSD\x1b[0m \x1b[2mv${gsdVersion}\x1b[0m${gsdExtra}`;
 
     // Output
     const dirname = path.basename(dir);
     if (task) {
-      process.stdout.write(`${gsdLabel} │ \x1b[2m${model}\x1b[0m │ \x1b[1m${task}\x1b[0m │ \x1b[2m${dirname}\x1b[0m${ctx}`);
+      process.stdout.write(`${gsdUpdate}\x1b[2m${model}\x1b[0m │ \x1b[1m${task}\x1b[0m │ \x1b[2m${dirname}\x1b[0m${ctx}`);
     } else {
-      process.stdout.write(`${gsdLabel} │ \x1b[2m${model}\x1b[0m │ \x1b[2m${dirname}\x1b[0m${ctx}`);
+      process.stdout.write(`${gsdUpdate}\x1b[2m${model}\x1b[0m │ \x1b[2m${dirname}\x1b[0m${ctx}`);
     }
   } catch (e) {
     // Silent fail - don't break statusline on parse errors

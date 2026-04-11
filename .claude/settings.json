@@ -8,30 +8,17 @@
             "command": "node .claude/hooks/gsd-check-update.js"
           }
         ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "Bash|Edit|Write|MultiEdit|Agent|Task",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node .claude/hooks/gsd-context-monitor.js",
-            "timeout": 10
-          }
-        ]
       },
       {
-        "matcher": "Bash|Edit|Write|Read|Glob|Grep|Agent|Task",
         "hooks": [
           {
             "type": "command",
-            "command": "node .claude/hooks/tool-tracker.js",
-            "timeout": 5
+            "command": "bash .claude/hooks/gsd-session-state.sh"
           }
         ]
       }
     ],
+    "PostToolUse": [],
     "PreToolUse": [
       {
         "matcher": "Write|Edit",
@@ -49,6 +36,26 @@
           {
             "type": "command",
             "command": "node .claude/hooks/gsd-read-guard.js",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/gsd-workflow-guard.js",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/gsd-validate-commit.sh",
             "timeout": 5
           }
         ]

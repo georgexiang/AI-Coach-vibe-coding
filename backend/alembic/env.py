@@ -13,7 +13,6 @@ from app.models import (  # noqa: F401
     CoachingSession,
     ConferenceAudienceHcp,
     HcpProfile,
-    MaterialChunk,
     MaterialVersion,
     Scenario,
     ScoreDetail,

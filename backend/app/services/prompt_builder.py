@@ -11,7 +11,6 @@ def build_hcp_system_prompt(
     hcp_profile: HcpProfile,
     scenario: Scenario,
     key_messages: list[str],
-    material_context: list[str] | None = None,
 ) -> str:
     """Build a system prompt that enforces HCP personality for AI coaching.
 
@@ -140,18 +139,6 @@ def build_hcp_system_prompt(
             "7. Do NOT provide coaching feedback. You ARE the HCP, not a coach.",
         ]
     )
-
-    if material_context:
-        prompt_parts.extend(
-            [
-                "",
-                "# Product Training Materials (Reference Knowledge)",
-                "Use the following product information to inform your responses "
-                "when relevant to the discussion:",
-            ]
-        )
-        for i, chunk in enumerate(material_context, 1):
-            prompt_parts.append(f"\n--- Material Excerpt {i} ---\n{chunk}")
 
     return "\n".join(prompt_parts)
 

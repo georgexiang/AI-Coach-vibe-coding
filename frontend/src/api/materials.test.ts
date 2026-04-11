@@ -8,8 +8,6 @@ import {
   archiveMaterial,
   restoreMaterial,
   getMaterialVersions,
-  getVersionChunks,
-  searchChunks,
 } from "./materials";
 
 vi.mock("./client", () => ({
@@ -129,23 +127,4 @@ describe("Materials API client", () => {
     expect(result).toHaveLength(1);
   });
 
-  it("getVersionChunks calls GET with materialId and versionId", async () => {
-    const mockChunks = [{ id: "c1", chunk_index: 0, content: "text" }];
-    mockClient.get.mockResolvedValue({ data: mockChunks });
-
-    const result = await getVersionChunks("m1", "v1");
-
-    expect(mockClient.get).toHaveBeenCalledWith("/materials/m1/versions/v1/chunks");
-    expect(result).toHaveLength(1);
-  });
-
-  it("searchChunks passes query params", async () => {
-    mockClient.get.mockResolvedValue({ data: [] });
-
-    await searchChunks("Brukinsa", "zanubrutinib", 5);
-
-    expect(mockClient.get).toHaveBeenCalledWith("/materials/search", {
-      params: { product: "Brukinsa", query: "zanubrutinib", limit: 5 },
-    });
-  });
 });

@@ -1,15 +1,12 @@
-"""Material service: CRUD, versioning, text extraction, chunk search."""
-
-import asyncio
+"""Material service: CRUD, versioning, and file storage."""
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models.material import MaterialChunk, MaterialVersion, TrainingMaterial
+from app.models.material import MaterialVersion, TrainingMaterial
 from app.schemas.material import MaterialUpdate
 from app.services.storage import get_storage
-from app.services.text_extractor import extract_text
 from app.utils.exceptions import not_found
 
 
@@ -29,7 +26,6 @@ async def upload_material(
 
     If material_id is provided, creates a new version for the existing material.
     Otherwise, creates a new TrainingMaterial record.
-    Text is extracted from the file and stored as searchable chunks.
     """
     if material_id:
         # Load existing material
@@ -74,20 +70,6 @@ async def upload_material(
     )
     db.add(version)
     await db.flush()
-
-    # Extract text in thread to avoid blocking event loop (CPU-bound)
-    pages = await asyncio.to_thread(extract_text, content, content_type)
-
-    # Create chunks
-    for i, (page_label, text) in enumerate(pages):
-        chunk = MaterialChunk(
-            version_id=version.id,
-            material_id=material.id,
-            chunk_index=i,
-            content=text,
-            page_label=page_label,
-        )
-        db.add(chunk)
 
     # Update material version counter
     material.current_version = version_number
@@ -209,78 +191,3 @@ async def get_versions(db: AsyncSession, material_id: str) -> list[MaterialVersi
         .order_by(MaterialVersion.version_number.desc())
     )
     return list(result.scalars().all())
-
-
-async def get_version_chunks(db: AsyncSession, version_id: str) -> list[MaterialChunk]:
-    """Get all chunks for a specific version, ordered by chunk_index."""
-    result = await db.execute(
-        select(MaterialChunk)
-        .where(MaterialChunk.version_id == version_id)
-        .order_by(MaterialChunk.chunk_index)
-    )
-    return list(result.scalars().all())
-
-
-async def search_chunks(
-    db: AsyncSession,
-    product: str,
-    query: str = "",
-    limit: int = 10,
-) -> list[MaterialChunk]:
-    """Search material chunks by product and optional text query.
-
-    Only returns chunks from the latest active version of each material.
-    """
-    # Subquery: get the max version_number per material_id where is_active=True
-    latest_version_sq = (
-        select(
-            MaterialVersion.material_id,
-            func.max(MaterialVersion.version_number).label("max_version"),
-        )
-        .where(MaterialVersion.is_active == True)  # noqa: E712
-        .group_by(MaterialVersion.material_id)
-        .subquery()
-    )
-
-    # Join to get the version IDs of the latest active versions
-    latest_version_ids = (
-        select(MaterialVersion.id)
-        .join(
-            latest_version_sq,
-            (MaterialVersion.material_id == latest_version_sq.c.material_id)
-            & (MaterialVersion.version_number == latest_version_sq.c.max_version),
-        )
-        .subquery()
-    )
-
-    chunk_query = (
-        select(MaterialChunk)
-        .join(MaterialVersion, MaterialChunk.version_id == MaterialVersion.id)
-        .join(TrainingMaterial, MaterialChunk.material_id == TrainingMaterial.id)
-        .where(
-            TrainingMaterial.product == product,
-            TrainingMaterial.is_archived == False,  # noqa: E712
-            MaterialChunk.version_id.in_(select(latest_version_ids.c.id)),
-        )
-    )
-
-    if query:
-        chunk_query = chunk_query.where(MaterialChunk.content.ilike(f"%{query}%"))
-
-    chunk_query = chunk_query.limit(limit)
-    result = await db.execute(chunk_query)
-    return list(result.scalars().all())
-
-
-async def get_material_context(
-    db: AsyncSession,
-    product: str,
-    limit: int = 20,
-) -> list[str]:
-    """Get material chunk contents for a product (for RAG prompt injection).
-
-    Convenience function that returns plain text chunks from the latest
-    active version of each material matching the product.
-    """
-    chunks = await search_chunks(db, product=product, query="", limit=limit)
-    return [chunk.content for chunk in chunks]

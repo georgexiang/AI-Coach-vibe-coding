@@ -4,7 +4,6 @@ import io
 
 from app.models.user import User
 from app.services.auth import create_access_token, get_password_hash
-from app.services.prompt_builder import build_hcp_system_prompt
 from tests.conftest import TestSessionLocal
 
 
@@ -383,64 +382,6 @@ class TestVersions:
         versions = response.json()
         assert len(versions) == 2
 
-    async def test_get_version_chunks(self, client):
-        """GET /materials/{id}/versions/{vid}/chunks returns chunk list."""
-        _, token = await _create_admin_and_token()
-        resp = await _upload_material(client, token, pages=["Chunk content for testing"])
-        material_id = resp.json()["id"]
-
-        # Get version ID
-        versions_resp = await client.get(
-            f"/api/v1/materials/{material_id}/versions",
-            headers={"Authorization": f"Bearer {token}"},
-        )
-        version_id = versions_resp.json()[0]["id"]
-
-        response = await client.get(
-            f"/api/v1/materials/{material_id}/versions/{version_id}/chunks",
-            headers={"Authorization": f"Bearer {token}"},
-        )
-        assert response.status_code == 200
-        chunks = response.json()
-        assert len(chunks) >= 1
-        assert "content" in chunks[0]
-        assert "chunk_index" in chunks[0]
-
-
-class TestSearchChunks:
-    """Tests for GET /api/v1/materials/search."""
-
-    async def test_search_chunks(self, client):
-        """Search finds chunks matching product and query."""
-        _, token = await _create_admin_and_token()
-        await _upload_material(
-            client,
-            token,
-            name="Zanubrutinib Guide",
-            product="Brukinsa",
-            pages=["zanubrutinib clinical trial results showing 78 percent ORR"],
-        )
-
-        response = await client.get(
-            "/api/v1/materials/search?product=Brukinsa&query=zanubrutinib",
-            headers={"Authorization": f"Bearer {token}"},
-        )
-        assert response.status_code == 200
-        chunks = response.json()
-        assert len(chunks) >= 1
-        assert "zanubrutinib" in chunks[0]["content"].lower()
-
-    async def test_search_no_results(self, client):
-        """Search with non-matching query returns empty list."""
-        _, token = await _create_admin_and_token()
-        response = await client.get(
-            "/api/v1/materials/search?product=NonExistent&query=nothing",
-            headers={"Authorization": f"Bearer {token}"},
-        )
-        assert response.status_code == 200
-        assert response.json() == []
-
-
 class TestAuthGuard:
     """Tests for admin-only access control."""
 
@@ -462,68 +403,3 @@ class TestAuthGuard:
         assert response.status_code == 401
 
 
-class TestPromptBuilderMaterialContext:
-    """Tests for prompt builder material_context integration."""
-
-    def test_prompt_builder_with_material_context(self):
-        """build_hcp_system_prompt includes material excerpts when context provided."""
-        # Create minimal mock objects
-        from unittest.mock import MagicMock
-
-        hcp = MagicMock()
-        hcp.to_prompt_dict.return_value = {
-            "name": "Dr. Test",
-            "specialty": "Oncology",
-            "personality_type": "friendly",
-            "emotional_state": 30,
-            "communication_style": 40,
-            "expertise_areas": [],
-            "objections": [],
-            "hospital": "Test Hospital",
-            "title": "Professor",
-            "prescribing_habits": "",
-            "concerns": "",
-        }
-
-        scenario = MagicMock()
-        scenario.product = "Brukinsa"
-        scenario.therapeutic_area = "Oncology"
-
-        result = build_hcp_system_prompt(
-            hcp,
-            scenario,
-            key_messages=["KM1"],
-            material_context=["Zanubrutinib is a BTK inhibitor", "Phase 3 trial data"],
-        )
-        assert "# Product Training Materials (Reference Knowledge)" in result
-        assert "Zanubrutinib is a BTK inhibitor" in result
-        assert "Phase 3 trial data" in result
-        assert "Material Excerpt 1" in result
-        assert "Material Excerpt 2" in result
-
-    def test_prompt_builder_without_material_context(self):
-        """build_hcp_system_prompt works without material_context (backward compatible)."""
-        from unittest.mock import MagicMock
-
-        hcp = MagicMock()
-        hcp.to_prompt_dict.return_value = {
-            "name": "Dr. Test",
-            "specialty": "Oncology",
-            "personality_type": "skeptical",
-            "emotional_state": 50,
-            "communication_style": 50,
-            "expertise_areas": [],
-            "objections": [],
-            "hospital": "",
-            "title": "",
-            "prescribing_habits": "",
-            "concerns": "",
-        }
-
-        scenario = MagicMock()
-        scenario.product = "DrugX"
-        scenario.therapeutic_area = ""
-
-        result = build_hcp_system_prompt(hcp, scenario, key_messages=[])
-        assert "Product Training Materials" not in result
-        assert "Material Excerpt" not in result

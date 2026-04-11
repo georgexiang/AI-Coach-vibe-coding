@@ -32,7 +32,6 @@ vi.mock("react-dropzone", () => ({
 // Mock the materials hooks
 const mockUseMaterials = vi.fn();
 const mockUseMaterialVersions = vi.fn();
-const mockUseVersionChunks = vi.fn();
 const mockUploadMutate = vi.fn();
 const mockUpdateMutate = vi.fn();
 const mockArchiveMutate = vi.fn();
@@ -41,7 +40,6 @@ const mockRestoreMutate = vi.fn();
 vi.mock("@/hooks/use-materials", () => ({
   useMaterials: (...args: unknown[]) => mockUseMaterials(...args),
   useMaterialVersions: (...args: unknown[]) => mockUseMaterialVersions(...args),
-  useVersionChunks: (...args: unknown[]) => mockUseVersionChunks(...args),
   useUploadMaterial: () => ({ mutate: mockUploadMutate, isPending: false }),
   useUpdateMaterial: () => ({ mutate: mockUpdateMutate, isPending: false }),
   useArchiveMaterial: () => ({ mutate: mockArchiveMutate }),
@@ -99,7 +97,6 @@ describe("TrainingMaterialsPage", () => {
     vi.clearAllMocks();
     mockUseMaterials.mockReturnValue({ data: undefined });
     mockUseMaterialVersions.mockReturnValue({ data: undefined });
-    mockUseVersionChunks.mockReturnValue({ data: undefined });
   });
 
   it("renders page title", () => {
@@ -306,11 +303,12 @@ describe("TrainingMaterialsPage", () => {
     const versionData = [
       {
         id: "v1",
+        material_id: "mat-1",
         version_number: 3,
         filename: "brukinsa-guide-v3.pdf",
         file_size: 2048,
         content_type: "application/pdf",
-        storage_url: "/files/v3.pdf",
+        download_url: "/files/v3.pdf",
         is_active: true,
         created_at: "2026-03-14T10:00:00Z",
       },
@@ -340,46 +338,6 @@ describe("TrainingMaterialsPage", () => {
     await user.click(versionsButtons[0]!);
 
     expect(screen.getByText("materials.noVersions")).toBeInTheDocument();
-  });
-
-  it("chunks dialog shows chunk content", async () => {
-    const user = userEvent.setup();
-    const versionData = [
-      {
-        id: "v1",
-        version_number: 1,
-        filename: "guide.pdf",
-        file_size: 1024,
-        content_type: "application/pdf",
-        storage_url: "/files/v1.pdf",
-        is_active: true,
-        created_at: "2026-03-14T10:00:00Z",
-      },
-    ];
-    const chunkData = [
-      {
-        id: "c1",
-        chunk_index: 0,
-        content: "This is chunk zero content.",
-        page_label: "Page 1",
-      },
-    ];
-    mockUseMaterials.mockReturnValue({ data: mockMaterialsList });
-    mockUseMaterialVersions.mockReturnValue({ data: versionData });
-    mockUseVersionChunks.mockReturnValue({ data: chunkData });
-    renderPage();
-
-    // Open versions dialog for m1
-    const versionsButtons = screen.getAllByTitle("materials.viewVersions");
-    await user.click(versionsButtons[0]!);
-
-    // Click "viewChunks" button in the version list
-    const viewChunksBtn = screen.getByText("materials.viewChunks");
-    await user.click(viewChunksBtn);
-
-    // Chunk content should render
-    expect(screen.getByText("This is chunk zero content.")).toBeInTheDocument();
-    expect(screen.getByText(/Page 1/)).toBeInTheDocument();
   });
 
   it("pagination renders when multiple pages", () => {
@@ -494,11 +452,12 @@ describe("TrainingMaterialsPage", () => {
     const versionData = [
       {
         id: "v1",
+        material_id: "mat-1",
         version_number: 1,
         filename: "large-file.pdf",
         file_size: 1048576,
         content_type: "application/pdf",
-        storage_url: "/files/v1.pdf",
+        download_url: "/files/v1.pdf",
         is_active: false,
         created_at: "2026-03-14T10:00:00Z",
       },
@@ -629,11 +588,12 @@ describe("TrainingMaterialsPage", () => {
     const versionData = [
       {
         id: "v1",
+        material_id: "mat-1",
         version_number: 1,
         filename: "tiny.pdf",
         file_size: 500,
         content_type: "application/pdf",
-        storage_url: "/files/v1.pdf",
+        download_url: "/files/v1.pdf",
         is_active: true,
         created_at: "2026-03-14T10:00:00Z",
       },

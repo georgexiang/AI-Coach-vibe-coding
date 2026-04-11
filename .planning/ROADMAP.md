@@ -28,7 +28,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 14: HCP Agent Refactor** - VL Instance read-only reference in HCP editor, VL Management rewrite with rich CRUD, Knowledge/Tools placeholder tabs (completed 2026-04-08)
 - [x] **Phase 15: HCP Editor Agent Config Center** - 重构 HCP 编辑器为 Agent 配置中心：移除空 Knowledge/Tools tab，Voice & Avatar tab 升级为 Model Deployment + Instructions + Playground 预览布局，对齐 Azure AI Foundry Agent 编辑体验 (completed 2026-04-07)
 - [x] **Phase 16: Voice Live Refactor — Modularize, Agent Mode, Sync** - 前端 Voice Live 模块化复用，后端 WebSocket 双模式（Model+Agent），SDK 升级 1.2.0b5，HCP voice 配置同步到 AI Foundry Agent (completed 2026-04-10)
-- [ ] **Phase 17: Agent Knowledge Base — Foundry IQ Integration** - HCP Agent 知识库管理：连接 Azure AI Search / Foundry IQ，上传训练材料自动创建知识库索引，知识库配置同步到 AI Foundry Agent
+- [x] **Phase 17: Agent Knowledge Base — Foundry IQ Integration** - HCP Agent 知识库管理：连接 Azure AI Search / Foundry IQ，上传训练材料自动创建知识库索引，知识库配置同步到 AI Foundry Agent (completed 2026-04-10)
+- [x] **Phase 18: Training Material Download & Preview** - 培训材料文件下载和在线预览：后端添加文件下载 API，前端 PDF 在线预览、DOCX/XLSX 下载，修复 storage_url 信息泄露 (completed 2026-04-10)
 
 ## Phase Details
 
@@ -198,7 +199,7 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 01 -> 01.1 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07 -> 08 -> 09 -> 10 -> 11 -> 12 -> 13 -> 14 -> 15 -> 16 (all complete) -> 17 (next)
+Phases execute in numeric order: 01 -> 01.1 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07 -> 08 -> 09 -> 10 -> 11 -> 12 -> 13 -> 14 -> 15 -> 16 -> 17 (all complete) -> 18 (next)
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -219,7 +220,8 @@ Phases execute in numeric order: 01 -> 01.1 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07 
 | 14. HCP Agent Refactor | 4/4 | Complete   | 2026-04-08 |
 | 15. HCP Editor Agent Config Center | 3/3 | Complete   | 2026-04-07 |
 | 16. Voice Live Refactor — Modularize, Agent Mode, Sync | 4/4 | Complete   | 2026-04-10 |
-| 17. Agent Knowledge Base — Foundry IQ Integration | 0/3 | Planned    | - |
+| 17. Agent Knowledge Base — Foundry IQ Integration | 3/3 | Complete   | 2026-04-10 |
+| 18. Training Material Download & Preview | 0/3 | In Progress | - |
 
 ### Phase 16: Voice Live Refactor — Modularize, Agent Mode, Sync
 
@@ -435,12 +437,12 @@ Plans:
 **Goal:** HCP Agent 知识库配置（Agent 能力定义范畴），对齐 Azure AI Foundry Knowledge 配置体验。Admin 可在 HCP 编辑器中列出 AI Foundry Project 的 AI Search Connections 和已有 Knowledge Base，选择并绑定到 HCP Agent。知识库配置通过 MCPTool 同步到 AI Foundry Agent，使 Agent 在对话中自动使用 Foundry IQ RAG 检索知识。KB 的创建/维护/文档上传属于知识管理模块职责，不在本 phase 范围。
 **Requirements**: KB-17-01, KB-17-02, KB-17-03, KB-17-04, KB-17-05
 **Depends on:** Phase 16
-**Plans:** 3 plans
+**Plans:** 3/3 plans complete
 
 Plans:
-- [ ] 17-01-PLAN.md -- Backend foundation: Alembic migration (hcp_knowledge_configs), ORM model, Pydantic schemas, knowledge_base_service, API router, agent_sync tools extension
-- [ ] 17-02-PLAN.md -- Frontend: TypeScript types, API client, TanStack Query hooks, i18n keys, ConnectKbDialog, KnowledgeTab, HCP editor integration
-- [ ] 17-03-PLAN.md -- Integration wiring: agent sync e2e test, frontend component tests, build verification, visual checkpoint
+- [x] 17-01-PLAN.md -- Backend foundation: Alembic migration (hcp_knowledge_configs), ORM model, Pydantic schemas, knowledge_base_service, API router, agent_sync tools extension
+- [x] 17-02-PLAN.md -- Frontend: TypeScript types, API client, TanStack Query hooks, i18n keys, ConnectKbDialog, KnowledgeTab, HCP editor integration
+- [x] 17-03-PLAN.md -- Integration wiring: agent sync e2e test, frontend component tests, build verification, visual checkpoint
 
 **Success Criteria** (what must be TRUE):
   1. Admin 可在 HCP 编辑器 Knowledge tab 中列出 AI Foundry Project 的 AI Search Connections，选择 Connection 后列出其中已有的 Knowledge Base（对齐 AI Foundry "Connect to Foundry IQ" 流程）
@@ -448,5 +450,27 @@ Plans:
   3. 知识库配置通过 MCPTool 同步到 AI Foundry Agent definition 的 tools 参数，Agent 在对话中自动使用 Foundry IQ RAG 检索知识
   4. HCP 编辑器 Knowledge tab 显示已绑定的知识库列表（名称、connection、状态），支持解绑操作
   5. 前后端测试覆盖 + i18n（en-US + zh-CN）+ TypeScript/Ruff 构建通过
+
+**UI hint**: yes
+
+### Phase 18: Training Material Download & Preview
+
+**Goal:** 为培训材料模块添加文件下载和在线预览功能。后端暴露安全的文件下载 API（不泄露本地文件系统路径），前端支持 PDF 在线预览（iframe/embed）和 DOCX/XLSX 文件下载。修复 `storage_url` 信息泄露问题，使用安全的下载 URL 替代本地路径。
+**Requirements**: MAT-18-01, MAT-18-02, MAT-18-03, MAT-18-04
+**Depends on:** Phase 05
+**Plans:** 3 plans
+
+Plans:
+- [x] 18-01-PLAN.md -- Backend file download API endpoint, storage_url security fix, download tests (3/3, completed 2026-04-10)
+- [x] 18-02-PLAN.md -- Frontend PDF preview dialog, DOCX/XLSX download, i18n, TypeScript types (3/3, completed 2026-04-10)
+- [x] 18-03-PLAN.md -- Integration tests, build verification, ROADMAP update (3/3, completed 2026-04-10)
+
+**Success Criteria** (what must be TRUE):
+  1. 后端提供 `GET /api/v1/materials/{material_id}/versions/{version_id}/download` 端点，返回 `FileResponse`（流式传输原始文件），支持 Content-Disposition header（inline 预览或 attachment 下载）
+  2. `MaterialVersionOut` schema 中 `storage_url` 字段替换为安全的相对下载 URL（如 `/api/v1/materials/{id}/versions/{vid}/download`），不再泄露本地文件系统路径
+  3. 前端 PDF 文件支持在线预览（弹窗/侧栏中使用 iframe 或 PDF.js 渲染），无需下载即可查看内容
+  4. 前端 DOCX/XLSX 文件点击后直接触发浏览器下载
+  5. 版本历史对话框中每个版本显示"预览"（PDF）或"下载"按钮
+  6. 前后端测试覆盖 + i18n（en-US + zh-CN）+ TypeScript/Ruff 构建通过
 
 **UI hint**: yes

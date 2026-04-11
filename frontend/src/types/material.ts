@@ -14,20 +14,14 @@ export interface TrainingMaterial {
 
 export interface MaterialVersion {
   id: string;
+  material_id: string;
   version_number: number;
   filename: string;
   file_size: number;
   content_type: string;
-  storage_url: string;
+  download_url: string;
   is_active: boolean;
   created_at: string;
-}
-
-export interface MaterialChunk {
-  id: string;
-  chunk_index: number;
-  content: string;
-  page_label: string;
 }
 
 export interface MaterialCreate {

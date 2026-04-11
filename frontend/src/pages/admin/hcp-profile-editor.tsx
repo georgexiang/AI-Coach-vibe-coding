@@ -111,8 +111,6 @@ export default function HcpProfileEditorPage() {
 
   const [testChatOpen, setTestChatOpen] = useState(false);
 
-  // Legacy tab ID fallback: knowledge/tools tabs have been removed,
-  // but bookmarks or deep links may still reference them
   const VALID_TABS = new Set(["profile", "voice-avatar"]);
   const [activeTab, setActiveTab] = useState("profile");
   const handleTabChange = (value: string) => {

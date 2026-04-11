@@ -95,6 +95,9 @@ grep -n "type=\"checkpoint" [plan-path]
 </step>
 
 <step name="execute_tasks">
+At execution decision points, apply structured reasoning:
+@/Users/huqianghui/Downloads/1.github/AI-Coach-vibe-coding/.claude/get-shit-done/references/thinking-models-execution.md
+
 For each task:
 
 1. **If `type="auto"`:**

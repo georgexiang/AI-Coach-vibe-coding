@@ -7,7 +7,6 @@ vi.mock("@/api/materials", () => ({
   getMaterials: vi.fn(),
   getMaterial: vi.fn(),
   getMaterialVersions: vi.fn(),
-  getVersionChunks: vi.fn(),
   uploadMaterial: vi.fn(),
   updateMaterial: vi.fn(),
   archiveMaterial: vi.fn(),
@@ -18,7 +17,6 @@ import {
   getMaterials,
   getMaterial,
   getMaterialVersions,
-  getVersionChunks,
   uploadMaterial,
   updateMaterial,
   archiveMaterial,
@@ -28,7 +26,6 @@ import {
   useMaterials,
   useMaterial,
   useMaterialVersions,
-  useVersionChunks,
   useUploadMaterial,
   useUpdateMaterial,
   useArchiveMaterial,
@@ -108,19 +105,6 @@ describe("useMaterialVersions", () => {
 
     expect(result.current.isFetching).toBe(false);
     expect(getMaterialVersions).not.toHaveBeenCalled();
-  });
-});
-
-describe("useVersionChunks", () => {
-  beforeEach(() => vi.clearAllMocks());
-
-  it("requires both materialId and versionId", () => {
-    const { result } = renderHook(() => useVersionChunks("m1", undefined), {
-      wrapper: createWrapper(),
-    });
-
-    expect(result.current.isFetching).toBe(false);
-    expect(getVersionChunks).not.toHaveBeenCalled();
   });
 });
 

@@ -1,6 +1,5 @@
 import apiClient from "./client";
 import type {
-  MaterialChunk,
   MaterialUpdate,
   MaterialVersion,
   PaginatedMaterials,
@@ -88,23 +87,33 @@ export async function getMaterialVersions(
   return data;
 }
 
-export async function getVersionChunks(
+/**
+ * Download a material version file.
+ * @param mode - "inline" opens in browser (PDF preview), "attachment" triggers download.
+ */
+export async function downloadVersion(
   materialId: string,
   versionId: string,
-): Promise<MaterialChunk[]> {
-  const { data } = await apiClient.get<MaterialChunk[]>(
-    `/materials/${materialId}/versions/${versionId}/chunks`,
+  filename: string,
+  mode: "inline" | "attachment" = "attachment",
+): Promise<void> {
+  const { data } = await apiClient.get<Blob>(
+    `/materials/${materialId}/versions/${versionId}/download`,
+    { params: { mode }, responseType: "blob" },
   );
-  return data;
-}
+  const url = URL.createObjectURL(data);
 
-export async function searchChunks(
-  product: string,
-  query: string,
-  limit?: number,
-): Promise<MaterialChunk[]> {
-  const { data } = await apiClient.get<MaterialChunk[]>("/materials/search", {
-    params: { product, query, limit },
-  });
-  return data;
+  if (mode === "inline") {
+    window.open(url, "_blank");
+  } else {
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+
+  // Revoke after a short delay so the browser can finish loading
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
 }

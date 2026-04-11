@@ -270,11 +270,13 @@
     "restore": "Restore",
     "edit": "Edit",
     "viewVersions": "View Versions",
-    "viewChunks": "View Chunks",
+    "download": "Download",
+    "preview": "Preview",
+    "downloadError": "Failed to download file",
+    "previewError": "Failed to preview file",
     "uploadNewVersion": "Upload New Version",
     "noMaterials": "No training materials found",
     "noVersions": "No versions found",
-    "noChunks": "No text chunks extracted",
     "searchPlaceholder": "Search materials...",
     "filterByProduct": "Filter by product",
     "allProducts": "All Products",
@@ -284,10 +286,6 @@
     "archiveConfirm": "Are you sure you want to archive this material?",
     "restoreConfirm": "Are you sure you want to restore this material?",
     "updateSuccess": "Material updated successfully",
-    "chunks": "Extracted Text Chunks",
-    "chunkIndex": "Chunk",
-    "chunkContent": "Content",
-    "pageLabel": "Page/Section"
   },
   "scenarioMode": {
     "conference": "Conference"

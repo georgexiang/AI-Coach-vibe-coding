@@ -9,14 +9,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.dependencies import get_db, require_role
 from app.models.user import User
 from app.schemas.material import (
-    MaterialChunkOut,
     MaterialListOut,
     MaterialOut,
     MaterialUpdate,
     MaterialVersionOut,
 )
 from app.services import material_service
-from app.utils.exceptions import bad_request
+from app.services.storage import get_storage
+from app.utils.exceptions import bad_request, not_found
 from app.utils.pagination import PaginatedResponse
 
 router = APIRouter(prefix="/materials", tags=["materials"])
@@ -76,18 +76,51 @@ async def upload_material(
     return material
 
 
-# IMPORTANT: Static route /search BEFORE parameterized /{material_id} (Gotcha #3)
-@router.get("/search", response_model=list[MaterialChunkOut])
-async def search_chunks(
-    product: str = Query(...),
-    query: str = Query(""),
-    limit: int = Query(10, ge=1, le=100),
+@router.get(
+    "/{material_id}/versions/{version_id}/download",
+    responses={200: {"content": {"application/octet-stream": {}}}},
+)
+async def download_version(
+    material_id: str,
+    version_id: str,
+    mode: str = Query("attachment", pattern="^(inline|attachment)$"),
     db: AsyncSession = Depends(get_db),
     _user: User = Depends(require_role("admin")),
 ):
-    """Search material chunks by product and text query. Admin only."""
-    chunks = await material_service.search_chunks(db, product=product, query=query, limit=limit)
-    return chunks
+    """Download a material version file. Admin only.
+
+    Query params:
+        mode: 'inline' for browser preview (PDF), 'attachment' for download.
+    """
+    from sqlalchemy import select
+
+    from app.models.material import MaterialVersion
+
+    result = await db.execute(
+        select(MaterialVersion).where(
+            MaterialVersion.id == version_id,
+            MaterialVersion.material_id == material_id,
+        )
+    )
+    version = result.scalar_one_or_none()
+    if version is None:
+        not_found("Material version not found")
+
+    # Reconstruct relative storage path
+    storage_path = f"materials/{material_id}/v{version.version_number}/{version.filename}"
+    storage = get_storage()
+
+    if not await storage.exists(storage_path):
+        not_found("File not found in storage")
+
+    content = await storage.read(storage_path)
+    disposition = f'{mode}; filename="{version.filename}"'
+
+    return Response(
+        content=content,
+        media_type=version.content_type,
+        headers={"Content-Disposition": disposition},
+    )
 
 
 @router.get("", response_model=PaginatedResponse[MaterialListOut])
@@ -171,15 +204,3 @@ async def list_versions(
     """List all versions of a material. Admin only."""
     versions = await material_service.get_versions(db, material_id)
     return versions
-
-
-@router.get("/{material_id}/versions/{version_id}/chunks", response_model=list[MaterialChunkOut])
-async def get_version_chunks(
-    material_id: str,
-    version_id: str,
-    db: AsyncSession = Depends(get_db),
-    _user: User = Depends(require_role("admin")),
-):
-    """Get text chunks for a specific material version. Admin only."""
-    chunks = await material_service.get_version_chunks(db, version_id)
-    return chunks

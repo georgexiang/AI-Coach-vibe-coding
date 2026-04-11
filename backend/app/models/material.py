@@ -45,23 +45,3 @@ class MaterialVersion(Base, TimestampMixin):
 
     # Relationships
     material = relationship("TrainingMaterial", back_populates="versions")
-    chunks = relationship("MaterialChunk", back_populates="version", cascade="all, delete-orphan")
-
-
-class MaterialChunk(Base, TimestampMixin):
-    """A text chunk extracted from a material version for RAG indexing."""
-
-    __tablename__ = "material_chunks"
-
-    version_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("material_versions.id"), nullable=False, index=True
-    )
-    material_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("training_materials.id"), nullable=False, index=True
-    )
-    chunk_index: Mapped[int] = mapped_column(nullable=False)
-    content: Mapped[str] = mapped_column(Text, nullable=False)
-    page_label: Mapped[str] = mapped_column(String(50), default="")
-
-    # Relationships
-    version = relationship("MaterialVersion", back_populates="chunks")

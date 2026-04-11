@@ -270,11 +270,13 @@
     "restore": "恢复",
     "edit": "编辑",
     "viewVersions": "查看版本",
-    "viewChunks": "查看文本块",
+    "download": "下载",
+    "preview": "预览",
+    "downloadError": "文件下载失败",
+    "previewError": "文件预览失败",
     "uploadNewVersion": "上传新版本",
     "noMaterials": "未找到培训资料",
     "noVersions": "未找到版本",
-    "noChunks": "未提取到文本块",
     "searchPlaceholder": "搜索资料...",
     "filterByProduct": "按产品筛选",
     "allProducts": "所有产品",
@@ -284,10 +286,6 @@
     "archiveConfirm": "确定要归档此资料吗？",
     "restoreConfirm": "确定要恢复此资料吗？",
     "updateSuccess": "资料更新成功",
-    "chunks": "提取的文本块",
-    "chunkIndex": "块",
-    "chunkContent": "内容",
-    "pageLabel": "页面/章节"
   },
   "scenarioMode": {
     "conference": "会议演讲"

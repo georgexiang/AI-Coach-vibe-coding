@@ -11,11 +11,9 @@ import pytest
 from app.api.materials import (
     archive_material,
     get_material,
-    get_version_chunks,
     list_materials,
     list_versions,
     restore_material,
-    search_chunks,
     update_material,
     upload_material,
 )
@@ -129,22 +127,6 @@ class TestUploadMaterialEndpoint:
         mock_svc.upload_material.assert_awaited_once()
 
 
-class TestSearchChunksEndpoint:
-    """Tests for the search_chunks route function."""
-
-    @patch("app.api.materials.material_service")
-    async def test_search_returns_chunks(self, mock_svc):
-        """search_chunks returns list of chunks from service."""
-        mock_chunks = [MagicMock(), MagicMock()]
-        mock_svc.search_chunks = AsyncMock(return_value=mock_chunks)
-
-        db = AsyncMock()
-        user = _make_user()
-
-        result = await search_chunks(product="Drug", query="", limit=10, db=db, _user=user)
-        assert result == mock_chunks
-
-
 class TestListMaterialsEndpoint:
     """Tests for the list_materials route function."""
 
@@ -249,17 +231,3 @@ class TestListVersionsEndpoint:
         assert result == mock_versions
 
 
-class TestGetVersionChunksEndpoint:
-    """Tests for the get_version_chunks route function."""
-
-    @patch("app.api.materials.material_service")
-    async def test_chunks_returns_list(self, mock_svc):
-        """get_version_chunks returns chunks from service."""
-        mock_chunks = [MagicMock()]
-        mock_svc.get_version_chunks = AsyncMock(return_value=mock_chunks)
-
-        db = AsyncMock()
-        user = _make_user()
-
-        result = await get_version_chunks(material_id="m1", version_id="v1", db=db, _user=user)
-        assert result == mock_chunks

@@ -4,7 +4,6 @@ import {
   getMaterial,
   getMaterialVersions,
   getMaterials,
-  getVersionChunks,
   restoreMaterial,
   updateMaterial,
   uploadMaterial,
@@ -37,17 +36,6 @@ export function useMaterialVersions(id: string | undefined) {
     queryKey: ["materials", id, "versions"],
     queryFn: () => getMaterialVersions(id!),
     enabled: !!id,
-  });
-}
-
-export function useVersionChunks(
-  materialId: string | undefined,
-  versionId: string | undefined,
-) {
-  return useQuery({
-    queryKey: ["materials", materialId, "versions", versionId, "chunks"],
-    queryFn: () => getVersionChunks(materialId!, versionId!),
-    enabled: !!materialId && !!versionId,
   });
 }
 

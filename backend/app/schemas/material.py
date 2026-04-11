@@ -23,30 +23,25 @@ class MaterialUpdate(BaseModel):
     tags: str | None = None
 
 
-class MaterialChunkOut(BaseModel):
-    """Response schema for a material text chunk."""
-
-    id: str
-    chunk_index: int
-    content: str
-    page_label: str
-
-    model_config = ConfigDict(from_attributes=True)
-
-
 class MaterialVersionOut(BaseModel):
     """Response schema for a material version."""
 
     id: str
+    material_id: str
     version_number: int
     filename: str
     file_size: int
     content_type: str
-    storage_url: str
+    download_url: str = ""
     is_active: bool
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+    def model_post_init(self, __context: object) -> None:
+        """Generate download_url from material_id and version id."""
+        if not self.download_url and self.material_id and self.id:
+            self.download_url = f"/api/v1/materials/{self.material_id}/versions/{self.id}/download"
 
 
 class MaterialOut(BaseModel):

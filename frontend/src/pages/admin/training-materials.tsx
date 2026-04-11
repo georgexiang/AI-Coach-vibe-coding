@@ -12,6 +12,7 @@ import {
   Archive,
   ArchiveRestore,
   Eye,
+  Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,13 +39,13 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   useMaterials,
   useMaterialVersions,
-  useVersionChunks,
   useUploadMaterial,
   useUpdateMaterial,
   useArchiveMaterial,
   useRestoreMaterial,
 } from "@/hooks/use-materials";
-import type { TrainingMaterial, MaterialUpdate } from "@/types/material";
+import type { TrainingMaterial, MaterialUpdate, MaterialVersion } from "@/types/material";
+import { downloadVersion } from "@/api/materials";
 import { cn } from "@/lib/utils";
 
 const ALL_PRODUCTS = "__all__";
@@ -87,17 +88,12 @@ export default function TrainingMaterialsPage() {
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [versionsDialogOpen, setVersionsDialogOpen] = useState(false);
-  const [chunksDialogOpen, setChunksDialogOpen] = useState(false);
   const [archiveConfirmId, setArchiveConfirmId] = useState<string | null>(null);
   const [restoreConfirmId, setRestoreConfirmId] = useState<string | null>(null);
 
   // Selected material state
   const [selectedMaterial, setSelectedMaterial] =
     useState<TrainingMaterial | null>(null);
-  const [selectedVersionId, setSelectedVersionId] = useState<
-    string | undefined
-  >();
-
   // Upload form state
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadName, setUploadName] = useState("");
@@ -128,11 +124,6 @@ export default function TrainingMaterialsPage() {
 
   const { data: versions } = useMaterialVersions(
     versionsDialogOpen ? selectedMaterial?.id : undefined,
-  );
-
-  const { data: chunks } = useVersionChunks(
-    chunksDialogOpen ? selectedMaterial?.id : undefined,
-    chunksDialogOpen ? selectedVersionId : undefined,
   );
 
   // Mutations
@@ -256,12 +247,26 @@ export default function TrainingMaterialsPage() {
     setVersionsDialogOpen(true);
   };
 
-  const handleViewChunks = (materialId: string, versionId: string) => {
-    setSelectedMaterial((prev) =>
-      prev?.id === materialId ? prev : { ...prev!, id: materialId },
-    );
-    setSelectedVersionId(versionId);
-    setChunksDialogOpen(true);
+  const handleDownloadVersion = async (
+    materialId: string,
+    version: MaterialVersion,
+  ) => {
+    try {
+      await downloadVersion(materialId, version.id, version.filename, "attachment");
+    } catch {
+      toast.error(t("materials.downloadError"));
+    }
+  };
+
+  const handlePreviewVersion = async (
+    materialId: string,
+    version: MaterialVersion,
+  ) => {
+    try {
+      await downloadVersion(materialId, version.id, version.filename, "inline");
+    } catch {
+      toast.error(t("materials.previewError"));
+    }
   };
 
   const confirmArchive = () => {
@@ -735,16 +740,30 @@ export default function TrainingMaterialsPage() {
                         {formatDate(version.created_at)}
                       </p>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() =>
-                        handleViewChunks(selectedMaterial!.id, version.id)
-                      }
-                    >
-                      <Eye className="size-4" />
-                      {t("materials.viewChunks")}
-                    </Button>
+                    <div className="flex items-center gap-1">
+                      {version.content_type === "application/pdf" && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() =>
+                            handlePreviewVersion(selectedMaterial!.id, version)
+                          }
+                          title={t("materials.preview")}
+                        >
+                          <Eye className="size-4" />
+                        </Button>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() =>
+                          handleDownloadVersion(selectedMaterial!.id, version)
+                        }
+                        title={t("materials.download")}
+                      >
+                        <Download className="size-4" />
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -753,41 +772,6 @@ export default function TrainingMaterialsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Chunks Dialog */}
-      <Dialog open={chunksDialogOpen} onOpenChange={setChunksDialogOpen}>
-        <DialogContent className="sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>{t("materials.chunks")}</DialogTitle>
-          </DialogHeader>
-          <ScrollArea className="max-h-[500px]">
-            {!chunks || chunks.length === 0 ? (
-              <p className="py-8 text-center text-sm text-muted-foreground">
-                {t("materials.noChunks")}
-              </p>
-            ) : (
-              <div className="space-y-3">
-                {chunks.map((chunk) => (
-                  <div key={chunk.id} className="rounded-lg border p-3">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Badge variant="outline">
-                        {t("materials.chunkIndex")} #{chunk.chunk_index}
-                      </Badge>
-                      {chunk.page_label && (
-                        <Badge variant="secondary">
-                          {t("materials.pageLabel")}: {chunk.page_label}
-                        </Badge>
-                      )}
-                    </div>
-                    <p className="text-sm whitespace-pre-wrap text-muted-foreground">
-                      {chunk.content}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </ScrollArea>
-        </DialogContent>
-      </Dialog>
 
       {/* Archive Confirmation Dialog */}
       <Dialog
