@@ -48,14 +48,15 @@ Exceptions: File tree indentation uses 20px per level (5 x 4px) for clear hierar
 | Role | Size | Weight | Line Height |
 |------|------|--------|-------------|
 | Body | 14px (text-sm) | 400 | 1.5 |
-| Label | 14px (text-sm) | 500 | 1.5 |
-| Heading | 20px (text-xl) | 500 | 1.5 |
+| Label | 14px (text-sm) | 600 | 1.5 |
+| Heading | 20px (text-xl) | 600 | 1.5 |
 | Display | 24px (text-2xl) | 600 | 1.5 |
 
 Notes:
+- Two font weights only: 400 (regular) for body text, 600 (semibold) for labels, headings, and display titles
 - Page titles use Display (24px/600) per existing admin page pattern
-- Section headings within editors use Heading (20px/500)
-- All card content, table cells, form labels use Body/Label (14px)
+- Section headings within editors use Heading (20px/600)
+- All card content and table cells use Body (14px/400); form labels and interactive labels use Label (14px/600)
 - Code/file names in file tree use `font-mono` at 13px for differentiation
 
 ---
@@ -71,7 +72,7 @@ Notes:
 
 Accent reserved for:
 - "Create Skill" primary button
-- "Publish" button
+- "Publish Skill" button
 - Published status badge (bg-primary/10 text-primary)
 - Active file tree node highlight (bg-primary/5 border-l-2 border-primary)
 - Active tab underline in Skill editor
@@ -136,6 +137,8 @@ Additional semantic colors for this phase:
 
 ### Skill Hub Page (`/admin/skills`)
 
+**Focal point:** The card grid is the primary focal point. On page load the user's eye should land on the top-left SkillCard first, then scan right and down across the grid. The "+ Create Skill" primary button in the page header serves as the secondary focal point, drawing attention to the main action when no cards exist or the user is ready to add a new skill.
+
 ```
 +--------------------------------------------------+
 | [Page Title: Skill Hub]         [+ Create Skill] |
@@ -157,7 +160,7 @@ Additional semantic colors for this phase:
 
 ```
 +-----------------------------------------------------------+
-| [< Back] Skill: {name}          [Save Draft] [Publish]    |
+| [< Back] Skill: {name}    [Save Draft] [Publish Skill]    |
 +-----------------------------------------------------------+
 | [Content] [Resources] [Quality] [Settings]  <- Tabs       |
 +-----------------------------------------------------------+
@@ -193,10 +196,10 @@ Additional semantic colors for this phase:
 ```
 +----------------------------------------+
 | [StatusBadge: Draft]     [Quality: 72] |
-| Skill Name (font-medium, text-base)    |
+| Skill Name (font-semibold, text-base)  |
 | Product: Zanubrutinib  (text-sm muted) |
 | [Tag] [Tag] [Tag]                      |
-|                        [Edit] [More v] |
+|              [Edit Skill] [More v]     |
 +----------------------------------------+
 ```
 
@@ -204,7 +207,7 @@ Additional semantic colors for this phase:
 - Status badge top-left, quality score top-right
 - Name truncated with `line-clamp-1`
 - Tags as small outline badges, max 3 visible + "+N"
-- Action buttons bottom-right: "Edit" ghost button, "More" dropdown (archive, export, delete)
+- Action buttons bottom-right: "Edit Skill" ghost button, "More" dropdown (archive, export, delete)
 
 ---
 
@@ -239,9 +242,9 @@ Additional semantic colors for this phase:
 3. L2 AI assessment runs async (polling, ~10-30s)
    - Progress indicator during assessment
    - On complete: radar chart renders, dimension cards populate
-4. When admin clicks "Publish":
+4. When admin clicks "Publish Skill":
    - If L1 FAIL: blocked, toast error "Please fix structure issues before publishing"
-   - If L2 < 50: blocked, dialog shows low scores + "Cannot publish — quality score too low"
+   - If L2 < 50: blocked, dialog shows low scores + "Cannot publish -- quality score too low"
    - If L2 50-69: warning dialog with dimension breakdown + "Publish Anyway" / "Return to Edit"
    - If L2 >= 70: direct publish, toast success
 
@@ -249,9 +252,9 @@ Additional semantic colors for this phase:
 
 | Current Status | Available Actions | Target Status |
 |----------------|-------------------|---------------|
-| draft | Edit, Request Review, Delete | review / (stays draft) |
-| review | Edit (returns to draft), Publish, Delete | draft / published |
-| published | Edit (creates new version as draft), Archive | draft (new version) / archived |
+| draft | Edit Skill, Request Review, Delete | review / (stays draft) |
+| review | Edit Skill (returns to draft), Publish Skill, Delete | draft / published |
+| published | Edit Skill (creates new version as draft), Archive | draft (new version) / archived |
 | archived | Restore | draft |
 | failed | Retry Conversion, Delete | processing -> draft |
 
@@ -279,6 +282,8 @@ Additional semantic colors for this phase:
 | Element | Copy (en-US) | Copy (zh-CN) |
 |---------|------|------|
 | Primary CTA | Create Skill | 创建技能 |
+| Publish CTA | Publish Skill | 发布技能 |
+| Edit CTA | Edit Skill | 编辑技能 |
 | Empty state heading | No skills yet | 暂无技能 |
 | Empty state body | Upload training materials to create your first AI coaching skill, or import a skill package. | 上传培训材料以创建您的第一个 AI 教练技能，或导入技能包。 |
 | Error state (conversion failed) | Conversion failed. Check your materials and try again. | 转换失败，请检查材料后重试。 |
@@ -334,7 +339,7 @@ Additional semantic colors for this phase:
 
 | Registry | Blocks Used | Safety Gate |
 |----------|-------------|-------------|
-| shadcn official (Radix wrappers) | Dialog, Select, Tabs, ScrollArea, Progress, Badge, Button, Input, Textarea, Separator, Skeleton, Switch, Card, DropdownMenu | not required — all already installed |
+| shadcn official (Radix wrappers) | Dialog, Select, Tabs, ScrollArea, Progress, Badge, Button, Input, Textarea, Separator, Skeleton, Switch, Card, DropdownMenu | not required -- all already installed |
 | No third-party registries | n/a | n/a |
 
 ---
@@ -382,14 +387,14 @@ Additional semantic colors for this phase:
 New namespace: `skill.json` (both en-US and zh-CN)
 
 Key groups:
-- `skill.hub.*` — Skill Hub page labels
-- `skill.editor.*` — Skill Editor labels
-- `skill.status.*` — Status labels (draft, review, published, archived, failed)
-- `skill.conversion.*` — Conversion flow messages
-- `skill.quality.*` — Quality gate labels and dimension names
-- `skill.actions.*` — Button and action labels
-- `skill.fileTree.*` — File tree labels
-- `skill.errors.*` — Error messages
+- `skill.hub.*` -- Skill Hub page labels
+- `skill.editor.*` -- Skill Editor labels
+- `skill.status.*` -- Status labels (draft, review, published, archived, failed)
+- `skill.conversion.*` -- Conversion flow messages
+- `skill.quality.*` -- Quality gate labels and dimension names
+- `skill.actions.*` -- Button and action labels
+- `skill.fileTree.*` -- File tree labels
+- `skill.errors.*` -- Error messages
 
 ---
 
