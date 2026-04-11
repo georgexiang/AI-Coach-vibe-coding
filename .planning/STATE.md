@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Phase 19 In Progress
-stopped_at: Completed 19-04-PLAN.md (Skill Hub Frontend)
-last_updated: "2026-04-11T07:21:00.000Z"
+stopped_at: Completed 19-05-PLAN.md
+last_updated: "2026-04-11T07:39:39.161Z"
 last_activity: 2026-04-11
 progress:
   total_phases: 21
   completed_phases: 15
   total_plans: 94
-  completed_plans: 77
-  percent: 82
+  completed_plans: 80
+  percent: 85
 ---
 
 # Project State
@@ -110,6 +110,7 @@ Plans 01-04 of 8 complete (Wave 1 + Wave 2 done).
 | Phase 19 P02 | 5min | 2 tasks | 3 files |
 | Phase 19 P03 | 7min | 2 tasks | 4 files |
 | Phase 19 P04 | 7min | 2 tasks | 17 files |
+| Phase 19 P05 | 6min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -242,6 +243,9 @@ Recent decisions affecting current work:
 - [Phase 19]: is_published flag on SkillVersion for single-published-version invariant; file security with defense-in-depth (extension whitelist + size limit + path sanitization + resource cap)
 - [Phase 19]: Content hash (SHA256[:16]) binds evaluations to content version for staleness detection
 - [Phase 19]: L2 uses durable background task pattern with own DB session for async AI evaluation
+- [Phase 19]: SopEditor uses 2-column grid (3fr/2fr) with live ReactMarkdown preview and rehype-raw for rendering
+- [Phase 19]: FileTreeView builds flat navigation list from resources for keyboard accessibility
+- [Phase 19]: SkillEditorPage new-skill flow: createSkill first, then uploadAndConvert (API requires skill ID)
 
 ### Pending Todos
 
@@ -267,6 +271,6 @@ None yet.
 ## Session Continuity
 
 Last activity: 2026-04-11
-Last session: 2026-04-11
-Stopped at: Completed Wave 2 (Plans 01-04)
+Last session: 2026-04-11T07:39:39.154Z
+Stopped at: Completed 19-05-PLAN.md
 Resume file: None

@@ -222,7 +222,7 @@ Phases execute in numeric order: 01 -> 01.1 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07 
 | 16. Voice Live Refactor — Modularize, Agent Mode, Sync | 4/4 | Complete   | 2026-04-10 |
 | 17. Agent Knowledge Base — Foundry IQ Integration | 3/3 | Complete   | 2026-04-10 |
 | 18. Training Material Download & Preview | 3/3 | Complete | 2026-04-10 |
-| 19. AI Coach Skill Module | 2/8 | In Progress|  |
+| 19. AI Coach Skill Module | 5/8 | In Progress|  |
 | 20. Skill Dry Run Simulation | 0/? | Not Started | - |
 
 ### Phase 16: Voice Live Refactor — Modularize, Agent Mode, Sync
@@ -503,7 +503,7 @@ Plans:
 
 **Requirements**: D-01, D-02, D-03, D-04, D-05, D-06, D-07, D-08, D-09, D-10, D-11, D-12, D-13, D-14, D-15, D-16, D-17, D-18, D-19, D-20, D-21, D-22, D-23, D-24, D-25, D-26, D-27
 **Depends on:** Phase 18
-**Plans:** 2/8 plans executed
+**Plans:** 5/8 plans executed
 
 **Success Criteria** (what must be TRUE):
   1. Admin can create Skills by uploading materials (PDF/DOCX/PPTX/TXT/MD) and the system converts them to structured SOP content
@@ -517,10 +517,10 @@ Plans:
 
 Plans:
 - [x] 19-01-PLAN.md -- Backend data foundation: Skill/SkillVersion/SkillResource models, strict state machine, schemas, migration, CRUD service, API routes
-- [ ] 19-02-PLAN.md -- Material-to-Skill conversion: durable job processing, text extraction, semantic chunking, Azure OpenAI SOP extraction, AI feedback regeneration
+- [x] 19-02-PLAN.md -- Material-to-Skill conversion: durable job processing, text extraction, semantic chunking, Azure OpenAI SOP extraction, AI feedback regeneration
 - [x] 19-03-PLAN.md -- Quality gates: L1 structure validation with configurable rules, L2 AI quality evaluation with content hash, transactional publish gate
-- [ ] 19-04-PLAN.md -- Frontend data layer + Skill Hub: TypeScript types, API client with query-key factory, TanStack hooks, i18n, Skill Hub page
-- [ ] 19-05-PLAN.md -- Skill Editor MVP: SopEditor (dual-mode), FileTreeView, ConversionProgress, Content + Resources tabs
+- [x] 19-04-PLAN.md -- Frontend data layer + Skill Hub: TypeScript types, API client with query-key factory, TanStack hooks, i18n, Skill Hub page
+- [x] 19-05-PLAN.md -- Skill Editor MVP: SopEditor (dual-mode), FileTreeView, ConversionProgress, Content + Resources tabs
 - [ ] 19-06-PLAN.md -- Skill Editor Advanced: QualityRadarChart, QualityScoreCard, PublishGateDialog, Quality + Settings tabs, Publish flow
 - [ ] 19-07-PLAN.md -- Scenario-Skill integration: skill_version_id FK, SkillManager, sandboxed script_runner, prompt_builder, agent_sync
 - [ ] 19-08-PLAN.md -- ZIP import/export with security hardening, comprehensive backend tests, human verification
