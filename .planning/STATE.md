@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: Phase 17 Pending
-stopped_at: Phase 17 added, pending discuss/plan
-last_updated: "2026-04-08T18:00:00.000Z"
-last_activity: 2026-04-08
+status: Phase 19 In Progress
+stopped_at: Completed 19-04-PLAN.md (Skill Hub Frontend)
+last_updated: "2026-04-11T07:21:00.000Z"
+last_activity: 2026-04-11
 progress:
   total_phases: 18
   completed_phases: 17
@@ -21,12 +21,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-24)
 
 **Core value:** MRs can practice realistic conversations with AI-powered digital HCPs and receive immediate, multi-dimensional feedback to improve their communication skills -- anytime, without needing a real HCP or trainer.
-**Current focus:** Phase 17 — Agent Knowledge Base (Foundry IQ) Integration
+**Current focus:** Phase 19 — AI Coach Skill Module
 
 ## Current Position
 
-Phase: 17 (agent-knowledge-base-foundry-iq) — PENDING
-All 80/80 plans complete across 17 phases (01 through 16 inclusive). Phase 17 added.
+Phase: 19 (ai-coach-skill-module) — IN PROGRESS
+Plan 04 of 8 complete. Plans 01 and 04 completed.
 
 ## Performance Metrics
 
@@ -105,6 +105,7 @@ All 80/80 plans complete across 17 phases (01 through 16 inclusive). Phase 17 ad
 | Phase 14 P01 | 3min | 2 tasks | 7 files |
 | Phase 14 P02 | 5min | 2 tasks | 5 files |
 | Phase 14 P03 | 7min | 2 tasks | 2 files |
+| Phase 19 P04 | 7min | 2 tasks | 17 files |
 
 ## Accumulated Context
 
@@ -230,6 +231,7 @@ Recent decisions affecting current work:
 - [Phase 12]: HcpProfileOut in API router was missing 13 voice/avatar fields — added as Rule 1 bug fix
 - [Phase 13]: voice_live_model defaults to gpt-4o; agent-mode returns empty model; model list is static constant
 - [Phase 14]: Placed /instances/unassign route before /{instance_id} per CLAUDE.md Gotcha #3
+- [Phase 19]: Query-key factory pattern (skillKeys) for disciplined cache invalidation across 15+ hooks
 - [Phase 14]: VlInstanceDialog uses useState form state for simplicity; avatar grid expands styles to flat cards; assign dialog filters already-assigned HCPs
 - [Phase 14]: VoiceAvatarTab rewritten from 1076 to 303 lines as read-only VL preview; voice/avatar editing moved to VL Management
 
@@ -255,7 +257,7 @@ None yet.
 
 ## Session Continuity
 
-Last activity: 2026-04-08
-Last session: 2026-04-08
-Stopped at: Phase 16 complete, all 80 plans complete
+Last activity: 2026-04-11
+Last session: 2026-04-11
+Stopped at: Completed 19-04-PLAN.md (Skill Hub Frontend)
 Resume file: None
