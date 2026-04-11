@@ -19,6 +19,7 @@ class ScenarioCreate(BaseModel):
     difficulty: str = "medium"
     status: str = "draft"
     key_messages: list[str] = []
+    skill_id: str | None = None
     weight_key_message: int = 30
     weight_objection_handling: int = 25
     weight_communication: int = 20
@@ -53,6 +54,7 @@ class ScenarioUpdate(BaseModel):
     difficulty: str | None = None
     status: str | None = None
     key_messages: list[str] | None = None
+    skill_id: str | None = None
     weight_key_message: int | None = None
     weight_objection_handling: int | None = None
     weight_communication: int | None = None
@@ -90,6 +92,8 @@ class ScenarioResponse(BaseModel):
     status: str
     hcp_profile_id: str
     key_messages: str  # JSON string from DB
+    skill_id: str | None = None
+    skill_version_id: str | None = None
     weight_key_message: int
     weight_objection_handling: int
     weight_communication: int

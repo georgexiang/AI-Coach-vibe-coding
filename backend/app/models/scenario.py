@@ -23,6 +23,17 @@ class Scenario(Base, TimestampMixin):
     )
     key_messages: Mapped[str] = mapped_column(Text, default="[]")  # JSON array of strings
 
+    # Skill association — version-pinned for deterministic agent behavior (D-21, D-22)
+    skill_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("skills.id", ondelete="SET NULL"), nullable=True, default=None
+    )
+    skill_version_id: Mapped[str | None] = mapped_column(
+        String(36),
+        ForeignKey("skill_versions.id", ondelete="SET NULL"),
+        nullable=True,
+        default=None,
+    )
+
     # Scoring weights (must total 100)
     weight_key_message: Mapped[int] = mapped_column(default=30)
     weight_objection_handling: Mapped[int] = mapped_column(default=25)
@@ -35,6 +46,8 @@ class Scenario(Base, TimestampMixin):
 
     # Relationships
     hcp_profile = relationship("HcpProfile", back_populates="scenarios")
+    skill = relationship("Skill", foreign_keys=[skill_id])
+    skill_version = relationship("SkillVersion", foreign_keys=[skill_version_id])
 
     def get_scoring_weights(self) -> dict:
         """Return scoring weights as a dictionary."""

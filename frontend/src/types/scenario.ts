@@ -20,6 +20,8 @@ export interface Scenario {
   hcp_profile_id: string;
   hcp_profile?: HcpProfile;
   key_messages: string[];
+  skill_id: string | null;
+  skill_version_id: string | null;
   weight_key_message: number;
   weight_objection_handling: number;
   weight_communication: number;
@@ -41,6 +43,7 @@ export interface ScenarioCreate {
   mode?: Scenario["mode"];
   difficulty?: Scenario["difficulty"];
   key_messages?: string[];
+  skill_id?: string | null;
   weight_key_message?: number;
   weight_objection_handling?: number;
   weight_communication?: number;

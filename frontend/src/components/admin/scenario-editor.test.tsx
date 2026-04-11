@@ -28,6 +28,12 @@ vi.mock("@/hooks/use-hcp-profiles", () => ({
   }),
 }));
 
+vi.mock("@/hooks/use-skills", () => ({
+  usePublishedSkills: () => ({
+    data: { items: [] },
+  }),
+}));
+
 const mockScenario: Scenario = {
   id: "sc-1",
   name: "Test Scenario",
@@ -39,6 +45,8 @@ const mockScenario: Scenario = {
   status: "active",
   hcp_profile_id: "hcp-1",
   key_messages: ["Key message 1"],
+  skill_id: null,
+  skill_version_id: null,
   weight_key_message: 30,
   weight_objection_handling: 25,
   weight_communication: 20,

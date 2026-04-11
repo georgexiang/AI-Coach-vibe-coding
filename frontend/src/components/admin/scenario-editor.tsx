@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { AlertTriangle } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -26,6 +27,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScoringWeights } from "./scoring-weights";
 import { ObjectionList } from "./objection-list";
 import { useHcpProfiles } from "@/hooks/use-hcp-profiles";
+import { usePublishedSkills } from "@/hooks/use-skills";
 import type { Scenario, ScenarioCreate } from "@/types/scenario";
 import type { HcpProfile } from "@/types/hcp";
 
@@ -44,6 +46,8 @@ const THERAPEUTIC_AREAS = [
   "Solid Tumors",
 ];
 
+const NO_SKILL = "__none__";
+
 const scenarioSchema = z.object({
   name: z.string().min(1, "Name is required"),
   description: z.string().optional(),
@@ -53,6 +57,7 @@ const scenarioSchema = z.object({
   mode: z.enum(["f2f", "conference"]),
   difficulty: z.enum(["easy", "medium", "hard"]),
   key_messages: z.array(z.string()),
+  skill_id: z.string().nullable().optional(),
   weight_key_message: z.number().min(0).max(100),
   weight_objection_handling: z.number().min(0).max(100),
   weight_communication: z.number().min(0).max(100),
@@ -80,9 +85,14 @@ export function ScenarioEditor({
 }: ScenarioEditorProps) {
   const { t } = useTranslation("admin");
   const { data: profilesData } = useHcpProfiles();
+  const { data: publishedSkillsData } = usePublishedSkills();
   const profiles: HcpProfile[] = useMemo(
     () => profilesData?.items ?? [],
     [profilesData],
+  );
+  const publishedSkills = useMemo(
+    () => publishedSkillsData?.items ?? [],
+    [publishedSkillsData],
   );
 
   const form = useForm<ScenarioFormValues>({
@@ -96,6 +106,7 @@ export function ScenarioEditor({
       mode: "f2f",
       difficulty: "medium",
       key_messages: [],
+      skill_id: null,
       weight_key_message: 30,
       weight_objection_handling: 25,
       weight_communication: 20,
@@ -116,6 +127,7 @@ export function ScenarioEditor({
         mode: scenario.mode,
         difficulty: scenario.difficulty,
         key_messages: scenario.key_messages,
+        skill_id: scenario.skill_id ?? null,
         weight_key_message: scenario.weight_key_message,
         weight_objection_handling: scenario.weight_objection_handling,
         weight_communication: scenario.weight_communication,
@@ -133,6 +145,7 @@ export function ScenarioEditor({
         mode: "f2f",
         difficulty: "medium",
         key_messages: [],
+        skill_id: null,
         weight_key_message: 30,
         weight_objection_handling: 25,
         weight_communication: 20,
@@ -147,6 +160,7 @@ export function ScenarioEditor({
     onSave({
       ...values,
       key_messages: values.key_messages.filter(Boolean),
+      skill_id: values.skill_id || null,
     });
   };
 
@@ -315,6 +329,49 @@ export function ScenarioEditor({
             </div>
           </div>
 
+          <div className="grid gap-2">
+            <Label>Skill</Label>
+            <Controller
+              control={form.control}
+              name="skill_id"
+              render={({ field }) => (
+                <Select
+                  value={field.value ?? NO_SKILL}
+                  onValueChange={(v) => field.onChange(v === NO_SKILL ? null : v)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select skill (optional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NO_SKILL}>
+                      <span className="text-muted-foreground">No skill</span>
+                    </SelectItem>
+                    {publishedSkills.length === 0 && (
+                      <SelectItem value="__placeholder__" disabled>
+                        <span className="text-muted-foreground text-sm">No published skills available</span>
+                      </SelectItem>
+                    )}
+                    {publishedSkills.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        <div className="flex items-center gap-2">
+                          <span>{s.name}</span>
+                          {s.quality_score != null && (
+                            <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded">
+                              Q:{s.quality_score}
+                            </span>
+                          )}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
+            {scenario?.skill_id && scenario.skill_id === form.watch("skill_id") && (
+              <SkillStatusBadge skillId={scenario.skill_id} />
+            )}
+          </div>
+
           <ObjectionList
             items={form.watch("key_messages")}
             onChange={(items) => form.setValue("key_messages", items)}
@@ -358,5 +415,22 @@ export function ScenarioEditor({
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** Inline badge that warns when skill is archived (D-23). */
+function SkillStatusBadge({ skillId }: { skillId: string }) {
+  const { data: skillsData } = usePublishedSkills();
+  const allSkills = skillsData?.items ?? [];
+  // If the skill is no longer in published list, it may be archived
+  const skill = allSkills.find((s) => s.id === skillId);
+  if (skill) {
+    return null; // Published — no warning needed
+  }
+  return (
+    <div className="flex items-center gap-1 text-xs text-warning">
+      <AlertTriangle className="size-3" />
+      <span>This skill is archived</span>
+    </div>
   );
 }

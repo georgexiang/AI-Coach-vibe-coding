@@ -29,6 +29,8 @@ class ScenarioOut(BaseModel):
     status: str
     hcp_profile_id: str
     key_messages: list[str]
+    skill_id: str | None = None
+    skill_version_id: str | None = None
     weight_key_message: int
     weight_objection_handling: int
     weight_communication: int
@@ -134,6 +136,46 @@ async def delete_scenario(
     """Delete a scenario. Admin only."""
     await scenario_service.delete_scenario(db, scenario_id)
     return Response(status_code=204)
+
+
+@router.get("/{scenario_id}/skill")
+async def get_scenario_skill(
+    scenario_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Get the Skill associated with a scenario. Returns skill summary or null."""
+    from sqlalchemy import select
+
+    from app.models.skill import Skill, SkillVersion
+
+    scenario = await scenario_service.get_scenario(db, scenario_id)
+    if not scenario.skill_id:
+        return None
+
+    result = await db.execute(select(Skill).where(Skill.id == scenario.skill_id))
+    skill = result.scalar_one_or_none()
+    if skill is None:
+        return None
+
+    # Get pinned version info
+    version_number = None
+    if scenario.skill_version_id:
+        ver_result = await db.execute(
+            select(SkillVersion).where(SkillVersion.id == scenario.skill_version_id)
+        )
+        version = ver_result.scalar_one_or_none()
+        if version:
+            version_number = version.version_number
+
+    return {
+        "id": skill.id,
+        "name": skill.name,
+        "status": skill.status,
+        "quality_score": skill.quality_score,
+        "version_number": version_number,
+        "skill_version_id": scenario.skill_version_id,
+    }
 
 
 @router.post("/{scenario_id}/clone", response_model=ScenarioOut, status_code=201)
