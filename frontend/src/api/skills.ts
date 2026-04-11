@@ -93,7 +93,7 @@ export async function startConversion(id: string): Promise<Skill> {
 }
 
 export async function retryConversion(id: string): Promise<Skill> {
-  const { data } = await apiClient.post<Skill>(`/skills/${id}/convert/retry`);
+  const { data } = await apiClient.post<Skill>(`/skills/${id}/retry-conversion`);
   return data;
 }
 
@@ -103,7 +103,7 @@ export async function getConversionStatus(
   const { data } = await apiClient.get<{
     status: string;
     error: string | null;
-  }>(`/skills/${id}/convert/status`);
+  }>(`/skills/${id}/conversion-status`);
   return data;
 }
 
@@ -116,7 +116,7 @@ export async function uploadAndConvert(
     formData.append("files", file);
   }
   const { data } = await apiClient.post<Skill>(
-    `/skills/${id}/convert/upload`,
+    `/skills/${id}/upload-and-convert`,
     formData,
     { headers: { "Content-Type": "multipart/form-data" } },
   );
