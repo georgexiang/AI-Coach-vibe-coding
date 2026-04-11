@@ -5,8 +5,10 @@ import zipfile
 
 import yaml
 
+from app.models.material import MaterialVersion, TrainingMaterial
 from app.models.user import User
 from app.services.auth import create_access_token, get_password_hash
+from app.services.storage import get_storage
 from tests.conftest import TestSessionLocal
 
 
@@ -168,3 +170,83 @@ class TestSkillZipApi:
             headers={"Authorization": f"Bearer {token}"},
         )
         assert response.status_code == 422
+
+
+async def _seed_material(user_id: str) -> str:
+    """Create a training material with a file and return its ID."""
+    async with TestSessionLocal() as session:
+        material = TrainingMaterial(
+            name="Test Material",
+            product="TestProd",
+            created_by=user_id,
+        )
+        session.add(material)
+        await session.flush()
+
+        # Save a dummy file
+        storage = get_storage()
+        storage_path = f"materials/{material.id}/v1/test_doc.pdf"
+        await storage.save(storage_path, b"%PDF-1.4 test content")
+
+        version = MaterialVersion(
+            material_id=material.id,
+            version_number=1,
+            filename="test_doc.pdf",
+            file_size=21,
+            content_type="application/pdf",
+            storage_url=storage_path,
+            is_active=True,
+        )
+        session.add(version)
+        await session.commit()
+        return material.id
+
+
+class TestSkillFromMaterialsApi:
+    """Test creating skills from existing training materials."""
+
+    async def test_create_from_materials_success(self, client):
+        user_id, token = await _create_admin_and_token("from_mat_admin")
+        material_id = await _seed_material(user_id)
+
+        response = await client.post(
+            "/api/v1/skills/from-materials",
+            json={"material_ids": [material_id], "name": "Material Skill"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 202
+        data = response.json()
+        assert data["materials_copied"] == 1
+        assert "id" in data
+        assert data["status"] == "pending"
+
+    async def test_create_from_materials_empty_ids_rejected(self, client):
+        _, token = await _create_admin_and_token("from_mat_empty_admin")
+        response = await client.post(
+            "/api/v1/skills/from-materials",
+            json={"material_ids": []},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 422
+
+    async def test_create_from_materials_nonexistent_material(self, client):
+        _, token = await _create_admin_and_token("from_mat_404_admin")
+        response = await client.post(
+            "/api/v1/skills/from-materials",
+            json={"material_ids": ["nonexistent-id"]},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 404
+
+    async def test_create_from_multiple_materials(self, client):
+        user_id, token = await _create_admin_and_token("from_mat_multi_admin")
+        mat1 = await _seed_material(user_id)
+        mat2 = await _seed_material(user_id)
+
+        response = await client.post(
+            "/api/v1/skills/from-materials",
+            json={"material_ids": [mat1, mat2]},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 202
+        assert response.json()["materials_copied"] == 2

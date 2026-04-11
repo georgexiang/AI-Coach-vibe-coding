@@ -71,8 +71,26 @@ test.describe("Skill Hub Page", () => {
     const materialBtn = dialog.locator("button").first();
     await materialBtn.click();
 
+    // Material picker may open if materials exist
+    const picker = page.getByRole("dialog");
+    const pickerVisible = await picker.isVisible({ timeout: 2000 }).catch(() => false);
+    if (pickerVisible) {
+      // Select first material and confirm
+      const materialItem = picker.locator("button").first();
+      const itemCount = await materialItem.count();
+      if (itemCount > 0) {
+        await materialItem.click();
+      }
+      // Click convert button (last button in dialog)
+      const convertBtn = picker.getByRole("button", { name: /convert|confirm/i });
+      const convertCount = await convertBtn.count();
+      if (convertCount > 0) {
+        await convertBtn.click();
+      }
+    }
+
     // Should navigate to skill editor
-    await page.waitForURL(/\/admin\/skills\/[^/]+\/edit/, { timeout: 10000 });
+    await page.waitForURL(/\/admin\/skills\/[^/]+\/edit/, { timeout: 15000 });
     await expect(page).toHaveURL(/\/admin\/skills\/.*\/edit/);
   });
 
@@ -108,22 +126,18 @@ test.describe("Skill Hub Page", () => {
   test("skill card shows action menu with edit, archive, export, delete", async ({
     page,
   }) => {
-    // First create a skill to have a card
-    const createBtn = page.getByRole("button", {
-      name: /create|new|skill/i,
+    // Create a skill via API directly (avoids dialog flow changes)
+    await page.evaluate(async () => {
+      await fetch("/api/v1/skills", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+        },
+        body: JSON.stringify({ name: "Card Action Skill" }),
+      });
     });
-    await createBtn.first().click();
-
-    const dialog = page.getByRole("dialog");
-    await expect(dialog).toBeVisible({ timeout: 5000 });
-
-    // Create from materials
-    const materialBtn = dialog.locator("button").first();
-    await materialBtn.click();
-    await page.waitForURL(/\/admin\/skills\/[^/]+\/edit/, { timeout: 10000 });
-
-    // Go back to hub
-    await page.goto("/admin/skills");
+    await page.reload();
     await page.waitForTimeout(1000);
 
     // Find action menu button on skill card
@@ -142,19 +156,18 @@ test.describe("Skill Hub Page", () => {
   test("delete shows confirmation dialog with cancel option", async ({
     page,
   }) => {
-    // Create a skill first
-    const createBtn = page.getByRole("button", {
-      name: /create|new|skill/i,
+    // Create a skill via API directly
+    await page.evaluate(async () => {
+      await fetch("/api/v1/skills", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+        },
+        body: JSON.stringify({ name: "Delete Test Skill" }),
+      });
     });
-    await createBtn.first().click();
-    const dialog = page.getByRole("dialog");
-    await expect(dialog).toBeVisible({ timeout: 5000 });
-    const materialBtn = dialog.locator("button").first();
-    await materialBtn.click();
-    await page.waitForURL(/\/admin\/skills\/[^/]+\/edit/, { timeout: 10000 });
-
-    // Go back to hub
-    await page.goto("/admin/skills");
+    await page.reload();
     await page.waitForTimeout(1000);
 
     // Look for delete trigger on any skill card

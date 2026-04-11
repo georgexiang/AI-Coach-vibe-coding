@@ -4,6 +4,7 @@ import {
   checkStructure,
   createNewVersion,
   createSkill,
+  createSkillFromMaterials,
   deleteSkill,
   evaluateQuality,
   exportSkillZip,
@@ -109,6 +110,17 @@ export function useCreateSkill() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (payload: SkillCreate) => createSkill(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: skillKeys.all });
+    },
+  });
+}
+
+export function useCreateSkillFromMaterials() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (args: { materialIds: string[]; name?: string; product?: string }) =>
+      createSkillFromMaterials(args.materialIds, args.name, args.product),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: skillKeys.all });
     },

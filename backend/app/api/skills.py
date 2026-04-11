@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import AsyncSessionLocal
 from app.dependencies import get_db, require_role
+from app.models.material import MaterialVersion, TrainingMaterial
 from app.models.skill import Skill, SkillResource
 from app.models.user import User
 from app.schemas.skill import (
@@ -102,6 +103,102 @@ async def list_published_skills(
         total=total,
         page=page,
         page_size=page_size,
+    )
+
+
+class CreateFromMaterialsRequest(BaseModel):
+    """Request body for creating a skill from existing training materials."""
+
+    material_ids: list[str]
+    name: str = "New Skill"
+    product: str = ""
+
+
+@router.post("/from-materials", status_code=202)
+async def create_skill_from_materials(
+    body: CreateFromMaterialsRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role("admin")),
+):
+    """Create a skill from existing training materials. Copies files and triggers conversion."""
+    if not body.material_ids:
+        bad_request("At least one material_id is required")
+
+    # Validate all materials exist and collect their latest versions
+    material_versions: list[MaterialVersion] = []
+    for mid in body.material_ids:
+        result = await db.execute(
+            select(TrainingMaterial).where(
+                TrainingMaterial.id == mid, TrainingMaterial.is_archived == False
+            )  # noqa: E712
+        )
+        material = result.scalar_one_or_none()
+        if material is None:
+            not_found(f"Material {mid} not found or archived")
+
+        # Get the latest active version
+        ver_result = await db.execute(
+            select(MaterialVersion)
+            .where(
+                MaterialVersion.material_id == mid,
+                MaterialVersion.is_active == True,  # noqa: E712
+            )
+            .order_by(MaterialVersion.version_number.desc())
+            .limit(1)
+        )
+        version = ver_result.scalar_one_or_none()
+        if version is None:
+            bad_request(f"Material {mid} has no active version")
+
+        # Inherit product from first material if not provided
+        if not body.product and material.product:
+            body.product = material.product
+
+        material_versions.append(version)
+
+    # Create the skill
+    skill_data = SkillCreate(name=body.name, product=body.product)
+    skill = await skill_service.create_skill(db, skill_data, user.id)
+    await db.flush()
+
+    # Copy each material's file into skill resources
+    storage = get_storage()
+    for version in material_versions:
+        # Read original file from materials storage
+        file_bytes = await storage.read(version.storage_url)
+
+        # Save to skills storage
+        storage_path = f"skills/{skill.id}/references/{version.filename}"
+        await storage.save(storage_path, file_bytes)
+
+        resource = SkillResource(
+            skill_id=skill.id,
+            resource_type="reference",
+            filename=version.filename,
+            storage_path=storage_path,
+            content_type=version.content_type,
+            file_size=version.file_size,
+        )
+        db.add(resource)
+
+    # Trigger conversion
+    job_id = str(uuid.uuid4())
+    skill.conversion_status = "pending"
+    skill.conversion_job_id = job_id
+    skill.conversion_error = ""
+    await db.flush()
+    await db.commit()
+
+    asyncio.create_task(_run_durable_conversion(skill.id, job_id))
+
+    return JSONResponse(
+        status_code=202,
+        content={
+            "id": skill.id,
+            "status": "pending",
+            "job_id": job_id,
+            "materials_copied": len(material_versions),
+        },
     )
 
 

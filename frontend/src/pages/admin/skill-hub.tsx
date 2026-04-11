@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Plus, BookOpen, Upload, FileArchive } from "lucide-react";
+import { Plus, BookOpen, Upload, FileArchive, Check } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,7 +29,9 @@ import {
   useExportSkillZip,
   useImportSkillZip,
   useCreateSkill,
+  useCreateSkillFromMaterials,
 } from "@/hooks/use-skills";
+import { useMaterials } from "@/hooks/use-materials";
 import type { SkillListItem } from "@/types/skill";
 
 const ALL_VALUE = "__all__";
@@ -93,6 +95,13 @@ export default function SkillHubPage() {
   const exportMutation = useExportSkillZip();
   const importMutation = useImportSkillZip();
   const createMutation = useCreateSkill();
+  const createFromMaterialsMutation = useCreateSkillFromMaterials();
+
+  // Material picker
+  const [materialPickerOpen, setMaterialPickerOpen] = useState(false);
+  const [selectedMaterialIds, setSelectedMaterialIds] = useState<string[]>([]);
+  const { data: materialsData } = useMaterials({ page_size: 100 });
+  const availableMaterials = materialsData?.items ?? [];
 
   // Dialogs
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -160,14 +169,41 @@ export default function SkillHubPage() {
 
   const handleCreateFromMaterials = () => {
     setCreateDialogOpen(false);
-    createMutation.mutate(
-      { name: "New Skill" },
+    if (availableMaterials.length > 0) {
+      setSelectedMaterialIds([]);
+      setMaterialPickerOpen(true);
+    } else {
+      // No materials available, fall back to creating empty skill
+      createMutation.mutate(
+        { name: "New Skill" },
+        {
+          onSuccess: (skill) => {
+            navigate(`/admin/skills/${skill.id}/edit`);
+          },
+          onError: () => toast.error(t("errors.saveFailed")),
+        },
+      );
+    }
+  };
+
+  const handleConfirmMaterials = () => {
+    if (selectedMaterialIds.length === 0) return;
+    setMaterialPickerOpen(false);
+    createFromMaterialsMutation.mutate(
+      { materialIds: selectedMaterialIds },
       {
-        onSuccess: (skill) => {
-          navigate(`/admin/skills/${skill.id}/edit`);
+        onSuccess: (result) => {
+          toast.success(t("conversion.started", { defaultValue: "Conversion started" }));
+          navigate(`/admin/skills/${result.id}/edit`);
         },
         onError: () => toast.error(t("errors.saveFailed")),
       },
+    );
+  };
+
+  const toggleMaterial = (id: string) => {
+    setSelectedMaterialIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
     );
   };
 
@@ -347,6 +383,71 @@ export default function SkillHubPage() {
                   {t("hub.importZipPackage")}
                 </div>
               </div>
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Material Picker Dialog */}
+      <Dialog open={materialPickerOpen} onOpenChange={setMaterialPickerOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              {t("hub.selectMaterials", { defaultValue: "Select Materials" })}
+            </DialogTitle>
+            <DialogDescription>
+              {t("hub.selectMaterialsDesc", {
+                defaultValue: "Choose training materials to convert into a skill.",
+              })}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-64 space-y-2 overflow-y-auto">
+            {availableMaterials.map((m) => (
+              <button
+                key={m.id}
+                type="button"
+                className={`flex w-full items-center gap-3 rounded-md border p-3 text-left transition-colors ${
+                  selectedMaterialIds.includes(m.id)
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:bg-muted/50"
+                }`}
+                onClick={() => toggleMaterial(m.id)}
+              >
+                <div
+                  className={`flex size-5 shrink-0 items-center justify-center rounded border ${
+                    selectedMaterialIds.includes(m.id)
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-muted-foreground/30"
+                  }`}
+                >
+                  {selectedMaterialIds.includes(m.id) && (
+                    <Check className="size-3" />
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate font-medium">{m.name}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {m.product}
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setMaterialPickerOpen(false)}
+            >
+              {tc("cancel", { defaultValue: "Cancel" })}
+            </Button>
+            <Button
+              disabled={selectedMaterialIds.length === 0}
+              onClick={handleConfirmMaterials}
+            >
+              {t("hub.convertSelected", {
+                defaultValue: `Convert ${selectedMaterialIds.length} material(s)`,
+                count: selectedMaterialIds.length,
+              })}
             </Button>
           </div>
         </DialogContent>

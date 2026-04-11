@@ -83,6 +83,24 @@ export async function createNewVersion(id: string): Promise<Skill> {
   return data;
 }
 
+export async function createSkillFromMaterials(
+  materialIds: string[],
+  name?: string,
+  product?: string,
+): Promise<{ id: string; status: string; job_id: string; materials_copied: number }> {
+  const { data } = await apiClient.post<{
+    id: string;
+    status: string;
+    job_id: string;
+    materials_copied: number;
+  }>("/skills/from-materials", {
+    material_ids: materialIds,
+    ...(name && { name }),
+    ...(product && { product }),
+  });
+  return data;
+}
+
 // ---------------------------------------------------------------------------
 // Conversion
 // ---------------------------------------------------------------------------

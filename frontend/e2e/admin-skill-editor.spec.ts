@@ -9,19 +9,20 @@ test.describe("Skill Editor Page", () => {
 
   // Create a skill before each test so we have one to edit
   test.beforeEach(async ({ page }) => {
-    // Create a new skill via the hub
+    // Create a skill via API (avoids dialog/picker flow)
     await page.goto("/admin/skills");
-    const createBtn = page.getByRole("button", {
-      name: /create|new|skill/i,
+    const resp = await page.evaluate(async () => {
+      const r = await fetch("/api/v1/skills", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+        },
+        body: JSON.stringify({ name: "E2E Test Skill" }),
+      });
+      return r.json();
     });
-    await createBtn.first().click();
-
-    const dialog = page.getByRole("dialog");
-    await expect(dialog).toBeVisible({ timeout: 5000 });
-
-    // Create from materials
-    const materialBtn = dialog.locator("button").first();
-    await materialBtn.click();
+    await page.goto(`/admin/skills/${resp.id}/edit`);
     await page.waitForURL(/\/admin\/skills\/[^/]+\/edit/, { timeout: 10000 });
   });
 
