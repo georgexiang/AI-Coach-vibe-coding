@@ -146,7 +146,12 @@ export function useDeleteSkill() {
 export function usePublishSkill() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => publishSkill(id),
+    mutationFn: async (id: string) => {
+      // Backend requires draft → review → published (two-step transition).
+      // Transition to "review" first if still in draft, then publish.
+      await updateSkill(id, { status: "review" });
+      return publishSkill(id);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: skillKeys.all });
     },

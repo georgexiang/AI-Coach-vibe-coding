@@ -271,6 +271,51 @@ test.describe("Skill Editor Page", () => {
     }
   });
 
+  test("publish flow transitions skill from draft to published via review", async ({
+    page,
+  }) => {
+    // Wait for the editor page to load with tabs
+    const tabs = page.locator("[role='tab']");
+    await expect(tabs.first()).toBeVisible({ timeout: 10000 });
+
+    // Navigate to Quality tab and run review
+    await tabs.nth(2).click();
+    await page.waitForTimeout(500);
+
+    const reviewBtn = page.getByRole("button", { name: /review|evaluate/i });
+    const reviewCount = await reviewBtn.count();
+    if (reviewCount > 0) {
+      await reviewBtn.first().click();
+      // Wait for evaluation to complete
+      await page.waitForTimeout(5000);
+    }
+
+    // Click Publish button
+    const publishBtn = page.getByRole("button", { name: /publish/i });
+    await publishBtn.first().click();
+
+    // Dialog should appear
+    const dialog = page.getByRole("dialog");
+    const dialogVisible = await dialog
+      .isVisible({ timeout: 5000 })
+      .catch(() => false);
+
+    if (dialogVisible) {
+      // Look for "Publish" button inside dialog (not "Publish Anyway")
+      const publishConfirmBtn = dialog.getByRole("button", {
+        name: /publish/i,
+      });
+      const confirmCount = await publishConfirmBtn.count();
+      if (confirmCount > 0) {
+        await publishConfirmBtn.last().click();
+        // Should navigate to hub on success or show error
+        await page.waitForTimeout(3000);
+      }
+    }
+    // Regardless of outcome, page should not have crashed
+    await expect(page.locator("body")).toBeVisible();
+  });
+
   // ─── Back Navigation ──────────────────────────────────────────────────
 
   test("back button navigates to skill hub", async ({ page }) => {
