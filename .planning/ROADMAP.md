@@ -199,7 +199,7 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 01 -> 01.1 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07 -> 08 -> 09 -> 10 -> 11 -> 12 -> 13 -> 14 -> 15 -> 16 -> 17 (all complete) -> 18 (next)
+Phases execute in numeric order: 01 -> 01.1 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07 -> 08 -> 09 -> 10 -> 11 -> 12 -> 13 -> 14 -> 15 -> 16 -> 17 -> 18 (all complete) -> 19 (next) -> 20
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -221,7 +221,9 @@ Phases execute in numeric order: 01 -> 01.1 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07 
 | 15. HCP Editor Agent Config Center | 3/3 | Complete   | 2026-04-07 |
 | 16. Voice Live Refactor — Modularize, Agent Mode, Sync | 4/4 | Complete   | 2026-04-10 |
 | 17. Agent Knowledge Base — Foundry IQ Integration | 3/3 | Complete   | 2026-04-10 |
-| 18. Training Material Download & Preview | 0/3 | In Progress | - |
+| 18. Training Material Download & Preview | 3/3 | Complete | 2026-04-10 |
+| 19. AI Coach Skill Module | 0/7 | Planned | - |
+| 20. Skill Dry Run Simulation | 0/? | Not Started | - |
 
 ### Phase 16: Voice Live Refactor — Modularize, Agent Mode, Sync
 
@@ -474,3 +476,69 @@ Plans:
   6. 前后端测试覆盖 + i18n（en-US + zh-CN）+ TypeScript/Ruff 构建通过
 
 **UI hint**: yes
+
+### Phase 19: AI Coach Skill Module — Skill lifecycle management, material-to-skill conversion, Skill Hub, and HCP Agent skill assignment for SOP-driven training
+
+**Goal:** 构建 AI Coach Skill 模块，实现 Skill 全生命周期管理（创建、编辑、发布、归档）。用户可上传一个或多个培训材料（文档、PPT等），系统自动将其转换为结构化的培训 Skill（包含 SOP、考核内容、知识点等）；也支持直接上传已打包的 Skill 压缩包。Skill Hub 集中展示所有可用 Skill 的名称和描述。管理员可将 Skill 按场景分配给 HCP Agent，训练过程中 HCP Agent 依据 SOP 内容与 MR 用户交互，确保考核内容的完整性和正确性。
+
+**Key deliverables:**
+- Skill 数据模型（Skill、SkillVersion、SkillMaterial、SkillAssignment）
+- 材料上传与 AI 自动转换为 Skill（含 SOP 提取）
+- Skill 压缩包导入/导出
+- Skill Hub 前端页面（列表、搜索、详情）
+- Skill → HCP Agent 分配管理
+- 训练会话中 Agent 基于 Skill SOP 驱动交互逻辑
+
+**Key deliverables:**
+- Skill 数据模型（Skill、SkillVersion、SkillMaterial、SkillAssignment + 评测字段）
+- 材料上传与 AI 自动转换为 Skill（含 SOP 提取）
+- **Layer 1 自动结构检查**（即时规则引擎：SOP完整性、考核覆盖度、知识点、必填字段）
+- **Layer 2 AI 质量评估**（Azure OpenAI 六维度打分：SOP完整性/考核覆盖度/知识准确性/难度合理性/对话逻辑性/可执行性）
+- **发布门控**（L1 必须 PASS + L2 >= 50 分方可发布，50-69 警告确认）
+- Skill 压缩包导入/导出
+- Skill Hub 前端页面（列表、搜索、详情 + 质量评分展示）
+- Skill → HCP Agent 分配管理
+- 训练会话中 Agent 基于 Skill SOP 驱动交互逻辑
+- **Skill 预览与客户反馈流程**（Admin 创建 Skill 后可分享预览链接给客户查看，收集反馈意见后调整）
+
+**Requirements**: D-01, D-02, D-03, D-04, D-05, D-06, D-07, D-08, D-09, D-10, D-11, D-12, D-13, D-14, D-15, D-16, D-17, D-18, D-19, D-20, D-21, D-22, D-23, D-24, D-25, D-26, D-27
+**Depends on:** Phase 18
+**Plans:** 7 plans
+
+**Success Criteria** (what must be TRUE):
+  1. Admin can create Skills by uploading materials (PDF/DOCX/PPTX/TXT/MD) and the system converts them to structured SOP content
+  2. Skill Hub page shows card grid of all Skills with status badges, search, and filtering
+  3. Skill editor provides 4 tabs: Content (dual-mode SOP editing), Resources (file tree), Quality (L1+L2 results), Settings
+  4. L1 structure check runs instantly (rule-based), L2 AI quality evaluation runs async with 6 dimensions
+  5. Publish gate enforces L1 PASS + L2 >= 50; 50-69 allows publish with warning, <50 blocks
+  6. Admin can associate published Skills with Scenarios; SkillManager injects SOP into Agent instructions
+  7. ZIP import/export follows agentskills.io spec (SKILL.md + references/ + scripts/ + assets/)
+  8. Backend tests pass (25+), frontend TypeScript compiles, backend ruff lint passes
+
+Plans:
+- [ ] 19-01-PLAN.md -- Backend data foundation: Skill/SkillVersion/SkillResource models, schemas, migration, CRUD service, API routes
+- [ ] 19-02-PLAN.md -- Material-to-Skill conversion: text extraction, semantic chunking, Azure OpenAI SOP extraction, async conversion
+- [ ] 19-03-PLAN.md -- Quality gates: L1 structure validation, L2 AI quality evaluation, quality gate API endpoints
+- [ ] 19-04-PLAN.md -- Frontend data layer + Skill Hub: TypeScript types, API client, TanStack hooks, i18n, Skill Hub page
+- [ ] 19-05-PLAN.md -- Skill Editor: SopEditor, FileTreeView, QualityRadarChart, ConversionProgress, PublishGateDialog, 4-tab editor
+- [ ] 19-06-PLAN.md -- Scenario-Skill integration: skill_id FK, SkillManager, prompt_builder, agent_sync, Scenario skill picker
+- [ ] 19-07-PLAN.md -- ZIP import/export, AI feedback endpoint, comprehensive backend tests, visual verification
+
+### Phase 20: Skill Dry Run Simulation — AI 模拟测试验证 Skill 可执行性
+
+**Goal:** 构建 Skill Dry Run 模拟测试系统（评测 Layer 3）。Admin 创建 Skill 后，可启动 Dry Run 模式，系统用 AI 分别扮演 MR 和 HCP Agent 执行一轮完整的模拟对话，验证 Skill SOP 是否能驱动有效、完整、有意义的训练交互。输出模拟对话记录 + SOP 步骤覆盖率报告 + 可执行性评分，帮助 Admin 在发布前发现 SOP 设计缺陷。
+
+**Key deliverables:**
+- Dry Run 模拟引擎（AI 扮演 MR + HCP Agent 自动对话）
+- SOP 步骤覆盖率追踪（每个 SOP step 是否被触达）
+- 模拟对话记录存储与回放
+- Dry Run 结果报告页面（覆盖率、可执行性评分、问题标注）
+- 多轮 Dry Run 历史对比
+- Skill 编辑器中集成 Dry Run 入口
+
+**Requirements**: TBD
+**Depends on:** Phase 19
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 20 to break down)
