@@ -111,13 +111,13 @@ export interface QualityEvaluation {
 
 export interface SkillEvaluationSummary {
   structure_check: {
-    passed: boolean;
-    details: string;
+    passed: boolean | null;
+    details: StructureCheckResult | Record<string, never>;
   };
   quality: {
-    score: number;
-    verdict: string;
-    details: string;
+    score: number | null;
+    verdict: string | null;
+    details: QualityEvaluation | Record<string, never>;
     is_stale: boolean;
   };
 }

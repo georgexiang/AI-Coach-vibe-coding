@@ -7,6 +7,7 @@ import type {
   SkillUpdate,
   StructureCheckResult,
   QualityEvaluation,
+  SkillEvaluationSummary,
   ResourceType,
 } from "@/types/skill";
 
@@ -144,8 +145,8 @@ export async function evaluateQuality(
   return data;
 }
 
-export async function getEvaluation(id: string): Promise<QualityEvaluation> {
-  const { data } = await apiClient.get<QualityEvaluation>(
+export async function getEvaluation(id: string): Promise<SkillEvaluationSummary> {
+  const { data } = await apiClient.get<SkillEvaluationSummary>(
     `/skills/${id}/evaluation`,
   );
   return data;

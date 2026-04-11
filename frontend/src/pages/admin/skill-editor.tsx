@@ -1,6 +1,9 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
@@ -13,8 +16,14 @@ import {
   FileText,
   FileCode,
   File as FileIcon,
+  Check,
+  XCircle,
+  AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -22,6 +31,9 @@ import { SopEditor } from "@/components/shared/sop-editor";
 import { ConversionProgress } from "@/components/shared/conversion-progress";
 import { SkillMaterialUploader } from "@/components/shared/skill-material-uploader";
 import { FileTreeView } from "@/components/shared/file-tree-view";
+import { QualityRadarChart } from "@/components/shared/quality-radar-chart";
+import { QualityScoreCard } from "@/components/shared/quality-score-card";
+import { PublishGateDialog } from "@/components/shared/publish-gate-dialog";
 import {
   useSkill,
   useUpdateSkill,
@@ -31,13 +43,37 @@ import {
   useUploadAndConvert,
   useUploadResources,
   useRetryConversion,
+  useCheckStructure,
+  useEvaluateQuality,
+  useSkillEvaluation,
+  usePublishSkill,
   skillKeys,
 } from "@/hooks/use-skills";
 import { downloadResource } from "@/api/skills";
 import { useQueryClient } from "@tanstack/react-query";
-import type { SkillResource, ConversionStatus } from "@/types/skill";
+import { cn } from "@/lib/utils";
+import type {
+  SkillResource,
+  ConversionStatus,
+  QualityDimension,
+  QualityEvaluation,
+} from "@/types/skill";
 
 const VALID_TABS = new Set(["content", "resources", "quality", "settings"]);
+
+// ---------------------------------------------------------------------------
+// Settings form schema
+// ---------------------------------------------------------------------------
+const settingsSchema = z.object({
+  name: z.string().min(2),
+  description: z.string().optional(),
+  product: z.string().optional(),
+  therapeutic_area: z.string().optional(),
+  tags: z.string().optional(),
+  compatibility: z.string().optional(),
+});
+
+type SettingsFormValues = z.infer<typeof settingsSchema>;
 
 export default function SkillEditorPage() {
   const { id } = useParams<{ id: string }>();
@@ -57,6 +93,11 @@ export default function SkillEditorPage() {
   const uploadConvertMutation = useUploadAndConvert();
   const uploadResourcesMutation = useUploadResources();
   const retryConversionMutation = useRetryConversion();
+  const checkStructureMutation = useCheckStructure();
+  const evaluateQualityMutation = useEvaluateQuality();
+  const publishMutation = usePublishSkill();
+  const { data: evaluationData, refetch: refetchEvaluation } =
+    useSkillEvaluation(id);
 
   // Conversion polling: active when status is pending/processing
   const isConverting =
@@ -75,14 +116,39 @@ export default function SkillEditorPage() {
   const [selectedResource, setSelectedResource] = useState<
     SkillResource | "SKILL.md" | null
   >(null);
+  const [expandedDimensions, setExpandedDimensions] = useState<
+    Record<string, boolean>
+  >({});
+  const [publishDialogOpen, setPublishDialogOpen] = useState(false);
+
+  // Settings form
+  const settingsForm = useForm<SettingsFormValues>({
+    resolver: zodResolver(settingsSchema),
+    defaultValues: {
+      name: "",
+      description: "",
+      product: "",
+      therapeutic_area: "",
+      tags: "",
+      compatibility: "",
+    },
+  });
 
   // Sync local state from fetched skill
   useEffect(() => {
     if (skill) {
       setSopContent(skill.content ?? "");
       setContentDirty(false);
+      settingsForm.reset({
+        name: skill.name ?? "",
+        description: skill.description ?? "",
+        product: skill.product ?? "",
+        therapeutic_area: skill.therapeutic_area ?? "",
+        tags: skill.tags ?? "",
+        compatibility: skill.compatibility ?? "",
+      });
     }
-  }, [skill]);
+  }, [skill, settingsForm]);
 
   // On conversion completed, refetch skill
   useEffect(() => {
@@ -239,6 +305,53 @@ export default function SkillEditorPage() {
     [id, t],
   );
 
+  const handleRequestReview = useCallback(async () => {
+    if (!id) return;
+    try {
+      await checkStructureMutation.mutateAsync(id);
+      await evaluateQualityMutation.mutateAsync(id);
+      toast.success(t("quality.reviewStarted"));
+      void refetchEvaluation();
+    } catch {
+      toast.error(t("errors.loadFailed"));
+    }
+  }, [id, checkStructureMutation, evaluateQualityMutation, refetchEvaluation, t]);
+
+  const handleToggleDimension = useCallback((name: string) => {
+    setExpandedDimensions((prev) => ({
+      ...prev,
+      [name]: !prev[name],
+    }));
+  }, []);
+
+  const handleSettingsSave = useCallback(
+    (values: SettingsFormValues) => {
+      if (!id) return;
+      updateMutation.mutate(
+        { id, data: values },
+        {
+          onSuccess: () => {
+            toast.success(t("editor.settingsSaved", { defaultValue: "Settings saved" }));
+          },
+          onError: () => toast.error(t("errors.saveFailed")),
+        },
+      );
+    },
+    [id, updateMutation, t],
+  );
+
+  const handlePublish = useCallback(() => {
+    if (!id) return;
+    publishMutation.mutate(id, {
+      onSuccess: () => {
+        toast.success(t("quality.publishSuccess"));
+        setPublishDialogOpen(false);
+        navigate("/admin/skills");
+      },
+      onError: () => toast.error(t("errors.saveFailed")),
+    });
+  }, [id, publishMutation, navigate, t]);
+
   // ---------------------------------------------------------------------------
   // Derived state
   // ---------------------------------------------------------------------------
@@ -251,6 +364,21 @@ export default function SkillEditorPage() {
   const isProcessing =
     conversionStatus === "pending" || conversionStatus === "processing";
   const isSaving = updateMutation.isPending || createMutation.isPending;
+
+  // Quality data extraction
+  const structurePassed = evaluationData?.structure_check?.passed ?? skill?.structure_check_passed ?? null;
+  const qualityScore = evaluationData?.quality?.score ?? skill?.quality_score ?? null;
+  const qualityVerdict = evaluationData?.quality?.verdict ?? skill?.quality_verdict ?? null;
+  const isStale = evaluationData?.quality?.is_stale ?? false;
+  const qualityDetails: QualityEvaluation | null =
+    evaluationData?.quality?.details &&
+    "dimensions" in evaluationData.quality.details
+      ? (evaluationData.quality.details as QualityEvaluation)
+      : null;
+  const dimensions: QualityDimension[] = qualityDetails?.dimensions ?? [];
+
+  const isReviewing =
+    checkStructureMutation.isPending || evaluateQualityMutation.isPending;
 
   // ---------------------------------------------------------------------------
   // Loading state
@@ -304,7 +432,10 @@ export default function SkillEditorPage() {
             )}
             {t("editor.saveDraft")}
           </Button>
-          <Button disabled title={t("editor.publishComingSoon", { defaultValue: "Available after quality review" })}>
+          <Button
+            onClick={() => setPublishDialogOpen(true)}
+            disabled={isNew || !skill}
+          >
             <Rocket className="mr-2 size-4" />
             {t("editor.publishSkill")}
           </Button>
@@ -472,20 +603,244 @@ export default function SkillEditorPage() {
           )}
         </TabsContent>
 
-        {/* ----- Quality Tab (Plan 06 placeholder) ----- */}
+        {/* ----- Quality Tab ----- */}
         <TabsContent value="quality" className="mt-6">
-          <div className="flex items-center justify-center rounded-lg border bg-muted/50 py-24 text-muted-foreground">
-            {t("editor.comingSoon", { defaultValue: "Coming soon" })}
-          </div>
+          {isNew ? (
+            <div className="flex items-center justify-center rounded-lg border bg-muted/50 py-24 text-muted-foreground">
+              {t("editor.saveFirstForResources", {
+                defaultValue: "Save the skill first to manage resources",
+              })}
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {/* Request review button when not yet evaluated */}
+              {qualityScore === null && !isReviewing && (
+                <div className="flex flex-col items-center justify-center gap-4 rounded-lg border bg-muted/50 py-12">
+                  <p className="text-sm text-muted-foreground">
+                    {t("quality.notEvaluated")}
+                  </p>
+                  <Button onClick={handleRequestReview}>
+                    {t("quality.requestReview")}
+                  </Button>
+                </div>
+              )}
+
+              {/* Reviewing state */}
+              {isReviewing && (
+                <div className="flex items-center justify-center gap-3 rounded-lg border bg-muted/50 py-12">
+                  <RefreshCw className="size-5 animate-spin text-primary" />
+                  <span className="text-sm text-muted-foreground">
+                    {t("quality.evaluating")}
+                  </span>
+                </div>
+              )}
+
+              {/* L1 Structure Check Banner */}
+              {structurePassed !== null && (
+                <div
+                  className={cn(
+                    "flex items-start gap-3 rounded-lg border p-4",
+                    structurePassed
+                      ? "border-strength/30 bg-strength/5"
+                      : "border-destructive/30 bg-destructive/5",
+                  )}
+                >
+                  {structurePassed ? (
+                    <Check className="mt-0.5 size-5 shrink-0 text-strength" />
+                  ) : (
+                    <XCircle className="mt-0.5 size-5 shrink-0 text-destructive" />
+                  )}
+                  <div>
+                    <p
+                      className={cn(
+                        "text-sm font-medium",
+                        structurePassed ? "text-strength" : "text-destructive",
+                      )}
+                    >
+                      {structurePassed
+                        ? t("quality.l1Pass")
+                        : t("quality.l1Fail", {
+                            reason: skill?.structure_check_details ?? "",
+                          })}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Stale evaluation warning */}
+              {isStale && (
+                <div className="flex items-start gap-3 rounded-lg border border-weakness/30 bg-weakness/5 p-4">
+                  <AlertTriangle className="mt-0.5 size-5 shrink-0 text-weakness" />
+                  <p className="text-sm text-foreground">
+                    {t("confirm.staleEvaluation")}
+                  </p>
+                </div>
+              )}
+
+              {/* L2 Radar Chart + Dimension Cards */}
+              {dimensions.length > 0 && (
+                <>
+                  <QualityRadarChart
+                    dimensions={dimensions}
+                    overallScore={qualityScore ?? undefined}
+                    overallVerdict={qualityVerdict ?? undefined}
+                  />
+
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    {dimensions.map((dim) => (
+                      <QualityScoreCard
+                        key={dim.name}
+                        dimension={dim}
+                        isExpanded={expandedDimensions[dim.name] ?? false}
+                        onToggle={() => handleToggleDimension(dim.name)}
+                      />
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {/* Re-run review button when already evaluated */}
+              {qualityScore !== null && !isReviewing && (
+                <div className="flex justify-center">
+                  <Button variant="outline" onClick={handleRequestReview}>
+                    <RefreshCw className="mr-2 size-4" />
+                    {t("quality.requestReview")}
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
         </TabsContent>
 
-        {/* ----- Settings Tab (Plan 06 placeholder) ----- */}
+        {/* ----- Settings Tab ----- */}
         <TabsContent value="settings" className="mt-6">
-          <div className="flex items-center justify-center rounded-lg border bg-muted/50 py-24 text-muted-foreground">
-            {t("editor.comingSoon", { defaultValue: "Coming soon" })}
-          </div>
+          {isNew ? (
+            <div className="flex items-center justify-center rounded-lg border bg-muted/50 py-24 text-muted-foreground">
+              {t("editor.saveFirstForResources", {
+                defaultValue: "Save the skill first to manage resources",
+              })}
+            </div>
+          ) : (
+            <form
+              onSubmit={settingsForm.handleSubmit(handleSettingsSave)}
+              className="max-w-2xl space-y-6"
+            >
+              {/* Name */}
+              <div className="space-y-2">
+                <Label htmlFor="settings-name">
+                  {t("editor.settingsName")} *
+                </Label>
+                <Input
+                  id="settings-name"
+                  {...settingsForm.register("name")}
+                  placeholder={t("editor.settingsName")}
+                />
+                {settingsForm.formState.errors.name && (
+                  <p className="text-xs text-destructive">
+                    {t("editor.settingsNameRequired")}
+                  </p>
+                )}
+              </div>
+
+              {/* Description */}
+              <div className="space-y-2">
+                <Label htmlFor="settings-description">
+                  {t("editor.settingsDescription")}
+                </Label>
+                <Textarea
+                  id="settings-description"
+                  {...settingsForm.register("description")}
+                  rows={3}
+                  placeholder={t("editor.settingsDescription")}
+                />
+              </div>
+
+              {/* Product */}
+              <div className="space-y-2">
+                <Label htmlFor="settings-product">
+                  {t("editor.settingsProduct")}
+                </Label>
+                <Input
+                  id="settings-product"
+                  {...settingsForm.register("product")}
+                  placeholder={t("editor.settingsProduct")}
+                />
+              </div>
+
+              {/* Therapeutic Area */}
+              <div className="space-y-2">
+                <Label htmlFor="settings-therapeutic-area">
+                  {t("editor.settingsTherapeuticArea")}
+                </Label>
+                <Input
+                  id="settings-therapeutic-area"
+                  {...settingsForm.register("therapeutic_area")}
+                  placeholder={t("editor.settingsTherapeuticArea")}
+                />
+              </div>
+
+              {/* Tags */}
+              <div className="space-y-2">
+                <Label htmlFor="settings-tags">
+                  {t("editor.settingsTags")}
+                </Label>
+                <Input
+                  id="settings-tags"
+                  {...settingsForm.register("tags")}
+                  placeholder={t("editor.settingsTagsHint")}
+                />
+                <p className="text-xs text-muted-foreground">
+                  {t("editor.settingsTagsHint")}
+                </p>
+              </div>
+
+              {/* Compatibility */}
+              <div className="space-y-2">
+                <Label htmlFor="settings-compatibility">
+                  {t("editor.settingsCompatibility")}
+                </Label>
+                <Input
+                  id="settings-compatibility"
+                  {...settingsForm.register("compatibility")}
+                  placeholder={t("editor.settingsCompatibilityHint")}
+                />
+                <p className="text-xs text-muted-foreground">
+                  {t("editor.settingsCompatibilityHint")}
+                </p>
+              </div>
+
+              {/* Save button */}
+              <div className="flex justify-end">
+                <Button
+                  type="submit"
+                  disabled={updateMutation.isPending}
+                >
+                  {updateMutation.isPending ? (
+                    <RefreshCw className="mr-2 size-4 animate-spin" />
+                  ) : (
+                    <Save className="mr-2 size-4" />
+                  )}
+                  {t("editor.saveDraft")}
+                </Button>
+              </div>
+            </form>
+          )}
         </TabsContent>
       </Tabs>
+
+      {/* Publish Gate Dialog */}
+      {skill && (
+        <PublishGateDialog
+          open={publishDialogOpen}
+          onOpenChange={setPublishDialogOpen}
+          skill={skill}
+          evaluation={qualityDetails}
+          structurePassed={structurePassed}
+          isStale={isStale}
+          onPublish={handlePublish}
+          onCancel={() => setPublishDialogOpen(false)}
+        />
+      )}
     </div>
   );
 }
