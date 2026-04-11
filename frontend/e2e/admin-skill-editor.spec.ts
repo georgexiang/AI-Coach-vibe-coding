@@ -46,12 +46,15 @@ test.describe("Skill Editor Page", () => {
   test("renders all four tabs: Content, Resources, Quality, Settings", async ({
     page,
   }) => {
-    // Tab triggers should be visible
-    const tabs = page.locator("[role='tablist'] [role='tab']");
+    // Wait for tabs to render (Radix UI Tabs)
+    const firstTab = page.locator("[role='tab']").first();
+    await expect(firstTab).toBeVisible({ timeout: 10000 });
+
+    const tabs = page.locator("[role='tab']");
     const count = await tabs.count();
     expect(count).toBe(4);
 
-    // Verify tab labels
+    // Verify all tab triggers are visible
     await expect(tabs.nth(0)).toBeVisible();
     await expect(tabs.nth(1)).toBeVisible();
     await expect(tabs.nth(2)).toBeVisible();
@@ -89,13 +92,14 @@ test.describe("Skill Editor Page", () => {
   // ─── Resources Tab ────────────────────────────────────────────────────
 
   test("resources tab shows file tree panel", async ({ page }) => {
-    // Click Resources tab
+    // Wait for tabs to be available, then click Resources tab
     const resourcesTab = page.locator("[role='tab']").nth(1);
+    await expect(resourcesTab).toBeVisible({ timeout: 10000 });
     await resourcesTab.click();
     await page.waitForTimeout(500);
 
-    // Should show something in the resources panel (file tree or empty state)
-    const tabContent = page.locator("[role='tabpanel']");
+    // Should show something in the resources panel (active tabpanel)
+    const tabContent = page.locator("[role='tabpanel'][data-state='active']");
     await expect(tabContent).toBeVisible();
   });
 
@@ -280,26 +284,30 @@ test.describe("Skill Editor Page", () => {
   // ─── Tab Switching ────────────────────────────────────────────────────
 
   test("all four tabs can be switched without errors", async ({ page }) => {
-    const tabs = page.locator("[role='tablist'] [role='tab']");
+    // Wait for tabs to render
+    const tabs = page.locator("[role='tab']");
+    await expect(tabs.first()).toBeVisible({ timeout: 10000 });
+
+    const activePanel = page.locator("[role='tabpanel'][data-state='active']");
 
     // Content -> Resources
     await tabs.nth(1).click();
     await page.waitForTimeout(300);
-    await expect(page.locator("[role='tabpanel']")).toBeVisible();
+    await expect(activePanel).toBeVisible();
 
     // Resources -> Quality
     await tabs.nth(2).click();
     await page.waitForTimeout(300);
-    await expect(page.locator("[role='tabpanel']")).toBeVisible();
+    await expect(activePanel).toBeVisible();
 
     // Quality -> Settings
     await tabs.nth(3).click();
     await page.waitForTimeout(300);
-    await expect(page.locator("[role='tabpanel']")).toBeVisible();
+    await expect(activePanel).toBeVisible();
 
     // Settings -> Content
     await tabs.nth(0).click();
     await page.waitForTimeout(300);
-    await expect(page.locator("[role='tabpanel']")).toBeVisible();
+    await expect(activePanel).toBeVisible();
   });
 });

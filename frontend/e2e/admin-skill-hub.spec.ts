@@ -16,7 +16,9 @@ test.describe("Skill Hub Page", () => {
   test("renders skill hub page with title and create button", async ({
     page,
   }) => {
-    await expect(page.locator("h1")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Skill Hub" }),
+    ).toBeVisible();
     const createBtn = page.getByRole("button", {
       name: /create|new|skill/i,
     });
@@ -203,6 +205,8 @@ test.describe("Skill Hub Page", () => {
     await page.waitForTimeout(500);
 
     // Page should still render without errors
-    await expect(page.locator("h1")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Skill Hub" }),
+    ).toBeVisible();
   });
 });
