@@ -1,10 +1,15 @@
 """Skill management API endpoints."""
 
+import asyncio
+import json
+import logging
+
 from fastapi import APIRouter, Depends, File, Query, UploadFile
-from fastapi.responses import Response
+from fastapi.responses import JSONResponse, Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.database import AsyncSessionLocal
 from app.dependencies import get_db, require_role
 from app.models.skill import SkillResource
 from app.models.user import User
@@ -14,16 +19,20 @@ from app.schemas.skill import (
     SkillOut,
     SkillResourceOut,
     SkillUpdate,
+    StructureCheckOut,
 )
-from app.services import skill_service
+from app.services import skill_evaluation_service, skill_service
 from app.services.skill_service import (
     MAX_RESOURCES_PER_SKILL,
     sanitize_filename,
     validate_file_upload,
 )
+from app.services.skill_validation_service import check_skill_structure, to_dict
 from app.services.storage import get_storage
 from app.utils.exceptions import bad_request, not_found
 from app.utils.pagination import PaginatedResponse
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/skills", tags=["skills"])
 
@@ -169,6 +178,105 @@ async def create_new_version(
     """Create a new draft version from a published skill. Admin only."""
     skill = await skill_service.create_new_version(db, skill_id, user.id)
     return skill
+
+
+# ---------------------------------------------------------------------------
+# Quality gate routes (L1 structure check + L2 AI evaluation)
+# ---------------------------------------------------------------------------
+
+
+@router.post("/{skill_id}/check-structure", response_model=StructureCheckOut)
+async def run_structure_check(
+    skill_id: str,
+    db: AsyncSession = Depends(get_db),
+    _user: User = Depends(require_role("admin")),
+):
+    """Run L1 structure check on a skill. Instant, rule-based. Admin only."""
+    skill = await skill_service.get_skill(db, skill_id)
+    result = await check_skill_structure(skill)
+
+    # Update skill with check results
+    skill.structure_check_passed = result.passed
+    skill.structure_check_details = json.dumps(to_dict(result), ensure_ascii=False)
+    await db.flush()
+
+    return StructureCheckOut(
+        passed=result.passed,
+        score=result.score,
+        issues=[
+            {
+                "severity": issue.severity,
+                "dimension": issue.dimension,
+                "message": issue.message,
+                "suggestion": issue.suggestion,
+            }
+            for issue in result.issues
+        ],
+    )
+
+
+@router.post("/{skill_id}/evaluate-quality")
+async def run_quality_evaluation(
+    skill_id: str,
+    db: AsyncSession = Depends(get_db),
+    _user: User = Depends(require_role("admin")),
+):
+    """Trigger L2 AI quality evaluation (async background task). Admin only.
+
+    Returns 202 Accepted immediately. Poll GET /{skill_id}/evaluation for results.
+    """
+    # Verify skill exists
+    await skill_service.get_skill(db, skill_id)
+
+    async def _run_evaluation(sid: str) -> None:
+        """Durable background evaluation task with its own DB session."""
+        async with AsyncSessionLocal() as session:
+            try:
+                await skill_evaluation_service.evaluate_skill_quality(session, sid)
+                await session.commit()
+            except Exception as e:
+                await session.rollback()
+                logger.error("L2 evaluation failed for skill %s: %s", sid, e, exc_info=True)
+
+    asyncio.create_task(_run_evaluation(skill_id))
+    return JSONResponse(status_code=202, content={"status": "evaluating"})
+
+
+@router.get("/{skill_id}/evaluation")
+async def get_evaluation_results(
+    skill_id: str,
+    db: AsyncSession = Depends(get_db),
+    _user: User = Depends(require_role("admin")),
+):
+    """Get combined L1 + L2 evaluation results with staleness indicator. Admin only."""
+    skill = await skill_service.get_skill(db, skill_id)
+
+    # Parse stored details
+    try:
+        structure_details = json.loads(skill.structure_check_details or "{}")
+    except (json.JSONDecodeError, TypeError):
+        structure_details = {}
+
+    try:
+        quality_details = json.loads(skill.quality_details or "{}")
+    except (json.JSONDecodeError, TypeError):
+        quality_details = {}
+
+    # Staleness check
+    is_stale = skill_evaluation_service.is_evaluation_stale(skill)
+
+    return {
+        "structure_check": {
+            "passed": skill.structure_check_passed,
+            "details": structure_details,
+        },
+        "quality": {
+            "score": skill.quality_score,
+            "verdict": skill.quality_verdict,
+            "details": quality_details,
+            "is_stale": is_stale,
+        },
+    }
 
 
 # ---------------------------------------------------------------------------

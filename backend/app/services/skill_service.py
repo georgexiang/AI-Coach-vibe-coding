@@ -264,6 +264,15 @@ async def publish_skill(db: AsyncSession, skill_id: str, user_id: str) -> Skill:
     if skill.quality_score is None or skill.quality_score < 50:
         bad_request("Quality score must be at least 50 to publish")
 
+    # Transactional staleness check (T-19-13: prevent publish with stale evaluation)
+    from app.services.skill_evaluation_service import is_evaluation_stale
+
+    if is_evaluation_stale(skill):
+        bad_request(
+            "Quality evaluation is stale -- content has changed since last evaluation. "
+            "Please re-run quality assessment."
+        )
+
     # Invariant: single published version
     # Mark all existing versions as not published
     await db.execute(
