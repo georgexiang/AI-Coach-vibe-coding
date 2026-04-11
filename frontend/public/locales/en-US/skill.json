@@ -25,14 +25,34 @@
     "tabContent": "Content",
     "tabResources": "Resources",
     "tabQuality": "Quality",
-    "tabSettings": "Settings"
+    "tabSettings": "Settings",
+    "createNew": "Create New Skill",
+    "saved": "Draft saved",
+    "publishComingSoon": "Available after quality review",
+    "comingSoon": "Coming soon",
+    "sopPlaceholder": "Write your SOP content in Markdown...",
+    "aiFeedbackLabel": "AI-Assisted Editing",
+    "aiFeedbackPlaceholder": "Describe changes you want to make to the SOP...",
+    "regenerating": "Regenerating...",
+    "preview": "Preview",
+    "previewEmpty": "Start writing to see the preview...",
+    "dropzoneTitle": "Drop training materials here, or click to browse",
+    "dropzoneHint": "Accepts PDF, DOCX, PPTX, TXT, MD. Max 50MB per file, up to 10 files.",
+    "selectedFiles": "Selected files ({{count}})",
+    "removeFile": "Remove",
+    "uploading": "Uploading...",
+    "uploadAndConvert": "Upload and Convert",
+    "createEmpty": "or create an empty skill",
+    "filesUploaded": "Files uploaded",
+    "saveFirstForResources": "Save the skill first to manage resources"
   },
   "status": {
     "draft": "Draft",
     "review": "Review",
     "published": "Published",
     "archived": "Archived",
-    "failed": "Failed"
+    "failed": "Failed",
+    "completed": "Completed"
   },
   "conversion": {
     "processing": "Converting materials to skill...",
@@ -74,7 +94,8 @@
     "upload": "Upload Files",
     "noResources": "No resources",
     "selectFile": "Select a file from the tree to preview",
-    "download": "Download"
+    "download": "Download",
+    "type": "Type"
   },
   "errors": {
     "loadFailed": "Failed to load skill",

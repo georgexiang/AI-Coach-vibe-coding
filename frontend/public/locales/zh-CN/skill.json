@@ -25,14 +25,34 @@
     "tabContent": "内容",
     "tabResources": "资源",
     "tabQuality": "质量",
-    "tabSettings": "设置"
+    "tabSettings": "设置",
+    "createNew": "创建新技能",
+    "saved": "草稿已保存",
+    "publishComingSoon": "质量审核后可用",
+    "comingSoon": "即将推出",
+    "sopPlaceholder": "使用 Markdown 编写 SOP 内容...",
+    "aiFeedbackLabel": "AI 辅助编辑",
+    "aiFeedbackPlaceholder": "描述您希望对 SOP 进行的修改...",
+    "regenerating": "正在重新生成...",
+    "preview": "预览",
+    "previewEmpty": "开始编写以查看预览...",
+    "dropzoneTitle": "拖放培训材料到此处，或点击浏览",
+    "dropzoneHint": "支持 PDF、DOCX、PPTX、TXT、MD 格式。单文件最大 50MB，最多 10 个文件。",
+    "selectedFiles": "已选文件 ({{count}})",
+    "removeFile": "移除",
+    "uploading": "正在上传...",
+    "uploadAndConvert": "上传并转换",
+    "createEmpty": "或创建空白技能",
+    "filesUploaded": "文件已上传",
+    "saveFirstForResources": "请先保存技能以管理资源"
   },
   "status": {
     "draft": "草稿",
     "review": "审核中",
     "published": "已发布",
     "archived": "已归档",
-    "failed": "失败"
+    "failed": "失败",
+    "completed": "已完成"
   },
   "conversion": {
     "processing": "正在将材料转换为技能...",
@@ -74,7 +94,8 @@
     "upload": "上传文件",
     "noResources": "暂无资源",
     "selectFile": "从文件树中选择文件进行预览",
-    "download": "下载"
+    "download": "下载",
+    "type": "类型"
   },
   "errors": {
     "loadFailed": "加载技能失败",
