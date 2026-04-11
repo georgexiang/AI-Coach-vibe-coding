@@ -23,7 +23,12 @@ from app.schemas.skill import (
     SkillUpdate,
     StructureCheckOut,
 )
-from app.services import skill_conversion_service, skill_evaluation_service, skill_service
+from app.services import (
+    skill_conversion_service,
+    skill_evaluation_service,
+    skill_service,
+    skill_zip_service,
+)
 from app.services.skill_service import (
     MAX_FILES_PER_UPLOAD,
     MAX_RESOURCES_PER_SKILL,
@@ -145,6 +150,29 @@ class RegenerateSopRequest(BaseModel):
 # ---------------------------------------------------------------------------
 # Conversion and regeneration endpoints (before /{skill_id} per Gotcha #3)
 # ---------------------------------------------------------------------------
+
+
+@router.post("/import", response_model=SkillOut, status_code=201)
+async def import_skill(
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role("admin")),
+):
+    """Import a Skill from a ZIP archive. Admin only."""
+    if not file.filename or not file.filename.endswith(".zip"):
+        bad_request("File must be a .zip archive")
+    zip_bytes = await file.read()
+    if len(zip_bytes) > skill_zip_service.MAX_ZIP_SIZE_BYTES:
+        bad_request(
+            f"ZIP file exceeds maximum size of "
+            f"{skill_zip_service.MAX_ZIP_SIZE_BYTES // (1024 * 1024)}MB"
+        )
+    skill = await skill_zip_service.import_skill_zip(db, zip_bytes, created_by=user.id)
+    await db.commit()
+
+    # Re-query to ensure relationships are loaded for response serialization
+    skill = await skill_service.get_skill(db, skill.id)
+    return skill
 
 
 @router.post("/{skill_id}/convert")
@@ -321,6 +349,21 @@ async def regenerate_sop(
 # ---------------------------------------------------------------------------
 # Parameterized routes
 # ---------------------------------------------------------------------------
+
+
+@router.get("/{skill_id}/export")
+async def export_skill(
+    skill_id: str,
+    db: AsyncSession = Depends(get_db),
+    _user: User = Depends(require_role("admin")),
+):
+    """Export a Skill as a ZIP archive. Admin only."""
+    zip_bytes = await skill_zip_service.export_skill_zip(db, skill_id)
+    return Response(
+        content=zip_bytes,
+        media_type="application/zip",
+        headers={"Content-Disposition": f"attachment; filename=skill-{skill_id}.zip"},
+    )
 
 
 @router.get("/{skill_id}", response_model=SkillOut)
