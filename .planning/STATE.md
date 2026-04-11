@@ -10,8 +10,8 @@ progress:
   total_phases: 21
   completed_phases: 15
   total_plans: 94
-  completed_plans: 80
-  percent: 85
+  completed_plans: 81
+  percent: 86
 ---
 
 # Project State
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 ## Current Position
 
 Phase: 19 (ai-coach-skill-module) — IN PROGRESS
-Plans 01-04 of 8 complete (Wave 1 + Wave 2 done).
+Plans 01-06 of 8 complete (Wave 1 + Wave 2 + Wave 3 partial done).
 
 ## Performance Metrics
 
@@ -111,6 +111,7 @@ Plans 01-04 of 8 complete (Wave 1 + Wave 2 done).
 | Phase 19 P03 | 7min | 2 tasks | 4 files |
 | Phase 19 P04 | 7min | 2 tasks | 17 files |
 | Phase 19 P05 | 6min | 2 tasks | 7 files |
+| Phase 19 P06 | 9min | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -246,6 +247,9 @@ Recent decisions affecting current work:
 - [Phase 19]: SopEditor uses 2-column grid (3fr/2fr) with live ReactMarkdown preview and rehype-raw for rendering
 - [Phase 19]: FileTreeView builds flat navigation list from resources for keyboard accessibility
 - [Phase 19]: SkillEditorPage new-skill flow: createSkill first, then uploadAndConvert (API requires skill ID)
+- [Phase 19]: DIMENSION_I18N_MAP bridges backend snake_case to frontend camelCase i18n keys for quality dimensions
+- [Phase 19]: PublishGateDialog progressive disclosure: stale > L1 > L2 with threshold-based UI (block < 50, warn 50-69, allow >= 70)
+- [Phase 19]: Fixed SkillEvaluationSummary type to match backend JSON (details as parsed object, nullable fields)
 
 ### Pending Todos
 
@@ -271,6 +275,6 @@ None yet.
 ## Session Continuity
 
 Last activity: 2026-04-11
-Last session: 2026-04-11T07:39:39.154Z
-Stopped at: Completed 19-05-PLAN.md
+Last session: 2026-04-11T07:51:43Z
+Stopped at: Completed 19-06-PLAN.md
 Resume file: None
