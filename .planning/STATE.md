@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Ready to execute
-stopped_at: Phase 19 planning complete — 7 plans in 4 waves
-last_updated: "2026-04-11T06:41:57.394Z"
+stopped_at: Completed 19-01-PLAN.md
+last_updated: "2026-04-11T07:08:48.853Z"
 last_activity: 2026-04-11
 progress:
   total_phases: 21
   completed_phases: 15
   total_plans: 94
-  completed_plans: 75
-  percent: 80
+  completed_plans: 76
+  percent: 81
 ---
 
 # Project State
@@ -105,6 +105,7 @@ All 80/80 plans complete across 17 phases (01 through 16 inclusive). Phase 17 ad
 | Phase 14 P01 | 3min | 2 tasks | 7 files |
 | Phase 14 P02 | 5min | 2 tasks | 5 files |
 | Phase 14 P03 | 7min | 2 tasks | 2 files |
+| Phase 19 P01 | 12min | 2 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -232,6 +233,8 @@ Recent decisions affecting current work:
 - [Phase 14]: Placed /instances/unassign route before /{instance_id} per CLAUDE.md Gotcha #3
 - [Phase 14]: VlInstanceDialog uses useState form state for simplicity; avatar grid expands styles to flat cards; assign dialog filters already-assigned HCPs
 - [Phase 14]: VoiceAvatarTab rewritten from 1076 to 303 lines as read-only VL preview; voice/avatar editing moved to VL Management
+- [Phase 19]: VALID_TRANSITIONS dict as sole state machine source of truth for Skill lifecycle
+- [Phase 19]: is_published flag on SkillVersion for single-published-version invariant; file security with defense-in-depth (extension whitelist + size limit + path sanitization + resource cap)
 
 ### Pending Todos
 
@@ -257,6 +260,6 @@ None yet.
 ## Session Continuity
 
 Last activity: 2026-04-11
-Last session: 2026-04-11T05:24:20.827Z
-Stopped at: Phase 19 planning complete — 7 plans in 4 waves
-Resume file: .planning/phases/19-ai-coach-skill-module-skill-lifecycle-management-material-to/19-01-PLAN.md
+Last session: 2026-04-11T07:08:48.848Z
+Stopped at: Completed 19-01-PLAN.md
+Resume file: None
