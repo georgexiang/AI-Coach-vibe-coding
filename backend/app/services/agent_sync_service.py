@@ -597,6 +597,7 @@ async def sync_agent_for_profile(
     profile: object,
     template: str | None = None,
     *,
+    scenario_id: str | None = None,
     prefetched_endpoint: str | None = None,
     prefetched_key: str | None = None,
     prefetched_model: str | None = None,
@@ -606,11 +607,28 @@ async def sync_agent_for_profile(
     If profile.agent_id is truthy, updates the existing agent (creates new version).
     Otherwise, creates a new agent.
 
+    When scenario_id is provided and the Scenario has an associated Skill,
+    the Skill's SOP content is injected into the agent instructions via
+    build_skill_augmented_instructions (D-22).
+
     Pass prefetched_endpoint/prefetched_key/prefetched_model (from prefetch_sync_config)
     to avoid DB reads during an active write transaction (prevents SQLite locking).
     """
     profile_data = profile.to_prompt_dict()
-    instructions = build_agent_instructions(profile_data, template)
+
+    # Use skill-augmented instructions when scenario_id is available
+    if scenario_id:
+        try:
+            from app.services.prompt_builder import build_skill_augmented_instructions
+
+            instructions = await build_skill_augmented_instructions(
+                db, profile_data, scenario_id=scenario_id, template=template
+            )
+        except Exception as e:
+            logger.warning("Skill-augmented instructions failed, using base: %s", e)
+            instructions = build_agent_instructions(profile_data, template)
+    else:
+        instructions = build_agent_instructions(profile_data, template)
 
     # Use prefetched values or fetch now (fallback for backward compat)
     if prefetched_model is None:

@@ -1,10 +1,15 @@
 """Prompt builders for HCP system prompts, scoring, key message detection, and conference."""
 
+from __future__ import annotations
+
 import json
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from app.models.hcp_profile import HcpProfile
 from app.models.scenario import Scenario
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 
 def build_hcp_system_prompt(
@@ -466,3 +471,30 @@ key_message, objection_handling, communication, product_knowledge, scientific_in
 Each with score (0-100), weight, strengths, weaknesses, and suggestions arrays."""
 
     return prompt
+
+
+async def build_skill_augmented_instructions(
+    db: AsyncSession,
+    profile_dict: dict,
+    scenario_id: str | None = None,
+    template: str | None = None,
+) -> str:
+    """Build agent instructions with optional Skill SOP injection.
+
+    Composes base HCP agent instructions (from build_agent_instructions in
+    agent_sync_service) augmented with the Scenario's pinned Skill content.
+    Falls back to base instructions if no scenario or no skill assigned.
+    """
+    from app.services.agent_sync_service import build_agent_instructions
+
+    base = build_agent_instructions(profile_dict, template)
+    if not scenario_id:
+        return base
+
+    from app.services.skill_manager import SkillManager, load_skill_for_scenario
+
+    skill_content = await load_skill_for_scenario(db, scenario_id)
+    if skill_content is None:
+        return base
+
+    return SkillManager.compose_instructions(base, [skill_content])
