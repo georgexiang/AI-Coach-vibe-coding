@@ -18,3 +18,6 @@ export { Breadcrumb } from "./breadcrumb";
 export { PageTransition } from "./page-transition";
 export { SkillStatusBadge } from "./skill-status-badge";
 export { SkillCard } from "./skill-card";
+export { QualityRadarChart } from "./quality-radar-chart";
+export { QualityScoreCard } from "./quality-score-card";
+export { PublishGateDialog } from "./publish-gate-dialog";
