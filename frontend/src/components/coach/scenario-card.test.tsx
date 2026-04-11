@@ -74,6 +74,8 @@ const mockScenario: Scenario = {
   created_by: "admin",
   created_at: "2024-01-01",
   updated_at: "2024-01-01",
+  skill_id: null,
+  skill_version_id: null,
 };
 
 describe("ScenarioCard", () => {

@@ -165,6 +165,8 @@ export default function TrainingSession() {
     created_by: "",
     created_at: "",
     updated_at: "",
+    skill_id: null,
+    skill_version_id: null,
   };
 
   const currentScenario: Scenario = scenario ?? defaultScenario;

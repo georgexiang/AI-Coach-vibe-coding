@@ -330,6 +330,8 @@ export function VoiceSession({
     created_by: "",
     created_at: "",
     updated_at: "",
+    skill_id: null,
+    skill_version_id: null,
   };
 
   const currentScenario = scenario ?? defaultScenario;
