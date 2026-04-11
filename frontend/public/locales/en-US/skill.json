@@ -1,0 +1,95 @@
+{
+  "hub": {
+    "title": "Skill Hub",
+    "description": "Manage AI coaching skills, upload training materials, and track quality",
+    "createSkill": "Create Skill",
+    "search": "Search skills...",
+    "filterStatus": "Status",
+    "filterProduct": "Product",
+    "allStatuses": "All Statuses",
+    "allProducts": "All Products",
+    "emptyTitle": "No skills yet",
+    "emptyBody": "Upload training materials to create your first AI coaching skill, or import a skill package.",
+    "errorTitle": "Failed to load skills",
+    "errorRetry": "Retry",
+    "createFromMaterials": "Create from Materials",
+    "importZipPackage": "Import ZIP Package",
+    "createDialogTitle": "Create New Skill",
+    "createDialogDescription": "Choose how to create your skill"
+  },
+  "editor": {
+    "title": "Skill Editor",
+    "backToHub": "Back to Skill Hub",
+    "saveDraft": "Save Draft",
+    "publishSkill": "Publish Skill",
+    "tabContent": "Content",
+    "tabResources": "Resources",
+    "tabQuality": "Quality",
+    "tabSettings": "Settings"
+  },
+  "status": {
+    "draft": "Draft",
+    "review": "Review",
+    "published": "Published",
+    "archived": "Archived",
+    "failed": "Failed"
+  },
+  "conversion": {
+    "processing": "Converting materials to skill...",
+    "completed": "Skill generated successfully. Please review the content.",
+    "failed": "Conversion failed. Check your materials and try again.",
+    "retry": "Retry Conversion",
+    "pending": "Conversion pending..."
+  },
+  "quality": {
+    "structureCheck": "Structure Check",
+    "qualityAssessment": "Quality Assessment",
+    "evaluating": "Evaluating quality...",
+    "notEvaluated": "Quality has not been evaluated. Request a review to see results.",
+    "requestReview": "Request Quality Review",
+    "l1Pass": "Structure check passed",
+    "l1Fail": "Structure check failed: {{reason}}",
+    "overallScore": "Overall Score",
+    "dimensions": {
+      "sopCompleteness": "SOP Completeness",
+      "assessmentCoverage": "Assessment Coverage",
+      "knowledgeAccuracy": "Knowledge Accuracy",
+      "difficultyBalance": "Difficulty Balance",
+      "dialogLogic": "Dialog Logic",
+      "executability": "Executability"
+    }
+  },
+  "actions": {
+    "edit": "Edit Skill",
+    "archive": "Archive",
+    "restore": "Restore",
+    "delete": "Delete",
+    "export": "Export ZIP",
+    "importZip": "Import ZIP",
+    "fromMaterials": "From Materials",
+    "applyChanges": "Apply Changes",
+    "more": "More"
+  },
+  "fileTree": {
+    "upload": "Upload Files",
+    "noResources": "No resources",
+    "selectFile": "Select a file from the tree to preview",
+    "download": "Download"
+  },
+  "errors": {
+    "loadFailed": "Failed to load skill",
+    "conversionFailed": "Conversion failed",
+    "deleteFailed": "Failed to delete skill",
+    "archiveFailed": "Failed to archive skill",
+    "saveFailed": "Failed to save skill"
+  },
+  "confirm": {
+    "deleteTitle": "Delete Skill",
+    "deleteMessage": "Delete \"{{name}}\"? This will permanently remove the skill and all associated resources. This action cannot be undone.",
+    "archiveTitle": "Archive Skill",
+    "archiveMessage": "Archive \"{{name}}\"? The skill will no longer be available for new training sessions. Existing associations will show a warning.",
+    "publishWarning": "Quality score is {{score}}/100. Some dimensions need improvement. Publish anyway?",
+    "publishBlock": "Quality score is {{score}}/100. The skill cannot be published until the score is at least 50.",
+    "staleEvaluation": "The content has changed since the last quality evaluation. Consider re-evaluating before publishing."
+  }
+}
