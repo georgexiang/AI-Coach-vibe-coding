@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Phase 19 In Progress
-stopped_at: Completed 19-05-PLAN.md
-last_updated: "2026-04-11T07:39:39.161Z"
+stopped_at: Completed 19-07-PLAN.md
+last_updated: "2026-04-11T08:08:00.000Z"
 last_activity: 2026-04-11
 progress:
   total_phases: 21
   completed_phases: 15
   total_plans: 94
-  completed_plans: 81
-  percent: 86
+  completed_plans: 82
+  percent: 87
 ---
 
 # Project State
@@ -21,13 +21,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-24)
 
 **Core value:** MRs can practice realistic conversations with AI-powered digital HCPs and receive immediate, multi-dimensional feedback to improve their communication skills -- anytime, without needing a real HCP or trainer.
-<<<<<<< HEAD
 **Current focus:** Phase 19 — AI Coach Skill Module (Skill 生命周期管理)
 
 ## Current Position
 
 Phase: 19 (ai-coach-skill-module) — IN PROGRESS
-Plans 01-06 of 8 complete (Wave 1 + Wave 2 + Wave 3 partial done).
+Plans 01-07 of 8 complete (Wave 1 + Wave 2 + Wave 3 + Wave 4 partial done).
 
 ## Performance Metrics
 
@@ -112,6 +111,7 @@ Plans 01-06 of 8 complete (Wave 1 + Wave 2 + Wave 3 partial done).
 | Phase 19 P04 | 7min | 2 tasks | 17 files |
 | Phase 19 P05 | 6min | 2 tasks | 7 files |
 | Phase 19 P06 | 9min | 2 tasks | 9 files |
+| Phase 19 P07 | 11min | 2 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -250,6 +250,11 @@ Recent decisions affecting current work:
 - [Phase 19]: DIMENSION_I18N_MAP bridges backend snake_case to frontend camelCase i18n keys for quality dimensions
 - [Phase 19]: PublishGateDialog progressive disclosure: stale > L1 > L2 with threshold-based UI (block < 50, warn 50-69, allow >= 70)
 - [Phase 19]: Fixed SkillEvaluationSummary type to match backend JSON (details as parsed object, nullable fields)
+- [Phase 19]: Scenario.skill_version_id pins to specific immutable SkillVersion for deterministic agent behavior
+- [Phase 19]: Server-side enforcement: only published/archived skills allowed in scenario association
+- [Phase 19]: SkillManager.compose_instructions() follows reference repo pattern with version tag in header for audit trail
+- [Phase 19]: Sandboxed script runner: shell=False, restricted cwd/env, timeout=30s, temp file execution
+- [Phase 19]: Agent sync backward-compatible: scenario_id optional parameter for skill-augmented instructions
 
 ### Pending Todos
 
@@ -275,6 +280,6 @@ None yet.
 ## Session Continuity
 
 Last activity: 2026-04-11
-Last session: 2026-04-11T07:51:43Z
-Stopped at: Completed 19-06-PLAN.md
+Last session: 2026-04-11T08:08:00Z
+Stopped at: Completed 19-07-PLAN.md
 Resume file: None
