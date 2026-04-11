@@ -8,6 +8,7 @@ from app.models.scenario import Scenario
 from app.models.score import ScoreDetail, SessionScore
 from app.models.scoring_rubric import ScoringRubric
 from app.models.service_config import ServiceConfig
+from app.models.skill import Skill, SkillResource, SkillVersion
 from app.models.session import CoachingSession
 from app.models.user import User
 from app.models.voice_live_instance import VoiceLiveInstance
@@ -29,4 +30,7 @@ __all__ = [
     "ServiceConfig",
     "TrainingMaterial",
     "MaterialVersion",
+    "Skill",
+    "SkillVersion",
+    "SkillResource",
 ]
