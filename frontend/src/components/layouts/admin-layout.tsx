@@ -9,6 +9,7 @@ import {
   BookOpen,
   ClipboardCheck,
   FileText,
+  Lightbulb,
   BarChart,
   Cloud,
   Radio,
@@ -66,6 +67,7 @@ const sidebarGroups: SidebarGroup[] = [
       { path: "/admin/scenarios", labelKey: "scenarios", icon: BookOpen },
       { path: "/admin/scoring-rubrics", labelKey: "scoringRubrics", icon: ClipboardCheck },
       { path: "/admin/materials", labelKey: "materials", icon: FileText },
+      { path: "/admin/skills", labelKey: "skillHub", icon: Lightbulb },
     ],
   },
   {

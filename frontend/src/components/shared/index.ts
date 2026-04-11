@@ -16,3 +16,5 @@ export { SplashScreen } from "./splash-screen";
 export { ThemePicker } from "./theme-picker";
 export { Breadcrumb } from "./breadcrumb";
 export { PageTransition } from "./page-transition";
+export { SkillStatusBadge } from "./skill-status-badge";
+export { SkillCard } from "./skill-card";

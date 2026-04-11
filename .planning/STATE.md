@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: Ready to execute
-stopped_at: Completed 19-03-PLAN.md
-last_updated: "2026-04-11T07:19:39.499Z"
+status: Phase 19 In Progress
+stopped_at: Completed 19-04-PLAN.md (Skill Hub Frontend)
+last_updated: "2026-04-11T07:21:00.000Z"
 last_activity: 2026-04-11
 progress:
   total_phases: 21
@@ -21,12 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-24)
 
 **Core value:** MRs can practice realistic conversations with AI-powered digital HCPs and receive immediate, multi-dimensional feedback to improve their communication skills -- anytime, without needing a real HCP or trainer.
+<<<<<<< HEAD
 **Current focus:** Phase 19 — AI Coach Skill Module (Skill 生命周期管理)
 
 ## Current Position
 
-Phase: 19 (ai-coach-skill-module) — PLANNED, ready for execution (7 plans, 4 waves)
-All 80/80 plans complete across 17 phases (01 through 16 inclusive). Phase 17 added.
+Phase: 19 (ai-coach-skill-module) — IN PROGRESS
+Plans 01-04 of 8 complete (Wave 1 + Wave 2 done).
 
 ## Performance Metrics
 
@@ -108,6 +109,7 @@ All 80/80 plans complete across 17 phases (01 through 16 inclusive). Phase 17 ad
 | Phase 19 P01 | 12min | 2 tasks | 10 files |
 | Phase 19 P02 | 5min | 2 tasks | 3 files |
 | Phase 19 P03 | 7min | 2 tasks | 4 files |
+| Phase 19 P04 | 7min | 2 tasks | 17 files |
 
 ## Accumulated Context
 
@@ -233,6 +235,7 @@ Recent decisions affecting current work:
 - [Phase 12]: HcpProfileOut in API router was missing 13 voice/avatar fields — added as Rule 1 bug fix
 - [Phase 13]: voice_live_model defaults to gpt-4o; agent-mode returns empty model; model list is static constant
 - [Phase 14]: Placed /instances/unassign route before /{instance_id} per CLAUDE.md Gotcha #3
+- [Phase 19]: Query-key factory pattern (skillKeys) for disciplined cache invalidation across 15+ hooks
 - [Phase 14]: VlInstanceDialog uses useState form state for simplicity; avatar grid expands styles to flat cards; assign dialog filters already-assigned HCPs
 - [Phase 14]: VoiceAvatarTab rewritten from 1076 to 303 lines as read-only VL preview; voice/avatar editing moved to VL Management
 - [Phase 19]: VALID_TRANSITIONS dict as sole state machine source of truth for Skill lifecycle
@@ -264,6 +267,6 @@ None yet.
 ## Session Continuity
 
 Last activity: 2026-04-11
-Last session: 2026-04-11T07:19:39.495Z
-Stopped at: Completed 19-03-PLAN.md
+Last session: 2026-04-11
+Stopped at: Completed Wave 2 (Plans 01-04)
 Resume file: None

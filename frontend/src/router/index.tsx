@@ -29,6 +29,8 @@ const TrainingMaterialsPage = lazy(() => import("@/pages/admin/training-material
 const AdminReportsPage = lazy(() => import("@/pages/admin/reports"));
 const UserManagementPage = lazy(() => import("@/pages/admin/users"));
 const AdminSettingsPage = lazy(() => import("@/pages/admin/settings"));
+const SkillHubPage = lazy(() => import("@/pages/admin/skill-hub"));
+const SkillEditorPage = lazy(() => import("@/pages/admin/skill-editor"));
 
 const NotFound = lazy(() => import("@/pages/not-found"));
 
@@ -91,6 +93,9 @@ export const router = createBrowserRouter([
               { path: "voice-live/:id/edit", element: <SuspensePage><VlInstanceEditorPage /></SuspensePage> },
               { path: "scoring-rubrics", element: <SuspensePage><ScoringRubricsPage /></SuspensePage> },
               { path: "materials", element: <SuspensePage><TrainingMaterialsPage /></SuspensePage> },
+              { path: "skills", element: <SuspensePage><SkillHubPage /></SuspensePage> },
+              { path: "skills/new", element: <SuspensePage><SkillEditorPage /></SuspensePage> },
+              { path: "skills/:id/edit", element: <SuspensePage><SkillEditorPage /></SuspensePage> },
               { path: "reports", element: <SuspensePage><AdminReportsPage /></SuspensePage> },
               { path: "users", element: <SuspensePage><UserManagementPage /></SuspensePage> },
               { path: "settings", element: <SuspensePage><AdminSettingsPage /></SuspensePage> },

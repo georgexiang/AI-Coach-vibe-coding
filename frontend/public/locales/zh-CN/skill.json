@@ -1,0 +1,95 @@
+{
+  "hub": {
+    "title": "Skill Hub",
+    "description": "管理 AI 教练技能，上传培训材料，跟踪质量",
+    "createSkill": "创建技能",
+    "search": "搜索技能...",
+    "filterStatus": "状态",
+    "filterProduct": "产品",
+    "allStatuses": "所有状态",
+    "allProducts": "所有产品",
+    "emptyTitle": "暂无技能",
+    "emptyBody": "上传培训材料以创建您的第一个 AI 教练技能，或导入技能包。",
+    "errorTitle": "加载技能失败",
+    "errorRetry": "重试",
+    "createFromMaterials": "从材料创建",
+    "importZipPackage": "导入 ZIP 包",
+    "createDialogTitle": "创建新技能",
+    "createDialogDescription": "选择创建方式"
+  },
+  "editor": {
+    "title": "技能编辑器",
+    "backToHub": "返回 Skill Hub",
+    "saveDraft": "保存草稿",
+    "publishSkill": "发布技能",
+    "tabContent": "内容",
+    "tabResources": "资源",
+    "tabQuality": "质量",
+    "tabSettings": "设置"
+  },
+  "status": {
+    "draft": "草稿",
+    "review": "审核中",
+    "published": "已发布",
+    "archived": "已归档",
+    "failed": "失败"
+  },
+  "conversion": {
+    "processing": "正在将材料转换为技能...",
+    "completed": "技能已成功生成，请审阅内容。",
+    "failed": "转换失败，请检查材料后重试。",
+    "retry": "重试转换",
+    "pending": "等待转换..."
+  },
+  "quality": {
+    "structureCheck": "结构检查",
+    "qualityAssessment": "质量评估",
+    "evaluating": "正在评估质量...",
+    "notEvaluated": "尚未进行质量评估。请求审查以查看结果。",
+    "requestReview": "请求质量审查",
+    "l1Pass": "结构检查通过",
+    "l1Fail": "结构检查未通过：{{reason}}",
+    "overallScore": "总体评分",
+    "dimensions": {
+      "sopCompleteness": "SOP 完整性",
+      "assessmentCoverage": "考核覆盖度",
+      "knowledgeAccuracy": "知识准确性",
+      "difficultyBalance": "难度合理性",
+      "dialogLogic": "对话逻辑性",
+      "executability": "可执行性"
+    }
+  },
+  "actions": {
+    "edit": "编辑技能",
+    "archive": "归档",
+    "restore": "恢复",
+    "delete": "删除",
+    "export": "导出 ZIP",
+    "importZip": "导入 ZIP",
+    "fromMaterials": "从材料创建",
+    "applyChanges": "应用修改",
+    "more": "更多"
+  },
+  "fileTree": {
+    "upload": "上传文件",
+    "noResources": "暂无资源",
+    "selectFile": "从文件树中选择文件进行预览",
+    "download": "下载"
+  },
+  "errors": {
+    "loadFailed": "加载技能失败",
+    "conversionFailed": "转换失败",
+    "deleteFailed": "删除技能失败",
+    "archiveFailed": "归档技能失败",
+    "saveFailed": "保存技能失败"
+  },
+  "confirm": {
+    "deleteTitle": "删除技能",
+    "deleteMessage": "删除"{{name}}"？这将永久移除该技能及所有关联资源。此操作不可撤销。",
+    "archiveTitle": "归档技能",
+    "archiveMessage": "归档"{{name}}"？该技能将不再可用于新的训练会话。现有关联将显示警告。",
+    "publishWarning": "质量评分为 {{score}}/100。部分维度需要改进。仍然发布？",
+    "publishBlock": "质量评分为 {{score}}/100。技能质量评分需达到 50 分方可发布。",
+    "staleEvaluation": "上次质量评估后内容已更改。建议在发布前重新评估。"
+  }
+}
