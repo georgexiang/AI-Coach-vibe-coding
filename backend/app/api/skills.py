@@ -1,12 +1,18 @@
 """Skill management API endpoints."""
 
+import asyncio
+import logging
+import uuid
+
 from fastapi import APIRouter, Depends, File, Query, UploadFile
-from fastapi.responses import Response
+from fastapi.responses import JSONResponse, Response
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.database import AsyncSessionLocal
 from app.dependencies import get_db, require_role
-from app.models.skill import SkillResource
+from app.models.skill import Skill, SkillResource
 from app.models.user import User
 from app.schemas.skill import (
     SkillCreate,
@@ -15,8 +21,9 @@ from app.schemas.skill import (
     SkillResourceOut,
     SkillUpdate,
 )
-from app.services import skill_service
+from app.services import skill_conversion_service, skill_service
 from app.services.skill_service import (
+    MAX_FILES_PER_UPLOAD,
     MAX_RESOURCES_PER_SKILL,
     sanitize_filename,
     validate_file_upload,
@@ -24,6 +31,8 @@ from app.services.skill_service import (
 from app.services.storage import get_storage
 from app.utils.exceptions import bad_request, not_found
 from app.utils.pagination import PaginatedResponse
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/skills", tags=["skills"])
 
@@ -86,6 +95,224 @@ async def list_published_skills(
         page=page,
         page_size=page_size,
     )
+
+
+# ---------------------------------------------------------------------------
+# Durable background conversion wrapper
+# ---------------------------------------------------------------------------
+
+
+async def _run_durable_conversion(skill_id: str, job_id: str) -> None:
+    """Durable background conversion with own session and idempotency check."""
+    async with AsyncSessionLocal() as session:
+        try:
+            # Idempotency: verify job_id still matches
+            skill = await session.get(Skill, skill_id)
+            if not skill or skill.conversion_job_id != job_id:
+                logger.info("Conversion job %s superseded, skipping", job_id)
+                return
+            await skill_conversion_service.start_conversion(session, skill_id)
+            await session.commit()
+        except Exception as e:
+            await session.rollback()
+            # Mark as failed in a new session to ensure the error is persisted
+            async with AsyncSessionLocal() as err_session:
+                try:
+                    skill = await err_session.get(Skill, skill_id)
+                    if skill and skill.conversion_job_id == job_id:
+                        skill.conversion_status = "failed"
+                        skill.conversion_error = str(e)[:2000]
+                        await err_session.commit()
+                except Exception:
+                    logger.error("Failed to record conversion error for %s", skill_id)
+            logger.error("Conversion task failed for %s: %s", skill_id, e)
+
+
+# ---------------------------------------------------------------------------
+# Request schemas for conversion endpoints
+# ---------------------------------------------------------------------------
+
+
+class RegenerateSopRequest(BaseModel):
+    """Request body for AI feedback SOP regeneration."""
+
+    feedback: str
+
+
+# ---------------------------------------------------------------------------
+# Conversion and regeneration endpoints (before /{skill_id} per Gotcha #3)
+# ---------------------------------------------------------------------------
+
+
+@router.post("/{skill_id}/convert")
+async def convert_skill(
+    skill_id: str,
+    db: AsyncSession = Depends(get_db),
+    _user: User = Depends(require_role("admin")),
+):
+    """Start material-to-SOP conversion. Admin only. Returns 202 Accepted."""
+    skill = await skill_service.get_skill(db, skill_id)
+
+    # Verify at least one reference resource exists
+    ref_result = await db.execute(
+        select(SkillResource).where(
+            SkillResource.skill_id == skill_id,
+            SkillResource.resource_type == "reference",
+        )
+    )
+    refs = list(ref_result.scalars().all())
+    if not refs:
+        bad_request("No reference materials found. Upload at least one reference file first.")
+
+    if skill.conversion_status == "processing":
+        bad_request("Conversion already in progress")
+
+    # Generate job_id for idempotency
+    job_id = str(uuid.uuid4())
+    skill.conversion_status = "pending"
+    skill.conversion_job_id = job_id
+    skill.conversion_error = ""
+    await db.flush()
+
+    # Commit before launching background task so the task sees the pending state
+    await db.commit()
+
+    asyncio.create_task(_run_durable_conversion(skill_id, job_id))
+
+    return JSONResponse(
+        status_code=202,
+        content={"status": "pending", "job_id": job_id},
+    )
+
+
+@router.post("/{skill_id}/retry-conversion")
+async def retry_conversion(
+    skill_id: str,
+    db: AsyncSession = Depends(get_db),
+    _user: User = Depends(require_role("admin")),
+):
+    """Retry a failed conversion without re-uploading materials. Admin only."""
+    skill = await skill_service.get_skill(db, skill_id)
+
+    if skill.conversion_status not in ("failed", None):
+        bad_request(f"Can only retry failed conversions. Current status: {skill.conversion_status}")
+
+    # Generate new job_id
+    job_id = str(uuid.uuid4())
+    skill.conversion_status = "pending"
+    skill.conversion_job_id = job_id
+    skill.conversion_error = ""
+    await db.flush()
+    await db.commit()
+
+    asyncio.create_task(_run_durable_conversion(skill_id, job_id))
+
+    return JSONResponse(
+        status_code=202,
+        content={"status": "pending", "job_id": job_id},
+    )
+
+
+@router.get("/{skill_id}/conversion-status")
+async def get_conversion_status(
+    skill_id: str,
+    db: AsyncSession = Depends(get_db),
+    _user: User = Depends(require_role("admin")),
+):
+    """Poll conversion status. Admin only."""
+    skill = await skill_service.get_skill(db, skill_id)
+    return {
+        "conversion_status": skill.conversion_status,
+        "conversion_error": skill.conversion_error,
+        "conversion_job_id": skill.conversion_job_id,
+    }
+
+
+@router.post("/{skill_id}/upload-and-convert")
+async def upload_and_convert(
+    skill_id: str,
+    files: list[UploadFile] = File(...),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role("admin")),
+):
+    """Upload reference files and trigger conversion. Max 10 files. Admin only."""
+    skill = await skill_service.get_skill(db, skill_id)
+
+    if len(files) > MAX_FILES_PER_UPLOAD:
+        bad_request(f"Maximum {MAX_FILES_PER_UPLOAD} files per upload")
+
+    # Check existing resource count
+    count_result = await db.execute(select(SkillResource).where(SkillResource.skill_id == skill_id))
+    existing_count = len(count_result.scalars().all())
+    if existing_count + len(files) > MAX_RESOURCES_PER_SKILL:
+        bad_request(f"Maximum {MAX_RESOURCES_PER_SKILL} resources per skill")
+
+    storage = get_storage()
+
+    # Upload each file as a reference resource
+    for file in files:
+        if not file.filename:
+            bad_request("File name is required")
+        safe_filename = sanitize_filename(file.filename)
+
+        content = await file.read()
+        file_size = len(content)
+        validate_file_upload(safe_filename, file_size)
+
+        storage_path = f"skills/{skill_id}/references/{safe_filename}"
+        await storage.save(storage_path, content)
+
+        ext = safe_filename.rsplit(".", 1)[-1].lower() if "." in safe_filename else ""
+        content_type_map = {
+            "pdf": "application/pdf",
+            "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+            "txt": "text/plain",
+            "md": "text/markdown",
+        }
+        content_type = content_type_map.get(ext, file.content_type or "application/octet-stream")
+
+        resource = SkillResource(
+            skill_id=skill_id,
+            resource_type="reference",
+            filename=safe_filename,
+            storage_path=storage_path,
+            content_type=content_type,
+            file_size=file_size,
+        )
+        db.add(resource)
+
+    # Trigger conversion
+    job_id = str(uuid.uuid4())
+    skill.conversion_status = "pending"
+    skill.conversion_job_id = job_id
+    skill.conversion_error = ""
+    await db.flush()
+    await db.commit()
+
+    asyncio.create_task(_run_durable_conversion(skill_id, job_id))
+
+    return JSONResponse(
+        status_code=202,
+        content={"status": "pending", "job_id": job_id, "files_uploaded": len(files)},
+    )
+
+
+@router.post("/{skill_id}/regenerate-sop", response_model=SkillOut)
+async def regenerate_sop(
+    skill_id: str,
+    body: RegenerateSopRequest,
+    db: AsyncSession = Depends(get_db),
+    _user: User = Depends(require_role("admin")),
+):
+    """AI feedback SOP regeneration. Admin only."""
+    if not body.feedback or not body.feedback.strip():
+        bad_request("Feedback is required")
+    if len(body.feedback) > 5000:
+        bad_request("Feedback must be 5000 characters or less")
+
+    skill = await skill_conversion_service.regenerate_sop_with_feedback(db, skill_id, body.feedback)
+    return skill
 
 
 # ---------------------------------------------------------------------------
