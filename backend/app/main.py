@@ -24,6 +24,7 @@ from app.api import (
     hcp_profiles_router,
     knowledge_base_router,
     materials_router,
+    meta_skills_router,
     rubrics_router,
     scenarios_router,
     scoring_router,
@@ -55,6 +56,12 @@ async def lifespan(app: FastAPI):
     register_adapters()
     await run_seed()
     await load_service_configs()
+    # Seed default meta skill configs (creator + evaluator)
+    from app.database import AsyncSessionLocal
+    from app.services.meta_skill_service import ensure_defaults
+
+    async with AsyncSessionLocal() as db:
+        await ensure_defaults(db)
     logger.info("Startup complete")
     yield
     await engine.dispose()
@@ -105,6 +112,7 @@ app.include_router(conference_router, prefix=settings.api_prefix)
 app.include_router(analytics_router, prefix=settings.api_prefix)
 app.include_router(voice_live_router, prefix=settings.api_prefix)
 app.include_router(skills_router, prefix=settings.api_prefix)
+app.include_router(meta_skills_router, prefix=settings.api_prefix)
 app.include_router(speech_router, prefix=settings.api_prefix)
 app.include_router(admin_users_router, prefix=settings.api_prefix)
 

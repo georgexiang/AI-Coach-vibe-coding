@@ -250,6 +250,82 @@ async def test_ai_foundry(
     )
 
 
+# --- Shared lookups ---
+
+
+@router.get("/model-deployments")
+async def list_model_deployments(
+    db: AsyncSession = Depends(get_db),
+    _admin: User = Depends(require_role("admin")),
+) -> list[dict[str, str]]:
+    """Return model deployments from Azure AI Foundry.
+
+    Uses the AI Foundry project-scoped deployments API
+    (GET /api/projects/{project}/deployments?api-version=v1) to get the
+    real-time list of deployed models.  Falls back to the legacy Azure OpenAI
+    deployments API, then to DB service configs.
+
+    This is a system-level service used by every page that needs a model
+    selector dropdown (meta-skills, scoring config, etc.).
+    """
+    import httpx
+    import logging
+
+    logger = logging.getLogger(__name__)
+
+    master = await config_service.get_master_config(db)
+    if master and master.endpoint and master.api_key_encrypted:
+        api_key = decrypt_value(master.api_key_encrypted)
+        base = master.endpoint.rstrip("/")
+        project = master.default_project
+
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            # --- Strategy 1: AI Foundry project-scoped deployments API ---
+            if project:
+                try:
+                    url = f"{base}/api/projects/{project}/deployments?api-version=v1"
+                    response = await client.get(url, headers={"api-key": api_key})
+                    if response.status_code == 200:
+                        items = response.json().get("data", response.json().get("value", []))
+                        return [
+                            {
+                                "value": d["name"],
+                                "label": f"{d['name']} ({d.get('modelName', '')})",
+                            }
+                            for d in items
+                            if d.get("name")
+                        ]
+                except Exception as exc:
+                    logger.warning("AI Foundry deployments API failed: %s", exc)
+
+            # --- Strategy 2: legacy Azure OpenAI deployments API ---
+            try:
+                url = f"{base}/openai/deployments?api-version=2024-10-21"
+                response = await client.get(url, headers={"api-key": api_key})
+                if response.status_code == 200:
+                    deployments = response.json().get("data", [])
+                    return [
+                        {
+                            "value": d["id"],
+                            "label": f"{d['id']} ({d.get('model', '')})",
+                        }
+                        for d in deployments
+                        if d.get("id")
+                    ]
+            except Exception as exc:
+                logger.warning("Azure OpenAI deployments API failed: %s", exc)
+
+    # --- Strategy 3: fall back to DB master config deployment ---
+    if master and master.model_or_deployment:
+        return [
+            {
+                "value": master.model_or_deployment,
+                "label": master.model_or_deployment,
+            }
+        ]
+    return []
+
+
 # --- Per-service config endpoints ---
 
 

@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -19,6 +19,10 @@ import {
   Check,
   XCircle,
   AlertTriangle,
+  ExternalLink,
+  Info,
+  Cpu,
+  ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -57,6 +61,8 @@ import type {
   ConversionStatus,
   QualityDimension,
   QualityEvaluation,
+  EvaluationCriterion,
+  EvaluationStatus,
 } from "@/types/skill";
 
 const VALID_TABS = new Set(["content", "resources", "quality", "settings"]);
@@ -376,6 +382,16 @@ export default function SkillEditorPage() {
       ? (evaluationData.quality.details as QualityEvaluation)
       : null;
   const dimensions: QualityDimension[] = qualityDetails?.dimensions ?? [];
+  const evaluationStatus: EvaluationStatus | undefined =
+    evaluationData?.quality?.evaluation_status;
+  const modelUsed: string =
+    evaluationData?.quality?.model_used ?? qualityDetails?.model_used ?? "";
+  const errorDetail: string =
+    evaluationData?.quality?.error_detail ?? qualityDetails?.error_detail ?? "";
+  const evaluationCriteria: EvaluationCriterion[] =
+    evaluationData?.evaluation_criteria ?? [];
+  const isAiUnavailable =
+    evaluationStatus === "ai_unavailable" || evaluationStatus === "ai_error";
 
   const isReviewing =
     checkStructureMutation.isPending || evaluateQualityMutation.isPending;
@@ -501,6 +517,7 @@ export default function SkillEditorPage() {
             <ConversionProgress
               status={conversionStatus}
               error={conversionError}
+              progress={conversionData?.progress}
               onRetry={handleRetryConversion}
             />
           )}
@@ -527,7 +544,29 @@ export default function SkillEditorPage() {
         </TabsContent>
 
         {/* ----- Resources Tab ----- */}
-        <TabsContent value="resources" className="mt-6">
+        <TabsContent value="resources" className="mt-6 space-y-4">
+          {/* Source materials (shown when skill was converted from materials) */}
+          {!isNew && skill && skill.source_materials && skill.source_materials.length > 0 && (
+            <div className="rounded-lg border border-border bg-muted/30 p-4">
+              <h4 className="text-sm font-medium mb-2">
+                {t("editor.sourceMaterials", { defaultValue: "来源材料" })}
+              </h4>
+              <div className="flex flex-wrap gap-2">
+                {skill.source_materials.map((mat) => (
+                  <Link
+                    key={mat.id}
+                    to={`/admin/materials/${mat.id}`}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary hover:bg-primary/20 transition-colors"
+                  >
+                    <FileText className="size-3" />
+                    {mat.name}
+                    <ExternalLink className="size-3 opacity-60" />
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+
           {!isNew && skill ? (
             <div className="grid grid-cols-1 gap-0 lg:grid-cols-[280px_1fr] rounded-lg border border-border overflow-hidden">
               {/* Left: File tree */}
@@ -635,6 +674,46 @@ export default function SkillEditorPage() {
                 </div>
               )}
 
+              {/* AI Unavailable / Error Banner */}
+              {isAiUnavailable && !isReviewing && (
+                <div
+                  className={cn(
+                    "flex items-start gap-3 rounded-lg border p-4",
+                    evaluationStatus === "ai_unavailable"
+                      ? "border-weakness/30 bg-weakness/5"
+                      : "border-destructive/30 bg-destructive/5",
+                  )}
+                >
+                  <AlertTriangle
+                    className={cn(
+                      "mt-0.5 size-5 shrink-0",
+                      evaluationStatus === "ai_unavailable"
+                        ? "text-weakness"
+                        : "text-destructive",
+                    )}
+                  />
+                  <div className="space-y-1">
+                    <p
+                      className={cn(
+                        "text-sm font-medium",
+                        evaluationStatus === "ai_unavailable"
+                          ? "text-weakness"
+                          : "text-destructive",
+                      )}
+                    >
+                      {evaluationStatus === "ai_unavailable"
+                        ? t("quality.aiUnavailable")
+                        : t("quality.aiError")}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {evaluationStatus === "ai_unavailable"
+                        ? t("quality.aiUnavailableDesc")
+                        : t("quality.aiErrorDesc", { error: errorDetail })}
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* L1 Structure Check Banner */}
               {structurePassed !== null && (
                 <div
@@ -678,13 +757,31 @@ export default function SkillEditorPage() {
               )}
 
               {/* L2 Radar Chart + Dimension Cards */}
-              {dimensions.length > 0 && (
+              {dimensions.length > 0 && !isAiUnavailable && (
                 <>
                   <QualityRadarChart
                     dimensions={dimensions}
                     overallScore={qualityScore ?? undefined}
                     overallVerdict={qualityVerdict ?? undefined}
                   />
+
+                  {/* Evaluation metadata: model + timestamp */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-4">
+                      {modelUsed && (
+                        <span className="inline-flex items-center gap-1">
+                          <Cpu className="size-3" />
+                          {t("quality.modelUsed")}: {modelUsed}
+                        </span>
+                      )}
+                    </div>
+                    {qualityDetails?.evaluated_at && (
+                      <span>
+                        {t("quality.evaluatedAt")}:{" "}
+                        {new Date(qualityDetails.evaluated_at).toLocaleString()}
+                      </span>
+                    )}
+                  </div>
 
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     {dimensions.map((dim) => (
@@ -697,6 +794,11 @@ export default function SkillEditorPage() {
                     ))}
                   </div>
                 </>
+              )}
+
+              {/* Evaluation Criteria transparency (always visible after first evaluation) */}
+              {evaluationCriteria.length > 0 && (
+                <EvaluationCriteriaPanel criteria={evaluationCriteria} />
               )}
 
               {/* Re-run review button when already evaluated */}
@@ -840,6 +942,77 @@ export default function SkillEditorPage() {
           onPublish={handlePublish}
           onCancel={() => setPublishDialogOpen(false)}
         />
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Evaluation criteria transparency sub-component
+// ---------------------------------------------------------------------------
+
+const DIMENSION_I18N_MAP: Record<string, string> = {
+  sop_completeness: "sopCompleteness",
+  assessment_coverage: "assessmentCoverage",
+  knowledge_accuracy: "knowledgeAccuracy",
+  difficulty_calibration: "difficultyBalance",
+  conversation_logic: "dialogLogic",
+  executability: "executability",
+};
+
+function EvaluationCriteriaPanel({
+  criteria,
+}: {
+  criteria: EvaluationCriterion[];
+}) {
+  const { t } = useTranslation("skill");
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="rounded-lg border border-border bg-card">
+      <button
+        type="button"
+        className="flex w-full items-center justify-between gap-3 p-4 text-left hover:bg-muted/50 transition-colors"
+        onClick={() => setOpen((prev) => !prev)}
+        aria-expanded={open}
+      >
+        <div className="flex items-center gap-2">
+          <Info className="size-4 text-primary" />
+          <span className="text-sm font-medium text-foreground">
+            {t("quality.criteriaTitle")}
+          </span>
+        </div>
+        <ChevronDown
+          className={cn(
+            "size-4 shrink-0 text-muted-foreground transition-transform",
+            open && "rotate-180",
+          )}
+        />
+      </button>
+      {open && (
+        <div className="border-t border-border px-4 py-3 space-y-3">
+          <p className="text-sm text-muted-foreground">
+            {t("quality.criteriaDescription")}
+          </p>
+          <div className="space-y-2">
+            {criteria.map((c) => {
+              const i18nKey = DIMENSION_I18N_MAP[c.name] ?? c.name;
+              const label = t(`quality.dimensions.${i18nKey}`, {
+                defaultValue: c.name,
+              });
+              return (
+                <div key={c.name} className="space-y-0.5">
+                  <p className="text-sm font-medium text-foreground">
+                    {label}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {c.description}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       )}
     </div>
   );

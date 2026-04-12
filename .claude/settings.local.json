@@ -31,5 +31,9 @@
   },
   "enabledPlugins": {
     "superpowers@claude-plugins-official": true
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "node .claude/statusline-local.js"
   }
 }

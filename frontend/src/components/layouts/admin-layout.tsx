@@ -10,6 +10,7 @@ import {
   ClipboardCheck,
   FileText,
   Lightbulb,
+  Wand2,
   BarChart,
   Cloud,
   Radio,
@@ -57,6 +58,7 @@ const sidebarGroups: SidebarGroup[] = [
     items: [
       { path: "/admin/azure-config", labelKey: "azureServices", icon: Cloud },
       { path: "/admin/voice-live", labelKey: "voiceLive", icon: Radio },
+      { path: "/admin/meta-skills", labelKey: "metaSkills", icon: Wand2 },
       { path: "/admin/settings", labelKey: "settings", icon: Settings },
     ],
   },

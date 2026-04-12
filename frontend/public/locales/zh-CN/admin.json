@@ -285,7 +285,7 @@
     "uploadSuccess": "资料上传成功",
     "archiveConfirm": "确定要归档此资料吗？",
     "restoreConfirm": "确定要恢复此资料吗？",
-    "updateSuccess": "资料更新成功",
+    "updateSuccess": "资料更新成功"
   },
   "scenarioMode": {
     "conference": "会议演讲"

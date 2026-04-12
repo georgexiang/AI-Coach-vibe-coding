@@ -71,6 +71,15 @@ class Settings(BaseSettings):
     # Default Voice Live model (when creating new instances/profiles; override via .env)
     voice_live_default_model: str = "gpt-4o"
 
+    # Default chat completion model for skill conversion/evaluation (override via .env)
+    default_chat_model: str = "gpt-4o"
+    # AI parameters for skill conversion/evaluation
+    skill_ai_temperature: float = 0.3
+    skill_ai_max_tokens: int = 4096
+    skill_ai_api_version: str = "2024-06-01"
+    # Language for AI-generated SOP content: "en" (English) or "zh" (Chinese)
+    skill_sop_language: str = "en"
+
     # Voice Live Agent Mode (RD-1: SDK >=1.2.0b5 supports API-key agent mode)
     voice_live_agent_mode_enabled: bool = True
 

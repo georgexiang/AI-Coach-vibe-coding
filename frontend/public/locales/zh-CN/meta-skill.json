@@ -1,0 +1,45 @@
+{
+  "title": "技能 AI 配置",
+  "description": "配置用于技能创建和质量评估的 AI 引擎（模型、指令模板、Agent 同步）",
+  "tabs": {
+    "creator": "创建引擎",
+    "evaluator": "评估引擎"
+  },
+  "fields": {
+    "agentId": "Agent ID",
+    "agentVersion": "Agent 版本",
+    "model": "模型",
+    "templateLanguage": "模板语言",
+    "lastSynced": "上次同步",
+    "status": "状态",
+    "template": "Agent 指令（SKILL.md 模板）"
+  },
+  "status": {
+    "synced": "已同步",
+    "notSynced": "未同步",
+    "active": "已启用",
+    "inactive": "已禁用"
+  },
+  "actions": {
+    "save": "保存配置",
+    "sync": "保存并同步 Agent",
+    "reset": "恢复默认模板",
+    "test": "测试 Agent"
+  },
+  "messages": {
+    "saveSuccess": "配置保存成功",
+    "syncSuccess": "Agent 已同步到 Azure AI Foundry",
+    "syncError": "Agent 同步失败",
+    "resetSuccess": "模板已恢复为默认值",
+    "resetConfirm": "确定恢复为默认模板？当前修改将丢失。",
+    "noAgent": "尚未同步 Agent。点击同步按钮在 Azure AI Foundry 中创建 Agent。"
+  },
+  "models": {
+    "gpt4o": "GPT-4o",
+    "gpt4oMini": "GPT-4o Mini"
+  },
+  "languages": {
+    "en": "英文",
+    "zh": "中文"
+  }
+}

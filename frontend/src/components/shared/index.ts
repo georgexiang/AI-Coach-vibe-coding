@@ -21,3 +21,5 @@ export { SkillCard } from "./skill-card";
 export { QualityRadarChart } from "./quality-radar-chart";
 export { QualityScoreCard } from "./quality-score-card";
 export { PublishGateDialog } from "./publish-gate-dialog";
+export { ModelSelector, useModelOptions } from "./model-selector";
+export type { ModelOption } from "./model-selector";

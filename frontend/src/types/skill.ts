@@ -48,6 +48,12 @@ export interface SkillListItem {
   updated_at: string;
 }
 
+export interface SourceMaterialInfo {
+  id: string;
+  name: string;
+  product: string;
+}
+
 export interface Skill extends SkillListItem {
   therapeutic_area: string;
   compatibility: string;
@@ -58,6 +64,7 @@ export interface Skill extends SkillListItem {
   conversion_error: string;
   resources: SkillResource[];
   versions: SkillVersion[];
+  source_materials: SourceMaterialInfo[];
 }
 
 export interface SkillCreate {
@@ -99,6 +106,8 @@ export interface QualityDimension {
   rationale: string;
 }
 
+export type EvaluationStatus = "ai_success" | "ai_unavailable" | "ai_error";
+
 export interface QualityEvaluation {
   overall_score: number;
   overall_verdict: string;
@@ -107,6 +116,14 @@ export interface QualityEvaluation {
   top_improvements: string[];
   content_hash: string;
   evaluated_at: string;
+  evaluation_status?: EvaluationStatus;
+  model_used?: string;
+  error_detail?: string;
+}
+
+export interface EvaluationCriterion {
+  name: string;
+  description: string;
 }
 
 export interface SkillEvaluationSummary {
@@ -119,7 +136,11 @@ export interface SkillEvaluationSummary {
     verdict: string | null;
     details: QualityEvaluation | Record<string, never>;
     is_stale: boolean;
+    evaluation_status?: EvaluationStatus;
+    model_used?: string;
+    error_detail?: string;
   };
+  evaluation_criteria?: EvaluationCriterion[];
 }
 
 export interface PaginatedSkills {

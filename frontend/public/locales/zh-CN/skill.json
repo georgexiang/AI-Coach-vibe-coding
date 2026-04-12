@@ -1,6 +1,6 @@
 {
   "hub": {
-    "title": "Skill Hub",
+    "title": "技能中心",
     "description": "管理 AI 教练技能，上传培训材料，跟踪质量",
     "createSkill": "创建技能",
     "search": "搜索技能...",
@@ -19,7 +19,7 @@
   },
   "editor": {
     "title": "技能编辑器",
-    "backToHub": "返回 Skill Hub",
+    "backToHub": "返回技能中心",
     "saveDraft": "保存草稿",
     "publishSkill": "发布技能",
     "tabContent": "内容",
@@ -75,8 +75,8 @@
     "structureCheck": "结构检查",
     "qualityAssessment": "质量评估",
     "evaluating": "正在评估质量...",
-    "notEvaluated": "尚未进行质量评估。请求审查以查看结果。",
-    "requestReview": "请求质量审查",
+    "notEvaluated": "尚未进行质量评估。运行质量检查以查看结果。",
+    "requestReview": "运行质量检查",
     "l1Pass": "结构检查通过",
     "l1Fail": "结构检查未通过：{{reason}}",
     "overallScore": "总体评分",
@@ -98,6 +98,14 @@
     "lowDimensions": "需要改进的维度：",
     "reviewStarted": "质量审查已开始",
     "publishSuccess": "技能发布成功",
+    "aiUnavailable": "AI 评估服务不可用",
+    "aiUnavailableDesc": "Azure OpenAI 服务当前不可用，无法执行质量评估。以下分数仅为占位值，不代表实际质量。请检查 AI 服务配置后重试。",
+    "aiError": "AI 评估出错",
+    "aiErrorDesc": "AI 评估过程中发生错误：{{error}}。请稍后重试或检查服务配置。",
+    "modelUsed": "评估模型",
+    "evaluatedAt": "评估时间",
+    "criteriaTitle": "评估标准",
+    "criteriaDescription": "质量评估基于以下 6 个维度，由 AI 模型对 Skill 内容进行独立评分（0-100 分）：",
     "dimensions": {
       "sopCompleteness": "SOP 完整性",
       "assessmentCoverage": "考核覆盖度",
@@ -134,9 +142,9 @@
   },
   "confirm": {
     "deleteTitle": "删除技能",
-    "deleteMessage": "删除"{{name}}"？这将永久移除该技能及所有关联资源。此操作不可撤销。",
+    "deleteMessage": "删除「{{name}}」？这将永久移除该技能及所有关联资源。此操作不可撤销。",
     "archiveTitle": "归档技能",
-    "archiveMessage": "归档"{{name}}"？该技能将不再可用于新的训练会话。现有关联将显示警告。",
+    "archiveMessage": "归档「{{name}}」？该技能将不再可用于新的训练会话。现有关联将显示警告。",
     "publishWarning": "质量评分为 {{score}}/100。部分维度需要改进。仍然发布？",
     "publishBlock": "质量评分为 {{score}}/100。技能质量评分需达到 50 分方可发布。",
     "staleEvaluation": "上次质量评估后内容已更改。建议在发布前重新评估。"

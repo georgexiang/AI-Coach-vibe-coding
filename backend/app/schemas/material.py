@@ -44,6 +44,16 @@ class MaterialVersionOut(BaseModel):
             self.download_url = f"/api/v1/materials/{self.material_id}/versions/{self.id}/download"
 
 
+class DerivedSkillInfo(BaseModel):
+    """Lightweight reference to a skill derived from this material."""
+
+    id: str
+    name: str
+    status: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class MaterialOut(BaseModel):
     """Full material response with versions."""
 
@@ -58,6 +68,7 @@ class MaterialOut(BaseModel):
     created_at: datetime
     updated_at: datetime
     versions: list[MaterialVersionOut] = []
+    derived_skills: list[DerivedSkillInfo] = []
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -75,5 +86,6 @@ class MaterialListOut(BaseModel):
     created_by: str
     created_at: datetime
     updated_at: datetime
+    derived_skill_count: int = 0
 
     model_config = ConfigDict(from_attributes=True)

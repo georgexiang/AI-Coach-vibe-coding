@@ -37,6 +37,34 @@ EVALUATION_DIMENSIONS = [
     "executability",
 ]
 
+# Human-readable descriptions for each dimension (transparency for admins)
+DIMENSION_DESCRIPTIONS: dict[str, str] = {
+    "sop_completeness": (
+        "Are all required SOP stages present (opening, product discussion, closing)? "
+        "Are steps detailed with key points, objections, and time guidance?"
+    ),
+    "assessment_coverage": (
+        "Are assessment/evaluation criteria comprehensive? Do they cover all SOP steps? "
+        "Are scoring rubrics clear and measurable?"
+    ),
+    "knowledge_accuracy": (
+        "Are product knowledge points accurate and relevant? "
+        "Are clinical references and data mentioned? Is terminology correct?"
+    ),
+    "difficulty_calibration": (
+        "Is the difficulty level appropriate for the target audience? "
+        "Are objection scenarios realistic? Is there progressive difficulty?"
+    ),
+    "conversation_logic": (
+        "Does the conversation flow logically from opening to closing? "
+        "Are transitions between topics natural? Are branching paths considered?"
+    ),
+    "executability": (
+        "Can an AI agent execute this SOP effectively? "
+        "Are instructions clear and unambiguous? Are edge cases handled?"
+    ),
+}
+
 # ---------------------------------------------------------------------------
 # L2 evaluation prompt
 # ---------------------------------------------------------------------------
@@ -108,7 +136,8 @@ SKILL_EVALUATION_PROMPT = (
     '["<improvement 1>", "<improvement 2>", "<improvement 3>"]\n'
     "}}\n\n"
     "Evaluate objectively. "
-    "Be constructive but honest about weaknesses."
+    "Be constructive but honest about weaknesses.\n"
+    "{language_instruction}"
 )
 
 
@@ -141,11 +170,25 @@ class SkillEvaluationResult:
     top_improvements: list[str] = field(default_factory=list)
     content_hash: str = ""
     evaluated_at: str = ""
+    # Transparency metadata
+    evaluation_status: str = "ai_success"  # ai_success | ai_unavailable | ai_error
+    model_used: str = ""
+    error_detail: str = ""
 
 
 # ---------------------------------------------------------------------------
 # Verdict helpers
 # ---------------------------------------------------------------------------
+
+
+def _get_eval_language_instruction() -> str:
+    """Return language instruction for evaluation prompts based on skill_sop_language."""
+    from app.config import get_settings
+
+    lang = get_settings().skill_sop_language
+    if lang == "zh":
+        return "IMPORTANT: Write all text content (summary, strengths, improvements, rationale) in Chinese (中文)."
+    return ""
 
 
 def _compute_verdict(score: int) -> str:
@@ -202,15 +245,28 @@ async def evaluate_skill_quality(
         skill_therapeutic_area=skill.therapeutic_area or "Not specified",
         skill_content=truncated_content,
         reference_summaries=reference_text,
+        language_instruction=_get_eval_language_instruction(),
     )
 
-    # Call Azure OpenAI
-    ai_result = await _call_openai_for_evaluation(db, prompt)
+    # Try evaluator agent first, fall back to direct OpenAI
+    from app.services import meta_skill_service
+
+    evaluator_meta = await meta_skill_service.get_meta_skill(db, "evaluator")
+    if evaluator_meta and evaluator_meta.agent_id:
+        ai_call = await _call_agent_for_evaluation(
+            db, prompt, evaluator_meta.agent_id,
+            evaluator_meta.agent_version, evaluator_meta.model,
+        )
+    else:
+        ai_call = await _call_openai_for_evaluation(db, prompt)
     evaluated_at = datetime.now(tz=UTC).isoformat()
 
-    if ai_result is None:
-        # Fallback: return a default result when AI is unavailable
-        logger.warning("AI evaluation unavailable for skill %s, returning default result", skill_id)
+    if ai_call.data is None:
+        # Fallback: return a result that clearly signals AI was not available
+        logger.warning(
+            "AI evaluation unavailable for skill %s (status=%s): %s",
+            skill_id, ai_call.status, ai_call.error_detail,
+        )
         eval_result = SkillEvaluationResult(
             overall_score=0,
             overall_verdict="FAIL",
@@ -227,42 +283,110 @@ async def evaluate_skill_quality(
             top_improvements=["Configure Azure OpenAI endpoint for quality evaluation."],
             content_hash=content_hash,
             evaluated_at=evaluated_at,
+            evaluation_status=ai_call.status,
+            model_used=ai_call.model_used,
+            error_detail=ai_call.error_detail,
         )
     else:
-        eval_result = _parse_evaluation_result(ai_result, content_hash, evaluated_at)
+        eval_result = _parse_evaluation_result(ai_call.data, content_hash, evaluated_at)
+        eval_result.evaluation_status = "ai_success"
+        eval_result.model_used = ai_call.model_used
 
     # Store in skill fields
     skill.quality_score = eval_result.overall_score
     skill.quality_verdict = eval_result.overall_verdict
-    skill.quality_details = json.dumps(
-        {
-            **asdict(eval_result),
-            "content_hash": content_hash,
-            "evaluated_at": evaluated_at,
-        },
-        ensure_ascii=False,
-    )
+    details_dict = {
+        **asdict(eval_result),
+        "content_hash": content_hash,
+        "evaluated_at": evaluated_at,
+    }
+    # Add agent audit trail if evaluator agent was used
+    if evaluator_meta and evaluator_meta.agent_id:
+        details_dict["evaluator_agent"] = {
+            "agent_id": evaluator_meta.agent_id,
+            "agent_version": evaluator_meta.agent_version,
+            "model": evaluator_meta.model,
+            "method": "agent",
+        }
+    else:
+        details_dict["evaluator_agent"] = {"method": "direct_openai"}
+    skill.quality_details = json.dumps(details_dict, ensure_ascii=False)
     await db.flush()
 
     return eval_result
 
 
-async def _call_openai_for_evaluation(db: AsyncSession, prompt: str) -> dict | None:
-    """Call Azure OpenAI for skill evaluation. Returns parsed JSON or None."""
+@dataclass
+class _AICallResult:
+    """Internal result from the AI call attempt."""
+
+    data: dict | None
+    status: str  # "ai_success" | "ai_unavailable" | "ai_error"
+    model_used: str = ""
+    error_detail: str = ""
+
+
+async def _call_agent_for_evaluation(
+    db: AsyncSession, prompt: str, agent_id: str, agent_version: str, model: str
+) -> _AICallResult:
+    """Call the evaluator agent via Responses API. Same pattern as agent_chat_service."""
+    from app.services.agent_sync_service import (
+        _get_project_client,
+        get_project_endpoint,
+    )
+
+    try:
+        project_endpoint, api_key = await get_project_endpoint(db)
+        client = _get_project_client(project_endpoint, api_key)
+        openai_client = client.get_openai_client()
+
+        response = openai_client.responses.create(
+            model=model,
+            input=[{"role": "user", "content": prompt}],
+            extra_body={
+                "agent_reference": {
+                    "name": agent_id,
+                    "version": agent_version or "1",
+                    "type": "agent_reference",
+                }
+            },
+        )
+        content = response.output_text
+        if not content:
+            return _AICallResult(
+                data=None, status="ai_error", model_used=model,
+                error_detail="Agent returned empty content",
+            )
+        return _AICallResult(data=json.loads(content), status="ai_success", model_used=model)
+    except Exception as e:
+        logger.error("Agent evaluation failed: %s", e, exc_info=True)
+        return _AICallResult(
+            data=None, status="ai_error", model_used=model,
+            error_detail=str(e)[:500],
+        )
+
+
+async def _call_openai_for_evaluation(db: AsyncSession, prompt: str) -> _AICallResult:
+    """Call Azure OpenAI for skill evaluation. Returns structured result with status."""
     endpoint = await config_service.get_effective_endpoint(db, "azure_openai")
     api_key = await config_service.get_effective_key(db, "azure_openai")
 
     if not endpoint or not api_key:
         logger.info("L2 evaluation unavailable: no Azure OpenAI endpoint/key configured")
-        return None
+        return _AICallResult(
+            data=None,
+            status="ai_unavailable",
+            error_detail="Azure OpenAI endpoint or API key not configured",
+        )
 
     config = await config_service.get_config(db, "azure_openai")
     from app.config import get_settings
 
+    settings = get_settings()
     deployment = (
         config.model_or_deployment
         if config and config.model_or_deployment
-        else get_settings().voice_live_default_model
+        else settings.default_chat_model
     )
 
     try:
@@ -271,11 +395,16 @@ async def _call_openai_for_evaluation(db: AsyncSession, prompt: str) -> dict | N
         client = AsyncAzureOpenAI(
             azure_endpoint=endpoint,
             api_key=api_key,
-            api_version="2024-06-01",
+            api_version=settings.skill_ai_api_version,
         )
     except ImportError:
         logger.warning("openai package not installed, cannot run L2 evaluation")
-        return None
+        return _AICallResult(
+            data=None,
+            status="ai_unavailable",
+            model_used=deployment,
+            error_detail="openai package not installed",
+        )
 
     try:
         response = await client.chat.completions.create(
@@ -290,20 +419,35 @@ async def _call_openai_for_evaluation(db: AsyncSession, prompt: str) -> dict | N
                 },
                 {"role": "user", "content": prompt},
             ],
-            temperature=0.3,
-            max_completion_tokens=4096,
+            temperature=settings.skill_ai_temperature,
+            max_completion_tokens=settings.skill_ai_max_tokens,
             response_format={"type": "json_object"},
         )
 
         content = response.choices[0].message.content
         if not content:
             logger.error("L2 evaluation returned empty content")
-            return None
+            return _AICallResult(
+                data=None,
+                status="ai_error",
+                model_used=deployment,
+                error_detail="AI returned empty content",
+            )
 
-        return json.loads(content)
+        return _AICallResult(
+            data=json.loads(content),
+            status="ai_success",
+            model_used=deployment,
+        )
     except Exception as e:
+        error_msg = str(e)[:500]
         logger.error("L2 evaluation failed: %s", e, exc_info=True)
-        return None
+        return _AICallResult(
+            data=None,
+            status="ai_error",
+            model_used=deployment,
+            error_detail=error_msg,
+        )
 
 
 def _parse_evaluation_result(

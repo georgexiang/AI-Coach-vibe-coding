@@ -1,3 +1,9 @@
+export interface DerivedSkillInfo {
+  id: string;
+  name: string;
+  status: string;
+}
+
 export interface TrainingMaterial {
   id: string;
   name: string;
@@ -10,6 +16,8 @@ export interface TrainingMaterial {
   created_at: string;
   updated_at: string;
   versions?: MaterialVersion[];
+  derived_skills?: DerivedSkillInfo[];
+  derived_skill_count?: number;
 }
 
 export interface MaterialVersion {

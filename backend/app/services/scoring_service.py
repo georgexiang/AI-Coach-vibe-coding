@@ -10,6 +10,7 @@ from sqlalchemy.orm import selectinload
 
 from app.models.message import SessionMessage
 from app.models.scenario import Scenario
+from app.models.skill import Skill
 from app.models.score import ScoreDetail, SessionScore
 from app.models.session import CoachingSession
 from app.services.rubric_service import get_default_rubric
@@ -30,6 +31,7 @@ async def score_session(db: AsyncSession, session_id: str) -> SessionScore:
         select(CoachingSession)
         .options(
             selectinload(CoachingSession.scenario).selectinload(Scenario.hcp_profile),
+            selectinload(CoachingSession.scenario).selectinload(Scenario.skill),
         )
         .where(CoachingSession.id == session_id)
     )
@@ -90,10 +92,13 @@ async def score_session(db: AsyncSession, session_id: str) -> SessionScore:
     }
     message_dicts = [{"role": m.role, "content": m.content} for m in messages]
 
+    # Extract Skill-specific assessment criteria if a Skill is assigned
+    skill_criteria = _extract_skill_criteria(scenario.skill)
+
     # Try LLM scoring first, fall back to mock if unavailable
     scores = await score_with_llm(
         db, scenario_data, message_dicts, key_messages_status,
-        weights, scenario.pass_threshold,
+        weights, scenario.pass_threshold, skill_criteria=skill_criteria,
     )
     if scores is None:
         logger.info("LLM scoring unavailable for session %s, using mock fallback", session_id)
@@ -225,6 +230,39 @@ async def get_score_history(db: AsyncSession, user_id: str, limit: int = 10) -> 
                     dim["improvement_pct"] = None
 
     return history
+
+
+def _extract_skill_criteria(skill: Skill | None) -> str:
+    """Extract assessment criteria section from Skill content for scoring enrichment.
+
+    Looks for the "## Assessment Rubric" section in the Skill's Markdown content.
+    Returns the section text, or empty string if no skill or no criteria found.
+    """
+    if skill is None or not skill.content:
+        return ""
+
+    content = skill.content
+    # Find the Assessment Rubric section
+    import re
+
+    match = re.search(
+        r"## Assessment Rubric\s*\n(.*?)(?=\n## |\Z)",
+        content,
+        re.DOTALL,
+    )
+    if match:
+        return match.group(0).strip()
+
+    # Fallback: look for assessment criteria in any format
+    match = re.search(
+        r"## Assessment\s*\n(.*?)(?=\n## |\Z)",
+        content,
+        re.DOTALL,
+    )
+    if match:
+        return match.group(0).strip()
+
+    return ""
 
 
 def _generate_mock_scores(

@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import AsyncSessionLocal
 from app.dependencies import get_db, require_role
 from app.models.material import MaterialVersion, TrainingMaterial
-from app.models.skill import Skill, SkillResource
+from app.models.skill import Skill, SkillResource, SkillSourceMaterial
 from app.models.user import User
 from app.schemas.skill import (
     SkillCreate,
@@ -46,6 +46,21 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/skills", tags=["skills"])
 
 VALID_RESOURCE_TYPES = {"reference", "script", "asset"}
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+async def _get_source_materials(db: AsyncSession, skill_id: str) -> list[dict]:
+    """Fetch source material info for a skill (for bidirectional navigation)."""
+    result = await db.execute(
+        select(TrainingMaterial.id, TrainingMaterial.name, TrainingMaterial.product)
+        .join(SkillSourceMaterial, SkillSourceMaterial.material_id == TrainingMaterial.id)
+        .where(SkillSourceMaterial.skill_id == skill_id)
+    )
+    return [{"id": r.id, "name": r.name, "product": r.product} for r in result.all()]
 
 
 # ---------------------------------------------------------------------------
@@ -129,8 +144,8 @@ async def create_skill_from_materials(
     for mid in body.material_ids:
         result = await db.execute(
             select(TrainingMaterial).where(
-                TrainingMaterial.id == mid, TrainingMaterial.is_archived == False
-            )  # noqa: E712
+                TrainingMaterial.id == mid, TrainingMaterial.is_archived.is_(False)
+            )
         )
         material = result.scalar_one_or_none()
         if material is None:
@@ -161,11 +176,21 @@ async def create_skill_from_materials(
     skill = await skill_service.create_skill(db, skill_data, user.id)
     await db.flush()
 
+    # Persist source material links (bidirectional navigation)
+    for mid in body.material_ids:
+        db.add(SkillSourceMaterial(skill_id=skill.id, material_id=mid))
+
     # Copy each material's file into skill resources
     storage = get_storage()
     for version in material_versions:
         # Read original file from materials storage
-        file_bytes = await storage.read(version.storage_url)
+        # storage_url may be an absolute/full path (e.g. ./storage/materials/...)
+        # or a relative path — normalize by stripping the storage base_path prefix
+        read_path = version.storage_url
+        base = getattr(storage, "base_path", "")
+        if base and read_path.startswith(base):
+            read_path = read_path[len(base):].lstrip("/")
+        file_bytes = await storage.read(read_path)
 
         # Save to skills storage
         storage_path = f"skills/{skill.id}/references/{version.filename}"
@@ -200,6 +225,126 @@ async def create_skill_from_materials(
             "materials_copied": len(material_versions),
         },
     )
+
+
+@router.post("/create-from-agent", status_code=202)
+async def create_skill_from_agent(
+    body: CreateFromMaterialsRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role("admin")),
+):
+    """Create a skill from materials using the configured creator agent.
+
+    Unlike /from-materials (text extraction pipeline), this endpoint uses
+    the Azure Agent configured in Meta Skills to process materials.
+    """
+    from app.services import skill_creator_service
+
+    if not body.material_ids:
+        bad_request("At least one material_id is required")
+
+    # Validate materials and collect versions (same logic as from-materials)
+    material_versions: list[MaterialVersion] = []
+    for mid in body.material_ids:
+        result = await db.execute(
+            select(TrainingMaterial).where(
+                TrainingMaterial.id == mid, TrainingMaterial.is_archived.is_(False)
+            )
+        )
+        material = result.scalar_one_or_none()
+        if material is None:
+            not_found(f"Material {mid} not found or archived")
+
+        ver_result = await db.execute(
+            select(MaterialVersion)
+            .where(
+                MaterialVersion.material_id == mid,
+                MaterialVersion.is_active == True,  # noqa: E712
+            )
+            .order_by(MaterialVersion.version_number.desc())
+            .limit(1)
+        )
+        version = ver_result.scalar_one_or_none()
+        if version is None:
+            bad_request(f"Material {mid} has no active version")
+
+        if not body.product and material.product:
+            body.product = material.product
+        material_versions.append(version)
+
+    # Create the skill record
+    skill_data = SkillCreate(name=body.name, product=body.product)
+    skill = await skill_service.create_skill(db, skill_data, user.id)
+    await db.flush()
+
+    # Persist source material links
+    for mid in body.material_ids:
+        db.add(SkillSourceMaterial(skill_id=skill.id, material_id=mid))
+
+    # Copy material files into skill resources
+    storage = get_storage()
+    for version in material_versions:
+        read_path = version.storage_url
+        base = getattr(storage, "base_path", "")
+        if base and read_path.startswith(base):
+            read_path = read_path[len(base):].lstrip("/")
+        file_bytes = await storage.read(read_path)
+
+        storage_path = f"skills/{skill.id}/references/{version.filename}"
+        await storage.save(storage_path, file_bytes)
+
+        resource = SkillResource(
+            skill_id=skill.id,
+            resource_type="reference",
+            filename=version.filename,
+            storage_path=storage_path,
+            content_type=version.content_type,
+            file_size=version.file_size,
+        )
+        db.add(resource)
+
+    skill.conversion_status = "processing"
+    await db.flush()
+    await db.commit()
+
+    # Run agent-based creation in background
+    asyncio.create_task(_run_agent_creation(skill.id))
+
+    return JSONResponse(
+        status_code=202,
+        content={
+            "id": skill.id,
+            "status": "processing",
+            "method": "agent",
+            "materials_copied": len(material_versions),
+        },
+    )
+
+
+async def _run_agent_creation(skill_id: str) -> None:
+    """Background task for agent-based skill creation."""
+    from app.services import skill_creator_service
+
+    async with AsyncSessionLocal() as session:
+        try:
+            result = await skill_creator_service.create_skill_via_agent(session, skill_id)
+            await session.commit()
+            logger.info(
+                "Agent creation completed for skill %s: status=%s",
+                skill_id, result.status,
+            )
+        except Exception as e:
+            await session.rollback()
+            async with AsyncSessionLocal() as err_session:
+                try:
+                    skill = await err_session.get(Skill, skill_id)
+                    if skill:
+                        skill.conversion_status = "failed"
+                        skill.conversion_error = str(e)[:2000]
+                        await err_session.commit()
+                except Exception:
+                    logger.error("Failed to record agent creation error for %s", skill_id)
+            logger.error("Agent creation failed for %s: %s", skill_id, e)
 
 
 # ---------------------------------------------------------------------------
@@ -347,13 +492,21 @@ async def get_conversion_status(
     db: AsyncSession = Depends(get_db),
     _user: User = Depends(require_role("admin")),
 ):
-    """Poll conversion status. Admin only."""
+    """Poll conversion status with step-level progress. Admin only."""
     skill = await skill_service.get_skill(db, skill_id)
-    return {
+    response: dict = {
         "conversion_status": skill.conversion_status,
         "conversion_error": skill.conversion_error,
         "conversion_job_id": skill.conversion_job_id,
     }
+    # Include step-level progress if available
+    try:
+        meta = json.loads(skill.metadata_json or "{}")
+        if "conversion_progress" in meta:
+            response["progress"] = meta["conversion_progress"]
+    except (json.JSONDecodeError, TypeError):
+        pass
+    return response
 
 
 @router.post("/{skill_id}/upload-and-convert")
@@ -471,7 +624,9 @@ async def get_skill(
 ):
     """Get a single skill with versions and resources. Admin only."""
     skill = await skill_service.get_skill(db, skill_id)
-    return skill
+    result = SkillOut.model_validate(skill)
+    result.source_materials = await _get_source_materials(db, skill_id)
+    return result
 
 
 @router.put("/{skill_id}", response_model=SkillOut)
@@ -626,6 +781,11 @@ async def get_evaluation_results(
     # Staleness check
     is_stale = skill_evaluation_service.is_evaluation_stale(skill)
 
+    # Extract evaluation status and model metadata from stored details
+    evaluation_status = quality_details.get("evaluation_status", "ai_success")
+    model_used = quality_details.get("model_used", "")
+    error_detail = quality_details.get("error_detail", "")
+
     return {
         "structure_check": {
             "passed": skill.structure_check_passed,
@@ -636,7 +796,19 @@ async def get_evaluation_results(
             "verdict": skill.quality_verdict,
             "details": quality_details,
             "is_stale": is_stale,
+            "evaluation_status": evaluation_status,
+            "model_used": model_used,
+            "error_detail": error_detail,
         },
+        "evaluation_criteria": [
+            {
+                "name": dim_name,
+                "description": skill_evaluation_service.DIMENSION_DESCRIPTIONS.get(
+                    dim_name, ""
+                ),
+            }
+            for dim_name in skill_evaluation_service.EVALUATION_DIMENSIONS
+        ],
     }
 
 

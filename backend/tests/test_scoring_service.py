@@ -11,6 +11,7 @@ from app.models.session import CoachingSession
 from app.models.user import User
 from app.services.auth import get_password_hash
 from app.services.scoring_service import (
+    _extract_skill_criteria,
     _generate_mock_scores,
     get_session_score,
     score_session,
@@ -287,3 +288,122 @@ class TestScoreSessionIntegration:
         assert score is not None
         assert score.session_id == session_id
         assert len(score.details) == 5
+
+
+class TestExtractSkillCriteria:
+    """Tests for _extract_skill_criteria helper that extracts assessment criteria from Skill content."""
+
+    def test_returns_empty_for_none_skill(self):
+        assert _extract_skill_criteria(None) == ""
+
+    def test_returns_empty_for_skill_without_content(self):
+        from unittest.mock import MagicMock
+
+        skill = MagicMock()
+        skill.content = ""
+        assert _extract_skill_criteria(skill) == ""
+
+    def test_extracts_assessment_rubric_section(self):
+        from unittest.mock import MagicMock
+
+        skill = MagicMock()
+        skill.content = (
+            "# Skill - Coaching Protocol\n\n"
+            "## Overview\n\nSome overview text.\n\n"
+            "## SOP Steps\n\n### Step 1: Opening\n\nGreet the HCP.\n\n"
+            "## Assessment Rubric\n\n"
+            "| Criterion | Description | Weight |\n"
+            "|-----------|-------------|--------|\n"
+            "| Key Message Delivery | Did the MR deliver key messages? | 30% |\n"
+            "| Objection Handling | How well were objections handled? | 25% |\n\n"
+            "## Key Knowledge Points\n\nSome knowledge."
+        )
+        result = _extract_skill_criteria(skill)
+        assert "Assessment Rubric" in result
+        assert "Key Message Delivery" in result
+        assert "Objection Handling" in result
+        # Should not include the next section
+        assert "Key Knowledge Points" not in result
+
+    def test_extracts_assessment_fallback_section(self):
+        from unittest.mock import MagicMock
+
+        skill = MagicMock()
+        skill.content = (
+            "# Protocol\n\n"
+            "## Assessment\n\n"
+            "Score MRs on communication skills.\n\n"
+            "## References\n\nSome refs."
+        )
+        result = _extract_skill_criteria(skill)
+        assert "Assessment" in result
+        assert "communication skills" in result
+        assert "References" not in result
+
+    def test_returns_empty_when_no_assessment_section(self):
+        from unittest.mock import MagicMock
+
+        skill = MagicMock()
+        skill.content = "# Simple Protocol\n\n## Steps\n\nJust steps, no rubric."
+        assert _extract_skill_criteria(skill) == ""
+
+    def test_handles_assessment_at_end_of_content(self):
+        from unittest.mock import MagicMock
+
+        skill = MagicMock()
+        skill.content = (
+            "# Protocol\n\n"
+            "## Assessment Rubric\n\n"
+            "| Criterion | Description | Weight |\n"
+            "| Accuracy | Is info accurate? | 50% |\n"
+        )
+        result = _extract_skill_criteria(skill)
+        assert "Accuracy" in result
+
+
+class TestBuildScoringPromptWithSkillCriteria:
+    """Tests that build_scoring_prompt correctly incorporates skill_criteria."""
+
+    def test_prompt_includes_skill_criteria_section(self):
+        from app.services.scoring_engine import build_scoring_prompt
+
+        criteria = (
+            "## Assessment Rubric\n\n"
+            "| Criterion | Description | Weight |\n"
+            "| Opening | Did MR greet professionally? | 20% |"
+        )
+        prompt = build_scoring_prompt(
+            scenario_data={
+                "product": "TestDrug",
+                "therapeutic_area": "Oncology",
+                "difficulty": "medium",
+                "key_messages": "[]",
+                "hcp_profile": {"name": "Dr. Test"},
+            },
+            messages=[{"role": "user", "content": "Hello doctor"}],
+            key_messages_status=[],
+            weights={"key_message": 30, "objection_handling": 25, "communication": 20,
+                     "product_knowledge": 15, "scientific_info": 10},
+            skill_criteria=criteria,
+        )
+        assert "Skill-Specific Assessment Criteria" in prompt
+        assert "Opening" in prompt
+        assert "Did MR greet professionally?" in prompt
+
+    def test_prompt_without_skill_criteria_has_no_section(self):
+        from app.services.scoring_engine import build_scoring_prompt
+
+        prompt = build_scoring_prompt(
+            scenario_data={
+                "product": "TestDrug",
+                "therapeutic_area": "Oncology",
+                "difficulty": "medium",
+                "key_messages": "[]",
+                "hcp_profile": {},
+            },
+            messages=[{"role": "user", "content": "Hello"}],
+            key_messages_status=[],
+            weights={"key_message": 30, "objection_handling": 25, "communication": 20,
+                     "product_knowledge": 15, "scientific_info": 10},
+        )
+        assert "Skill-Specific Assessment Criteria" not in prompt

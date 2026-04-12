@@ -154,17 +154,32 @@ class TestListMaterialsEndpoint:
 class TestGetMaterialEndpoint:
     """Tests for the get_material route function."""
 
+    @patch("app.api.materials._get_derived_skills", new_callable=AsyncMock, return_value=[])
     @patch("app.api.materials.material_service")
-    async def test_get_returns_material(self, mock_svc):
-        """get_material returns the material from service."""
+    async def test_get_returns_material(self, mock_svc, _mock_derived):
+        """get_material returns MaterialOut validated from service result."""
+        from datetime import datetime, timezone
+
         mock_material = MagicMock()
+        mock_material.id = "m1"
+        mock_material.name = "Test Material"
+        mock_material.product = "Drug"
+        mock_material.therapeutic_area = "Oncology"
+        mock_material.tags = "tag1"
+        mock_material.is_archived = False
+        mock_material.current_version = 1
+        mock_material.created_by = "admin-user-id"
+        mock_material.created_at = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        mock_material.updated_at = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        mock_material.versions = []
         mock_svc.get_material = AsyncMock(return_value=mock_material)
 
         db = AsyncMock()
         user = _make_user()
 
         result = await get_material(material_id="m1", db=db, _user=user)
-        assert result == mock_material
+        assert result.id == "m1"
+        assert result.name == "Test Material"
 
 
 class TestUpdateMaterialEndpoint:

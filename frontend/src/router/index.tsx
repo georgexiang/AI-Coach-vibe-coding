@@ -31,6 +31,7 @@ const UserManagementPage = lazy(() => import("@/pages/admin/users"));
 const AdminSettingsPage = lazy(() => import("@/pages/admin/settings"));
 const SkillHubPage = lazy(() => import("@/pages/admin/skill-hub"));
 const SkillEditorPage = lazy(() => import("@/pages/admin/skill-editor"));
+const MetaSkillsPage = lazy(() => import("@/pages/admin/meta-skills"));
 
 const NotFound = lazy(() => import("@/pages/not-found"));
 
@@ -98,6 +99,7 @@ export const router = createBrowserRouter([
               { path: "skills/:id/edit", element: <SuspensePage><SkillEditorPage /></SuspensePage> },
               { path: "reports", element: <SuspensePage><AdminReportsPage /></SuspensePage> },
               { path: "users", element: <SuspensePage><UserManagementPage /></SuspensePage> },
+              { path: "meta-skills", element: <SuspensePage><MetaSkillsPage /></SuspensePage> },
               { path: "settings", element: <SuspensePage><AdminSettingsPage /></SuspensePage> },
             ],
           },

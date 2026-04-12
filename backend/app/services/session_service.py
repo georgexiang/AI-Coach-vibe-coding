@@ -45,6 +45,9 @@ async def create_session(
         status="created",
         mode=mode,
         key_messages_status=json.dumps(key_messages_status),
+        # Skill audit trail: snapshot from scenario at session creation time
+        skill_id=scenario.skill_id,
+        skill_version_id=scenario.skill_version_id,
     )
     db.add(session)
     await db.flush()

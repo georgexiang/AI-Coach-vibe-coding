@@ -389,6 +389,9 @@ export default function TrainingMaterialsPage() {
                   <th className="hidden px-4 py-3 text-left text-sm font-medium text-muted-foreground lg:table-cell">
                     {t("materials.uploadDate")}
                   </th>
+                  <th className="hidden px-4 py-3 text-center text-sm font-medium text-muted-foreground md:table-cell">
+                    {t("materials.derivedSkills", { defaultValue: "关联Skills" })}
+                  </th>
                   <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">
                     {t("materials.actions")}
                   </th>
@@ -440,6 +443,18 @@ export default function TrainingMaterialsPage() {
                     </td>
                     <td className="hidden px-4 py-3 text-muted-foreground lg:table-cell">
                       {formatDate(material.created_at)}
+                    </td>
+                    <td className="hidden px-4 py-3 text-center md:table-cell">
+                      {(material.derived_skill_count ?? 0) > 0 ? (
+                        <a
+                          href="/admin/skills"
+                          className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary hover:bg-primary/20 transition-colors"
+                        >
+                          {material.derived_skill_count}
+                        </a>
+                      ) : (
+                        <span className="text-muted-foreground">--</span>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1">

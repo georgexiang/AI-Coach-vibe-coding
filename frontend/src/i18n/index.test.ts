@@ -72,6 +72,9 @@ describe("i18n initialization", () => {
       "scoring",
       "analytics",
       "conference",
+      "skill",
+      "voice",
+      "meta-skill",
     ]);
   });
 

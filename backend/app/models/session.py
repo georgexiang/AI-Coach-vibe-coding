@@ -48,8 +48,17 @@ class CoachingSession(Base, TimestampMixin):
         Text, nullable=True, default=None
     )  # JSON string
 
+    # Skill audit trail — snapshot of which Skill was active when session started
+    skill_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("skills.id", ondelete="SET NULL"), nullable=True, default=None
+    )
+    skill_version_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("skill_versions.id", ondelete="SET NULL"), nullable=True, default=None
+    )
+
     # Relationships
     scenario = relationship("Scenario")
     user = relationship("User")
     messages = relationship("SessionMessage", back_populates="session")
     score = relationship("SessionScore", back_populates="session", uselist=False)
+    skill = relationship("Skill", foreign_keys=[skill_id])

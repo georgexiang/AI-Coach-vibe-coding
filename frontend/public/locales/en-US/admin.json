@@ -285,7 +285,7 @@
     "uploadSuccess": "Material uploaded successfully",
     "archiveConfirm": "Are you sure you want to archive this material?",
     "restoreConfirm": "Are you sure you want to restore this material?",
-    "updateSuccess": "Material updated successfully",
+    "updateSuccess": "Material updated successfully"
   },
   "scenarioMode": {
     "conference": "Conference"

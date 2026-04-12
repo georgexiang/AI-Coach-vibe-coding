@@ -1,0 +1,45 @@
+{
+  "title": "Meta Skills Configuration",
+  "description": "Configure the AI agents used for Skill creation and evaluation",
+  "tabs": {
+    "creator": "Skill Creator",
+    "evaluator": "Skill Evaluator"
+  },
+  "fields": {
+    "agentId": "Agent ID",
+    "agentVersion": "Agent Version",
+    "model": "Model",
+    "templateLanguage": "Template Language",
+    "lastSynced": "Last Synced",
+    "status": "Status",
+    "template": "Agent Instructions (SKILL.md Template)"
+  },
+  "status": {
+    "synced": "Synced",
+    "notSynced": "Not Synced",
+    "active": "Active",
+    "inactive": "Inactive"
+  },
+  "actions": {
+    "save": "Save Configuration",
+    "sync": "Save & Sync Agent",
+    "reset": "Reset to Default",
+    "test": "Test Agent"
+  },
+  "messages": {
+    "saveSuccess": "Configuration saved successfully",
+    "syncSuccess": "Agent synced to Azure AI Foundry",
+    "syncError": "Failed to sync agent",
+    "resetSuccess": "Template reset to default",
+    "resetConfirm": "Reset template to the bundled default? Current changes will be lost.",
+    "noAgent": "No agent synced yet. Click Sync to create the agent in Azure AI Foundry."
+  },
+  "models": {
+    "gpt4o": "GPT-4o",
+    "gpt4oMini": "GPT-4o Mini"
+  },
+  "languages": {
+    "en": "English",
+    "zh": "Chinese"
+  }
+}

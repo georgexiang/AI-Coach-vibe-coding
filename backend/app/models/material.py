@@ -26,6 +26,11 @@ class TrainingMaterial(Base, TimestampMixin):
         order_by="MaterialVersion.version_number.desc()",
     )
     creator = relationship("User")
+    derived_skill_links = relationship(
+        "SkillSourceMaterial",
+        back_populates="material",
+        cascade="all, delete-orphan",
+    )
 
 
 class MaterialVersion(Base, TimestampMixin):

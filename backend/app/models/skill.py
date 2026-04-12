@@ -1,6 +1,6 @@
 """Skill ORM models for coaching skill lifecycle management."""
 
-from sqlalchemy import Boolean, ForeignKey, Index, Integer, String, Text
+from sqlalchemy import Boolean, ForeignKey, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin
@@ -62,6 +62,11 @@ class Skill(Base, TimestampMixin):
         back_populates="skill",
         cascade="all, delete-orphan",
     )
+    source_material_links = relationship(
+        "SkillSourceMaterial",
+        back_populates="skill",
+        cascade="all, delete-orphan",
+    )
 
     __table_args__ = (
         Index("ix_skills_status_product", "status", "product"),
@@ -114,3 +119,25 @@ class SkillResource(Base, TimestampMixin):
     skill = relationship("Skill", back_populates="resources")
 
     __table_args__ = (Index("ix_skill_resources_skill_type", "skill_id", "resource_type"),)
+
+
+class SkillSourceMaterial(Base, TimestampMixin):
+    """Junction table linking Skills to their source Training Materials."""
+
+    __tablename__ = "skill_source_materials"
+
+    skill_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("skills.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    material_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("training_materials.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    # Relationships
+    skill = relationship("Skill", back_populates="source_material_links")
+    material = relationship("TrainingMaterial", back_populates="derived_skill_links")
+
+    __table_args__ = (UniqueConstraint("skill_id", "material_id", name="uq_skill_source_material"),)

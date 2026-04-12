@@ -115,13 +115,31 @@ export async function retryConversion(id: string): Promise<Skill> {
   return data;
 }
 
+export interface ConversionProgressStep {
+  step: number;
+  name: string;
+  status: "pending" | "in_progress" | "completed";
+}
+
+export interface ConversionProgressInfo {
+  current_step: number;
+  total_steps: number;
+  step_name: string;
+  steps: ConversionProgressStep[];
+}
+
+export interface ConversionStatusResponse {
+  status: string;
+  error: string | null;
+  progress?: ConversionProgressInfo;
+}
+
 export async function getConversionStatus(
   id: string,
-): Promise<{ status: string; error: string | null }> {
-  const { data } = await apiClient.get<{
-    status: string;
-    error: string | null;
-  }>(`/skills/${id}/conversion-status`);
+): Promise<ConversionStatusResponse> {
+  const { data } = await apiClient.get<ConversionStatusResponse>(
+    `/skills/${id}/conversion-status`,
+  );
   return data;
 }
 

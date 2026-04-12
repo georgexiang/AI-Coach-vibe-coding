@@ -86,6 +86,16 @@ class SkillListOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class SourceMaterialInfo(BaseModel):
+    """Lightweight reference to a source training material."""
+
+    id: str
+    name: str
+    product: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class SkillOut(SkillListOut):
     """Full skill response with content and relationships."""
 
@@ -98,6 +108,7 @@ class SkillOut(SkillListOut):
     conversion_error: str
     resources: list[SkillResourceOut] = []
     versions: list[SkillVersionOut] = []
+    source_materials: list[SourceMaterialInfo] = []
 
 
 class StructureCheckOut(BaseModel):

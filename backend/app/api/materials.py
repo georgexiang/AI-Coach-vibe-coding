@@ -4,11 +4,14 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
 from fastapi.responses import Response
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies import get_db, require_role
+from app.models.skill import Skill, SkillSourceMaterial
 from app.models.user import User
 from app.schemas.material import (
+    DerivedSkillInfo,
     MaterialListOut,
     MaterialOut,
     MaterialUpdate,
@@ -142,12 +145,44 @@ async def list_materials(
         search=search,
         include_archived=include_archived,
     )
+    # Batch-fetch derived skill counts
+    material_ids = [item.id for item in items]
+    counts = await _get_derived_skill_counts(db, material_ids)
+
+    validated = []
+    for item in items:
+        out = MaterialListOut.model_validate(item)
+        out.derived_skill_count = counts.get(item.id, 0)
+        validated.append(out)
+
     return PaginatedResponse.create(
-        items=[MaterialListOut.model_validate(item) for item in items],
+        items=validated,
         total=total,
         page=page,
         page_size=page_size,
     )
+
+
+async def _get_derived_skills(db: AsyncSession, material_id: str) -> list[dict]:
+    """Query skills derived from this material."""
+    result = await db.execute(
+        select(Skill.id, Skill.name, Skill.status)
+        .join(SkillSourceMaterial, SkillSourceMaterial.skill_id == Skill.id)
+        .where(SkillSourceMaterial.material_id == material_id)
+    )
+    return [{"id": r.id, "name": r.name, "status": r.status} for r in result.all()]
+
+
+async def _get_derived_skill_counts(db: AsyncSession, material_ids: list[str]) -> dict[str, int]:
+    """Batch query derived skill counts for a list of materials."""
+    if not material_ids:
+        return {}
+    result = await db.execute(
+        select(SkillSourceMaterial.material_id, func.count(SkillSourceMaterial.skill_id))
+        .where(SkillSourceMaterial.material_id.in_(material_ids))
+        .group_by(SkillSourceMaterial.material_id)
+    )
+    return {row[0]: row[1] for row in result.all()}
 
 
 @router.get("/{material_id}", response_model=MaterialOut)
@@ -158,7 +193,11 @@ async def get_material(
 ):
     """Get a single material with version history. Admin only."""
     material = await material_service.get_material(db, material_id)
-    return material
+    result = MaterialOut.model_validate(material)
+    result.derived_skills = [
+        DerivedSkillInfo(**s) for s in await _get_derived_skills(db, material_id)
+    ]
+    return result
 
 
 @router.put("/{material_id}", response_model=MaterialOut)

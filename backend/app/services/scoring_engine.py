@@ -38,7 +38,7 @@ Healthcare Professional (HCP) and provide a detailed multi-dimensional scoring.
 ## Key Message Delivery Status
 {key_messages_status}
 
-## Conversation Transcript
+{skill_criteria_section}## Conversation Transcript
 {transcript}
 
 ## Scoring Dimensions and Weights
@@ -75,6 +75,7 @@ def build_scoring_prompt(
     messages: list[dict],
     key_messages_status: list[dict],
     weights: dict[str, int],
+    skill_criteria: str = "",
 ) -> str:
     """Build the scoring prompt from session data."""
     # Format transcript
@@ -111,6 +112,18 @@ def build_scoring_prompt(
         dim_config_lines.append(f"- {dim_key} ({label}): weight={weight}%")
     dims_config = "\n".join(dim_config_lines)
 
+    # Format Skill-specific assessment criteria section
+    if skill_criteria:
+        skill_section = (
+            "## Skill-Specific Assessment Criteria\n\n"
+            "The following assessment criteria are defined by the assigned coaching skill. "
+            "Use these criteria as additional guidance when scoring each dimension — "
+            "they represent what the training designer considers most important.\n\n"
+            f"{skill_criteria}\n\n"
+        )
+    else:
+        skill_section = ""
+
     hcp = scenario_data.get("hcp_profile", {})
 
     return SCORING_PROMPT_TEMPLATE.format(
@@ -125,6 +138,7 @@ def build_scoring_prompt(
         key_messages_status=km_status,
         transcript=transcript,
         dimensions_config=dims_config,
+        skill_criteria_section=skill_section,
     )
 
 
@@ -135,6 +149,7 @@ async def score_with_llm(
     key_messages_status: list[dict],
     weights: dict[str, int],
     pass_threshold: int = 70,
+    skill_criteria: str = "",
 ) -> dict | None:
     """Score a session using LLM. Returns None if LLM is unavailable.
 
@@ -170,7 +185,9 @@ async def score_with_llm(
         logger.warning("openai package not installed, cannot use LLM scoring")
         return None
 
-    prompt = build_scoring_prompt(scenario_data, messages, key_messages_status, weights)
+    prompt = build_scoring_prompt(
+        scenario_data, messages, key_messages_status, weights, skill_criteria
+    )
 
     try:
         response = await client.chat.completions.create(
