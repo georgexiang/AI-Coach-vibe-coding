@@ -374,7 +374,23 @@ metadata:
 You are an expert coaching skill content evaluator...
 ```
 
-### 6.4 规范合规性检查
+### 6.4 name vs display_name
+
+AI Coach 平台区分 `name`（API 标识）和 `display_name`（UI 显示）：
+
+| 字段 | 用途 | 约束 |
+|------|------|------|
+| `name` | 用作 Azure Agent API 的 `agent_name` | 必须符合 Azure 命名规则（字母数字+连字符，≤63 字符） |
+| `display_name` | Admin UI 中展示给管理员 | 无限制，可含空格、中文等 |
+
+| Meta Skill | `name` (DB / agent_name) | `display_name` (UI) |
+|-----------|-------------------------|---------------------|
+| Creator | `skill-creator` | Skill Creator |
+| Evaluator | `skill-evaluator` | Skill Evaluator |
+
+> **注意**：始终用 `name` 字段传给 Azure API，不要用 `display_name`。详见 [07-agent-skill-creation-guide.md](./07-agent-skill-creation-guide.md) 第 1 节命名规则。
+
+### 6.5 规范合规性检查
 
 | 字段 | 规范要求 | skill-creator | skill-evaluator | 状态 |
 |------|---------|---------------|-----------------|------|
@@ -385,7 +401,7 @@ You are an expert coaching skill content evaluator...
 | `metadata` | 任意 key-value | author/version/domain ✓ | author/version/domain ✓ | 合规 |
 | 目录名 = name | 强制 | `skill-creator/` ✓ | `skill-evaluator/` ✓ | 合规 |
 
-### 6.5 与 MS Agent Framework 的差异
+### 6.6 与 MS Agent Framework 的差异
 
 | 维度 | MS Agent Framework Skills | AI Coach 平台实现 |
 |------|--------------------------|-------------------|
@@ -396,7 +412,7 @@ You are an expert coaching skill content evaluator...
 | **i18n** | 不内置 | 支持 `SKILL_zh.md` 中文版本 |
 | **Agent 同步** | 不涉及 | 同步到 Azure AI Foundry Agent Registry |
 
-### 6.6 组合加载流程
+### 6.7 组合加载流程
 
 ```
 1. 读取 SKILL.md（保留 YAML frontmatter）
@@ -423,7 +439,7 @@ You are an expert coaching skill content evaluator...
 5. 同步到 Azure Agent → instructions 字段
 ```
 
-### 6.7 关键代码文件
+### 6.8 关键代码文件
 
 | 文件 | 作用 |
 |------|------|
@@ -496,3 +512,36 @@ You are an expert coaching skill content evaluator...
 | 首尾连字符 | 不允许 | 不允许 |
 | 必须匹配目录名 | **是** | 不适用 |
 | 验证正则 | `^[a-z0-9]([a-z0-9-]*[a-z0-9])?$` | `^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?$` |
+
+### Agent Name Sanitize 函数
+
+平台在 `agent_sync_service.py` 中提供自动转换函数，确保任意字符串符合 Azure 命名规则：
+
+```python
+import re
+
+def _sanitize_agent_name(name: str) -> str:
+    """将任意字符串转换为合法的 Azure agent name.
+
+    规则:
+    - 非字母数字和非连字符的字符 → 替换为连字符（包括下划线！）
+    - 合并连续连字符
+    - 去除首尾连字符
+    - 截断到 63 字符
+    - 空字符串回退为 "agent"
+    """
+    sanitized = re.sub(r"[^a-zA-Z0-9-]", "-", name.strip())
+    sanitized = re.sub(r"-+", "-", sanitized).strip("-")
+    return sanitized[:63] or "agent"
+```
+
+**转换示例**:
+
+| 输入 | 输出 | 说明 |
+|------|------|------|
+| `Skill Creator` | `Skill-Creator` | 空格→连字符 |
+| `skill_creator` | `skill-creator` | 下划线→连字符 |
+| `Dr. Wang Fang` | `Dr-Wang-Fang` | 空格和点→连字符 |
+| `---invalid---` | `invalid` | 首尾连字符被去除 |
+| `""` (空) | `agent` | 回退默认值 |
+| `a` * 100 | `a` * 63 | 截断到 63 字符 |
