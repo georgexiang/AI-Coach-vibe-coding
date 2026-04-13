@@ -3,7 +3,9 @@
   "description": "Configure the AI agents used for Skill creation and evaluation",
   "tabs": {
     "creator": "Skill Creator",
-    "evaluator": "Skill Evaluator"
+    "evaluator": "Skill Evaluator",
+    "instructions": "Agent Instructions",
+    "resources": "Skill Resources"
   },
   "fields": {
     "agentId": "Agent ID",
@@ -12,7 +14,8 @@
     "templateLanguage": "Template Language",
     "lastSynced": "Last Synced",
     "status": "Status",
-    "template": "Agent Instructions (SKILL.md Template)"
+    "template": "Agent Instructions (SKILL.md Template)",
+    "composedInstructions": "Composed Instructions (SKILL.md + References)"
   },
   "status": {
     "synced": "Synced",

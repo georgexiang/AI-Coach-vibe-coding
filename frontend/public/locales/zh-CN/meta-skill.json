@@ -3,7 +3,9 @@
   "description": "配置用于技能创建和质量评估的 AI 引擎（模型、指令模板、Agent 同步）",
   "tabs": {
     "creator": "创建引擎",
-    "evaluator": "评估引擎"
+    "evaluator": "评估引擎",
+    "instructions": "Agent 指令",
+    "resources": "技能资源"
   },
   "fields": {
     "agentId": "Agent ID",
@@ -12,7 +14,8 @@
     "templateLanguage": "模板语言",
     "lastSynced": "上次同步",
     "status": "状态",
-    "template": "Agent 指令（SKILL.md 模板）"
+    "template": "Agent 指令（SKILL.md 模板）",
+    "composedInstructions": "组合指令（SKILL.md + 参考文档）"
   },
   "status": {
     "synced": "已同步",

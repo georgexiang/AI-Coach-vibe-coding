@@ -375,163 +375,169 @@ function MetaSkillCard({
         )}
       </Card>
 
-      {/* Skill Resources Card — FileTreeView + preview */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">
-            {t("resources.title", { defaultValue: "Skill Resources" })}
-          </CardTitle>
-          <CardDescription>
-            {t("resources.description", {
-              defaultValue:
-                "Browse the SKILL.md instructions, reference documents, and validation scripts bundled with this skill.",
-            })}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="p-0">
-          {resourcesLoading ? (
-            <div className="p-6">
-              <Skeleton className="h-40 w-full" />
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-0 lg:grid-cols-[280px_1fr] border-t border-border overflow-hidden">
-              {/* Left: File tree */}
-              <div className="border-b lg:border-b-0 lg:border-r border-border bg-muted/30">
-                <FileTreeView
-                  resources={adaptedResources}
-                  onSelectFile={setSelectedResource}
-                  selectedId={
-                    selectedResource === "SKILL.md"
-                      ? "__SKILL_MD__"
-                      : selectedResource
-                        ? (selectedResource as SkillResource).id
-                        : undefined
-                  }
+      {/* Inner tabs: Instructions vs Resources */}
+      <Tabs defaultValue="instructions">
+        <TabsList>
+          <TabsTrigger value="instructions" className="flex items-center gap-2">
+            <FileText className="h-4 w-4" />
+            {t("tabs.instructions", { defaultValue: "Agent Instructions" })}
+          </TabsTrigger>
+          <TabsTrigger value="resources" className="flex items-center gap-2">
+            <FileCode className="h-4 w-4" />
+            {t("tabs.resources", { defaultValue: "Skill Resources" })}
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Instructions Tab */}
+        <TabsContent value="instructions" className="mt-4">
+          <Card>
+            <CardContent className="pt-6 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>{t("fields.model")}</Label>
+                  <ModelSelector
+                    value={editModel}
+                    onValueChange={setEditModel}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>{t("fields.templateLanguage")}</Label>
+                  <Select
+                    value={editLanguage}
+                    onValueChange={handleLanguageChange}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {LANGUAGE_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>
+                  {t("fields.composedInstructions", {
+                    defaultValue:
+                      "Composed Instructions (SKILL.md + References)",
+                  })}
+                </Label>
+                <Textarea
+                  value={editTemplate}
+                  onChange={(e) => setEditTemplate(e.target.value)}
+                  rows={16}
+                  className="font-mono text-xs leading-relaxed"
                 />
               </div>
 
-              {/* Right: Preview panel */}
-              <div className="min-h-[400px]">
-                {!selectedResource && (
-                  <div className="flex h-full items-center justify-center p-8">
-                    <p className="text-sm text-muted-foreground">
-                      {t("resources.selectFile", {
-                        defaultValue: "Select a file to preview",
-                      })}
-                    </p>
-                  </div>
-                )}
-
-                {/* SKILL.md preview */}
-                {selectedResource === "SKILL.md" && (
-                  <ScrollArea className="h-[500px]">
-                    <div className="prose prose-sm max-w-none p-6 dark:prose-invert">
-                      <ReactMarkdown rehypePlugins={[rehypeRaw]}>
-                        {editTemplate || ""}
-                      </ReactMarkdown>
-                    </div>
-                  </ScrollArea>
-                )}
-
-                {/* Resource file preview */}
-                {selectedResource &&
-                  selectedResource !== "SKILL.md" && (
-                    <ResourceContentPreview
-                      skillType={skillType}
-                      resource={selectedResource as SkillResource}
-                    />
+              <div className="flex gap-2 justify-end">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleReset}
+                  disabled={resetting}
+                >
+                  {resetting ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                  ) : (
+                    <RotateCcw className="h-4 w-4 mr-1" />
                   )}
+                  {t("actions.reset")}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleSave}
+                  disabled={saving || !hasChanges}
+                >
+                  {saving ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                  ) : (
+                    <Save className="h-4 w-4 mr-1" />
+                  )}
+                  {t("actions.save")}
+                </Button>
+                <Button size="sm" onClick={handleSync} disabled={syncing}>
+                  {syncing ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4 mr-1" />
+                  )}
+                  {t("actions.sync")}
+                </Button>
               </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-      {/* Configuration Card */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">
-            {t("fields.template")}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>{t("fields.model")}</Label>
-              <ModelSelector value={editModel} onValueChange={setEditModel} />
-            </div>
-            <div className="space-y-2">
-              <Label>{t("fields.templateLanguage")}</Label>
-              <Select
-                value={editLanguage}
-                onValueChange={handleLanguageChange}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {LANGUAGE_OPTIONS.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+        {/* Resources Tab */}
+        <TabsContent value="resources" className="mt-4">
+          <Card>
+            <CardContent className="p-0">
+              {resourcesLoading ? (
+                <div className="p-6">
+                  <Skeleton className="h-40 w-full" />
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-0 lg:grid-cols-[280px_1fr] overflow-hidden">
+                  {/* Left: File tree */}
+                  <div className="border-b lg:border-b-0 lg:border-r border-border bg-muted/30">
+                    <FileTreeView
+                      resources={adaptedResources}
+                      onSelectFile={setSelectedResource}
+                      selectedId={
+                        selectedResource === "SKILL.md"
+                          ? "__SKILL_MD__"
+                          : selectedResource
+                            ? (selectedResource as SkillResource).id
+                            : undefined
+                      }
+                    />
+                  </div>
 
-          <div className="space-y-2">
-            <Label>
-              {t("fields.composedInstructions", {
-                defaultValue: "Composed Instructions (SKILL.md + References)",
-              })}
-            </Label>
-            <Textarea
-              value={editTemplate}
-              onChange={(e) => setEditTemplate(e.target.value)}
-              rows={16}
-              className="font-mono text-xs leading-relaxed"
-            />
-          </div>
+                  {/* Right: Preview panel */}
+                  <div className="min-h-[400px]">
+                    {!selectedResource && (
+                      <div className="flex h-full items-center justify-center p-8">
+                        <p className="text-sm text-muted-foreground">
+                          {t("resources.selectFile", {
+                            defaultValue: "Select a file to preview",
+                          })}
+                        </p>
+                      </div>
+                    )}
 
-          <div className="flex gap-2 justify-end">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleReset}
-              disabled={resetting}
-            >
-              {resetting ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-1" />
-              ) : (
-                <RotateCcw className="h-4 w-4 mr-1" />
+                    {/* SKILL.md preview */}
+                    {selectedResource === "SKILL.md" && (
+                      <ScrollArea className="h-[500px]">
+                        <div className="prose prose-sm max-w-none p-6 dark:prose-invert">
+                          <ReactMarkdown rehypePlugins={[rehypeRaw]}>
+                            {editTemplate || ""}
+                          </ReactMarkdown>
+                        </div>
+                      </ScrollArea>
+                    )}
+
+                    {/* Resource file preview */}
+                    {selectedResource &&
+                      selectedResource !== "SKILL.md" && (
+                        <ResourceContentPreview
+                          skillType={skillType}
+                          resource={selectedResource as SkillResource}
+                        />
+                      )}
+                  </div>
+                </div>
               )}
-              {t("actions.reset")}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleSave}
-              disabled={saving || !hasChanges}
-            >
-              {saving ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-1" />
-              ) : (
-                <Save className="h-4 w-4 mr-1" />
-              )}
-              {t("actions.save")}
-            </Button>
-            <Button size="sm" onClick={handleSync} disabled={syncing}>
-              {syncing ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-1" />
-              ) : (
-                <RefreshCw className="h-4 w-4 mr-1" />
-              )}
-              {t("actions.sync")}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
