@@ -49,7 +49,7 @@ import {
   useMetaSkillResources,
   useMetaSkillResourceContent,
 } from "@/hooks/use-meta-skills";
-import { downloadMetaSkillResource } from "@/api/meta-skills";
+import { downloadMetaSkillResource, downloadMetaSkillZip } from "@/api/meta-skills";
 import type { MetaSkill } from "@/types/meta-skill";
 import type { SkillResource } from "@/types/skill";
 
@@ -479,6 +479,30 @@ function MetaSkillCard({
         <TabsContent value="resources" className="mt-4">
           <Card>
             <CardContent className="p-0">
+              {/* Download Package toolbar */}
+              <div className="flex items-center justify-between border-b border-border px-4 py-2">
+                <span className="text-sm font-medium text-muted-foreground">
+                  {t("resources.title", { defaultValue: "Skill Resources" })}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    downloadMetaSkillZip(skillType).catch(() =>
+                      toast.error(
+                        t("resources.downloadError", {
+                          defaultValue: "Download failed",
+                        }),
+                      ),
+                    );
+                  }}
+                >
+                  <Download className="mr-2 size-4" />
+                  {t("resources.downloadPackage", {
+                    defaultValue: "Download Package",
+                  })}
+                </Button>
+              </div>
               {resourcesLoading ? (
                 <div className="p-6">
                   <Skeleton className="h-40 w-full" />

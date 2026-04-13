@@ -51,7 +51,7 @@ import {
   usePublishSkill,
   skillKeys,
 } from "@/hooks/use-skills";
-import { downloadResource } from "@/api/skills";
+import { downloadResource, downloadSkillZip } from "@/api/skills";
 import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import type {
@@ -566,7 +566,29 @@ export default function SkillEditorPage() {
           )}
 
           {!isNew && skill ? (
-            <div className="grid grid-cols-1 gap-0 lg:grid-cols-[280px_1fr] rounded-lg border border-border overflow-hidden">
+            <div className="rounded-lg border border-border overflow-hidden">
+              {/* Download Package toolbar */}
+              <div className="flex items-center justify-between border-b border-border px-4 py-2 bg-muted/30">
+                <span className="text-sm font-medium text-muted-foreground">
+                  {t("editor.tabResources")}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    if (!id) return;
+                    downloadSkillZip(id, skill.name).catch(() =>
+                      toast.error(t("errors.loadFailed")),
+                    );
+                  }}
+                >
+                  <Download className="mr-2 size-4" />
+                  {t("fileTree.downloadPackage", {
+                    defaultValue: "Download Package",
+                  })}
+                </Button>
+              </div>
+              <div className="grid grid-cols-1 gap-0 lg:grid-cols-[280px_1fr]">
               {/* Left: File tree */}
               <div className="border-b lg:border-b-0 lg:border-r border-border bg-muted/30">
                 <FileTreeView
@@ -627,6 +649,7 @@ export default function SkillEditorPage() {
                       </div>
                     );
                   })()}
+              </div>
               </div>
             </div>
           ) : (

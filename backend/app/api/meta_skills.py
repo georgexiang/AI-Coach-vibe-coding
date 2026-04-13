@@ -34,8 +34,24 @@ async def list_meta_skills(
     return await meta_skill_service.get_all_meta_skills(db)
 
 
-
 # --- Parameterized routes ---
+
+
+@router.get("/{skill_type}/export")
+async def export_meta_skill_zip(
+    skill_type: str,
+    _user: User = Depends(require_role("admin")),
+):
+    """Export a meta-skill as a ZIP archive containing SKILL.md + resources."""
+    result = meta_skill_service.export_meta_skill_zip(skill_type)
+    if result is None:
+        not_found(f"Meta skill type '{skill_type}' not found or has no files")
+    zip_filename, zip_bytes = result
+    return Response(
+        content=zip_bytes,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{zip_filename}"'},
+    )
 
 
 @router.get("/{skill_type}/resources", response_model=list[MetaSkillResourceOut])
@@ -59,7 +75,9 @@ async def download_meta_skill_resource(
 ):
     """Download a specific bundled resource file."""
     result = meta_skill_service.get_meta_skill_resource_content(
-        skill_type, resource_type, filename,
+        skill_type,
+        resource_type,
+        filename,
     )
     if result is None:
         not_found(f"Resource '{filename}' not found for meta-skill '{skill_type}'")

@@ -266,6 +266,27 @@ export async function exportSkillZip(id: string): Promise<Blob> {
   return data;
 }
 
+export async function downloadSkillZip(
+  id: string,
+  skillName?: string,
+): Promise<void> {
+  const { data, headers } = await apiClient.get(`/skills/${id}/export`, {
+    responseType: "blob",
+  });
+  const disposition = (headers["content-disposition"] as string) ?? "";
+  const filenameMatch = disposition.match(/filename="?([^";\s]+)"?/);
+  const filename = filenameMatch?.[1] ?? `${skillName ?? "skill"}.zip`;
+
+  const url = URL.createObjectURL(data as Blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
 export async function importSkillZip(file: File): Promise<Skill> {
   const formData = new FormData();
   formData.append("file", file);

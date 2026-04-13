@@ -4,7 +4,9 @@ Manages the creator and evaluator meta-skill agents. Reuses the same
 agent_sync_service functions (create_agent, update_agent) used by HCP profiles.
 """
 
+import io
 import logging
+import zipfile
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -118,7 +120,8 @@ def _load_skill_directory(skill_type: str, language: str = "en") -> str:
     if token_estimate > 30000:
         logger.warning(
             "Composed instructions for '%s' are very large: ~%d tokens",
-            skill_type, token_estimate,
+            skill_type,
+            token_estimate,
         )
 
     return composed
@@ -176,21 +179,25 @@ def list_meta_skill_resources(skill_type: str) -> list[dict]:
                 continue
             stat = f.stat()
             mtime = datetime.fromtimestamp(stat.st_mtime, tz=UTC).isoformat()
-            resources.append({
-                "id": f"{rtype[:3]}__{f.name}",
-                "resource_type": rtype,
-                "filename": f.name,
-                "content_type": _CONTENT_TYPE_MAP.get(f.suffix, "application/octet-stream"),
-                "file_size": stat.st_size,
-                "created_at": mtime,
-                "updated_at": mtime,
-            })
+            resources.append(
+                {
+                    "id": f"{rtype[:3]}__{f.name}",
+                    "resource_type": rtype,
+                    "filename": f.name,
+                    "content_type": _CONTENT_TYPE_MAP.get(f.suffix, "application/octet-stream"),
+                    "file_size": stat.st_size,
+                    "created_at": mtime,
+                    "updated_at": mtime,
+                }
+            )
 
     return resources
 
 
 def get_meta_skill_resource_content(
-    skill_type: str, resource_type: str, filename: str,
+    skill_type: str,
+    resource_type: str,
+    filename: str,
 ) -> tuple[str, bytes] | None:
     """Read a specific resource file from disk.
 
@@ -234,6 +241,64 @@ def get_validation_script_path(skill_type: str) -> Path | None:
     type_label = dir_name.replace("skill-", "")  # "creator" or "evaluator"
     script = scripts_dir / f"validate_{type_label}_output.py"
     return script if script.exists() else None
+
+
+def export_meta_skill_zip(skill_type: str) -> tuple[str, bytes] | None:
+    """Export a meta-skill directory as a ZIP archive.
+
+    Returns (zip_filename, zip_bytes) or None if the skill type is unknown.
+    ZIP structure mirrors the on-disk layout:
+        SKILL.md
+        references/<files>
+        scripts/<files>
+    """
+    dir_name = _SKILL_DIR_MAP.get(skill_type)
+    if not dir_name:
+        return None
+
+    skill_dir = _TEMPLATE_DIR / dir_name
+    if not skill_dir.is_dir():
+        return None
+
+    buf = io.BytesIO()
+    file_count = 0
+    with zipfile.ZipFile(buf, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+        # Add SKILL.md at root
+        skill_md = skill_dir / "SKILL.md"
+        if skill_md.is_file():
+            zf.writestr("SKILL.md", skill_md.read_bytes())
+            file_count += 1
+
+        # Add language variants (e.g. SKILL_zh.md)
+        for variant in sorted(skill_dir.glob("SKILL_*.md")):
+            if variant.is_file():
+                zf.writestr(variant.name, variant.read_bytes())
+                file_count += 1
+
+        # Add references/ and scripts/ subdirectories
+        for sub_name in ("references", "scripts"):
+            sub_dir = skill_dir / sub_name
+            if not sub_dir.is_dir():
+                continue
+            allowed_ext = _REFERENCE_EXTENSIONS if sub_name == "references" else _SCRIPT_EXTENSIONS
+            for f in sorted(sub_dir.iterdir()):
+                if not f.is_file() or f.suffix not in allowed_ext:
+                    continue
+                arc_path = f"{sub_name}/{f.name}"
+                zf.writestr(arc_path, f.read_bytes())
+                file_count += 1
+
+    if file_count == 0:
+        return None
+
+    zip_filename = f"{dir_name}.zip"
+    logger.info(
+        "Exported meta-skill '%s' as ZIP (%d files, %d bytes)",
+        skill_type,
+        file_count,
+        buf.tell(),
+    )
+    return zip_filename, buf.getvalue()
 
 
 def _load_default_template(skill_type: str, language: str = "en") -> str:

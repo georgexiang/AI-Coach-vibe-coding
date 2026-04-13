@@ -38,3 +38,25 @@ export async function downloadMetaSkillResource(
   a.click();
   URL.revokeObjectURL(url);
 }
+
+export async function downloadMetaSkillZip(
+  skillType: string,
+): Promise<void> {
+  const { data, headers } = await apiClient.get(
+    `/meta-skills/${skillType}/export`,
+    { responseType: "blob" },
+  );
+  // Extract filename from Content-Disposition header, fallback to skill type
+  const disposition = headers["content-disposition"] ?? "";
+  const filenameMatch = disposition.match(/filename="?([^";\s]+)"?/);
+  const filename = filenameMatch?.[1] ?? `skill-${skillType}.zip`;
+
+  const url = URL.createObjectURL(data as Blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
