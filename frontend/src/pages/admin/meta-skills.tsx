@@ -512,14 +512,12 @@ function MetaSkillCard({
                       </div>
                     )}
 
-                    {/* SKILL.md preview */}
+                    {/* SKILL.md preview — render as raw text to preserve YAML frontmatter */}
                     {selectedResource === "SKILL.md" && (
                       <ScrollArea className="h-[500px]">
-                        <div className="prose prose-sm max-w-none p-6 dark:prose-invert">
-                          <ReactMarkdown rehypePlugins={[rehypeRaw]}>
-                            {editTemplate || ""}
-                          </ReactMarkdown>
-                        </div>
+                        <pre className="p-6 text-sm font-mono leading-relaxed whitespace-pre-wrap overflow-x-auto">
+                          {editTemplate || ""}
+                        </pre>
                       </ScrollArea>
                     )}
 

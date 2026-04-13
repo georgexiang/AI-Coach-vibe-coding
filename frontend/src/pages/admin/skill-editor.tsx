@@ -5,8 +5,6 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import ReactMarkdown from "react-markdown";
-import rehypeRaw from "rehype-raw";
 import {
   ArrowLeft,
   Save,
@@ -595,14 +593,12 @@ export default function SkillEditorPage() {
                   </div>
                 )}
 
-                {/* SKILL.md preview */}
+                {/* SKILL.md preview — render as raw text to preserve YAML frontmatter */}
                 {selectedResource === "SKILL.md" && (
                   <ScrollArea className="h-[500px]">
-                    <div className="prose prose-sm max-w-none p-6 dark:prose-invert">
-                      <ReactMarkdown rehypePlugins={[rehypeRaw]}>
-                        {skill.content || ""}
-                      </ReactMarkdown>
-                    </div>
+                    <pre className="p-6 text-sm font-mono leading-relaxed whitespace-pre-wrap overflow-x-auto">
+                      {skill.content || ""}
+                    </pre>
                   </ScrollArea>
                 )}
 
