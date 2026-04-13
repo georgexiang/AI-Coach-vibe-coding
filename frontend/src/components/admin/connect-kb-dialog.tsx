@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Loader2 } from "lucide-react";
+import { AlertCircle, Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -95,7 +95,7 @@ export function ConnectKbDialog({
             <Select
               value={selectedConnection}
               onValueChange={setSelectedConnection}
-              disabled={connectionsLoading}
+              disabled={connectionsLoading || connections?.length === 0}
             >
               <SelectTrigger>
                 <SelectValue
@@ -107,14 +107,26 @@ export function ConnectKbDialog({
                 />
               </SelectTrigger>
               <SelectContent>
-                {connections?.map((conn) => (
-                  <SelectItem key={conn.name} value={conn.name}>
-                    {conn.name}
-                    {conn.is_default ? " (default)" : ""}
-                  </SelectItem>
-                ))}
+                {connections && connections.length > 0 ? (
+                  connections.map((conn) => (
+                    <SelectItem key={conn.name} value={conn.name}>
+                      {conn.name}
+                      {conn.is_default ? " (default)" : ""}
+                    </SelectItem>
+                  ))
+                ) : (
+                  <div className="px-2 py-4 text-center text-sm text-muted-foreground">
+                    {t("hcp.noConnectionsFound")}
+                  </div>
+                )}
               </SelectContent>
             </Select>
+            {!connectionsLoading && connections?.length === 0 && (
+              <div className="flex items-start gap-2 rounded-md bg-amber-50 p-2 text-xs text-amber-700 dark:bg-amber-950/30 dark:text-amber-400">
+                <AlertCircle className="mt-0.5 size-3.5 shrink-0" />
+                <span>{t("hcp.noConnectionsHint")}</span>
+              </div>
+            )}
           </div>
 
           {/* Step 2: Select Knowledge Base / Index */}
@@ -123,7 +135,7 @@ export function ConnectKbDialog({
             <Select
               value={selectedIndex}
               onValueChange={setSelectedIndex}
-              disabled={indexesLoading || !selectedConnection}
+              disabled={indexesLoading || !selectedConnection || indexes?.length === 0}
             >
               <SelectTrigger>
                 <SelectValue
@@ -135,13 +147,25 @@ export function ConnectKbDialog({
                 />
               </SelectTrigger>
               <SelectContent>
-                {indexes?.map((idx) => (
-                  <SelectItem key={idx.name} value={idx.name}>
-                    {idx.name}
-                  </SelectItem>
-                ))}
+                {indexes && indexes.length > 0 ? (
+                  indexes.map((idx) => (
+                    <SelectItem key={idx.name} value={idx.name}>
+                      {idx.name}
+                    </SelectItem>
+                  ))
+                ) : (
+                  <div className="px-2 py-4 text-center text-sm text-muted-foreground">
+                    {t("hcp.noKnowledgeBasesFound")}
+                  </div>
+                )}
               </SelectContent>
             </Select>
+            {!indexesLoading && selectedConnection && indexes?.length === 0 && (
+              <div className="flex items-start gap-2 rounded-md bg-amber-50 p-2 text-xs text-amber-700 dark:bg-amber-950/30 dark:text-amber-400">
+                <AlertCircle className="mt-0.5 size-3.5 shrink-0" />
+                <span>{t("hcp.noKnowledgeBasesHint")}</span>
+              </div>
+            )}
           </div>
         </div>
 
