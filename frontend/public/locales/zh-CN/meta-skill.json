@@ -41,5 +41,13 @@
   "languages": {
     "en": "英文",
     "zh": "中文"
+  },
+  "resources": {
+    "title": "技能资源",
+    "description": "浏览此技能捆绑的 SKILL.md 指令、参考文档和验证脚本。",
+    "selectFile": "选择文件以预览",
+    "download": "下载",
+    "noResources": "未找到资源文件",
+    "type": "类型"
   }
 }

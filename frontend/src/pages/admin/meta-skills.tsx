@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import ReactMarkdown from "react-markdown";
+import rehypeRaw from "rehype-raw";
 import {
   Wand2,
   ClipboardCheck,
@@ -9,6 +11,10 @@ import {
   Save,
   CheckCircle,
   AlertCircle,
+  Download,
+  FileText,
+  FileCode,
+  File as FileIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -23,6 +29,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Select,
   SelectContent,
@@ -37,22 +44,14 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import apiClient from "@/api/client";
-
-interface MetaSkill {
-  id: string;
-  name: string;
-  display_name: string;
-  skill_type: string;
-  agent_id: string;
-  agent_version: string;
-  model: string;
-  template_content: string;
-  template_language: string;
-  is_active: boolean;
-  last_synced_at: string | null;
-  created_at: string;
-  updated_at: string;
-}
+import { FileTreeView } from "@/components/shared/file-tree-view";
+import {
+  useMetaSkillResources,
+  useMetaSkillResourceContent,
+} from "@/hooks/use-meta-skills";
+import { downloadMetaSkillResource } from "@/api/meta-skills";
+import type { MetaSkill } from "@/types/meta-skill";
+import type { SkillResource } from "@/types/skill";
 
 import { ModelSelector } from "@/components/shared/model-selector";
 
@@ -60,6 +59,109 @@ const LANGUAGE_OPTIONS = [
   { value: "en", label: "English" },
   { value: "zh", label: "Chinese" },
 ];
+
+// ---------------------------------------------------------------------------
+// Resource info sub-component (mirrors skill-editor pattern)
+// ---------------------------------------------------------------------------
+
+function ResourceInfoCard({ resource }: { resource: SkillResource }) {
+  const { t } = useTranslation("meta-skill");
+
+  function formatSize(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  function getIcon(filename: string) {
+    const ext = filename.split(".").pop()?.toLowerCase() ?? "";
+    if (["py", "js", "ts", "sh", "json"].includes(ext)) return FileCode;
+    if (["md", "txt", "pdf", "docx", "doc"].includes(ext)) return FileText;
+    return FileIcon;
+  }
+
+  const Icon = getIcon(resource.filename);
+
+  return (
+    <div className="flex items-start gap-4 rounded-lg border border-border bg-card p-4">
+      <Icon className="mt-0.5 size-8 text-muted-foreground" />
+      <div className="space-y-1">
+        <p className="font-medium text-foreground">{resource.filename}</p>
+        <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+          <span>{resource.content_type}</span>
+          <span>{formatSize(resource.file_size)}</span>
+          <span>
+            {t("resources.type", { defaultValue: "Type" })}:{" "}
+            {resource.resource_type}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Resource content preview
+// ---------------------------------------------------------------------------
+
+function ResourceContentPreview({
+  skillType,
+  resource,
+}: {
+  skillType: string;
+  resource: SkillResource;
+}) {
+  const { t } = useTranslation("meta-skill");
+  const { data: content, isLoading } = useMetaSkillResourceContent(
+    skillType,
+    resource.resource_type,
+    resource.filename,
+  );
+
+  const isMarkdown =
+    resource.filename.endsWith(".md") || resource.filename.endsWith(".txt");
+
+  return (
+    <div className="p-6 space-y-4">
+      <ResourceInfoCard resource={resource} />
+      {isLoading ? (
+        <Skeleton className="h-40 w-full" />
+      ) : content ? (
+        isMarkdown ? (
+          <ScrollArea className="h-[400px]">
+            <div className="prose prose-sm max-w-none dark:prose-invert">
+              <ReactMarkdown rehypePlugins={[rehypeRaw]}>{content}</ReactMarkdown>
+            </div>
+          </ScrollArea>
+        ) : (
+          <ScrollArea className="h-[400px]">
+            <pre className="rounded-lg bg-muted/50 p-4 text-sm font-mono overflow-x-auto whitespace-pre-wrap">
+              {content}
+            </pre>
+          </ScrollArea>
+        )
+      ) : null}
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() =>
+          downloadMetaSkillResource(
+            skillType,
+            resource.resource_type,
+            resource.filename,
+          )
+        }
+      >
+        <Download className="mr-2 size-4" />
+        {t("resources.download", { defaultValue: "Download" })}
+      </Button>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Main card per skill type
+// ---------------------------------------------------------------------------
 
 function MetaSkillCard({
   skillType,
@@ -78,6 +180,21 @@ function MetaSkillCard({
   const [editLanguage, setEditLanguage] = useState("");
   const [editTemplate, setEditTemplate] = useState("");
 
+  // Resource browser state
+  const [selectedResource, setSelectedResource] = useState<
+    SkillResource | "SKILL.md" | null
+  >(null);
+  const { data: resources = [], isLoading: resourcesLoading } =
+    useMetaSkillResources(skillType);
+
+  // Adapt MetaSkillResource[] to SkillResource[] for FileTreeView
+  const adaptedResources: SkillResource[] = resources.map((r) => ({
+    ...r,
+    skill_id: "",
+    version_id: null,
+    extraction_status: null,
+  }));
+
   useEffect(() => {
     loadMetaSkill();
   }, [skillType]);
@@ -86,14 +203,13 @@ function MetaSkillCard({
     setLoading(true);
     try {
       const { data } = await apiClient.get<MetaSkill>(
-        `/meta-skills/${skillType}`
+        `/meta-skills/${skillType}`,
       );
       setMetaSkill(data);
       setEditModel(data.model);
       setEditLanguage(data.template_language);
       setEditTemplate(data.template_content);
     } catch {
-      // Meta skill not found — may not be seeded yet
       setMetaSkill(null);
     } finally {
       setLoading(false);
@@ -109,7 +225,7 @@ function MetaSkillCard({
           model: editModel,
           template_content: editTemplate,
           template_language: editLanguage,
-        }
+        },
       );
       setMetaSkill(data);
       toast.success(t("messages.saveSuccess"));
@@ -123,7 +239,6 @@ function MetaSkillCard({
   async function handleSync() {
     setSyncing(true);
     try {
-      // Save first, then sync
       await apiClient.put(`/meta-skills/${skillType}`, {
         model: editModel,
         template_content: editTemplate,
@@ -131,7 +246,6 @@ function MetaSkillCard({
       });
       await apiClient.post(`/meta-skills/${skillType}/sync`);
       toast.success(t("messages.syncSuccess"));
-      // Reload to get updated agent info
       await loadMetaSkill();
     } catch {
       toast.error(t("messages.syncError"));
@@ -142,11 +256,10 @@ function MetaSkillCard({
 
   async function handleLanguageChange(newLang: string) {
     setEditLanguage(newLang);
-    // Auto-load the default template for the selected language
     try {
       const { data } = await apiClient.get<{ template_content: string }>(
         `/meta-skills/${skillType}/default-template`,
-        { params: { language: newLang } }
+        { params: { language: newLang } },
       );
       setEditTemplate(data.template_content);
     } catch {
@@ -159,7 +272,7 @@ function MetaSkillCard({
     setResetting(true);
     try {
       const { data } = await apiClient.post<MetaSkill>(
-        `/meta-skills/${skillType}/reset`
+        `/meta-skills/${skillType}/reset`,
       );
       setMetaSkill(data);
       setEditTemplate(data.template_content);
@@ -212,7 +325,9 @@ function MetaSkillCard({
           <div className="flex items-center gap-3">
             {icon}
             <div className="flex-1">
-              <CardTitle className="text-lg">{metaSkill.display_name}</CardTitle>
+              <CardTitle className="text-lg">
+                {metaSkill.display_name}
+              </CardTitle>
               <CardDescription>{metaSkill.name}</CardDescription>
             </div>
             <Badge variant={isSynced ? "default" : "secondary"}>
@@ -234,15 +349,21 @@ function MetaSkillCard({
           <CardContent className="pt-0">
             <div className="grid grid-cols-3 gap-4 text-sm">
               <div>
-                <span className="text-muted-foreground">{t("fields.agentId")}: </span>
+                <span className="text-muted-foreground">
+                  {t("fields.agentId")}:{" "}
+                </span>
                 <span className="font-mono text-xs">{metaSkill.agent_id}</span>
               </div>
               <div>
-                <span className="text-muted-foreground">{t("fields.agentVersion")}: </span>
+                <span className="text-muted-foreground">
+                  {t("fields.agentVersion")}:{" "}
+                </span>
                 <span>{metaSkill.agent_version}</span>
               </div>
               <div>
-                <span className="text-muted-foreground">{t("fields.lastSynced")}: </span>
+                <span className="text-muted-foreground">
+                  {t("fields.lastSynced")}:{" "}
+                </span>
                 <span>
                   {metaSkill.last_synced_at
                     ? new Date(metaSkill.last_synced_at).toLocaleString()
@@ -254,9 +375,86 @@ function MetaSkillCard({
         )}
       </Card>
 
+      {/* Skill Resources Card — FileTreeView + preview */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">
+            {t("resources.title", { defaultValue: "Skill Resources" })}
+          </CardTitle>
+          <CardDescription>
+            {t("resources.description", {
+              defaultValue:
+                "Browse the SKILL.md instructions, reference documents, and validation scripts bundled with this skill.",
+            })}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="p-0">
+          {resourcesLoading ? (
+            <div className="p-6">
+              <Skeleton className="h-40 w-full" />
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-0 lg:grid-cols-[280px_1fr] border-t border-border overflow-hidden">
+              {/* Left: File tree */}
+              <div className="border-b lg:border-b-0 lg:border-r border-border bg-muted/30">
+                <FileTreeView
+                  resources={adaptedResources}
+                  onSelectFile={setSelectedResource}
+                  selectedId={
+                    selectedResource === "SKILL.md"
+                      ? "__SKILL_MD__"
+                      : selectedResource
+                        ? (selectedResource as SkillResource).id
+                        : undefined
+                  }
+                />
+              </div>
+
+              {/* Right: Preview panel */}
+              <div className="min-h-[400px]">
+                {!selectedResource && (
+                  <div className="flex h-full items-center justify-center p-8">
+                    <p className="text-sm text-muted-foreground">
+                      {t("resources.selectFile", {
+                        defaultValue: "Select a file to preview",
+                      })}
+                    </p>
+                  </div>
+                )}
+
+                {/* SKILL.md preview */}
+                {selectedResource === "SKILL.md" && (
+                  <ScrollArea className="h-[500px]">
+                    <div className="prose prose-sm max-w-none p-6 dark:prose-invert">
+                      <ReactMarkdown rehypePlugins={[rehypeRaw]}>
+                        {editTemplate || ""}
+                      </ReactMarkdown>
+                    </div>
+                  </ScrollArea>
+                )}
+
+                {/* Resource file preview */}
+                {selectedResource &&
+                  selectedResource !== "SKILL.md" && (
+                    <ResourceContentPreview
+                      skillType={skillType}
+                      resource={selectedResource as SkillResource}
+                    />
+                  )}
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Configuration Card */}
       <Card>
-        <CardContent className="pt-6 space-y-4">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">
+            {t("fields.template")}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>{t("fields.model")}</Label>
@@ -264,7 +462,10 @@ function MetaSkillCard({
             </div>
             <div className="space-y-2">
               <Label>{t("fields.templateLanguage")}</Label>
-              <Select value={editLanguage} onValueChange={handleLanguageChange}>
+              <Select
+                value={editLanguage}
+                onValueChange={handleLanguageChange}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -280,7 +481,11 @@ function MetaSkillCard({
           </div>
 
           <div className="space-y-2">
-            <Label>{t("fields.template")}</Label>
+            <Label>
+              {t("fields.composedInstructions", {
+                defaultValue: "Composed Instructions (SKILL.md + References)",
+              })}
+            </Label>
             <Textarea
               value={editTemplate}
               onChange={(e) => setEditTemplate(e.target.value)}
@@ -316,11 +521,7 @@ function MetaSkillCard({
               )}
               {t("actions.save")}
             </Button>
-            <Button
-              size="sm"
-              onClick={handleSync}
-              disabled={syncing}
-            >
+            <Button size="sm" onClick={handleSync} disabled={syncing}>
               {syncing ? (
                 <Loader2 className="h-4 w-4 animate-spin mr-1" />
               ) : (

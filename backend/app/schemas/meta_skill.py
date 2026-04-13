@@ -43,6 +43,18 @@ class MetaSkillSyncResponse(BaseModel):
     synced_at: datetime
 
 
+class MetaSkillResourceOut(BaseModel):
+    """Read-only resource metadata for a meta-skill bundled file."""
+
+    id: str
+    resource_type: str
+    filename: str
+    content_type: str
+    file_size: int
+    created_at: datetime
+    updated_at: datetime
+
+
 class SkillCreationRequest(BaseModel):
     """Request to create a skill from materials using the creator agent."""
 

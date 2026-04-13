@@ -41,5 +41,13 @@
   "languages": {
     "en": "English",
     "zh": "Chinese"
+  },
+  "resources": {
+    "title": "Skill Resources",
+    "description": "Browse the SKILL.md instructions, reference documents, and validation scripts bundled with this skill.",
+    "selectFile": "Select a file to preview",
+    "download": "Download",
+    "noResources": "No resources found",
+    "type": "Type"
   }
 }

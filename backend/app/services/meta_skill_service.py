@@ -134,6 +134,104 @@ def _load_skill_directory(skill_type: str, language: str = "en") -> str:
     return composed
 
 
+_CONTENT_TYPE_MAP: dict[str, str] = {
+    ".md": "text/markdown",
+    ".json": "application/json",
+    ".yaml": "text/yaml",
+    ".yml": "text/yaml",
+    ".csv": "text/csv",
+    ".xml": "application/xml",
+    ".txt": "text/plain",
+    ".py": "text/x-python",
+    ".js": "application/javascript",
+    ".sh": "text/x-shellscript",
+}
+
+_SCRIPT_EXTENSIONS = {".py", ".js", ".sh", ".ps1", ".cs", ".csx"}
+
+
+def _safe_filename(filename: str) -> bool:
+    """Validate that a filename is safe (no path traversal)."""
+    return (
+        bool(filename)
+        and "/" not in filename
+        and "\\" not in filename
+        and ".." not in filename
+        and filename == Path(filename).name
+    )
+
+
+def list_meta_skill_resources(skill_type: str) -> list[dict]:
+    """Enumerate reference and script files for a meta-skill type.
+
+    Returns a list of dicts compatible with MetaSkillResourceOut schema.
+    """
+    dir_name = _SKILL_DIR_MAP.get(skill_type)
+    if not dir_name:
+        return []
+
+    skill_dir = _TEMPLATE_DIR / dir_name
+    if not skill_dir.is_dir():
+        return []
+
+    resources: list[dict] = []
+
+    for sub, rtype in [("references", "reference"), ("scripts", "script")]:
+        sub_dir = skill_dir / sub
+        if not sub_dir.is_dir():
+            continue
+        allowed_ext = _REFERENCE_EXTENSIONS if rtype == "reference" else _SCRIPT_EXTENSIONS
+        for f in sorted(sub_dir.iterdir()):
+            if not f.is_file() or f.suffix not in allowed_ext:
+                continue
+            stat = f.stat()
+            mtime = datetime.fromtimestamp(stat.st_mtime, tz=UTC).isoformat()
+            resources.append({
+                "id": f"{rtype[:3]}__{f.name}",
+                "resource_type": rtype,
+                "filename": f.name,
+                "content_type": _CONTENT_TYPE_MAP.get(f.suffix, "application/octet-stream"),
+                "file_size": stat.st_size,
+                "created_at": mtime,
+                "updated_at": mtime,
+            })
+
+    return resources
+
+
+def get_meta_skill_resource_content(
+    skill_type: str, resource_type: str, filename: str,
+) -> tuple[str, bytes] | None:
+    """Read a specific resource file from disk.
+
+    Returns (content_type, file_bytes) or None if not found.
+    Validates filename to prevent path traversal.
+    """
+    if resource_type not in ("reference", "script"):
+        return None
+    if not _safe_filename(filename):
+        return None
+
+    dir_name = _SKILL_DIR_MAP.get(skill_type)
+    if not dir_name:
+        return None
+
+    sub = "references" if resource_type == "reference" else "scripts"
+    file_path = _TEMPLATE_DIR / dir_name / sub / filename
+
+    # Verify resolved path is still within the expected directory
+    try:
+        file_path.resolve().relative_to((_TEMPLATE_DIR / dir_name / sub).resolve())
+    except ValueError:
+        return None
+
+    if not file_path.is_file():
+        return None
+
+    content_type = _CONTENT_TYPE_MAP.get(file_path.suffix, "application/octet-stream")
+    return content_type, file_path.read_bytes()
+
+
 def get_validation_script_path(skill_type: str) -> Path | None:
     """Return the path to the validation script for a skill type, or None."""
     dir_name = _SKILL_DIR_MAP.get(skill_type)

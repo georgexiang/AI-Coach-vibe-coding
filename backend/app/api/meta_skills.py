@@ -3,11 +3,17 @@
 import logging
 
 from fastapi import APIRouter, Depends
+from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies import get_db, require_role
 from app.models.user import User
-from app.schemas.meta_skill import MetaSkillRead, MetaSkillSyncResponse, MetaSkillUpdate
+from app.schemas.meta_skill import (
+    MetaSkillRead,
+    MetaSkillResourceOut,
+    MetaSkillSyncResponse,
+    MetaSkillUpdate,
+)
 from app.services import meta_skill_service
 from app.utils.exceptions import not_found
 
@@ -30,6 +36,39 @@ async def list_meta_skills(
 
 
 # --- Parameterized routes ---
+
+
+@router.get("/{skill_type}/resources", response_model=list[MetaSkillResourceOut])
+async def list_meta_skill_resources(
+    skill_type: str,
+    _user: User = Depends(require_role("admin")),
+):
+    """List bundled reference and script files for a meta-skill type."""
+    resources = meta_skill_service.list_meta_skill_resources(skill_type)
+    if not resources and skill_type not in ("creator", "evaluator"):
+        not_found(f"Meta skill type '{skill_type}' not found")
+    return resources
+
+
+@router.get("/{skill_type}/resources/{resource_type}/{filename:path}")
+async def download_meta_skill_resource(
+    skill_type: str,
+    resource_type: str,
+    filename: str,
+    _user: User = Depends(require_role("admin")),
+):
+    """Download a specific bundled resource file."""
+    result = meta_skill_service.get_meta_skill_resource_content(
+        skill_type, resource_type, filename,
+    )
+    if result is None:
+        not_found(f"Resource '{filename}' not found for meta-skill '{skill_type}'")
+    content_type, file_bytes = result
+    return Response(
+        content=file_bytes,
+        media_type=content_type,
+        headers={"Content-Disposition": f'inline; filename="{filename}"'},
+    )
 
 
 @router.get("/{skill_type}", response_model=MetaSkillRead)
