@@ -74,18 +74,9 @@ def _parse_skill_md(path: Path) -> tuple[str, str, str]:
 def _load_skill_directory(skill_type: str, language: str = "en") -> str:
     """Load a skill directory and compose instructions.
 
-    Reads SKILL.md (or SKILL_zh.md for Chinese), reads all reference files,
-    and composes them into a single instructions string::
-
-        == Skill: {name} ==
-        {description}
-
-        {skill_body}
-
-        == Reference Materials ==
-        ### filename.md
-        {content}
-        ...
+    Reads SKILL.md (or SKILL_zh.md for Chinese) **preserving the YAML
+    frontmatter** per the MS Agent Framework skill spec, then appends all
+    reference file contents.
     """
     dir_name = _SKILL_DIR_MAP.get(skill_type)
     if not dir_name:
@@ -103,7 +94,8 @@ def _load_skill_directory(skill_type: str, language: str = "en") -> str:
         logger.warning("SKILL.md not found in %s", skill_dir)
         return ""
 
-    name, description, body = _parse_skill_md(skill_file)
+    # Preserve original SKILL.md content (including YAML frontmatter)
+    skill_content = skill_file.read_text(encoding="utf-8").strip()
 
     # Read reference files
     refs_dir = skill_dir / "references"
@@ -113,13 +105,11 @@ def _load_skill_directory(skill_type: str, language: str = "en") -> str:
             if ref_file.suffix in _REFERENCE_EXTENSIONS and ref_file.is_file():
                 references[ref_file.name] = ref_file.read_text(encoding="utf-8")
 
-    # Compose instructions (same pattern as POC test_agent_with_skills.py)
-    parts: list[str] = []
-    parts.append(f"== Skill: {name} ==\n{description}\n\n{body}")
+    # Compose: SKILL.md verbatim + reference materials
+    parts: list[str] = [skill_content]
 
     if references:
-        parts.append("\n\n== Reference Materials ==")
-        parts.append("The following reference documents are available for this skill:\n")
+        parts.append("\n---\n\n## Reference Materials\n")
         for filename, content in references.items():
             parts.append(f"### {filename}\n\n{content}")
 

@@ -14,10 +14,10 @@ class TestLoadCreatorDirectory:
     """Tests for loading the skill-creator directory."""
 
     def test_load_creator_directory_en(self):
-        """Creator directory loads in English with frontmatter name and references."""
+        """Creator directory loads in English with YAML frontmatter and references."""
         result = _load_skill_directory("creator", "en")
         assert result != ""
-        assert "== Skill: skill-creator ==" in result
+        assert "---\nname: skill-creator" in result
         assert "Reference Materials" in result
 
     def test_load_creator_directory_contains_sop_guide(self):
@@ -41,10 +41,10 @@ class TestLoadEvaluatorDirectory:
     """Tests for loading the skill-evaluator directory."""
 
     def test_load_evaluator_directory_en(self):
-        """Evaluator directory loads in English with frontmatter name."""
+        """Evaluator directory loads in English with YAML frontmatter."""
         result = _load_skill_directory("evaluator", "en")
         assert result != ""
-        assert "== Skill: skill-evaluator ==" in result
+        assert "---\nname: skill-evaluator" in result
 
     def test_load_evaluator_directory_contains_dimensions(self):
         """Evaluator references include the evaluation dimensions."""
@@ -94,7 +94,7 @@ class TestEdgeCases:
     def test_composed_instructions_contain_reference_header(self):
         """Composed instructions contain the Reference Materials section header."""
         result = _load_skill_directory("creator", "en")
-        assert "== Reference Materials ==" in result
+        assert "## Reference Materials" in result
 
     def test_token_estimate_reasonable(self):
         """Composed instructions are within a reasonable token range."""
@@ -155,10 +155,10 @@ class TestLoadDefaultTemplate:
     def test_creator_loads_via_directory(self):
         """Creator uses skill directory (not flat file)."""
         result = _load_default_template("creator", "en")
-        assert "== Skill: skill-creator ==" in result
+        assert "---\nname: skill-creator" in result
         assert "Reference Materials" in result
 
     def test_evaluator_loads_via_directory(self):
         """Evaluator uses skill directory (not flat file)."""
         result = _load_default_template("evaluator", "en")
-        assert "== Skill: skill-evaluator ==" in result
+        assert "---\nname: skill-evaluator" in result
