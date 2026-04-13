@@ -801,13 +801,8 @@ async def get_evaluation_results(
             "error_detail": error_detail,
         },
         "evaluation_criteria": [
-            {
-                "name": dim_name,
-                "description": skill_evaluation_service.DIMENSION_DESCRIPTIONS.get(
-                    dim_name, ""
-                ),
-            }
-            for dim_name in skill_evaluation_service.EVALUATION_DIMENSIONS
+            {"name": dim_name}
+            for dim_name in skill_evaluation_service._load_evaluation_dimensions()
         ],
     }
 

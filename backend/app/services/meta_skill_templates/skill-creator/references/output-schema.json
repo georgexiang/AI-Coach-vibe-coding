@@ -1,0 +1,128 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Skill Creator Output",
+  "description": "Schema for the JSON output produced by the Skill Creator agent",
+  "type": "object",
+  "required": ["name", "description", "product", "therapeutic_area", "sop_steps", "modules", "scoring", "summary"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Skill name in kebab-case, alphanumeric and hyphens only, max 63 characters",
+      "pattern": "^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?$",
+      "maxLength": 63
+    },
+    "description": {
+      "type": "string",
+      "description": "Brief description of the coaching skill",
+      "minLength": 10
+    },
+    "product": {
+      "type": "string",
+      "description": "Product brand name",
+      "minLength": 1
+    },
+    "therapeutic_area": {
+      "type": "string",
+      "description": "Therapeutic area (e.g., Oncology, Immunology)",
+      "minLength": 1
+    },
+    "sop_steps": {
+      "type": "array",
+      "description": "Standard Operating Procedure steps (5 stages required)",
+      "minItems": 5,
+      "items": {
+        "type": "object",
+        "required": ["title", "description", "key_points", "assessment_criteria"],
+        "properties": {
+          "title": { "type": "string" },
+          "description": { "type": "string" },
+          "key_points": {
+            "type": "array",
+            "items": { "type": "string" },
+            "minItems": 1
+          },
+          "objections": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["objection", "response"],
+              "properties": {
+                "objection": { "type": "string" },
+                "response": { "type": "string" }
+              }
+            }
+          },
+          "assessment_criteria": {
+            "type": "array",
+            "items": { "type": "string" },
+            "minItems": 1
+          },
+          "knowledge_points": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "suggested_duration": { "type": "string" }
+        }
+      }
+    },
+    "modules": {
+      "type": "array",
+      "description": "Knowledge modules (3-8 required)",
+      "minItems": 3,
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "required": ["title", "objectives", "content"],
+        "properties": {
+          "title": { "type": "string" },
+          "objectives": {
+            "type": "array",
+            "items": { "type": "string" },
+            "minItems": 1
+          },
+          "content": { "type": "string" },
+          "questions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["type", "question"],
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": ["multiple_choice", "true_false", "scenario"]
+                },
+                "question": { "type": "string" },
+                "options": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                },
+                "answer": { "type": "string" },
+                "explanation": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "scoring": {
+      "type": "object",
+      "required": ["pass_threshold", "weights"],
+      "properties": {
+        "pass_threshold": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "weights": {
+          "type": "object",
+          "description": "Dimension weights that sum to approximately 1.0. Keys must be the canonical 6 dimensions: sop_completeness, knowledge_accuracy, conversation_logic, assessment_coverage, difficulty_calibration, executability"
+        }
+      }
+    },
+    "summary": {
+      "type": "string",
+      "description": "2-3 sentence overview of the skill",
+      "minLength": 10
+    }
+  }
+}

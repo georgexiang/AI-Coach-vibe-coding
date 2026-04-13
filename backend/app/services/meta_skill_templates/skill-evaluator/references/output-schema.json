@@ -1,0 +1,80 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Skill Evaluator Output",
+  "description": "Schema for the JSON output produced by the Skill Evaluator agent",
+  "type": "object",
+  "required": ["overall_score", "overall_verdict", "dimensions", "summary", "top_3_improvements"],
+  "properties": {
+    "overall_score": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "Weighted average score across all dimensions"
+    },
+    "overall_verdict": {
+      "type": "string",
+      "enum": ["PASS", "NEEDS_REVIEW", "FAIL"],
+      "description": "PASS >= 70, NEEDS_REVIEW 50-69, FAIL < 50"
+    },
+    "dimensions": {
+      "type": "array",
+      "description": "Scores for each of the 6 evaluation dimensions",
+      "minItems": 6,
+      "maxItems": 6,
+      "items": {
+        "type": "object",
+        "required": ["name", "score", "verdict", "strengths", "improvements", "critical_issues", "rationale"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "enum": [
+              "sop_completeness",
+              "assessment_coverage",
+              "knowledge_accuracy",
+              "difficulty_calibration",
+              "conversation_logic",
+              "executability"
+            ]
+          },
+          "score": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "verdict": {
+            "type": "string",
+            "enum": ["PASS", "NEEDS_REVIEW", "FAIL"]
+          },
+          "strengths": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "improvements": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "critical_issues": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "rationale": {
+            "type": "string",
+            "description": "1-2 sentence explanation of the score"
+          }
+        }
+      }
+    },
+    "summary": {
+      "type": "string",
+      "description": "2-3 sentence overall assessment",
+      "minLength": 10
+    },
+    "top_3_improvements": {
+      "type": "array",
+      "description": "Top 3 most impactful improvements",
+      "minItems": 1,
+      "maxItems": 3,
+      "items": { "type": "string" }
+    }
+  }
+}

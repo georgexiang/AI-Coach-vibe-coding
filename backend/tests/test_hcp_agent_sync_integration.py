@@ -399,13 +399,14 @@ def test_build_voice_live_metadata_basic():
     # Foundry Portal format: {"session": {camelCase keys}}
     assert "session" in config
     session = config["session"]
-    assert session["voice"]["type"] == "azure-standard"
+    # "azure-standard" is the default — implementation omits it to save chars (512 limit)
+    assert "type" not in session["voice"]
     assert session["voice"]["name"] == "en-US-AvaNeural"
     assert session["voice"]["temperature"] == 0.9
     assert session["turnDetection"]["type"] == "server_vad"
-    # Noise/echo are null when disabled (Foundry format)
-    assert session["inputAudioNoiseReduction"] is None
-    assert session["inputAudioEchoCancellation"] is None
+    # Noise/echo are omitted entirely when disabled (not set to null)
+    assert "inputAudioNoiseReduction" not in session
+    assert "inputAudioEchoCancellation" not in session
 
 
 # ---------------------------------------------------------------------------
@@ -745,12 +746,14 @@ class TestBuildVoiceLiveMetadataRealORM:
         # Foundry Portal format: {"session": {camelCase keys}}
         assert "session" in config
         session = config["session"]
-        assert session["voice"]["type"] == "azure-standard"
+        # "azure-standard" is the default — implementation omits it to save chars (512 limit)
+        assert "type" not in session["voice"]
         assert session["voice"]["name"] == "en-US-AvaNeural"
         assert session["voice"]["temperature"] == 0.9
         assert session["turnDetection"]["type"] == "server_vad"
-        assert session["inputAudioNoiseReduction"] is None
-        assert session["inputAudioEchoCancellation"] is None
+        # Noise/echo are omitted entirely when disabled (not set to null)
+        assert "inputAudioNoiseReduction" not in session
+        assert "inputAudioEchoCancellation" not in session
 
     @pytest.mark.asyncio
     async def test_build_metadata_with_noise_echo_real_orm(self, db_session):

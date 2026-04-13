@@ -72,7 +72,7 @@ async def _seed_meta_skill_creator(
     """Seed a creator meta skill."""
     async with TestSessionLocal() as session:
         meta = MetaSkill(
-            name="skill_creator",
+            name="skill-creator",
             display_name="Skill Creator",
             skill_type="creator",
             model=model,

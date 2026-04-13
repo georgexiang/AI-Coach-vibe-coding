@@ -285,6 +285,9 @@ async def create_skill_via_agent(
             parsed = _parse_creator_response(result.raw_response)
             skill = await skill_service.get_skill(db, skill_id)
 
+            # Validate parsed output
+            validation = _validate_creator_output(parsed)
+
             # Update skill with generated content
             if parsed.get("name"):
                 skill.name = parsed["name"]
@@ -310,6 +313,8 @@ async def create_skill_via_agent(
                 "created_at": datetime.now(UTC).isoformat(),
                 "method": "agent" if meta.agent_id else "direct_openai",
             }
+            if validation is not None:
+                meta_json["creation_validation"] = validation
             skill.metadata_json = json.dumps(meta_json, ensure_ascii=False)
 
             result.summary = parsed.get("summary", "")
@@ -329,6 +334,35 @@ async def create_skill_via_agent(
             pass
 
     return result
+
+
+def _validate_creator_output(data: dict) -> dict | None:
+    """Run the creator validation script on parsed output.
+
+    Returns the validation report dict, or None if the script is unavailable.
+    Validation failures are logged as warnings but never block creation.
+    """
+    script_path = meta_skill_service.get_validation_script_path("creator")
+    if script_path is None or not script_path.exists():
+        return None
+
+    try:
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location("validate_creator", script_path)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        report = mod.validate(data)
+        if not report.get("valid"):
+            logger.warning(
+                "Creator output validation failed: errors=%s, warnings=%s",
+                report.get("errors"),
+                report.get("warnings"),
+            )
+        return report
+    except Exception as exc:
+        logger.warning("Creator validation script error: %s", exc)
+        return {"valid": False, "errors": [f"Validation script error: {exc}"]}
 
 
 def _parse_creator_response(raw: str) -> dict:

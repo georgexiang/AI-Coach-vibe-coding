@@ -1353,6 +1353,8 @@ class TestCreateSkillFromMaterialsEndpoint:
         mock_svc.create_skill = AsyncMock(return_value=mock_skill)
         mock_storage = AsyncMock()
         mock_storage.read = AsyncMock(return_value=b"file-content")
+        mock_storage.write = AsyncMock(return_value="resources/skill/doc.pdf")
+        mock_storage.base_path = ""  # Prevent AsyncMock from propagating to str ops
         mock_storage_fn.return_value = mock_storage
 
         # Build mock DB that handles multiple execute calls

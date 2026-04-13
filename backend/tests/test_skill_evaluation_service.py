@@ -9,11 +9,11 @@ from app.models.skill import Skill, SkillResource
 from app.models.user import User
 from app.services.auth import get_password_hash
 from app.services.skill_evaluation_service import (
-    EVALUATION_DIMENSIONS,
     SkillEvaluationResult,
     _AICallResult,
     _call_openai_for_evaluation,
     _compute_verdict,
+    _load_evaluation_dimensions,
     _parse_evaluation_result,
     evaluate_skill_quality,
     is_evaluation_stale,
@@ -118,9 +118,9 @@ class TestComputeVerdict:
 def _make_full_ai_response(scores: dict[str, int] | None = None) -> dict:
     """Build a valid AI response dict with all 6 dimensions."""
     if scores is None:
-        scores = {dim: 75 for dim in EVALUATION_DIMENSIONS}
+        scores = {dim: 75 for dim in _load_evaluation_dimensions()}
     dims = []
-    for dim_name in EVALUATION_DIMENSIONS:
+    for dim_name in _load_evaluation_dimensions():
         dims.append(
             {
                 "name": dim_name,
@@ -131,7 +131,7 @@ def _make_full_ai_response(scores: dict[str, int] | None = None) -> dict:
                 "rationale": f"Rationale for {dim_name}",
             }
         )
-    avg = round(sum(scores.get(d, 75) for d in EVALUATION_DIMENSIONS) / 6)
+    avg = round(sum(scores.get(d, 75) for d in _load_evaluation_dimensions()) / 6)
     return {
         "overall_score": avg,
         "overall_verdict": _compute_verdict(avg),
@@ -296,7 +296,7 @@ class TestParseEvaluationResult:
     def test_summary_and_improvements_defaults(self):
         """Missing summary and top_3_improvements use defaults."""
         ai_result = {
-            "dimensions": [{"name": d, "score": 50} for d in EVALUATION_DIMENSIONS],
+            "dimensions": [{"name": d, "score": 50} for d in _load_evaluation_dimensions()],
         }
         result = _parse_evaluation_result(ai_result, "hash_def", "2025-01-09T00:00:00")
         assert result.summary == ""

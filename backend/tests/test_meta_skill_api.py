@@ -50,8 +50,8 @@ async def _seed_meta_skills() -> None:
     """Seed default creator and evaluator meta skills."""
     async with TestSessionLocal() as session:
         for skill_type, name, display_name in [
-            ("creator", "skill_creator", "Skill Creator"),
-            ("evaluator", "skill_evaluator", "Skill Evaluator"),
+            ("creator", "skill-creator", "Skill Creator"),
+            ("evaluator", "skill-evaluator", "Skill Evaluator"),
         ]:
             meta = MetaSkill(
                 name=name,
@@ -130,7 +130,7 @@ class TestGetMetaSkill:
         assert resp.status_code == 200
         data = resp.json()
         assert data["skill_type"] == "creator"
-        assert data["name"] == "skill_creator"
+        assert data["name"] == "skill-creator"
         assert data["model"] == "gpt-4o"
 
     async def test_returns_evaluator(self, client):

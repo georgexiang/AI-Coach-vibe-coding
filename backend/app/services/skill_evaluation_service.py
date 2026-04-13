@@ -11,6 +11,7 @@ Independent from Scoring Rubrics system (D-13):
 
 import json
 import logging
+import re
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 
@@ -25,10 +26,10 @@ from app.services.skill_validation_service import _compute_content_hash
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Six evaluation dimensions (D-13)
+# Evaluation dimensions — loaded from skill-evaluator/references/
 # ---------------------------------------------------------------------------
 
-EVALUATION_DIMENSIONS = [
+_FALLBACK_DIMENSIONS = [
     "sop_completeness",
     "assessment_coverage",
     "knowledge_accuracy",
@@ -37,108 +38,69 @@ EVALUATION_DIMENSIONS = [
     "executability",
 ]
 
-# Human-readable descriptions for each dimension (transparency for admins)
-DIMENSION_DESCRIPTIONS: dict[str, str] = {
-    "sop_completeness": (
-        "Are all required SOP stages present (opening, product discussion, closing)? "
-        "Are steps detailed with key points, objections, and time guidance?"
-    ),
-    "assessment_coverage": (
-        "Are assessment/evaluation criteria comprehensive? Do they cover all SOP steps? "
-        "Are scoring rubrics clear and measurable?"
-    ),
-    "knowledge_accuracy": (
-        "Are product knowledge points accurate and relevant? "
-        "Are clinical references and data mentioned? Is terminology correct?"
-    ),
-    "difficulty_calibration": (
-        "Is the difficulty level appropriate for the target audience? "
-        "Are objection scenarios realistic? Is there progressive difficulty?"
-    ),
-    "conversation_logic": (
-        "Does the conversation flow logically from opening to closing? "
-        "Are transitions between topics natural? Are branching paths considered?"
-    ),
-    "executability": (
-        "Can an AI agent execute this SOP effectively? "
-        "Are instructions clear and unambiguous? Are edge cases handled?"
-    ),
-}
 
-# ---------------------------------------------------------------------------
-# L2 evaluation prompt
-# ---------------------------------------------------------------------------
+def _load_evaluation_dimensions() -> list[str]:
+    """Load canonical dimension names from evaluation-dimensions.md.
 
-SKILL_EVALUATION_PROMPT = (
-    "You are an expert coaching skill content evaluator "
-    "for pharmaceutical sales training.\n\n"
-    "Evaluate the following Skill content objectively "
-    "and provide specific rationale for each score.\n\n"
-    "## Skill Metadata\n"
-    "- Name: {skill_name}\n"
-    "- Description: {skill_description}\n"
-    "- Product: {skill_product}\n"
-    "- Therapeutic Area: {skill_therapeutic_area}\n\n"
-    "## Skill Content (Coaching Protocol / SOP)\n"
-    "{skill_content}\n\n"
-    "## Reference Materials Summary\n"
-    "{reference_summaries}\n\n"
-    "## Evaluation Dimensions\n\n"
-    "Score each of the following 6 dimensions from 0 to 100. "
-    "For each dimension, provide:\n"
-    "- score: integer 0-100\n"
-    "- strengths: list of specific strong points "
-    "(with evidence from content)\n"
-    "- improvements: list of specific actionable improvements\n"
-    "- critical_issues: list of critical problems "
-    "that must be fixed (empty if none)\n"
-    "- rationale: 1-2 sentence explanation of the score\n\n"
-    "### Dimensions:\n"
-    "1. **sop_completeness** - Are all required SOP stages "
-    "present (opening, product discussion, closing)? "
-    "Are steps detailed with key points, objections, "
-    "and time guidance?\n"
-    "2. **assessment_coverage** - Are assessment/evaluation "
-    "criteria comprehensive? Do they cover all SOP steps? "
-    "Are scoring rubrics clear and measurable?\n"
-    "3. **knowledge_accuracy** - Are product knowledge points "
-    "accurate and relevant? Are clinical references and data "
-    "mentioned? Is terminology correct?\n"
-    "4. **difficulty_calibration** - Is the difficulty level "
-    "appropriate for the target audience? Are objection "
-    "scenarios realistic? Is there progressive difficulty?\n"
-    "5. **conversation_logic** - Does the conversation flow "
-    "logically from opening to closing? Are transitions "
-    "between topics natural? Are branching paths considered?\n"
-    "6. **executability** - Can an AI agent execute this SOP "
-    "effectively? Are instructions clear and unambiguous? "
-    "Are edge cases handled?\n\n"
-    "## Output Format\n\n"
-    "Return a JSON object with this exact structure:\n"
-    "{{\n"
-    '  "overall_score": <weighted average 0-100>,\n'
-    '  "overall_verdict": '
-    '"<PASS if >= 70, NEEDS_REVIEW if 50-69, FAIL if < 50>",\n'
-    '  "dimensions": [\n'
-    "    {{\n"
-    '      "name": "<dimension_name>",\n'
-    '      "score": <0-100>,\n'
-    '      "verdict": "<PASS|NEEDS_REVIEW|FAIL>",\n'
-    '      "strengths": ["<specific strength>"],\n'
-    '      "improvements": ["<specific improvement>"],\n'
-    '      "critical_issues": '
-    '["<critical issue or empty list>"],\n'
-    '      "rationale": "<1-2 sentence explanation>"\n'
-    "    }}\n"
-    "  ],\n"
-    '  "summary": "<2-3 sentence overall assessment>",\n'
-    '  "top_3_improvements": '
-    '["<improvement 1>", "<improvement 2>", "<improvement 3>"]\n'
-    "}}\n\n"
-    "Evaluate objectively. "
-    "Be constructive but honest about weaknesses.\n"
-    "{language_instruction}"
-)
+    Parses ``## N. dimension_name`` headers from the reference file.
+    Falls back to a hardcoded list if the file is missing or unparseable.
+    """
+    from app.services.meta_skill_service import _TEMPLATE_DIR
+
+    dim_file = _TEMPLATE_DIR / "skill-evaluator" / "references" / "evaluation-dimensions.md"
+    if dim_file.exists():
+        text = dim_file.read_text(encoding="utf-8")
+        names = re.findall(r"^## \d+\.\s+(\w+)", text, re.MULTILINE)
+        if len(names) == 6:
+            return names
+    return list(_FALLBACK_DIMENSIONS)
+
+
+def _load_evaluator_instructions() -> str:
+    """Load composed evaluator instructions from skill directory.
+
+    Returns the full instructions string (SKILL.md + references) for use
+    as system message in the direct OpenAI fallback path.
+    """
+    from app.services.meta_skill_service import _load_skill_directory
+
+    instructions = _load_skill_directory("evaluator")
+    if instructions:
+        return instructions
+    return (
+        "You are a coaching skill content evaluator for pharmaceutical sales training. "
+        "Return ONLY valid JSON, no markdown fences."
+    )
+
+
+def _build_evaluation_user_message(
+    *,
+    skill_name: str,
+    skill_description: str,
+    skill_product: str,
+    skill_therapeutic_area: str,
+    skill_content: str,
+    reference_summaries: str,
+    language_instruction: str = "",
+) -> str:
+    """Build user message containing ONLY the skill data to evaluate.
+
+    The evaluation methodology lives in the agent instructions (system
+    message), not here — this fixes the 'double instructions' problem.
+    """
+    parts = [
+        "## Skill to Evaluate\n",
+        f"- **Name**: {skill_name}",
+        f"- **Description**: {skill_description}",
+        f"- **Product**: {skill_product}",
+        f"- **Therapeutic Area**: {skill_therapeutic_area}",
+        f"\n## Skill Content (Coaching Protocol / SOP)\n\n{skill_content}",
+        f"\n## Reference Materials\n\n{reference_summaries}",
+    ]
+    if language_instruction:
+        parts.append(f"\n{language_instruction}")
+    parts.append("\nPlease evaluate this skill and return the JSON result.")
+    return "\n".join(parts)
 
 
 # ---------------------------------------------------------------------------
@@ -238,7 +200,7 @@ async def evaluate_skill_quality(
     if len(content) > 50000:
         truncated_content += "\n\n... (content truncated for evaluation)"
 
-    prompt = SKILL_EVALUATION_PROMPT.format(
+    prompt = _build_evaluation_user_message(
         skill_name=skill.name or "Untitled",
         skill_description=skill.description or "No description",
         skill_product=skill.product or "Not specified",
@@ -277,7 +239,7 @@ async def evaluate_skill_quality(
                     verdict="FAIL",
                     rationale="AI evaluation service unavailable",
                 )
-                for dim in EVALUATION_DIMENSIONS
+                for dim in _load_evaluation_dimensions()
             ],
             summary="AI evaluation service is not configured or unavailable.",
             top_improvements=["Configure Azure OpenAI endpoint for quality evaluation."],
@@ -412,10 +374,8 @@ async def _call_openai_for_evaluation(db: AsyncSession, prompt: str) -> _AICallR
             messages=[
                 {
                     "role": "system",
-                    "content": (
-                        "You are a coaching skill content evaluator. "
-                        "Return ONLY valid JSON, no markdown fences."
-                    ),
+                    "content": _load_evaluator_instructions()
+                    + "\n\nIMPORTANT: Return ONLY valid JSON, no markdown fences.",
                 },
                 {"role": "user", "content": prompt},
             ],
@@ -467,7 +427,7 @@ def _parse_evaluation_result(
             ai_dim_map[name] = d
 
     # Ensure all 6 dimensions are present
-    for dim_name in EVALUATION_DIMENSIONS:
+    for dim_name in _load_evaluation_dimensions():
         if dim_name in ai_dim_map:
             d = ai_dim_map[dim_name]
             score = max(0, min(100, int(d.get("score", 0))))

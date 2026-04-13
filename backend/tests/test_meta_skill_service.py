@@ -16,7 +16,7 @@ from app.services.meta_skill_service import _load_default_template
 
 async def _seed_meta_skill(
     skill_type: str = "creator",
-    name: str = "skill_creator",
+    name: str = "skill-creator",
     display_name: str = "Skill Creator",
     model: str = "gpt-4o",
     template_language: str = "en",
@@ -89,12 +89,12 @@ class TestGetMetaSkill:
         result = await meta_skill_service.get_meta_skill(db_session, "creator")
         assert result is not None
         assert result.skill_type == "creator"
-        assert result.name == "skill_creator"
+        assert result.name == "skill-creator"
 
     async def test_returns_evaluator(self, db_session):
         await _seed_meta_skill(
             skill_type="evaluator",
-            name="skill_evaluator",
+            name="skill-evaluator",
             display_name="Skill Evaluator",
         )
         result = await meta_skill_service.get_meta_skill(db_session, "evaluator")
@@ -123,7 +123,7 @@ class TestGetAllMetaSkills:
         await _seed_meta_skill(skill_type="creator")
         await _seed_meta_skill(
             skill_type="evaluator",
-            name="skill_evaluator",
+            name="skill-evaluator",
             display_name="Skill Evaluator",
         )
         result = await meta_skill_service.get_all_meta_skills(db_session)

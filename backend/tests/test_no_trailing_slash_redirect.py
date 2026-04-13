@@ -148,10 +148,14 @@ class TestNoTrailingSlashRedirect:
         assert r.status_code == 200
 
     async def test_materials_search_no_redirect(self, client):
-        """GET /api/v1/materials/search?product=x must return 200, not 307."""
+        """GET /api/v1/materials?product=x must return 200, not 307.
+
+        Note: materials search uses query params on the list endpoint,
+        there is no separate /search sub-route.
+        """
         _, token = await _seed_admin()
         r = await client.get(
-            "/api/v1/materials/search?product=TestDrug",
+            "/api/v1/materials?product=TestDrug",
             headers={"Authorization": f"Bearer {token}"},
         )
         assert r.status_code == 200

@@ -430,12 +430,16 @@ async def get_project_endpoint(db: AsyncSession) -> tuple[str, str]:
 
 
 def _sanitize_agent_name(name: str) -> str:
-    """Sanitize HCP name into a valid agent name (alphanumeric, hyphens, underscores)."""
+    """Sanitize name into a valid Azure AI Foundry agent name.
+
+    Azure rules: alphanumeric + hyphens only, start/end with alphanumeric, max 63 chars.
+    Underscores, spaces, dots, Chinese characters etc. are all replaced with hyphens.
+    """
     import re
 
-    sanitized = re.sub(r"[^a-zA-Z0-9_-]", "-", name.strip())
+    sanitized = re.sub(r"[^a-zA-Z0-9-]", "-", name.strip())
     sanitized = re.sub(r"-+", "-", sanitized).strip("-")
-    return sanitized[:64] or "hcp-agent"
+    return sanitized[:63] or "agent"
 
 
 async def create_agent(

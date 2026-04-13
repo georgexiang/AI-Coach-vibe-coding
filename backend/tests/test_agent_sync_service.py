@@ -2489,3 +2489,195 @@ def test_build_voice_live_metadata_custom_lexicon_disabled():
     config = json.loads(result[VOICE_LIVE_CONFIG_KEY])
 
     assert "custom_lexicon" not in config
+
+
+# =============================================================================
+# Agent Name Sanitization Tests (Azure AI Foundry naming rules)
+#
+# Azure 命名规则（实测 2026-04）：
+# - 仅允许字母数字 (a-z, A-Z, 0-9) 和连字符 (-)
+# - 必须以字母数字开头和结尾
+# - 不允许下划线、空格、点、中文等
+# - 最大 63 字符（不是 64）
+# - 违反时报错: (invalid_parameters) Must start and end with alphanumeric
+#   characters, can contain hyphens in the middle, and must not exceed 63 characters.
+#
+# 参考文档: docs/microsoft-agent-framework/07-agent-skill-creation-guide.md
+# =============================================================================
+
+
+class TestSanitizeAgentName:
+    """Tests for _sanitize_agent_name — Azure AI Foundry naming rule enforcement."""
+
+    def _sanitize(self, name: str) -> str:
+        from app.services.agent_sync_service import _sanitize_agent_name
+
+        return _sanitize_agent_name(name)
+
+    # --- Basic valid names pass through ---
+
+    def test_valid_lowercase_hyphen(self):
+        """Valid name with lowercase and hyphens passes through unchanged."""
+        assert self._sanitize("skill-creator") == "skill-creator"
+
+    def test_valid_mixed_case(self):
+        """Valid name with mixed case passes through unchanged."""
+        assert self._sanitize("Dr-Wang-Fang") == "Dr-Wang-Fang"
+
+    def test_valid_alphanumeric_only(self):
+        """Pure alphanumeric name passes through unchanged."""
+        assert self._sanitize("agent123") == "agent123"
+
+    def test_single_character(self):
+        """Single alphanumeric character is valid."""
+        assert self._sanitize("a") == "a"
+
+    # --- Underscores must be replaced with hyphens ---
+
+    def test_underscores_replaced_with_hyphens(self):
+        """Underscores are NOT valid in Azure agent names — must become hyphens.
+
+        This is the root cause of the Skill Creator bug:
+        "skill_creator" was passed to Azure API which only allows hyphens.
+        """
+        assert self._sanitize("skill_creator") == "skill-creator"
+
+    def test_multiple_underscores(self):
+        """Multiple underscores each become a hyphen (then collapsed)."""
+        assert self._sanitize("a__b___c") == "a-b-c"
+
+    def test_mixed_underscores_and_hyphens(self):
+        """Mix of underscores and hyphens normalizes to single hyphens."""
+        assert self._sanitize("a_-_b") == "a-b"
+
+    # --- Spaces must be replaced ---
+
+    def test_spaces_replaced(self):
+        """Spaces become hyphens."""
+        assert self._sanitize("Skill Creator") == "Skill-Creator"
+
+    def test_multiple_spaces(self):
+        """Multiple spaces collapse to single hyphen."""
+        assert self._sanitize("Skill   Creator") == "Skill-Creator"
+
+    # --- Special characters ---
+
+    def test_dots_replaced(self):
+        """Dots become hyphens."""
+        assert self._sanitize("Dr.Wang") == "Dr-Wang"
+
+    def test_chinese_characters_replaced(self):
+        """Chinese characters become hyphens."""
+        assert self._sanitize("王医生") == "agent"  # all chars replaced → empty → fallback
+
+    def test_mixed_chinese_and_ascii(self):
+        """Mixed Chinese/ASCII: Chinese chars become hyphens, ASCII preserved."""
+        result = self._sanitize("Dr-王医生-Chen")
+        assert result == "Dr-Chen"
+
+    def test_at_hash_dollar(self):
+        """Special symbols become hyphens."""
+        assert self._sanitize("a@b#c$d") == "a-b-c-d"
+
+    # --- Leading/trailing hyphens stripped ---
+
+    def test_leading_hyphens_stripped(self):
+        """Leading hyphens are stripped (Azure requires alphanumeric start)."""
+        assert self._sanitize("---test") == "test"
+
+    def test_trailing_hyphens_stripped(self):
+        """Trailing hyphens are stripped (Azure requires alphanumeric end)."""
+        assert self._sanitize("test---") == "test"
+
+    def test_both_ends_hyphens_stripped(self):
+        """Both leading and trailing hyphens stripped."""
+        assert self._sanitize("---test---") == "test"
+
+    # --- Consecutive hyphens collapsed ---
+
+    def test_consecutive_hyphens_collapsed(self):
+        """Consecutive hyphens collapse to single hyphen."""
+        assert self._sanitize("a--b---c") == "a-b-c"
+
+    # --- Length limit ---
+
+    def test_max_63_chars(self):
+        """Output must not exceed 63 characters (Azure hard limit)."""
+        long_name = "a" * 100
+        result = self._sanitize(long_name)
+        assert len(result) <= 63
+
+    def test_exactly_63_chars_passes(self):
+        """63-character name is within limit."""
+        name = "a" * 63
+        result = self._sanitize(name)
+        assert len(result) == 63
+
+    def test_64_chars_truncated(self):
+        """64-character name is truncated to 63."""
+        name = "a" * 64
+        result = self._sanitize(name)
+        assert len(result) == 63
+
+    # --- Empty / whitespace fallback ---
+
+    def test_empty_string_fallback(self):
+        """Empty string falls back to default name."""
+        result = self._sanitize("")
+        assert result  # must not be empty
+        assert result.isalnum()  # fallback must be valid
+
+    def test_whitespace_only_fallback(self):
+        """Whitespace-only string falls back to default name."""
+        result = self._sanitize("   ")
+        assert result
+        assert result.isalnum()
+
+    def test_all_special_chars_fallback(self):
+        """All-special-char string falls back to default name."""
+        result = self._sanitize("@#$%^&*()")
+        assert result
+        assert result.isalnum()
+
+    # --- Azure format validation (regex) ---
+
+    def test_result_matches_azure_pattern(self):
+        """All sanitized results must match Azure's naming pattern."""
+        import re
+
+        pattern = re.compile(r"^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?$")
+        test_inputs = [
+            "skill_creator",
+            "Skill Creator",
+            "Dr. Wang Fang",
+            "---invalid---",
+            "a@b#c",
+            "test",
+            "a" * 100,
+            "a_b_c",
+        ]
+        for name in test_inputs:
+            result = self._sanitize(name)
+            assert pattern.match(result), (
+                f"Sanitized name '{result}' (from '{name}') doesn't match Azure pattern"
+            )
+            assert len(result) <= 63, (
+                f"Sanitized name '{result}' exceeds 63 chars"
+            )
+
+    # --- Meta Skill default names ---
+
+    def test_meta_skill_creator_name(self):
+        """Default meta skill creator name must be valid after sanitization."""
+        result = self._sanitize("skill-creator")
+        assert result == "skill-creator"
+
+    def test_meta_skill_evaluator_name(self):
+        """Default meta skill evaluator name must be valid after sanitization."""
+        result = self._sanitize("skill-evaluator")
+        assert result == "skill-evaluator"
+
+    def test_legacy_underscore_names_fixed(self):
+        """Legacy underscore names (pre-fix) are properly converted."""
+        assert self._sanitize("skill_creator") == "skill-creator"
+        assert self._sanitize("skill_evaluator") == "skill-evaluator"
