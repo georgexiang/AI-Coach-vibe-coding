@@ -326,7 +326,6 @@ async def ensure_defaults(db: AsyncSession) -> None:
     stmt = select(MetaSkill)
     result = await db.execute(stmt)
     existing_rows = list(result.scalars().all())
-    existing = {row.skill_type for row in existing_rows}
 
     # Migrate legacy underscore names → hyphen format
     for row in existing_rows:
@@ -335,19 +334,30 @@ async def ensure_defaults(db: AsyncSession) -> None:
             row.name = row.name.replace("_", "-")
             logger.info("ensure_defaults: migrated name '%s' → '%s'", old_name, row.name)
 
+    # Build lookup for existing rows by skill_type
+    existing_by_type = {row.skill_type: row for row in existing_rows}
+
     for cfg in _DEFAULT_CONFIGS:
-        if cfg["skill_type"] in existing:
-            continue
         template = _load_default_template(cfg["skill_type"], cfg["template_language"])
-        meta = MetaSkill(
-            name=cfg["name"],
-            display_name=cfg["display_name"],
-            skill_type=cfg["skill_type"],
-            model=cfg["model"],
-            template_content=template,
-            template_language=cfg["template_language"],
-        )
-        db.add(meta)
-        logger.info("ensure_defaults: seeded meta skill '%s'", cfg["name"])
+        row = existing_by_type.get(cfg["skill_type"])
+        if row is not None:
+            # Update existing row if template content changed (e.g. references added)
+            if row.template_content != template:
+                row.template_content = template
+                logger.info(
+                    "ensure_defaults: updated template for '%s' (content changed on disk)",
+                    cfg["name"],
+                )
+        else:
+            meta = MetaSkill(
+                name=cfg["name"],
+                display_name=cfg["display_name"],
+                skill_type=cfg["skill_type"],
+                model=cfg["model"],
+                template_content=template,
+                template_language=cfg["template_language"],
+            )
+            db.add(meta)
+            logger.info("ensure_defaults: seeded meta skill '%s'", cfg["name"])
 
     await db.commit()
