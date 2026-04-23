@@ -36,6 +36,37 @@ SESSION_UPDATE_TYPE = "session.update"
 PROXY_CONNECTED_TYPE = "proxy.connected"
 ERROR_TYPE = "error"
 
+# SDK monkey-patch flag (DEPRECATED: no longer needed for hosted agents)
+_VOICE_AGENT_PATCHED = False
+
+
+def _apply_voice_agent_patch():
+    """Patch SDK to use /voice-agent/realtime + agent_id.
+
+    DEPRECATED: Only needed for classic agents (asst_* IDs).
+    Hosted agents use /voice-live/realtime + agent-name= natively.
+    Kept for backward compatibility with classic agent mode.
+    """
+    global _VOICE_AGENT_PATCHED
+    if _VOICE_AGENT_PATCHED:
+        return
+    try:
+        from azure.ai.voicelive.aio._patch import _VoiceLiveConnectionManager
+
+        original_prepare_url = _VoiceLiveConnectionManager._prepare_url
+
+        def patched_prepare_url(self):
+            url = original_prepare_url(self)
+            url = url.replace("/voice-live/realtime", "/voice-agent/realtime")
+            url = url.replace("agent-name=", "agent_id=")
+            return url
+
+        _VoiceLiveConnectionManager._prepare_url = patched_prepare_url
+        _VOICE_AGENT_PATCHED = True
+        logger.info("Applied voice-agent URL monkey-patch to SDK")
+    except Exception:
+        logger.warning("Failed to apply voice-agent URL monkey-patch", exc_info=True)
+
 
 async def _load_connection_config(
     db: AsyncSession,
@@ -56,8 +87,7 @@ async def _load_connection_config(
         raise ValueError("Voice Live not configured")
 
     api_key = await config_service.get_effective_key(db, "azure_voice_live")
-    if not api_key:
-        raise ValueError("Voice Live API key not set")
+    # api_key may be empty when using DefaultAzureCredential (token-based auth)
 
     raw_endpoint = await config_service.get_effective_endpoint(db, "azure_voice_live")
     if not raw_endpoint:
@@ -77,6 +107,11 @@ async def _load_connection_config(
     _default_model = _settings.voice_live_default_model
     vl_model = vl_config.model_or_deployment or _default_model
 
+    # Check for hosted agent override (takes priority over per-HCP classic agents)
+    _hosted_agent_name = _settings.voice_live_hosted_agent_name
+    _hosted_agent_project = _settings.voice_live_hosted_agent_project
+    _hosted_agent_endpoint = _settings.voice_live_hosted_agent_endpoint
+
     result: dict[str, Any] = {
         "endpoint": effective_endpoint,
         "api_key": api_key,
@@ -94,11 +129,16 @@ async def _load_connection_config(
         "project_name": "",
     }
 
-    # Check avatar availability
+    # Check avatar availability.
+    # Mark enabled if the config row is active. Auth can be either an API key
+    # (per-service or master) or AAD/DefaultAzureCredential (used when
+    # disableLocalAuth=true on the Foundry resource). The downstream Voice Live
+    # WebSocket proxy already obtains a Bearer token via DefaultAzureCredential
+    # when no API key is available, so requiring a non-empty key here would
+    # incorrectly disable avatar in AAD-only deployments.
     avatar_config = await config_service.get_config(db, "azure_avatar")
     if avatar_config and avatar_config.is_active:
-        avatar_key = await config_service.get_effective_key(db, "azure_avatar")
-        result["avatar_enabled"] = bool(avatar_key)
+        result["avatar_enabled"] = True
         if avatar_config.model_or_deployment:
             result["avatar_character"] = avatar_config.model_or_deployment
 
@@ -147,9 +187,18 @@ async def _load_connection_config(
                 hcp_model = _default_model
             result["model"] = hcp_model
 
-            # Agent mode: if HCP has a synced agent and agent mode is enabled,
-            # use AgentSessionConfig instead of model mode.
+            # Agent mode: hosted agent override takes priority over per-HCP classic agents.
+            # If hosted agent is configured, use it for ALL agent-mode connections.
             if (
+                _settings.voice_live_agent_mode_enabled
+                and _hosted_agent_name
+            ):
+                result["use_agent_mode"] = True
+                result["agent_name"] = _hosted_agent_name
+                result["project_name"] = _hosted_agent_project
+                if _hosted_agent_endpoint:
+                    result["endpoint"] = _hosted_agent_endpoint.rstrip("/")
+            elif (
                 _settings.voice_live_agent_mode_enabled
                 and profile.agent_id
                 and profile.agent_sync_status == "synced"
@@ -235,6 +284,19 @@ async def _load_connection_config(
                 vl_instance_id,
                 exc_info=True,
             )
+
+    # Standalone hosted agent mode: no HCP profile, no VL instance,
+    # but hosted agent is configured → activate agent mode.
+    if (
+        not result["use_agent_mode"]
+        and _hosted_agent_name
+        and _settings.voice_live_agent_mode_enabled
+    ):
+        result["use_agent_mode"] = True
+        result["agent_name"] = _hosted_agent_name
+        result["project_name"] = _hosted_agent_project
+        if _hosted_agent_endpoint:
+            result["endpoint"] = _hosted_agent_endpoint.rstrip("/")
 
     return result
 
@@ -325,7 +387,14 @@ async def handle_voice_live_websocket(ws: WebSocket, db: AsyncSession) -> None:
             await _send_error(ws, "azure-ai-voicelive SDK not installed")
             return
 
-        credential = AzureKeyCredential(cfg["api_key"])
+        # Use DefaultAzureCredential (token-based) when API key is empty or
+        # key-based auth is disabled on the endpoint
+        api_key = cfg["api_key"]
+        if api_key and api_key.strip():
+            credential = AzureKeyCredential(api_key)
+        else:
+            from azure.identity.aio import DefaultAzureCredential
+            credential = DefaultAzureCredential()
 
         # Build session config -- modalities and audio/voice settings
         modalities = [Modality.TEXT, Modality.AUDIO]
@@ -432,40 +501,105 @@ async def handle_voice_live_websocket(ws: WebSocket, db: AsyncSession) -> None:
                 )
                 return
 
-            # NO fallback (RD-2): Agent failure = error propagated to frontend
-            async with connect(
-                endpoint=cfg["endpoint"],
-                credential=credential,
-                agent_config=AgentSessionConfig(
-                    agent_name=agent_name,
-                    project_name=project_name,
-                ),
-            ) as azure_conn:
-                await azure_conn.session.update(session=session_config)
-                session_log.info("Connected to Azure Voice Live (agent mode), session config sent")
+            # Determine if this is a hosted agent (name-based) or classic agent (asst_* ID)
+            _is_hosted_agent = not agent_name.startswith("asst_")
 
-                await ws.send_text(
-                    json.dumps(
-                        {
-                            "type": PROXY_CONNECTED_TYPE,
-                            "message": "Connected to Azure Voice Live (agent mode)",
-                            "avatar_enabled": cfg["avatar_enabled"],
-                            "model": "",
-                            "mode": "agent",
-                            "agent_name": agent_name,
-                            "session_id": sid,
-                        }
+            if _is_hosted_agent:
+                # Hosted agent: SDK natively supports /voice-live/realtime + agent-name=
+                # Use DefaultAzureCredential (hosted agent endpoints require Entra auth)
+                from azure.identity.aio import DefaultAzureCredential as _DAC
+                _agent_credential = _DAC()
+
+                session_log.info(
+                    "Connecting to hosted agent: name=%s, project=%s, endpoint=%s",
+                    agent_name, project_name, cfg["endpoint"],
+                )
+
+                try:
+                    async with connect(
+                        endpoint=cfg["endpoint"],
+                        credential=_agent_credential,
+                        api_version="2026-01-01-preview",
+                        agent_config=AgentSessionConfig(
+                            agent_name=agent_name,
+                            project_name=project_name,
+                        ),
+                    ) as azure_conn:
+                        await azure_conn.session.update(session=session_config)
+                        session_log.info("Connected to hosted agent, session config sent")
+
+                        await ws.send_text(
+                            json.dumps(
+                                {
+                                    "type": PROXY_CONNECTED_TYPE,
+                                    "message": f"Connected to hosted agent: {agent_name}",
+                                    "avatar_enabled": cfg["avatar_enabled"],
+                                    "model": "",
+                                    "mode": "agent",
+                                    "agent_name": agent_name,
+                                    "session_id": sid,
+                                }
+                            )
+                        )
+
+                        await _handle_message_forwarding(
+                            ws,
+                            azure_conn,
+                            ConnectionClosed,
+                            ServerEventType,
+                            session_log,
+                            event_counts,
+                        )
+                finally:
+                    await _agent_credential.close()
+            else:
+                # Classic agent (asst_* ID): requires monkey-patch + agent_access_token
+                _apply_voice_agent_patch()
+
+                from azure.identity.aio import DefaultAzureCredential as _DAC
+                _ai_cred = _DAC()
+                try:
+                    _ai_token_obj = await _ai_cred.get_token("https://ai.azure.com/.default")
+                    _agent_access_token = _ai_token_obj.token
+                finally:
+                    await _ai_cred.close()
+
+                async with connect(
+                    endpoint=cfg["endpoint"],
+                    credential=credential,
+                    api_version="2025-05-01-preview",
+                    agent_config=AgentSessionConfig(
+                        agent_name=agent_name,
+                        project_name=project_name,
+                    ),
+                    query={"agent_access_token": _agent_access_token},
+                    credential_scopes=["https://cognitiveservices.azure.com/.default"],
+                ) as azure_conn:
+                    await azure_conn.session.update(session=session_config)
+                    session_log.info("Connected to classic agent, session config sent")
+
+                    await ws.send_text(
+                        json.dumps(
+                            {
+                                "type": PROXY_CONNECTED_TYPE,
+                                "message": "Connected to Azure Voice Live (agent mode)",
+                                "avatar_enabled": cfg["avatar_enabled"],
+                                "model": "",
+                                "mode": "agent",
+                                "agent_name": agent_name,
+                                "session_id": sid,
+                            }
+                        )
                     )
-                )
 
-                await _handle_message_forwarding(
-                    ws,
-                    azure_conn,
-                    ConnectionClosed,
-                    ServerEventType,
-                    session_log,
-                    event_counts,
-                )
+                    await _handle_message_forwarding(
+                        ws,
+                        azure_conn,
+                        ConnectionClosed,
+                        ServerEventType,
+                        session_log,
+                        event_counts,
+                    )
         else:
             # Model mode: pass model name and instructions directly
             instructions = cfg.get("instructions") or cfg.get("system_prompt")

@@ -495,6 +495,8 @@ async def get_conversion_status(
     """Poll conversion status with step-level progress. Admin only."""
     skill = await skill_service.get_skill(db, skill_id)
     response: dict = {
+        "status": skill.conversion_status,
+        "error": skill.conversion_error,
         "conversion_status": skill.conversion_status,
         "conversion_error": skill.conversion_error,
         "conversion_job_id": skill.conversion_job_id,

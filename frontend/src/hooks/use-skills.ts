@@ -159,9 +159,7 @@ export function usePublishSkill() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      // Backend requires draft → review → published (two-step transition).
-      // Transition to "review" first if still in draft, then publish.
-      await updateSkill(id, { status: "review" });
+      // Backend handles draft → review → published automatically.
       return publishSkill(id);
     },
     onSuccess: () => {

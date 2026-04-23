@@ -333,12 +333,12 @@ async def _call_openai_for_evaluation(db: AsyncSession, prompt: str) -> _AICallR
     endpoint = await config_service.get_effective_endpoint(db, "azure_openai")
     api_key = await config_service.get_effective_key(db, "azure_openai")
 
-    if not endpoint or not api_key:
-        logger.info("L2 evaluation unavailable: no Azure OpenAI endpoint/key configured")
+    if not endpoint:
+        logger.info("L2 evaluation unavailable: no Azure OpenAI endpoint configured")
         return _AICallResult(
             data=None,
             status="ai_unavailable",
-            error_detail="Azure OpenAI endpoint or API key not configured",
+            error_detail="Azure OpenAI endpoint not configured",
         )
 
     config = await config_service.get_config(db, "azure_openai")
@@ -354,11 +354,21 @@ async def _call_openai_for_evaluation(db: AsyncSession, prompt: str) -> _AICallR
     try:
         from openai import AsyncAzureOpenAI
 
-        client = AsyncAzureOpenAI(
-            azure_endpoint=endpoint,
-            api_key=api_key,
-            api_version=settings.skill_ai_api_version,
-        )
+        if api_key:
+            client = AsyncAzureOpenAI(
+                azure_endpoint=endpoint,
+                api_key=api_key,
+                api_version=settings.skill_ai_api_version,
+            )
+        else:
+            from azure.identity import DefaultAzureCredential, get_bearer_token_provider
+            credential = DefaultAzureCredential()
+            token_provider = get_bearer_token_provider(credential, "https://cognitiveservices.azure.com/.default")
+            client = AsyncAzureOpenAI(
+                azure_endpoint=endpoint,
+                azure_ad_token_provider=token_provider,
+                api_version=settings.skill_ai_api_version,
+            )
     except ImportError:
         logger.warning("openai package not installed, cannot run L2 evaluation")
         return _AICallResult(

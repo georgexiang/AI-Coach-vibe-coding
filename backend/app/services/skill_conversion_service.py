@@ -10,7 +10,7 @@ import json
 import logging
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.skill import Skill, SkillResource
@@ -186,8 +186,8 @@ async def _get_openai_client(db: AsyncSession) -> tuple:
     endpoint = await config_service.get_effective_endpoint(db, "azure_openai")
     api_key = await config_service.get_effective_key(db, "azure_openai")
 
-    if not endpoint or not api_key:
-        raise ValueError("Azure OpenAI not configured: no endpoint or API key found")
+    if not endpoint:
+        raise ValueError("Azure OpenAI not configured: no endpoint found")
 
     config = await config_service.get_config(db, "azure_openai")
     from app.config import get_settings
@@ -201,13 +201,35 @@ async def _get_openai_client(db: AsyncSession) -> tuple:
 
     from openai import AsyncAzureOpenAI
 
-    client = AsyncAzureOpenAI(
-        azure_endpoint=endpoint,
-        api_key=api_key,
-        api_version=settings.skill_ai_api_version,
-    )
+    if api_key:
+        client = AsyncAzureOpenAI(
+            azure_endpoint=endpoint,
+            api_key=api_key,
+            api_version=settings.skill_ai_api_version,
+        )
+    else:
+        from azure.identity.aio import (
+            DefaultAzureCredential as AsyncDefaultAzureCredential,
+            get_bearer_token_provider as async_get_bearer_token_provider,
+        )
+
+        credential = AsyncDefaultAzureCredential()
+        token_provider = async_get_bearer_token_provider(
+            credential, "https://cognitiveservices.azure.com/.default"
+        )
+        client = AsyncAzureOpenAI(
+            azure_endpoint=endpoint,
+            azure_ad_token_provider=token_provider,
+            api_version=settings.skill_ai_api_version,
+        )
 
     return client, deployment
+
+
+async def _get_aad_token(credential) -> str:
+    """Get AAD token for Azure OpenAI."""
+    token = await credential.get_token("https://cognitiveservices.azure.com/.default")
+    return token.token
 
 
 async def _call_sop_extraction(db: AsyncSession, text_chunk: str) -> dict:
@@ -409,7 +431,10 @@ async def extract_resource_texts(db: AsyncSession, skill_id: str) -> None:
         select(SkillResource).where(
             SkillResource.skill_id == skill_id,
             SkillResource.resource_type == "reference",
-            SkillResource.extraction_status != "completed",
+            or_(
+                SkillResource.extraction_status != "completed",
+                SkillResource.extraction_status.is_(None),
+            ),
         )
     )
     resources = list(result.scalars().all())
