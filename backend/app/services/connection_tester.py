@@ -139,6 +139,18 @@ async def detect_region_from_endpoint(endpoint: str, api_key: str) -> str:
     return ""
 
 
+async def _get_bearer_token() -> str | None:
+    """Get a bearer token via DefaultAzureCredential for keyless auth."""
+    try:
+        from azure.identity.aio import DefaultAzureCredential as AsyncDefaultAzureCredential
+
+        async with AsyncDefaultAzureCredential() as cred:
+            token = await cred.get_token("https://cognitiveservices.azure.com/.default")
+            return token.token
+    except Exception:
+        return None
+
+
 async def test_ai_foundry_endpoint(
     endpoint: str, api_key: str, model: str = ""
 ) -> tuple[bool, str]:
@@ -146,16 +158,24 @@ async def test_ai_foundry_endpoint(
 
     If a model/deployment is configured, validates via a real chat completion call.
     Otherwise falls back to listing deployments (tries multiple API versions).
+    Supports DefaultAzureCredential when API key is empty (disableLocalAuth).
     """
     valid, msg = validate_endpoint_url(endpoint)
     if not valid:
         return (False, msg)
-    if not api_key:
-        return (False, "API key is required")
 
     # If a model is configured, do a real chat completion test (most reliable)
     if model:
         return await test_azure_openai(endpoint, api_key, model)
+
+    if not api_key:
+        # Try DefaultAzureCredential (keyless / Entra ID auth)
+        token = await _get_bearer_token()
+        if not token:
+            return (False, "API key is required (DefaultAzureCredential also failed)")
+        headers = {"Authorization": f"Bearer {token}"}
+    else:
+        headers = {"api-key": api_key}
 
     # No model configured — try listing deployments with multiple API versions
     base = endpoint.rstrip("/")
@@ -166,11 +186,12 @@ async def test_ai_foundry_endpoint(
         async with httpx.AsyncClient(timeout=10.0) as client:
             for api_ver in api_versions:
                 url = f"{base}/openai/deployments?api-version={api_ver}"
-                response = await client.get(url, headers={"api-key": api_key})
+                response = await client.get(url, headers=headers)
                 if response.status_code == 200:
                     data = response.json()
                     count = len(data.get("data", []))
-                    return (True, f"Connection successful ({count} deployment(s) found)")
+                    auth_mode = "Entra ID" if not api_key else "API key"
+                    return (True, f"Connection successful ({count} deployment(s) found, auth: {auth_mode})")
                 elif response.status_code in (401, 403):
                     return (False, f"Authentication failed: HTTP {response.status_code}")
                 last_status = response.status_code
@@ -181,19 +202,35 @@ async def test_ai_foundry_endpoint(
 
 
 async def test_azure_openai(endpoint: str, api_key: str, deployment: str) -> tuple[bool, str]:
-    """Test Azure OpenAI connection by making a minimal chat completion call."""
+    """Test Azure OpenAI connection by making a minimal chat completion call.
+
+    Supports DefaultAzureCredential when api_key is empty.
+    """
     valid, msg = validate_endpoint_url(endpoint)
     if not valid:
         return (False, msg)
     try:
         from openai import AsyncAzureOpenAI
 
-        client = AsyncAzureOpenAI(
-            azure_endpoint=endpoint,
-            api_key=api_key,
-            api_version="2024-06-01",
-            timeout=10.0,
-        )
+        if api_key:
+            client = AsyncAzureOpenAI(
+                azure_endpoint=endpoint,
+                api_key=api_key,
+                api_version="2024-06-01",
+                timeout=10.0,
+            )
+        else:
+            # Keyless auth via DefaultAzureCredential
+            from azure.identity.aio import DefaultAzureCredential as AsyncDefaultAzureCredential, get_bearer_token_provider as async_get_bearer_token_provider
+
+            credential = AsyncDefaultAzureCredential()
+            token_provider = async_get_bearer_token_provider(credential, "https://cognitiveservices.azure.com/.default")
+            client = AsyncAzureOpenAI(
+                azure_endpoint=endpoint,
+                azure_ad_token_provider=token_provider,
+                api_version="2024-06-01",
+                timeout=10.0,
+            )
         # Try max_completion_tokens first (newer models like gpt-4o, gpt-5.4-mini, o1, o3),
         # fall back to max_tokens for older models (gpt-4, gpt-35-turbo)
         try:
@@ -228,9 +265,10 @@ async def test_azure_speech(key: str, region: str, endpoint: str = "") -> tuple[
     1. AI Foundry custom domain with multiple auth headers and API paths
     2. STS token endpoint (POST /sts/v1.0/issueToken) to prove Speech key validity
     3. Regional Speech endpoint as fallback
+    4. DefaultAzureCredential bearer token when no key is provided
     """
-    if not key:
-        return (False, "API key is required")
+    if not key and not endpoint:
+        return (False, "API key or endpoint is required")
     if not region and not endpoint:
         return (False, "Region or endpoint is required")
 
@@ -238,8 +276,16 @@ async def test_azure_speech(key: str, region: str, endpoint: str = "") -> tuple[
     # method is "GET" or "POST"
     probes: list[tuple[str, str, dict[str, str]]] = []
 
-    headers_ocp = {"Ocp-Apim-Subscription-Key": key}
-    headers_apikey = {"api-key": key}
+    if key:
+        headers_ocp = {"Ocp-Apim-Subscription-Key": key}
+        headers_apikey = {"api-key": key}
+    else:
+        # Keyless auth via DefaultAzureCredential
+        token = await _get_bearer_token()
+        if not token:
+            return (False, "API key is required (DefaultAzureCredential also failed)")
+        headers_ocp = {"Authorization": f"Bearer {token}"}
+        headers_apikey = headers_ocp
 
     if endpoint:
         # AI Foundry has two domains for same resource — try both
@@ -326,14 +372,21 @@ async def test_azure_avatar(api_key: str, region: str, endpoint: str = "") -> tu
     Tries AI Foundry custom domain first, then regional endpoint.
     Avatar uses the same Speech service credentials.
     """
-    if not api_key:
-        return (False, "API key is required")
+    if not api_key and not endpoint:
+        return (False, "API key or endpoint is required for Avatar service")
     if not endpoint and not region:
         return (False, "Region or endpoint is required for Avatar service")
 
     probes: list[tuple[str, str, dict[str, str]]] = []
-    headers_ocp = {"Ocp-Apim-Subscription-Key": api_key}
-    headers_apikey = {"api-key": api_key}
+    if api_key:
+        headers_ocp = {"Ocp-Apim-Subscription-Key": api_key}
+        headers_apikey = {"api-key": api_key}
+    else:
+        token = await _get_bearer_token()
+        if not token:
+            return (False, "API key is required (DefaultAzureCredential also failed)")
+        headers_ocp = {"Authorization": f"Bearer {token}"}
+        headers_apikey = headers_ocp
 
     if endpoint:
         bases = _derive_endpoint_variants(endpoint)
@@ -430,9 +483,17 @@ async def test_azure_content_understanding(
     )
 
     path = "/contentunderstanding/analyzers?api-version=2025-11-01"
-    # AzureKeyCredential sends Ocp-Apim-Subscription-Key; also try api-key
-    headers_ocp = {"Ocp-Apim-Subscription-Key": api_key}
-    headers_apikey = {"api-key": api_key}
+    if api_key:
+        # AzureKeyCredential sends Ocp-Apim-Subscription-Key; also try api-key
+        headers_list = [
+            {"Ocp-Apim-Subscription-Key": api_key},
+            {"api-key": api_key},
+        ]
+    else:
+        token = await _get_bearer_token()
+        if not token:
+            return (False, "API key is required (DefaultAzureCredential also failed)")
+        headers_list = [{"Authorization": f"Bearer {token}"}]
 
     last_status = 0
     tried: list[str] = []
@@ -440,7 +501,7 @@ async def test_azure_content_understanding(
         async with httpx.AsyncClient(timeout=15.0) as client:
             for base in bases_sorted:
                 url = f"{base}{path}"
-                for hdrs in [headers_ocp, headers_apikey]:
+                for hdrs in headers_list:
                     try:
                         response = await client.get(url, headers=hdrs)
                         hdr_name = next(iter(hdrs))
@@ -482,13 +543,20 @@ async def test_azure_realtime(
     valid, msg = validate_endpoint_url(endpoint)
     if not valid:
         return (False, msg)
+    if api_key:
+        headers = {"api-key": api_key}
+    else:
+        token = await _get_bearer_token()
+        if not token:
+            return (False, "API key is required (DefaultAzureCredential also failed)")
+        headers = {"Authorization": f"Bearer {token}"}
     try:
         base = endpoint.rstrip("/")
         async with httpx.AsyncClient(timeout=10.0) as client:
             url = f"{base}/openai/deployments/{deployment}?api-version=2024-06-01"
             response = await client.get(
                 url,
-                headers={"api-key": api_key},
+                headers=headers,
             )
             if response.status_code == 200:
                 return (True, "Realtime API deployment verified.")
@@ -509,7 +577,13 @@ async def test_azure_voice_live(endpoint: str, api_key: str, region: str) -> tup
     if not valid:
         return (False, msg)
     if not api_key:
-        return (False, "API key is required")
+        # Try DefaultAzureCredential
+        token = await _get_bearer_token()
+        if not token:
+            return (False, "API key is required (DefaultAzureCredential also failed)")
+        auth_headers = {"Authorization": f"Bearer {token}"}
+    else:
+        auth_headers = {"api-key": api_key}
     if region.lower() not in SUPPORTED_REGIONS:
         return (
             False,
@@ -522,7 +596,7 @@ async def test_azure_voice_live(endpoint: str, api_key: str, region: str) -> tup
             url = f"{endpoint.rstrip('/')}/openai/realtime"
             response = await client.get(
                 url,
-                headers={"api-key": api_key},
+                headers=auth_headers,
                 params={"api-version": "2025-04-01-preview"},
             )
             if response.status_code in (404, 405, 426):

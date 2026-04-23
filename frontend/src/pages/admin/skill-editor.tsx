@@ -344,17 +344,8 @@ export default function SkillEditorPage() {
     [id, updateMutation, t],
   );
 
-  const handlePublish = useCallback(() => {
-    if (!id) return;
-    publishMutation.mutate(id, {
-      onSuccess: () => {
-        toast.success(t("quality.publishSuccess"));
-        setPublishDialogOpen(false);
-        navigate("/admin/skills");
-      },
-      onError: () => toast.error(t("errors.saveFailed")),
-    });
-  }, [id, publishMutation, navigate, t]);
+  // State for auto-evaluation before publish
+  const [isAutoEvaluating, setIsAutoEvaluating] = useState(false);
 
   // ---------------------------------------------------------------------------
   // Derived state
@@ -390,6 +381,49 @@ export default function SkillEditorPage() {
     evaluationData?.evaluation_criteria ?? [];
   const isAiUnavailable =
     evaluationStatus === "ai_unavailable" || evaluationStatus === "ai_error";
+
+  // Publish handlers (after derived state so structurePassed is available)
+  const handlePublishClick = useCallback(async () => {
+    if (!id) return;
+    const needsEval = isStale
+      || structurePassed === null
+      || evaluationData?.quality?.score === null;
+
+    if (needsEval) {
+      setIsAutoEvaluating(true);
+      try {
+        await checkStructureMutation.mutateAsync(id);
+        await evaluateQualityMutation.mutateAsync(id);
+        const maxAttempts = 20;
+        for (let i = 0; i < maxAttempts; i++) {
+          await new Promise(r => setTimeout(r, 2000));
+          const result = await refetchEvaluation();
+          const evalData = result.data;
+          if (evalData?.quality?.is_stale === false && evalData?.quality?.score !== null) {
+            break;
+          }
+        }
+      } catch {
+        toast.error(t("errors.loadFailed"));
+        setIsAutoEvaluating(false);
+        return;
+      }
+      setIsAutoEvaluating(false);
+    }
+    setPublishDialogOpen(true);
+  }, [id, isStale, structurePassed, evaluationData, checkStructureMutation, evaluateQualityMutation, refetchEvaluation, t]);
+
+  const handlePublish = useCallback(() => {
+    if (!id) return;
+    publishMutation.mutate(id, {
+      onSuccess: () => {
+        toast.success(t("quality.publishSuccess"));
+        setPublishDialogOpen(false);
+        navigate("/admin/skills");
+      },
+      onError: () => toast.error(t("errors.publishFailed", { defaultValue: t("errors.saveFailed") })),
+    });
+  }, [id, publishMutation, navigate, t]);
 
   const isReviewing =
     checkStructureMutation.isPending || evaluateQualityMutation.isPending;
@@ -447,11 +481,17 @@ export default function SkillEditorPage() {
             {t("editor.saveDraft")}
           </Button>
           <Button
-            onClick={() => setPublishDialogOpen(true)}
-            disabled={isNew || !skill}
+            onClick={handlePublishClick}
+            disabled={isNew || !skill || isAutoEvaluating}
           >
-            <Rocket className="mr-2 size-4" />
-            {t("editor.publishSkill")}
+            {isAutoEvaluating ? (
+              <RefreshCw className="mr-2 size-4 animate-spin" />
+            ) : (
+              <Rocket className="mr-2 size-4" />
+            )}
+            {isAutoEvaluating
+              ? t("quality.evaluating", { defaultValue: "Evaluating..." })
+              : t("editor.publishSkill")}
           </Button>
         </div>
       </div>
