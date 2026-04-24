@@ -54,7 +54,9 @@
     "uploadAndConvert": "Upload and Convert",
     "createEmpty": "or create an empty skill",
     "filesUploaded": "Files uploaded",
-    "saveFirstForResources": "Save the skill first to manage resources"
+    "saveFirstForResources": "Save the skill first to manage resources",
+    "skillNamePlaceholder": "Enter skill name...",
+    "defaultSkillName": "New Skill"
   },
   "status": {
     "draft": "Draft",

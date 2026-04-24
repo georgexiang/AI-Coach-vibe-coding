@@ -54,7 +54,9 @@
     "uploadAndConvert": "上传并转换",
     "createEmpty": "或创建空白技能",
     "filesUploaded": "文件已上传",
-    "saveFirstForResources": "请先保存技能以管理资源"
+    "saveFirstForResources": "请先保存技能以管理资源",
+    "skillNamePlaceholder": "请输入技能名称...",
+    "defaultSkillName": "新技能"
   },
   "status": {
     "draft": "草稿",

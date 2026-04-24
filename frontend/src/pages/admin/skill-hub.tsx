@@ -175,7 +175,7 @@ export default function SkillHubPage() {
     } else {
       // No materials available, fall back to creating empty skill
       createMutation.mutate(
-        { name: "New Skill" },
+        { name: t("editor.defaultSkillName", { defaultValue: "New Skill" }) },
         {
           onSuccess: (skill) => {
             navigate(`/admin/skills/${skill.id}/edit`);
