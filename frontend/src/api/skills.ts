@@ -87,13 +87,13 @@ export async function createSkillFromMaterials(
   materialIds: string[],
   name?: string,
   product?: string,
-): Promise<{ id: string; status: string; job_id: string; materials_copied: number }> {
+): Promise<{ id: string; status: string; method?: string; materials_copied: number }> {
   const { data } = await apiClient.post<{
     id: string;
     status: string;
-    job_id: string;
+    method?: string;
     materials_copied: number;
-  }>("/skills/from-materials", {
+  }>("/skills/create-from-agent", {
     material_ids: materialIds,
     ...(name && { name }),
     ...(product && { product }),

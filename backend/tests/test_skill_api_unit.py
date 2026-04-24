@@ -6,18 +6,17 @@ Follows the same pattern as test_material_api_unit.py.
 """
 
 import json
+from datetime import UTC
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from app.api.skills import (
     RegenerateSopRequest,
-    _run_durable_conversion,
     archive_skill,
     convert_skill,
     create_new_version,
     create_skill,
-    create_skill_from_materials,
     delete_resource,
     delete_skill,
     download_resource,
@@ -37,12 +36,10 @@ from app.api.skills import (
     update_skill,
     upload_and_convert,
     upload_resource,
-    CreateFromMaterialsRequest,
 )
 from app.models.user import User
 from app.schemas.skill import SkillCreate, SkillUpdate
 from app.utils.exceptions import NotFoundException, ValidationException
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -152,8 +149,8 @@ class TestConvertSkillEndpoint:
 
         assert result.status_code == 202
         body = json.loads(result.body)
-        assert body["status"] == "pending"
-        assert "job_id" in body
+        assert body["status"] == "processing"
+        assert body["method"] == "agent"
         mock_asyncio.create_task.assert_called_once()
 
     @patch("app.api.skills.skill_service")
@@ -207,7 +204,8 @@ class TestRetryConversionEndpoint:
 
         assert result.status_code == 202
         body = json.loads(result.body)
-        assert body["status"] == "pending"
+        assert body["status"] == "processing"
+        assert body["method"] == "agent"
         mock_asyncio.create_task.assert_called_once()
 
     @patch("app.api.skills.asyncio")
@@ -354,7 +352,8 @@ class TestUploadAndConvertEndpoint:
         assert result.status_code == 202
         body = json.loads(result.body)
         assert body["files_uploaded"] == 1
-        assert body["status"] == "pending"
+        assert body["status"] == "processing"
+        assert body["method"] == "agent"
         mock_asyncio.create_task.assert_called_once()
 
     @patch("app.api.skills.skill_service")
@@ -410,11 +409,11 @@ class TestUploadAndConvertEndpoint:
 class TestRegenerateSopEndpoint:
     """Tests for POST /{skill_id}/regenerate-sop."""
 
-    @patch("app.api.skills.skill_conversion_service")
-    async def test_regenerate_success(self, mock_conv_svc):
+    @patch("app.services.skill_conversion_service.regenerate_sop_with_feedback")
+    async def test_regenerate_success(self, mock_regen):
         """Valid feedback triggers regeneration and returns updated skill."""
         mock_skill = _make_skill()
-        mock_conv_svc.regenerate_sop_with_feedback = AsyncMock(return_value=mock_skill)
+        mock_regen.return_value = mock_skill
 
         db = AsyncMock()
         user = _make_user()
@@ -424,7 +423,7 @@ class TestRegenerateSopEndpoint:
             skill_id="skill-1", body=body, db=db, _user=user
         )
         assert result == mock_skill
-        mock_conv_svc.regenerate_sop_with_feedback.assert_awaited_once()
+        mock_regen.assert_awaited_once()
 
     async def test_regenerate_empty_feedback_raises_422(self):
         """Empty feedback string raises ValidationException."""
@@ -1015,7 +1014,7 @@ class TestListPublishedSkillsEndpoint:
     @patch("app.api.skills.skill_service")
     async def test_list_published_with_results(self, mock_svc):
         """Returns paginated published skills."""
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         mock_item = MagicMock()
         mock_item.id = "s1"
@@ -1030,8 +1029,8 @@ class TestListPublishedSkillsEndpoint:
         mock_item.conversion_status = "completed"
         mock_item.current_version = 1
         mock_item.created_by = "admin-user-id"
-        mock_item.created_at = datetime(2026, 1, 1, tzinfo=timezone.utc)
-        mock_item.updated_at = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        mock_item.created_at = datetime(2026, 1, 1, tzinfo=UTC)
+        mock_item.updated_at = datetime(2026, 1, 1, tzinfo=UTC)
 
         mock_svc.get_published_skills = AsyncMock(return_value=([mock_item], 1))
 
@@ -1095,7 +1094,7 @@ class TestGetSkillEndpoint:
     @patch("app.api.skills.skill_service")
     async def test_get_skill_returns_skill_out(self, mock_svc, _mock_src_mats):
         """get_skill returns SkillOut with source_materials."""
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         mock_skill = MagicMock()
         mock_skill.id = "s1"
@@ -1110,8 +1109,8 @@ class TestGetSkillEndpoint:
         mock_skill.conversion_status = None
         mock_skill.current_version = 1
         mock_skill.created_by = "admin-user-id"
-        mock_skill.created_at = datetime(2026, 1, 1, tzinfo=timezone.utc)
-        mock_skill.updated_at = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        mock_skill.created_at = datetime(2026, 1, 1, tzinfo=UTC)
+        mock_skill.updated_at = datetime(2026, 1, 1, tzinfo=UTC)
         mock_skill.therapeutic_area = ""
         mock_skill.compatibility = ""
         mock_skill.metadata_json = "{}"
@@ -1227,262 +1226,6 @@ class TestImportSkillEndpoint:
 
         with pytest.raises(ValidationException):
             await import_skill(file=file, db=db, user=user)
-
-
-# ===========================================================================
-# _run_durable_conversion (background task — covers lines 229-252)
-# ===========================================================================
-
-
-class TestRunDurableConversion:
-    """Tests for the _run_durable_conversion background task."""
-
-    @patch("app.api.skills.AsyncSessionLocal")
-    @patch("app.api.skills.skill_conversion_service")
-    async def test_durable_conversion_success(self, mock_conv_svc, mock_session_cls):
-        """Successful conversion commits the session."""
-        mock_skill = _make_skill(conversion_job_id="job-1")
-        mock_session = AsyncMock()
-        mock_session.get = AsyncMock(return_value=mock_skill)
-        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session.__aexit__ = AsyncMock(return_value=False)
-        mock_session_cls.return_value = mock_session
-
-        mock_conv_svc.start_conversion = AsyncMock()
-
-        await _run_durable_conversion("skill-1", "job-1")
-
-        mock_conv_svc.start_conversion.assert_awaited_once_with(mock_session, "skill-1")
-        mock_session.commit.assert_awaited_once()
-
-    @patch("app.api.skills.AsyncSessionLocal")
-    @patch("app.api.skills.skill_conversion_service")
-    async def test_durable_conversion_superseded(self, mock_conv_svc, mock_session_cls):
-        """Mismatched job_id causes early return (idempotency)."""
-        mock_skill = _make_skill(conversion_job_id="other-job")
-        mock_session = AsyncMock()
-        mock_session.get = AsyncMock(return_value=mock_skill)
-        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session.__aexit__ = AsyncMock(return_value=False)
-        mock_session_cls.return_value = mock_session
-
-        mock_conv_svc.start_conversion = AsyncMock()
-
-        await _run_durable_conversion("skill-1", "job-1")
-
-        mock_conv_svc.start_conversion.assert_not_awaited()
-
-    @patch("app.api.skills.AsyncSessionLocal")
-    @patch("app.api.skills.skill_conversion_service")
-    async def test_durable_conversion_skill_deleted(self, mock_conv_svc, mock_session_cls):
-        """If skill is deleted (None), return early."""
-        mock_session = AsyncMock()
-        mock_session.get = AsyncMock(return_value=None)
-        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session.__aexit__ = AsyncMock(return_value=False)
-        mock_session_cls.return_value = mock_session
-
-        mock_conv_svc.start_conversion = AsyncMock()
-
-        await _run_durable_conversion("skill-1", "job-1")
-
-        mock_conv_svc.start_conversion.assert_not_awaited()
-
-    @patch("app.api.skills.AsyncSessionLocal")
-    @patch("app.api.skills.skill_conversion_service")
-    async def test_durable_conversion_failure_records_error(self, mock_conv_svc, mock_session_cls):
-        """Conversion failure records error in a new session."""
-        mock_skill = _make_skill(conversion_job_id="job-1")
-        mock_err_skill = _make_skill(conversion_job_id="job-1")
-
-        # Main session raises on conversion
-        mock_session = AsyncMock()
-        mock_session.get = AsyncMock(return_value=mock_skill)
-        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session.__aexit__ = AsyncMock(return_value=False)
-        mock_conv_svc.start_conversion = AsyncMock(side_effect=RuntimeError("AI failed"))
-
-        # Error session for recording the failure
-        mock_err_session = AsyncMock()
-        mock_err_session.get = AsyncMock(return_value=mock_err_skill)
-        mock_err_session.__aenter__ = AsyncMock(return_value=mock_err_session)
-        mock_err_session.__aexit__ = AsyncMock(return_value=False)
-
-        # AsyncSessionLocal is called twice: once for main, once for error recording
-        mock_session_cls.return_value.__aenter__ = AsyncMock(
-            side_effect=[mock_session, mock_err_session]
-        )
-        mock_session_cls.return_value.__aexit__ = AsyncMock(return_value=False)
-
-        # Use a simpler approach: mock_session_cls as context manager
-        call_count = 0
-
-        class ContextManagerFactory:
-            def __call__(self):
-                nonlocal call_count
-                call_count += 1
-                if call_count == 1:
-                    return mock_session
-                return mock_err_session
-
-        mock_session_cls.side_effect = ContextManagerFactory()
-
-        await _run_durable_conversion("skill-1", "job-1")
-
-        # Verify rollback was called on main session
-        mock_session.rollback.assert_awaited_once()
-        # Verify error was recorded
-        assert mock_err_skill.conversion_status == "failed"
-        assert "AI failed" in mock_err_skill.conversion_error
-
-
-# ===========================================================================
-# create_skill_from_materials (direct call to cover lines 150-184, 209-213)
-# ===========================================================================
-
-
-class TestCreateSkillFromMaterialsEndpoint:
-    """Tests for POST /from-materials (direct function call)."""
-
-    @patch("app.api.skills.asyncio")
-    @patch("app.api.skills.get_storage")
-    @patch("app.api.skills.skill_service")
-    async def test_from_materials_success(self, mock_svc, mock_storage_fn, mock_asyncio):
-        """Successful creation from materials returns 202."""
-        mock_skill = _make_skill()
-        mock_svc.create_skill = AsyncMock(return_value=mock_skill)
-        mock_storage = AsyncMock()
-        mock_storage.read = AsyncMock(return_value=b"file-content")
-        mock_storage.write = AsyncMock(return_value="resources/skill/doc.pdf")
-        mock_storage.base_path = ""  # Prevent AsyncMock from propagating to str ops
-        mock_storage_fn.return_value = mock_storage
-
-        # Build mock DB that handles multiple execute calls
-        # Call 1: select TrainingMaterial -> found
-        # Call 2: select MaterialVersion -> found
-        # (repeat for each material_id)
-        mock_material = MagicMock()
-        mock_material.product = "TestProd"
-
-        mock_version = MagicMock()
-        mock_version.filename = "doc.pdf"
-        mock_version.storage_url = "materials/m1/v1/doc.pdf"
-        mock_version.content_type = "application/pdf"
-        mock_version.file_size = 100
-
-        mat_result = MagicMock()
-        mat_result.scalar_one_or_none.return_value = mock_material
-
-        ver_result = MagicMock()
-        ver_result.scalar_one_or_none.return_value = mock_version
-
-        db = AsyncMock()
-        db.execute = AsyncMock(side_effect=[mat_result, ver_result])
-
-        user = _make_user()
-        body = CreateFromMaterialsRequest(
-            material_ids=["mat-1"],
-            name="My Skill",
-            product="",
-        )
-
-        result = await create_skill_from_materials(body=body, db=db, user=user)
-
-        assert result.status_code == 202
-        body_json = json.loads(result.body)
-        assert body_json["materials_copied"] == 1
-        assert body_json["status"] == "pending"
-        mock_asyncio.create_task.assert_called_once()
-
-    async def test_from_materials_empty_ids_raises_422(self):
-        """Empty material_ids raises ValidationException."""
-        db = AsyncMock()
-        user = _make_user()
-        body = CreateFromMaterialsRequest(material_ids=[])
-
-        with pytest.raises(ValidationException):
-            await create_skill_from_materials(body=body, db=db, user=user)
-
-    async def test_from_materials_nonexistent_material_raises_404(self):
-        """Non-existent material ID raises NotFoundException."""
-        db = AsyncMock()
-        mat_result = MagicMock()
-        mat_result.scalar_one_or_none.return_value = None
-        db.execute = AsyncMock(return_value=mat_result)
-
-        user = _make_user()
-        body = CreateFromMaterialsRequest(material_ids=["missing-id"])
-
-        with pytest.raises(NotFoundException):
-            await create_skill_from_materials(body=body, db=db, user=user)
-
-    @patch("app.api.skills.skill_service")
-    async def test_from_materials_no_active_version_raises_422(self, mock_svc):
-        """Material with no active version raises ValidationException."""
-        mock_material = MagicMock()
-        mock_material.product = "Prod"
-
-        mat_result = MagicMock()
-        mat_result.scalar_one_or_none.return_value = mock_material
-
-        ver_result = MagicMock()
-        ver_result.scalar_one_or_none.return_value = None  # No active version
-
-        db = AsyncMock()
-        db.execute = AsyncMock(side_effect=[mat_result, ver_result])
-
-        user = _make_user()
-        body = CreateFromMaterialsRequest(material_ids=["mat-1"])
-
-        with pytest.raises(ValidationException):
-            await create_skill_from_materials(body=body, db=db, user=user)
-
-
-# ===========================================================================
-# _run_durable_conversion: double-failure path (lines 250-251)
-# ===========================================================================
-
-
-class TestRunDurableConversionEdgeCases:
-    """Additional edge-case tests for _run_durable_conversion."""
-
-    @patch("app.api.skills.AsyncSessionLocal")
-    @patch("app.api.skills.skill_conversion_service")
-    async def test_durable_conversion_error_recording_fails(
-        self, mock_conv_svc, mock_session_cls
-    ):
-        """When error recording itself fails, the outer except catches it."""
-        mock_skill = _make_skill(conversion_job_id="job-1")
-
-        # Main session: conversion fails
-        mock_session = AsyncMock()
-        mock_session.get = AsyncMock(return_value=mock_skill)
-        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session.__aexit__ = AsyncMock(return_value=False)
-        mock_conv_svc.start_conversion = AsyncMock(side_effect=RuntimeError("AI failed"))
-
-        # Error session: also fails (double failure)
-        mock_err_session = AsyncMock()
-        mock_err_session.get = AsyncMock(side_effect=RuntimeError("DB down"))
-        mock_err_session.__aenter__ = AsyncMock(return_value=mock_err_session)
-        mock_err_session.__aexit__ = AsyncMock(return_value=False)
-
-        call_count = 0
-
-        class ContextManagerFactory:
-            def __call__(self_inner):
-                nonlocal call_count
-                call_count += 1
-                if call_count == 1:
-                    return mock_session
-                return mock_err_session
-
-        mock_session_cls.side_effect = ContextManagerFactory()
-
-        # Should not raise despite double failure
-        await _run_durable_conversion("skill-1", "job-1")
-
-        mock_session.rollback.assert_awaited_once()
 
 
 # ===========================================================================

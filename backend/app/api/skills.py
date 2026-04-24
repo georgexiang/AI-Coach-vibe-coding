@@ -3,7 +3,6 @@
 import asyncio
 import json
 import logging
-import uuid
 
 from fastapi import APIRouter, Depends, File, Query, UploadFile
 from fastapi.responses import JSONResponse, Response
@@ -25,7 +24,6 @@ from app.schemas.skill import (
     StructureCheckOut,
 )
 from app.services import (
-    skill_conversion_service,
     skill_evaluation_service,
     skill_service,
     skill_zip_service,
@@ -129,117 +127,13 @@ class CreateFromMaterialsRequest(BaseModel):
     product: str = ""
 
 
-@router.post("/from-materials", status_code=202)
-async def create_skill_from_materials(
-    body: CreateFromMaterialsRequest,
-    db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("admin")),
-):
-    """Create a skill from existing training materials. Copies files and triggers conversion."""
-    if not body.material_ids:
-        bad_request("At least one material_id is required")
-
-    # Validate all materials exist and collect their latest versions
-    material_versions: list[MaterialVersion] = []
-    for mid in body.material_ids:
-        result = await db.execute(
-            select(TrainingMaterial).where(
-                TrainingMaterial.id == mid, TrainingMaterial.is_archived.is_(False)
-            )
-        )
-        material = result.scalar_one_or_none()
-        if material is None:
-            not_found(f"Material {mid} not found or archived")
-
-        # Get the latest active version
-        ver_result = await db.execute(
-            select(MaterialVersion)
-            .where(
-                MaterialVersion.material_id == mid,
-                MaterialVersion.is_active == True,  # noqa: E712
-            )
-            .order_by(MaterialVersion.version_number.desc())
-            .limit(1)
-        )
-        version = ver_result.scalar_one_or_none()
-        if version is None:
-            bad_request(f"Material {mid} has no active version")
-
-        # Inherit product from first material if not provided
-        if not body.product and material.product:
-            body.product = material.product
-
-        material_versions.append(version)
-
-    # Create the skill
-    skill_data = SkillCreate(name=body.name, product=body.product)
-    skill = await skill_service.create_skill(db, skill_data, user.id)
-    await db.flush()
-
-    # Persist source material links (bidirectional navigation)
-    for mid in body.material_ids:
-        db.add(SkillSourceMaterial(skill_id=skill.id, material_id=mid))
-
-    # Copy each material's file into skill resources
-    storage = get_storage()
-    for version in material_versions:
-        # Read original file from materials storage
-        # storage_url may be an absolute/full path (e.g. ./storage/materials/...)
-        # or a relative path — normalize by stripping the storage base_path prefix
-        read_path = version.storage_url
-        base = getattr(storage, "base_path", "")
-        if base and read_path.startswith(base):
-            read_path = read_path[len(base):].lstrip("/")
-        file_bytes = await storage.read(read_path)
-
-        # Save to skills storage
-        storage_path = f"skills/{skill.id}/references/{version.filename}"
-        await storage.save(storage_path, file_bytes)
-
-        resource = SkillResource(
-            skill_id=skill.id,
-            resource_type="reference",
-            filename=version.filename,
-            storage_path=storage_path,
-            content_type=version.content_type,
-            file_size=version.file_size,
-        )
-        db.add(resource)
-
-    # Trigger conversion
-    job_id = str(uuid.uuid4())
-    skill.conversion_status = "pending"
-    skill.conversion_job_id = job_id
-    skill.conversion_error = ""
-    await db.flush()
-    await db.commit()
-
-    asyncio.create_task(_run_durable_conversion(skill.id, job_id))
-
-    return JSONResponse(
-        status_code=202,
-        content={
-            "id": skill.id,
-            "status": "pending",
-            "job_id": job_id,
-            "materials_copied": len(material_versions),
-        },
-    )
-
-
 @router.post("/create-from-agent", status_code=202)
 async def create_skill_from_agent(
     body: CreateFromMaterialsRequest,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role("admin")),
 ):
-    """Create a skill from materials using the configured creator agent.
-
-    Unlike /from-materials (text extraction pipeline), this endpoint uses
-    the Azure Agent configured in Meta Skills to process materials.
-    """
-    from app.services import skill_creator_service
-
+    """Create a skill from materials using the configured creator agent."""
     if not body.material_ids:
         bad_request("At least one material_id is required")
 
@@ -348,37 +242,6 @@ async def _run_agent_creation(skill_id: str) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Durable background conversion wrapper
-# ---------------------------------------------------------------------------
-
-
-async def _run_durable_conversion(skill_id: str, job_id: str) -> None:
-    """Durable background conversion with own session and idempotency check."""
-    async with AsyncSessionLocal() as session:
-        try:
-            # Idempotency: verify job_id still matches
-            skill = await session.get(Skill, skill_id)
-            if not skill or skill.conversion_job_id != job_id:
-                logger.info("Conversion job %s superseded, skipping", job_id)
-                return
-            await skill_conversion_service.start_conversion(session, skill_id)
-            await session.commit()
-        except Exception as e:
-            await session.rollback()
-            # Mark as failed in a new session to ensure the error is persisted
-            async with AsyncSessionLocal() as err_session:
-                try:
-                    skill = await err_session.get(Skill, skill_id)
-                    if skill and skill.conversion_job_id == job_id:
-                        skill.conversion_status = "failed"
-                        skill.conversion_error = str(e)[:2000]
-                        await err_session.commit()
-                except Exception:
-                    logger.error("Failed to record conversion error for %s", skill_id)
-            logger.error("Conversion task failed for %s: %s", skill_id, e)
-
-
-# ---------------------------------------------------------------------------
 # Request schemas for conversion endpoints
 # ---------------------------------------------------------------------------
 
@@ -423,7 +286,7 @@ async def convert_skill(
     db: AsyncSession = Depends(get_db),
     _user: User = Depends(require_role("admin")),
 ):
-    """Start material-to-SOP conversion. Admin only. Returns 202 Accepted."""
+    """Start agent-based skill conversion. Admin only. Returns 202 Accepted."""
     skill = await skill_service.get_skill(db, skill_id)
 
     # Verify at least one reference resource exists
@@ -440,21 +303,16 @@ async def convert_skill(
     if skill.conversion_status == "processing":
         bad_request("Conversion already in progress")
 
-    # Generate job_id for idempotency
-    job_id = str(uuid.uuid4())
-    skill.conversion_status = "pending"
-    skill.conversion_job_id = job_id
+    skill.conversion_status = "processing"
     skill.conversion_error = ""
     await db.flush()
-
-    # Commit before launching background task so the task sees the pending state
     await db.commit()
 
-    asyncio.create_task(_run_durable_conversion(skill_id, job_id))
+    asyncio.create_task(_run_agent_creation(skill_id))
 
     return JSONResponse(
         status_code=202,
-        content={"status": "pending", "job_id": job_id},
+        content={"status": "processing", "method": "agent"},
     )
 
 
@@ -464,25 +322,22 @@ async def retry_conversion(
     db: AsyncSession = Depends(get_db),
     _user: User = Depends(require_role("admin")),
 ):
-    """Retry a failed conversion without re-uploading materials. Admin only."""
+    """Retry a failed conversion using agent. Admin only."""
     skill = await skill_service.get_skill(db, skill_id)
 
     if skill.conversion_status not in ("failed", None):
         bad_request(f"Can only retry failed conversions. Current status: {skill.conversion_status}")
 
-    # Generate new job_id
-    job_id = str(uuid.uuid4())
-    skill.conversion_status = "pending"
-    skill.conversion_job_id = job_id
+    skill.conversion_status = "processing"
     skill.conversion_error = ""
     await db.flush()
     await db.commit()
 
-    asyncio.create_task(_run_durable_conversion(skill_id, job_id))
+    asyncio.create_task(_run_agent_creation(skill_id))
 
     return JSONResponse(
         status_code=202,
-        content={"status": "pending", "job_id": job_id},
+        content={"status": "processing", "method": "agent"},
     )
 
 
@@ -563,19 +418,17 @@ async def upload_and_convert(
         )
         db.add(resource)
 
-    # Trigger conversion
-    job_id = str(uuid.uuid4())
-    skill.conversion_status = "pending"
-    skill.conversion_job_id = job_id
+    # Trigger agent-based conversion
+    skill.conversion_status = "processing"
     skill.conversion_error = ""
     await db.flush()
     await db.commit()
 
-    asyncio.create_task(_run_durable_conversion(skill_id, job_id))
+    asyncio.create_task(_run_agent_creation(skill_id))
 
     return JSONResponse(
         status_code=202,
-        content={"status": "pending", "job_id": job_id, "files_uploaded": len(files)},
+        content={"status": "processing", "method": "agent", "files_uploaded": len(files)},
     )
 
 
@@ -591,6 +444,8 @@ async def regenerate_sop(
         bad_request("Feedback is required")
     if len(body.feedback) > 5000:
         bad_request("Feedback must be 5000 characters or less")
+
+    from app.services import skill_conversion_service
 
     skill = await skill_conversion_service.regenerate_sop_with_feedback(db, skill_id, body.feedback)
     return skill
