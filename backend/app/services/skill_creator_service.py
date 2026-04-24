@@ -2,20 +2,24 @@
 
 Replaces the brittle text-extraction pipeline with an Azure Agent call.
 The creator agent (configured via meta_skill_service) processes source materials
-and returns structured skill content.
+and returns a Package Manifest (JSON envelope containing Markdown content,
+reference documents, validation scripts, and coaching assets) aligned with
+the agentskills.io specification.
 
 Reuses the same AIProjectClient / Responses API pattern as agent_chat_service.
 """
 
 import json
 import logging
+import re
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from pathlib import PurePosixPath
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.skill import Skill, SkillResource
+from app.models.skill import SkillResource
 from app.services import meta_skill_service, skill_service
 from app.services.skill_text_extractor import convert_to_markdown, extract_text
 from app.services.storage import get_storage
@@ -23,6 +27,21 @@ from app.services.storage import get_storage
 logger = logging.getLogger(__name__)
 
 MAX_MATERIAL_LENGTH = 500_000  # ~125K tokens safety limit
+
+# Content type mapping for generated resources
+_CONTENT_TYPE_MAP: dict[str, str] = {
+    ".md": "text/markdown",
+    ".json": "application/json",
+    ".yaml": "text/yaml",
+    ".yml": "text/yaml",
+    ".csv": "text/csv",
+    ".xml": "application/xml",
+    ".txt": "text/plain",
+    ".py": "text/x-python",
+    ".js": "application/javascript",
+    ".sh": "text/x-shellscript",
+    ".ps1": "text/x-powershell",
+}
 
 
 @dataclass
@@ -38,6 +57,22 @@ class CreationResult:
     summary: str = ""
     error_detail: str = ""
     raw_response: str = ""
+
+
+@dataclass
+class PackageManifest:
+    """Parsed skill package manifest from the creator agent.
+
+    The JSON envelope is a transport container; values are Markdown/Python content
+    aligned with the agentskills.io specification.
+    """
+
+    metadata: dict = field(default_factory=dict)
+    skill_md: str = ""
+    references: dict[str, str] = field(default_factory=dict)
+    scripts: dict[str, str] = field(default_factory=dict)
+    assets: dict[str, str] = field(default_factory=dict)
+    summary: str = ""
 
 
 # ---------------------------------------------------------------------------
@@ -282,27 +317,36 @@ async def create_skill_via_agent(
     # Step 4: Parse response and update skill
     if result.status == "success" and result.raw_response:
         try:
-            parsed = _parse_creator_response(result.raw_response)
+            parsed = _parse_raw_json(result.raw_response)
+            manifest = _build_package_manifest(parsed)
             skill = await skill_service.get_skill(db, skill_id)
 
-            # Validate parsed output
+            # Validate the package manifest
             validation = _validate_creator_output(parsed)
 
-            # Update skill with generated content
-            if parsed.get("name"):
-                skill.name = parsed["name"]
-                result.name = parsed["name"]
-            if parsed.get("description"):
-                skill.description = parsed["description"]
-            if parsed.get("product"):
-                skill.product = parsed["product"]
-            if parsed.get("therapeutic_area"):
-                skill.therapeutic_area = parsed["therapeutic_area"]
+            # Update skill metadata from manifest
+            meta_fields = manifest.metadata
+            if meta_fields.get("name"):
+                skill.name = meta_fields["name"]
+                result.name = meta_fields["name"]
+            if meta_fields.get("description"):
+                skill.description = meta_fields["description"]
+            if meta_fields.get("product"):
+                skill.product = meta_fields["product"]
+            if meta_fields.get("therapeutic_area"):
+                skill.therapeutic_area = meta_fields["therapeutic_area"]
+            if meta_fields.get("tags"):
+                skill.tags = meta_fields["tags"]
+            if meta_fields.get("compatibility"):
+                skill.compatibility = meta_fields["compatibility"]
 
-            # Store the full response as content
-            skill.content = result.raw_response
+            # Store Markdown body as content (not raw JSON)
+            skill.content = manifest.skill_md
             skill.conversion_status = "completed"
             skill.conversion_error = ""
+
+            # Create SkillResource records for references, scripts, assets
+            await _create_resources_from_manifest(db, skill_id, manifest)
 
             # Store audit trail in metadata
             meta_json = json.loads(skill.metadata_json or "{}")
@@ -312,12 +356,13 @@ async def create_skill_via_agent(
                 "model": result.model_used,
                 "created_at": datetime.now(UTC).isoformat(),
                 "method": "agent" if meta.agent_id else "direct_openai",
+                "format": "package_manifest_v3",
             }
             if validation is not None:
                 meta_json["creation_validation"] = validation
             skill.metadata_json = json.dumps(meta_json, ensure_ascii=False)
 
-            result.summary = parsed.get("summary", "")
+            result.summary = manifest.summary
             await db.flush()
         except Exception as e:
             logger.error("Failed to parse creator response: %s", e)
@@ -350,6 +395,8 @@ def _validate_creator_output(data: dict) -> dict | None:
         import importlib.util
 
         spec = importlib.util.spec_from_file_location("validate_creator", script_path)
+        if spec is None or spec.loader is None:
+            return None
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)
         report = mod.validate(data)
@@ -365,8 +412,17 @@ def _validate_creator_output(data: dict) -> dict | None:
         return {"valid": False, "errors": [f"Validation script error: {exc}"]}
 
 
-def _parse_creator_response(raw: str) -> dict:
-    """Parse the creator agent's response, trying JSON first then extracting key fields."""
+# ---------------------------------------------------------------------------
+# Package Manifest parsing
+# ---------------------------------------------------------------------------
+
+
+def _parse_raw_json(raw: str) -> dict:
+    """Parse the creator agent's raw response as JSON.
+
+    Tries direct JSON parse, then looks for a JSON code block in markdown,
+    then falls back to wrapping the raw text.
+    """
     # Try direct JSON parse
     try:
         return json.loads(raw)
@@ -374,7 +430,6 @@ def _parse_creator_response(raw: str) -> dict:
         pass
 
     # Try to find JSON block in markdown
-    import re
     json_match = re.search(r"```(?:json)?\s*\n(.*?)\n```", raw, re.DOTALL)
     if json_match:
         try:
@@ -383,4 +438,117 @@ def _parse_creator_response(raw: str) -> dict:
             pass
 
     # Fallback: return raw as content
-    return {"content": raw, "summary": raw[:200]}
+    return {"skill_md": raw, "metadata": {}, "summary": raw[:200]}
+
+
+def _build_package_manifest(parsed: dict) -> PackageManifest:
+    """Build a PackageManifest from parsed JSON.
+
+    Supports two formats:
+    - New format (v3): has 'skill_md' key → package manifest with Markdown body
+    - Legacy format (v2): has 'sop_steps' key → old JSON, convert to Markdown
+    """
+    # New package manifest format (v3)
+    if "skill_md" in parsed:
+        metadata = parsed.get("metadata", {})
+        # If metadata is missing but top-level fields exist, extract them
+        if not metadata:
+            for key in ("name", "description", "product", "therapeutic_area", "tags"):
+                if key in parsed:
+                    metadata[key] = parsed[key]
+        return PackageManifest(
+            metadata=metadata,
+            skill_md=parsed.get("skill_md", ""),
+            references=parsed.get("references", {}),
+            scripts=parsed.get("scripts", {}),
+            assets=parsed.get("assets", {}),
+            summary=parsed.get("summary", ""),
+        )
+
+    # Legacy JSON format (v2) — convert to Markdown via format_coaching_protocol
+    if "sop_steps" in parsed:
+        from app.services.skill_conversion_service import format_coaching_protocol
+
+        skill_name = parsed.get("name", "untitled-skill")
+        skill_md = format_coaching_protocol(parsed, skill_name)
+
+        return PackageManifest(
+            metadata={
+                "name": parsed.get("name", ""),
+                "description": parsed.get("description", ""),
+                "product": parsed.get("product", ""),
+                "therapeutic_area": parsed.get("therapeutic_area", ""),
+            },
+            skill_md=skill_md,
+            references={},
+            scripts={},
+            assets={},
+            summary=parsed.get("summary", ""),
+        )
+
+    # Fallback: raw text as skill_md
+    return PackageManifest(
+        metadata={},
+        skill_md=parsed.get("content", parsed.get("skill_md", "")),
+        summary=parsed.get("summary", ""),
+    )
+
+
+def _safe_filename(filename: str) -> bool:
+    """Check that a filename is safe (no path traversal)."""
+    if not filename:
+        return False
+    p = PurePosixPath(filename)
+    return not p.is_absolute() and ".." not in p.parts and "/" not in filename
+
+
+async def _create_resources_from_manifest(
+    db: AsyncSession,
+    skill_id: str,
+    manifest: PackageManifest,
+) -> None:
+    """Create SkillResource records from the package manifest.
+
+    Creates resources for references, scripts, and assets. Each file becomes
+    a SkillResource with text_content populated (no blob storage needed).
+    """
+    resource_map: list[tuple[str, dict[str, str]]] = [
+        ("reference", manifest.references),
+        ("script", manifest.scripts),
+        ("asset", manifest.assets),
+    ]
+
+    for resource_type, files in resource_map:
+        for filename, content in files.items():
+            if not _safe_filename(filename) or not content:
+                logger.warning(
+                    "Skipping invalid resource: type=%s, filename=%s",
+                    resource_type,
+                    filename,
+                )
+                continue
+
+            suffix = PurePosixPath(filename).suffix.lower()
+            content_type = _CONTENT_TYPE_MAP.get(suffix, "application/octet-stream")
+            dir_name = f"{resource_type}s"
+
+            resource = SkillResource(
+                skill_id=skill_id,
+                resource_type=resource_type,
+                filename=filename,
+                storage_path=f"skills/{skill_id}/{dir_name}/{filename}",
+                content_type=content_type,
+                file_size=len(content.encode("utf-8")),
+                text_content=content,
+                extraction_status="completed",
+            )
+            db.add(resource)
+
+    logger.info(
+        "Created resources from manifest for skill %s: "
+        "%d references, %d scripts, %d assets",
+        skill_id,
+        len(manifest.references),
+        len(manifest.scripts),
+        len(manifest.assets),
+    )

@@ -1,128 +1,82 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Skill Creator Output",
-  "description": "Schema for the JSON output produced by the Skill Creator agent",
+  "title": "Skill Creator Package Manifest",
+  "description": "Schema for the JSON package manifest produced by the Skill Creator agent. The JSON envelope is a transport container; the actual content (skill_md, references, scripts, assets) is in Markdown/Python format aligned with the agentskills.io specification.",
   "type": "object",
-  "required": ["name", "description", "product", "therapeutic_area", "sop_steps", "modules", "scoring", "summary"],
+  "required": ["metadata", "skill_md", "references", "scripts", "assets", "summary"],
   "properties": {
-    "name": {
-      "type": "string",
-      "description": "Skill name in kebab-case, alphanumeric and hyphens only, max 63 characters",
-      "pattern": "^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?$",
-      "maxLength": 63
-    },
-    "description": {
-      "type": "string",
-      "description": "Brief description of the coaching skill",
-      "minLength": 10
-    },
-    "product": {
-      "type": "string",
-      "description": "Product brand name",
-      "minLength": 1
-    },
-    "therapeutic_area": {
-      "type": "string",
-      "description": "Therapeutic area (e.g., Oncology, Immunology)",
-      "minLength": 1
-    },
-    "sop_steps": {
-      "type": "array",
-      "description": "Standard Operating Procedure steps (5 stages required)",
-      "minItems": 5,
-      "items": {
-        "type": "object",
-        "required": ["title", "description", "key_points", "assessment_criteria"],
-        "properties": {
-          "title": { "type": "string" },
-          "description": { "type": "string" },
-          "key_points": {
-            "type": "array",
-            "items": { "type": "string" },
-            "minItems": 1
-          },
-          "objections": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "required": ["objection", "response"],
-              "properties": {
-                "objection": { "type": "string" },
-                "response": { "type": "string" }
-              }
-            }
-          },
-          "assessment_criteria": {
-            "type": "array",
-            "items": { "type": "string" },
-            "minItems": 1
-          },
-          "knowledge_points": {
-            "type": "array",
-            "items": { "type": "string" }
-          },
-          "suggested_duration": { "type": "string" }
-        }
-      }
-    },
-    "modules": {
-      "type": "array",
-      "description": "Knowledge modules (3-8 required)",
-      "minItems": 3,
-      "maxItems": 8,
-      "items": {
-        "type": "object",
-        "required": ["title", "objectives", "content"],
-        "properties": {
-          "title": { "type": "string" },
-          "objectives": {
-            "type": "array",
-            "items": { "type": "string" },
-            "minItems": 1
-          },
-          "content": { "type": "string" },
-          "questions": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "required": ["type", "question"],
-              "properties": {
-                "type": {
-                  "type": "string",
-                  "enum": ["multiple_choice", "true_false", "scenario"]
-                },
-                "question": { "type": "string" },
-                "options": {
-                  "type": "array",
-                  "items": { "type": "string" }
-                },
-                "answer": { "type": "string" },
-                "explanation": { "type": "string" }
-              }
-            }
-          }
-        }
-      }
-    },
-    "scoring": {
+    "metadata": {
       "type": "object",
-      "required": ["pass_threshold", "weights"],
+      "description": "Skill metadata fields for YAML frontmatter",
+      "required": ["name", "description", "product", "therapeutic_area"],
       "properties": {
-        "pass_threshold": {
-          "type": "number",
-          "minimum": 0,
-          "maximum": 100
+        "name": {
+          "type": "string",
+          "description": "Skill name in kebab-case, alphanumeric and hyphens only, max 63 characters",
+          "pattern": "^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?$",
+          "maxLength": 63
         },
-        "weights": {
-          "type": "object",
-          "description": "Dimension weights that sum to approximately 1.0. Keys must be the canonical 6 dimensions: sop_completeness, knowledge_accuracy, conversation_logic, assessment_coverage, difficulty_calibration, executability"
+        "description": {
+          "type": "string",
+          "description": "Brief description of the coaching skill and when to use it",
+          "minLength": 10,
+          "maxLength": 1024
+        },
+        "product": {
+          "type": "string",
+          "description": "Product brand name",
+          "minLength": 1
+        },
+        "therapeutic_area": {
+          "type": "string",
+          "description": "Therapeutic area (e.g., Oncology, Immunology)",
+          "minLength": 1
+        },
+        "tags": {
+          "type": "string",
+          "description": "Comma-separated tags for categorization"
+        },
+        "compatibility": {
+          "type": "string",
+          "description": "Environment requirements"
         }
+      }
+    },
+    "skill_md": {
+      "type": "string",
+      "description": "The full Markdown body for SKILL.md. Must contain the complete coaching protocol with SOP steps, knowledge modules, assessment rubric, and coaching guidelines. Must include Markdown headings: '## SOP Steps', '### Step N:', '## Assessment Rubric', '## Key Knowledge Points'.",
+      "minLength": 500
+    },
+    "references": {
+      "type": "object",
+      "description": "Reference documentation files. Keys are filenames (e.g., 'knowledge-base.md'), values are file contents. Must have at least 1 entry.",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 50
+      }
+    },
+    "scripts": {
+      "type": "object",
+      "description": "Executable scripts for validation and enforcement. Keys are filenames (e.g., 'validate_response.py'), values are script contents. Must have at least 1 entry.",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 50
+      }
+    },
+    "assets": {
+      "type": "object",
+      "description": "Templates, coaching aids, and static resources. Keys are filenames, values are file contents.",
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 10
       }
     },
     "summary": {
       "type": "string",
-      "description": "2-3 sentence overview of the skill",
-      "minLength": 10
+      "description": "2-3 sentence overview of the skill's scope, target audience, and key learning outcomes",
+      "minLength": 20
     }
   }
 }
