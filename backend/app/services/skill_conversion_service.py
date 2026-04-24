@@ -10,7 +10,7 @@ import json
 import logging
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.skill import Skill, SkillResource
@@ -220,9 +220,12 @@ async def _call_sop_extraction(db: AsyncSession, text_chunk: str) -> dict:
     response = await client.chat.completions.create(
         model=deployment,
         messages=[
-            {"role": "system", "content": SOP_EXTRACTION_PROMPT.format(
-                language_instruction=_get_language_instruction(),
-            )},
+            {
+                "role": "system",
+                "content": SOP_EXTRACTION_PROMPT.format(
+                    language_instruction=_get_language_instruction(),
+                ),
+            },
             {"role": "user", "content": text_chunk},
         ],
         temperature=settings.skill_ai_temperature,
@@ -409,7 +412,10 @@ async def extract_resource_texts(db: AsyncSession, skill_id: str) -> None:
         select(SkillResource).where(
             SkillResource.skill_id == skill_id,
             SkillResource.resource_type == "reference",
-            SkillResource.extraction_status != "completed",
+            or_(
+                SkillResource.extraction_status.is_(None),
+                SkillResource.extraction_status != "completed",
+            ),
         )
     )
     resources = list(result.scalars().all())
@@ -488,8 +494,10 @@ def _update_progress(skill: Skill, step_index: int) -> None:
             {
                 "step": i + 1,
                 "name": name,
-                "status": "completed" if i < step_index
-                else "in_progress" if i == step_index
+                "status": "completed"
+                if i < step_index
+                else "in_progress"
+                if i == step_index
                 else "pending",
             }
             for i, name in enumerate(CONVERSION_STEPS)
