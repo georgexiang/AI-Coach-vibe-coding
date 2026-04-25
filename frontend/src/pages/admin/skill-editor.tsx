@@ -125,13 +125,10 @@ export default function SkillEditorPage() {
   >({});
   const [publishDialogOpen, setPublishDialogOpen] = useState(false);
 
-  // Inline skill name (shown in header, editable in both create and edit modes)
-  const [skillName, setSkillName] = useState("");
-  const [nameDirty, setNameDirty] = useState(false);
-
   // Settings form
   const settingsForm = useForm<SettingsFormValues>({
     resolver: zodResolver(settingsSchema),
+    mode: "onChange",
     defaultValues: {
       name: "",
       description: "",
@@ -142,13 +139,14 @@ export default function SkillEditorPage() {
     },
   });
 
+  // Header display name — watches settings form in real-time
+  const headerName = settingsForm.watch("name");
+
   // Sync local state from fetched skill
   useEffect(() => {
     if (skill) {
       setSopContent(skill.content ?? "");
       setContentDirty(false);
-      setSkillName(skill.name ?? "");
-      setNameDirty(false);
       settingsForm.reset({
         name: skill.name ?? "",
         description: skill.description ?? "",
@@ -178,7 +176,7 @@ export default function SkillEditorPage() {
   // Handlers
   // ---------------------------------------------------------------------------
   const handleSaveDraft = useCallback(async () => {
-    const nameToSave = skillName.trim() || t("editor.defaultSkillName", { defaultValue: "New Skill" });
+    const nameToSave = (settingsForm.getValues("name") ?? "").trim() || t("editor.defaultSkillName", { defaultValue: "New Skill" });
     if (isNew) {
       createMutation.mutate(
         { name: nameToSave, content: sopContent },
@@ -198,7 +196,6 @@ export default function SkillEditorPage() {
         {
           onSuccess: () => {
             setContentDirty(false);
-            setNameDirty(false);
             toast.success(
               t("editor.saved", { defaultValue: "Draft saved" }),
             );
@@ -207,30 +204,7 @@ export default function SkillEditorPage() {
         },
       );
     }
-  }, [isNew, id, skillName, sopContent, createMutation, updateMutation, navigate, t]);
-
-  const handleNameChange = useCallback((newName: string) => {
-    setSkillName(newName);
-    setNameDirty(true);
-    // Keep settings form in sync
-    settingsForm.setValue("name", newName);
-  }, [settingsForm]);
-
-  const handleNameBlur = useCallback(() => {
-    if (!nameDirty || isNew || !id) return;
-    const nameToSave = skillName.trim();
-    if (!nameToSave || nameToSave.length < 2) return;
-    updateMutation.mutate(
-      { id, data: { name: nameToSave } },
-      {
-        onSuccess: () => {
-          setNameDirty(false);
-          toast.success(t("editor.saved", { defaultValue: "Draft saved" }));
-        },
-        onError: () => toast.error(t("errors.saveFailed")),
-      },
-    );
-  }, [nameDirty, isNew, id, skillName, updateMutation, t]);
+  }, [isNew, id, settingsForm, sopContent, createMutation, updateMutation, navigate, t]);
 
   const handleContentChange = useCallback((content: string) => {
     setSopContent(content);
@@ -251,7 +225,7 @@ export default function SkillEditorPage() {
 
   const handleMaterialUpload = useCallback(
     (files: File[]) => {
-      const nameToSave = skillName.trim() || t("editor.defaultSkillName", { defaultValue: "New Skill" });
+      const nameToSave = (settingsForm.getValues("name") ?? "").trim() || t("editor.defaultSkillName", { defaultValue: "New Skill" });
       if (isNew) {
         // Create skill first, then upload and convert
         createMutation.mutate(
@@ -288,11 +262,11 @@ export default function SkillEditorPage() {
         );
       }
     },
-    [isNew, id, skillName, createMutation, uploadConvertMutation, navigate, queryClient, t],
+    [isNew, id, settingsForm, createMutation, uploadConvertMutation, navigate, queryClient, t],
   );
 
   const handleCreateEmpty = useCallback(() => {
-    const nameToSave = skillName.trim() || t("editor.defaultSkillName", { defaultValue: "New Skill" });
+    const nameToSave = (settingsForm.getValues("name") ?? "").trim() || t("editor.defaultSkillName", { defaultValue: "New Skill" });
     createMutation.mutate(
       { name: nameToSave, content: "" },
       {
@@ -302,7 +276,7 @@ export default function SkillEditorPage() {
         onError: () => toast.error(t("errors.saveFailed")),
       },
     );
-  }, [skillName, createMutation, navigate, t]);
+  }, [settingsForm, createMutation, navigate, t]);
 
   const handleRetryConversion = useCallback(() => {
     if (!id) return;
@@ -368,9 +342,6 @@ export default function SkillEditorPage() {
         { id, data: values },
         {
           onSuccess: () => {
-            // Sync header name from settings form save
-            setSkillName(values.name);
-            setNameDirty(false);
             toast.success(t("editor.settingsSaved", { defaultValue: "Settings saved" }));
           },
           onError: () => toast.error(t("errors.saveFailed")),
@@ -463,26 +434,16 @@ export default function SkillEditorPage() {
             <ArrowLeft className="mr-1 size-4" />
             {t("editor.backToHub")}
           </Button>
-          <Input
-            value={skillName}
-            onChange={(e) => handleNameChange(e.target.value)}
-            onBlur={handleNameBlur}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                (e.target as HTMLInputElement).blur();
-              }
-            }}
-            placeholder={t("editor.skillNamePlaceholder", { defaultValue: "Enter skill name..." })}
-            className="text-2xl font-semibold h-auto border-transparent bg-transparent px-2 py-1 hover:border-input focus:border-input transition-colors"
-          />
+          <span className="text-2xl font-semibold truncate px-2 py-1">
+            {headerName || t("editor.defaultSkillName", { defaultValue: "New Skill" })}
+          </span>
         </div>
 
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
             onClick={handleSaveDraft}
-            disabled={isSaving || (!contentDirty && !nameDirty && !isNew)}
+            disabled={isSaving || (!contentDirty && !settingsForm.formState.isDirty && !isNew)}
           >
             {isSaving ? (
               <RefreshCw className="mr-2 size-4 animate-spin" />
@@ -879,7 +840,7 @@ export default function SkillEditorPage() {
         </TabsContent>
 
         {/* ----- Settings Tab ----- */}
-        <TabsContent value="settings" className="mt-6">
+        <TabsContent value="settings" className="mt-6" forceMount hidden={activeTab !== "settings"}>
           {isNew ? (
             <div className="flex items-center justify-center rounded-lg border bg-muted/50 py-24 text-muted-foreground">
               {t("editor.saveFirstForResources", {
