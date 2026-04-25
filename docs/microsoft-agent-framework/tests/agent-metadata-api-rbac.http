@@ -1,15 +1,25 @@
 ###############################################################################
-# Azure AI Foundry Agent Metadata API Tests
+# Azure AI Foundry Agent Metadata API Tests — Entra ID (Bearer Token) 认证版
 #
 # VS Code REST Client 格式 — 点击每个请求上方的 "Send Request" 即可运行
 #
+# 与 agent-metadata-api.http 的区别：
+#   - 使用 Bearer Token（Entra ID）而非 API Key 认证
+#   - 能创建全新 Agent（API Key 认证会 500）
+#   - Token 通过 az login + refresh-token.sh 自动获取
+#
 # 前置：
 #   1. 安装 VS Code 扩展 "REST Client" (humao.rest-client)
-#   2. 在同目录创建 .env 文件（已被 .gitignore 忽略），内容如下：
+#   2. 确保已安装 Azure CLI 并登录：
+#      az login
+#   3. 运行脚本刷新 token 到 .env（有效期约 1 小时，过期后重新运行）：
+#      cd docs/microsoft-agent-framework/tests
+#      ./refresh-token.sh
+#   4. 在同目录的 .env 文件中确保以下变量：
 #      AZURE_FOUNDRY_ENDPOINT=https://your-resource.services.ai.azure.com
-#      AZURE_FOUNDRY_API_KEY=your-api-key-here
 #      AZURE_FOUNDRY_DEFAULT_PROJECT=your-project-name
 #      AZURE_FOUNDRY_MODEL=gpt-4o
+#      AZURE_FOUNDRY_BEARER_TOKEN=<由 refresh-token.sh 自动写入>
 #
 # 使用：按序号从上到下依次点击 "Send Request" 运行
 ###############################################################################
@@ -18,7 +28,7 @@
 
 @baseEndpoint = {{$dotenv AZURE_FOUNDRY_ENDPOINT}}
 @projectName = {{$dotenv AZURE_FOUNDRY_DEFAULT_PROJECT}}
-@apiKey = {{$dotenv AZURE_FOUNDRY_API_KEY}}
+@bearerToken = {{$dotenv AZURE_FOUNDRY_BEARER_TOKEN}}
 @modelName = {{$dotenv AZURE_FOUNDRY_MODEL}}
 @apiVersion = 2025-11-15-preview
 
@@ -26,13 +36,22 @@
 @projectUrl = {{baseEndpoint}}/api/projects/{{projectName}}
 
 ###############################################################################
+# 测试 0：验证 Token 有效性
+###############################################################################
+
+### 0a. 列出已有 Agents — 验证 Bearer Token 工作正常
+# 期望：200 OK，返回 agent 列表
+GET {{projectUrl}}/agents?api-version={{apiVersion}}
+Authorization: Bearer {{bearerToken}}
+
+###############################################################################
 # 测试 1：Metadata 基本读写 Round-Trip
 ###############################################################################
 
-### 1a. 创建 Agent（带 metadata）
+### 1a. 创建 Agent（带 metadata）— API Key 会 500，Bearer Token 应该成功 ✅
 # @name createBasic
-POST {{projectUrl}}/agents/postman-test-basic/versions?api-version={{apiVersion}}
-api-key: {{apiKey}}
+POST {{projectUrl}}/agents/rbac-test-basic/versions?api-version={{apiVersion}}
+Authorization: Bearer {{bearerToken}}
 Content-Type: application/json
 
 {
@@ -41,7 +60,7 @@ Content-Type: application/json
     "model": "{{modelName}}",
     "instructions": "You are a test agent for metadata API verification."
   },
-  "description": "Postman metadata test agent",
+  "description": "RBAC metadata test agent",
   "metadata": {
     "custom-key-1": "hello",
     "custom-key-2": "world",
@@ -51,12 +70,12 @@ Content-Type: application/json
 
 ### 1b. 读回 Agent（验证 metadata）
 # 检查 versions.latest.metadata 中的 key-value 是否一致
-GET {{projectUrl}}/agents/postman-test-basic?api-version={{apiVersion}}
-api-key: {{apiKey}}
+GET {{projectUrl}}/agents/rbac-test-basic?api-version={{apiVersion}}
+Authorization: Bearer {{bearerToken}}
 
 ### 1c. 删除 Agent（清理）
-DELETE {{projectUrl}}/agents/postman-test-basic?api-version={{apiVersion}}
-api-key: {{apiKey}}
+DELETE {{projectUrl}}/agents/rbac-test-basic?api-version={{apiVersion}}
+Authorization: Bearer {{bearerToken}}
 
 
 ###############################################################################
@@ -64,8 +83,8 @@ api-key: {{apiKey}}
 ###############################################################################
 
 ### 2a. 512 字符 — 应该成功 ✅
-POST {{projectUrl}}/agents/postman-test-512ok/versions?api-version={{apiVersion}}
-api-key: {{apiKey}}
+POST {{projectUrl}}/agents/rbac-test-512ok/versions?api-version={{apiVersion}}
+Authorization: Bearer {{bearerToken}}
 Content-Type: application/json
 
 {
@@ -80,12 +99,12 @@ Content-Type: application/json
 }
 
 ### 2a-cleanup. 删除 512 测试 Agent
-DELETE {{projectUrl}}/agents/postman-test-512ok?api-version={{apiVersion}}
-api-key: {{apiKey}}
+DELETE {{projectUrl}}/agents/rbac-test-512ok?api-version={{apiVersion}}
+Authorization: Bearer {{bearerToken}}
 
 ### 2b. 513 字符 — 应该失败 ❌（错误消息含 "512"）
-POST {{projectUrl}}/agents/postman-test-513fail/versions?api-version={{apiVersion}}
-api-key: {{apiKey}}
+POST {{projectUrl}}/agents/rbac-test-513fail/versions?api-version={{apiVersion}}
+Authorization: Bearer {{bearerToken}}
 Content-Type: application/json
 
 {
@@ -100,8 +119,8 @@ Content-Type: application/json
 }
 
 ### 2c. 1024 字符 — 应该失败 ❌
-POST {{projectUrl}}/agents/postman-test-1024/versions?api-version={{apiVersion}}
-api-key: {{apiKey}}
+POST {{projectUrl}}/agents/rbac-test-1024/versions?api-version={{apiVersion}}
+Authorization: Bearer {{bearerToken}}
 Content-Type: application/json
 
 {
@@ -122,8 +141,8 @@ Content-Type: application/json
 
 ### 3a. 精简格式（省略默认值）— 应该成功 ✅ (167 chars)
 # 创建后可去 AI Foundry Portal 查看 Voice mode 是否显示为 ON
-POST {{projectUrl}}/agents/postman-test-vl-compact/versions?api-version={{apiVersion}}
-api-key: {{apiKey}}
+POST {{projectUrl}}/agents/rbac-test-vl-compact/versions?api-version={{apiVersion}}
+Authorization: Bearer {{bearerToken}}
 Content-Type: application/json
 
 {
@@ -132,7 +151,7 @@ Content-Type: application/json
     "model": "{{modelName}}",
     "instructions": "You are a Voice Live test agent."
   },
-  "description": "VL Postman Test Agent",
+  "description": "VL RBAC Test Agent",
   "metadata": {
     "microsoft.voice-live.enabled": "true",
     "microsoft.voice-live.configuration": "{\"session\":{\"voice\":{\"name\":\"zh-CN-XiaoxiaoMultilingualNeural\"},\"turnDetection\":{\"type\":\"azure_semantic_vad\"},\"avatar\":{\"character\":\"lisa\",\"style\":\"casual-sitting\"}}}",
@@ -144,13 +163,13 @@ Content-Type: application/json
 ### 3b. 读回 VL Agent（验证 config round-trip）
 # 检查 microsoft.voice-live.enabled = "true"
 # 检查 microsoft.voice-live.configuration 解析后 avatar.character = "lisa"
-GET {{projectUrl}}/agents/postman-test-vl-compact?api-version={{apiVersion}}
-api-key: {{apiKey}}
+GET {{projectUrl}}/agents/rbac-test-vl-compact?api-version={{apiVersion}}
+Authorization: Bearer {{bearerToken}}
 
 ### 3c. 完整格式（含所有 null 和默认值）— 应该成功 ✅ (实测 506 chars < 512)
 # 之前估算 ~607 chars 有误（包含了转义字符），实际存储值为 506 chars
-POST {{projectUrl}}/agents/postman-test-vl-full/versions?api-version={{apiVersion}}
-api-key: {{apiKey}}
+POST {{projectUrl}}/agents/rbac-test-vl-full/versions?api-version={{apiVersion}}
+Authorization: Bearer {{bearerToken}}
 Content-Type: application/json
 
 {
@@ -166,12 +185,12 @@ Content-Type: application/json
 }
 
 ### 3d. 清理 VL 测试 Agents
-DELETE {{projectUrl}}/agents/postman-test-vl-compact?api-version={{apiVersion}}
-api-key: {{apiKey}}
+DELETE {{projectUrl}}/agents/rbac-test-vl-compact?api-version={{apiVersion}}
+Authorization: Bearer {{bearerToken}}
 
 ### 3e. 清理完整格式 Agent（如果创建成功了的话）
-DELETE {{projectUrl}}/agents/postman-test-vl-full?api-version={{apiVersion}}
-api-key: {{apiKey}}
+DELETE {{projectUrl}}/agents/rbac-test-vl-full?api-version={{apiVersion}}
+Authorization: Bearer {{bearerToken}}
 
 
 ###############################################################################
@@ -180,8 +199,8 @@ api-key: {{apiKey}}
 
 ### 4a. 创建 Agent v1
 # @name createV1
-POST {{projectUrl}}/agents/postman-test-version/versions?api-version={{apiVersion}}
-api-key: {{apiKey}}
+POST {{projectUrl}}/agents/rbac-test-version/versions?api-version={{apiVersion}}
+Authorization: Bearer {{bearerToken}}
 Content-Type: application/json
 
 {
@@ -197,8 +216,8 @@ Content-Type: application/json
 
 ### 4b. 创建 v2（改 instructions + metadata）— version 应该 > v1
 # @name createV2
-POST {{projectUrl}}/agents/postman-test-version/versions?api-version={{apiVersion}}
-api-key: {{apiKey}}
+POST {{projectUrl}}/agents/rbac-test-version/versions?api-version={{apiVersion}}
+Authorization: Bearer {{bearerToken}}
 Content-Type: application/json
 
 {
@@ -215,8 +234,8 @@ Content-Type: application/json
 
 ### 4c. 创建 v3（只改 metadata）— version 应该 > v2
 # @name createV3
-POST {{projectUrl}}/agents/postman-test-version/versions?api-version={{apiVersion}}
-api-key: {{apiKey}}
+POST {{projectUrl}}/agents/rbac-test-version/versions?api-version={{apiVersion}}
+Authorization: Bearer {{bearerToken}}
 Content-Type: application/json
 
 {
@@ -234,32 +253,32 @@ Content-Type: application/json
 
 ### 4d. GET 最新版本 — 验证 metadata 是 v3 的
 # 注意：metadata 在 versions.latest.metadata 路径下
-GET {{projectUrl}}/agents/postman-test-version?api-version={{apiVersion}}
-api-key: {{apiKey}}
+GET {{projectUrl}}/agents/rbac-test-version?api-version={{apiVersion}}
+Authorization: Bearer {{bearerToken}}
 
 ### 4e. 清理
-DELETE {{projectUrl}}/agents/postman-test-version?api-version={{apiVersion}}
-api-key: {{apiKey}}
+DELETE {{projectUrl}}/agents/rbac-test-version?api-version={{apiVersion}}
+Authorization: Bearer {{bearerToken}}
 
 
 ###############################################################################
 # 测试 5：错误用例
 ###############################################################################
 
-### 5a. 缺少 api-key — 应该 401
+### 5a. 缺少认证 — 应该 401
 GET {{projectUrl}}/agents/nonexistent-agent?api-version={{apiVersion}}
 
-### 5b. 错误的 api-key — 应该 401
+### 5b. 错误的 Bearer Token — 应该 401
 GET {{projectUrl}}/agents/nonexistent-agent?api-version={{apiVersion}}
-api-key: wrong-key-12345
+Authorization: Bearer invalid-token-12345
 
 ### 5c. 不存在的 Agent — 应该 404
 GET {{projectUrl}}/agents/definitely-nonexistent-agent-xyz?api-version={{apiVersion}}
-api-key: {{apiKey}}
+Authorization: Bearer {{bearerToken}}
 
 ### 5d. 缺少 definition 字段 — 应该 400/422
-POST {{projectUrl}}/agents/postman-test-nodef/versions?api-version={{apiVersion}}
-api-key: {{apiKey}}
+POST {{projectUrl}}/agents/rbac-test-nodef/versions?api-version={{apiVersion}}
+Authorization: Bearer {{bearerToken}}
 Content-Type: application/json
 
 {
@@ -274,8 +293,8 @@ Content-Type: application/json
 ###############################################################################
 
 ### 6a. 创建 v1（key-a + key-b）
-POST {{projectUrl}}/agents/postman-test-merge/versions?api-version={{apiVersion}}
-api-key: {{apiKey}}
+POST {{projectUrl}}/agents/rbac-test-merge/versions?api-version={{apiVersion}}
+Authorization: Bearer {{bearerToken}}
 Content-Type: application/json
 
 {
@@ -291,8 +310,8 @@ Content-Type: application/json
 }
 
 ### 6b. 创建 v2（只传 key-c）— 看 key-a/key-b 是否保留
-POST {{projectUrl}}/agents/postman-test-merge/versions?api-version={{apiVersion}}
-api-key: {{apiKey}}
+POST {{projectUrl}}/agents/rbac-test-merge/versions?api-version={{apiVersion}}
+Authorization: Bearer {{bearerToken}}
 Content-Type: application/json
 
 {
@@ -309,9 +328,9 @@ Content-Type: application/json
 ### 6c. 读回 — 检查 metadata 是 replace 还是 merge
 # 如果只有 key-c → replace 模式（每个版本独立 metadata）
 # 如果有 key-a + key-b + key-c → merge 模式
-GET {{projectUrl}}/agents/postman-test-merge?api-version={{apiVersion}}
-api-key: {{apiKey}}
+GET {{projectUrl}}/agents/rbac-test-merge?api-version={{apiVersion}}
+Authorization: Bearer {{bearerToken}}
 
 ### 6d. 清理
-DELETE {{projectUrl}}/agents/postman-test-merge?api-version={{apiVersion}}
-api-key: {{apiKey}}
+DELETE {{projectUrl}}/agents/rbac-test-merge?api-version={{apiVersion}}
+Authorization: Bearer {{bearerToken}}
