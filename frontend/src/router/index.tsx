@@ -32,6 +32,7 @@ const AdminSettingsPage = lazy(() => import("@/pages/admin/settings"));
 const SkillHubPage = lazy(() => import("@/pages/admin/skill-hub"));
 const SkillEditorPage = lazy(() => import("@/pages/admin/skill-editor"));
 const MetaSkillsPage = lazy(() => import("@/pages/admin/meta-skills"));
+const DryRunReportPage = lazy(() => import("@/pages/admin/dry-run-report"));
 
 const NotFound = lazy(() => import("@/pages/not-found"));
 
@@ -97,6 +98,7 @@ export const router = createBrowserRouter([
               { path: "skills", element: <SuspensePage><SkillHubPage /></SuspensePage> },
               { path: "skills/new", element: <SuspensePage><SkillEditorPage /></SuspensePage> },
               { path: "skills/:id/edit", element: <SuspensePage><SkillEditorPage /></SuspensePage> },
+              { path: "skills/:id/dry-run/:runId", element: <SuspensePage><DryRunReportPage /></SuspensePage> },
               { path: "reports", element: <SuspensePage><AdminReportsPage /></SuspensePage> },
               { path: "users", element: <SuspensePage><UserManagementPage /></SuspensePage> },
               { path: "meta-skills", element: <SuspensePage><MetaSkillsPage /></SuspensePage> },
