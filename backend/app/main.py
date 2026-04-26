@@ -21,6 +21,7 @@ from app.api import (
     azure_config_router,
     conference_router,
     config_router,
+    dry_runs_router,
     hcp_profiles_router,
     knowledge_base_router,
     materials_router,
@@ -112,6 +113,7 @@ app.include_router(conference_router, prefix=settings.api_prefix)
 app.include_router(analytics_router, prefix=settings.api_prefix)
 app.include_router(voice_live_router, prefix=settings.api_prefix)
 app.include_router(skills_router, prefix=settings.api_prefix)
+app.include_router(dry_runs_router, prefix=settings.api_prefix)
 app.include_router(meta_skills_router, prefix=settings.api_prefix)
 app.include_router(speech_router, prefix=settings.api_prefix)
 app.include_router(admin_users_router, prefix=settings.api_prefix)
