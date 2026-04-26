@@ -36,6 +36,9 @@ import { FileTreeView } from "@/components/shared/file-tree-view";
 import { QualityRadarChart } from "@/components/shared/quality-radar-chart";
 import { QualityScoreCard } from "@/components/shared/quality-score-card";
 import { PublishGateDialog } from "@/components/shared/publish-gate-dialog";
+import { DryRunButton } from "@/components/shared/dry-run-button";
+import { DryRunProgress as DryRunProgressComponent } from "@/components/shared/dry-run-progress";
+import { DryRunHistoryList } from "@/components/shared/dry-run-history-list";
 import {
   useSkill,
   useUpdateSkill,
@@ -124,6 +127,7 @@ export default function SkillEditorPage() {
     Record<string, boolean>
   >({});
   const [publishDialogOpen, setPublishDialogOpen] = useState(false);
+  const [activeDryRunId, setActiveDryRunId] = useState<string | null>(null);
 
   // Settings form
   const settingsForm = useForm<SettingsFormValues>({
@@ -440,6 +444,18 @@ export default function SkillEditorPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          {!isNew && skill && (
+            <DryRunButton
+              skillId={id}
+              hasContent={hasContent}
+              isNew={isNew}
+              skillStatus={skill.status}
+              onDryRunCreated={(runId) => {
+                setActiveDryRunId(runId);
+                setActiveTab("quality");
+              }}
+            />
+          )}
           <Button
             variant="outline"
             onClick={handleSaveDraft}
@@ -834,6 +850,31 @@ export default function SkillEditorPage() {
                     {t("quality.requestReview")}
                   </Button>
                 </div>
+              )}
+
+              {/* Dry Run Progress -- shown when a dry run is actively running */}
+              {activeDryRunId && id && (
+                <DryRunProgressComponent
+                  skillId={id}
+                  runId={activeDryRunId}
+                  onCompleted={() => {
+                    setActiveDryRunId(null);
+                    queryClient.invalidateQueries({
+                      queryKey: ["skills", "detail", id, "dry-runs"],
+                    });
+                  }}
+                  onCancel={() => setActiveDryRunId(null)}
+                />
+              )}
+
+              {/* Dry Run History -- shown below L1/L2 results */}
+              {id && !activeDryRunId && (
+                <DryRunHistoryList
+                  skillId={id}
+                  onRunClick={(runId) =>
+                    navigate(`/admin/skills/${id}/dry-run/${runId}`)
+                  }
+                />
               )}
             </div>
           )}
