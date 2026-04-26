@@ -223,7 +223,7 @@ Phases execute in numeric order: 01 -> 01.1 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07 
 | 17. Agent Knowledge Base — Foundry IQ Integration | 3/3 | Complete   | 2026-04-10 |
 | 18. Training Material Download & Preview | 3/3 | Complete | 2026-04-10 |
 | 19. AI Coach Skill Module | 6/8 | In Progress|  |
-| 20. Skill Dry Run Simulation | 0/? | Not Started | - |
+| 20. Skill Dry Run Simulation | 0/5 | Not Started | - |
 
 ### Phase 16: Voice Live Refactor — Modularize, Agent Mode, Sync
 
@@ -537,9 +537,25 @@ Plans:
 - 多轮 Dry Run 历史对比
 - Skill 编辑器中集成 Dry Run 入口
 
-**Requirements**: TBD
+**Requirements**: DR-01, DR-02, DR-03, DR-04, DR-05, DR-06, DR-07, DR-08
 **Depends on:** Phase 19
-**Plans:** 0 plans
+**Plans:** 5 plans
+
+**Success Criteria** (what must be TRUE):
+  1. Admin can trigger a Dry Run from the Skill Editor; system simulates a complete MR-HCP conversation using AI agents
+  2. SOP steps are extracted from Skill content and tracked for coverage during simulation
+  3. Dry Run report shows executability score, SOP coverage percentage, and identified issues
+  4. Report page provides 3 sub-tabs: Conversation transcript, SOP Coverage map, Issues list
+  5. Quality tab in Skill Editor shows Dry Run history with comparison chart across multiple runs
+  6. All dry run data persists to database (DryRun + DryRunMessage tables)
+  7. Backend tests cover engine helpers and API endpoints
+  8. i18n complete in both en-US and zh-CN
 
 Plans:
-- [ ] TBD (run /gsd-plan-phase 20 to break down)
+- [ ] 20-01-PLAN.md -- Backend data foundation: DryRun/DryRunMessage ORM models, Alembic migration, Pydantic schemas, CRUD service, REST API
+- [ ] 20-02-PLAN.md -- Dry Run simulation engine: AI MR+HCP orchestration, SOP extraction, coverage tracking, background task
+- [ ] 20-03-PLAN.md -- Frontend data layer: TypeScript types, API client, TanStack Query hooks, i18n translations
+- [ ] 20-04-PLAN.md -- Dry Run Report page: 6 shared components, report page with 3 sub-tabs, route registration
+- [ ] 20-05-PLAN.md -- Skill Editor integration: DryRunButton, DryRunProgress, DryRunHistoryList, backend tests
+
+**UI hint**: yes
