@@ -239,7 +239,7 @@ def _compute_sop_coverage(
         if len(matched) >= 1:
             status = "covered"
             details = f"Covered in {len(matched)} message(s)"
-        elif len(matched) == 0:
+        else:
             # Check for weak partial match: any MR message with at least 1 keyword overlap
             partial = False
             for idx, msg in enumerate(messages):
@@ -256,9 +256,6 @@ def _compute_sop_coverage(
             else:
                 status = "not_covered"
                 details = "No matching messages found"
-        else:
-            status = "not_covered"
-            details = "No matching messages found"
 
         coverage.append({
             "step_id": step["step_id"],
