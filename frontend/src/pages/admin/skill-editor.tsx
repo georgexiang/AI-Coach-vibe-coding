@@ -559,7 +559,7 @@ export default function SkillEditorPage() {
                 {skill.source_materials.map((mat) => (
                   <Link
                     key={mat.id}
-                    to={`/admin/materials/${mat.id}`}
+                    to={`/admin/materials?search=${encodeURIComponent(mat.name)}`}
                     className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary hover:bg-primary/20 transition-colors"
                   >
                     <FileText className="size-3" />
