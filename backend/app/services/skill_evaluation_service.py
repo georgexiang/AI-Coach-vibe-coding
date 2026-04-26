@@ -20,7 +20,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.skill import Skill
-from app.services import config_service
 from app.services.skill_validation_service import _compute_content_hash
 
 logger = logging.getLogger(__name__)
@@ -54,23 +53,6 @@ def _load_evaluation_dimensions() -> list[str]:
         if len(names) == 6:
             return names
     return list(_FALLBACK_DIMENSIONS)
-
-
-def _load_evaluator_instructions() -> str:
-    """Load composed evaluator instructions from skill directory.
-
-    Returns the full instructions string (SKILL.md + references) for use
-    as system message in the direct OpenAI fallback path.
-    """
-    from app.services.meta_skill_service import _load_skill_directory
-
-    instructions = _load_skill_directory("evaluator")
-    if instructions:
-        return instructions
-    return (
-        "You are a coaching skill content evaluator for pharmaceutical sales training. "
-        "Return ONLY valid JSON, no markdown fences."
-    )
 
 
 def _build_evaluation_user_message(
@@ -210,17 +192,20 @@ async def evaluate_skill_quality(
         language_instruction=_get_eval_language_instruction(),
     )
 
-    # Try evaluator agent first, fall back to direct OpenAI
+    # Require evaluator agent — no fallback to direct OpenAI
     from app.services import meta_skill_service
 
     evaluator_meta = await meta_skill_service.get_meta_skill(db, "evaluator")
-    if evaluator_meta and evaluator_meta.agent_id:
-        ai_call = await _call_agent_for_evaluation(
-            db, prompt, evaluator_meta.agent_id,
-            evaluator_meta.agent_version, evaluator_meta.model,
+    if not evaluator_meta or not evaluator_meta.agent_id:
+        raise ValueError(
+            "Skill evaluator agent not registered. "
+            "Please register the 'skill-evaluator' agent in Azure AI Foundry "
+            "and sync it via the Meta Skill settings page."
         )
-    else:
-        ai_call = await _call_openai_for_evaluation(db, prompt)
+    ai_call = await _call_agent_for_evaluation(
+        db, prompt, evaluator_meta.agent_id,
+        evaluator_meta.agent_version, evaluator_meta.model,
+    )
     evaluated_at = datetime.now(tz=UTC).isoformat()
 
     if ai_call.data is None:
@@ -325,88 +310,6 @@ async def _call_agent_for_evaluation(
         return _AICallResult(
             data=None, status="ai_error", model_used=model,
             error_detail=str(e)[:500],
-        )
-
-
-async def _call_openai_for_evaluation(db: AsyncSession, prompt: str) -> _AICallResult:
-    """Call Azure OpenAI for skill evaluation. Returns structured result with status."""
-    endpoint = await config_service.get_effective_endpoint(db, "azure_openai")
-    api_key = await config_service.get_effective_key(db, "azure_openai")
-
-    if not endpoint or not api_key:
-        logger.info("L2 evaluation unavailable: no Azure OpenAI endpoint/key configured")
-        return _AICallResult(
-            data=None,
-            status="ai_unavailable",
-            error_detail="Azure OpenAI endpoint or API key not configured",
-        )
-
-    config = await config_service.get_config(db, "azure_openai")
-    from app.config import get_settings
-
-    settings = get_settings()
-    deployment = (
-        config.model_or_deployment
-        if config and config.model_or_deployment
-        else settings.default_chat_model
-    )
-
-    try:
-        from openai import AsyncAzureOpenAI
-
-        client = AsyncAzureOpenAI(
-            azure_endpoint=endpoint,
-            api_key=api_key,
-            api_version=settings.skill_ai_api_version,
-        )
-    except ImportError:
-        logger.warning("openai package not installed, cannot run L2 evaluation")
-        return _AICallResult(
-            data=None,
-            status="ai_unavailable",
-            model_used=deployment,
-            error_detail="openai package not installed",
-        )
-
-    try:
-        response = await client.chat.completions.create(
-            model=deployment,
-            messages=[
-                {
-                    "role": "system",
-                    "content": _load_evaluator_instructions()
-                    + "\n\nIMPORTANT: Return ONLY valid JSON, no markdown fences.",
-                },
-                {"role": "user", "content": prompt},
-            ],
-            temperature=settings.skill_ai_temperature,
-            max_completion_tokens=settings.skill_ai_max_tokens,
-            response_format={"type": "json_object"},
-        )
-
-        content = response.choices[0].message.content
-        if not content:
-            logger.error("L2 evaluation returned empty content")
-            return _AICallResult(
-                data=None,
-                status="ai_error",
-                model_used=deployment,
-                error_detail="AI returned empty content",
-            )
-
-        return _AICallResult(
-            data=json.loads(content),
-            status="ai_success",
-            model_used=deployment,
-        )
-    except Exception as e:
-        error_msg = str(e)[:500]
-        logger.error("L2 evaluation failed: %s", e, exc_info=True)
-        return _AICallResult(
-            data=None,
-            status="ai_error",
-            model_used=deployment,
-            error_detail=error_msg,
         )
 
 

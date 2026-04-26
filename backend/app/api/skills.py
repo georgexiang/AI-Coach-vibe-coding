@@ -608,6 +608,27 @@ async def run_quality_evaluation(
             except Exception as e:
                 await session.rollback()
                 logger.error("L2 evaluation failed for skill %s: %s", sid, e, exc_info=True)
+                # Persist error into quality_details so frontend polling can see it
+                import json as _json
+
+                async with AsyncSessionLocal() as err_session:
+                    from app.models.skill import Skill as _Skill
+
+                    _result = await err_session.execute(
+                        select(_Skill).where(_Skill.id == sid)
+                    )
+                    _skill = _result.scalar_one_or_none()
+                    if _skill:
+                        _skill.quality_score = 0
+                        _skill.quality_verdict = "ERROR"
+                        _skill.quality_details = _json.dumps(
+                            {
+                                "evaluation_status": "ai_error",
+                                "error_detail": str(e)[:500],
+                            },
+                            ensure_ascii=False,
+                        )
+                        await err_session.commit()
 
     asyncio.create_task(_run_evaluation(skill_id))
     return JSONResponse(status_code=202, content={"status": "evaluating"})
