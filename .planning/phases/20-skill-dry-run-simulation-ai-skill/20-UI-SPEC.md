@@ -58,7 +58,8 @@ Notes:
 - Simulated conversation messages use Body (14px/400) inside ChatBubble
 - SOP step names in coverage report use Label (14px/600) for scanability
 - Score numbers in report summary use Display (24px/600) for visual hierarchy
-- Mono font (JetBrains Mono) at 13px for SOP step IDs (e.g., "Step 1.2")
+- Score card hero numbers use text-4xl (36px) mapped to Display role at semibold weight (this is a scaled instance of Display, not a separate size declaration)
+- Mono font (JetBrains Mono) at 14px for SOP step IDs (e.g., "Step 1.2") -- same size as body text; the mono typeface alone provides sufficient visual distinction from surrounding sans-serif content
 
 ---
 
@@ -164,13 +165,13 @@ The Dry Run button is integrated into the existing Skill Editor page header, nex
 |                                                    |
 | Estimated time: 1-3 minutes                        |
 |                                                    |
-|                    [Cancel]  [Start Simulation]     |
+|                  [Go Back]  [Start Simulation]      |
 +----------------------------------------------------+
 ```
 
 - Dialog width: max-w-md (448px)
 - "Start Simulation" uses primary variant
-- Cancel uses outline variant
+- "Go Back" uses outline variant
 
 ### Dry Run In-Progress State (replaces Quality tab content)
 
@@ -261,7 +262,7 @@ The Dry Run button is integrated into the existing Skill Editor page header, nex
   - HCP messages use speakerName="AI-HCP" with speakerColor=var(--primary) (#1E40AF)
   - Optional: right margin annotation showing which SOP step each message maps to
 - SOP Coverage sub-tab: CoverageRingChart centered + SopCoverageMap below
-  - Each SopStepRow: h-[28px] padded row, step ID in mono, name in body, status icon right-aligned
+  - Each SopStepRow: h-[28px] padded row, step ID in mono (14px JetBrains Mono), name in body, status icon right-aligned
   - COVERED: check icon in var(--strength), PARTIAL: alert icon in var(--weakness), NOT COVERED: x icon in var(--destructive)
   - Click row to expand: shows matched conversation excerpts
 - Issues sub-tab: list of DryRunIssueCard, each with severity badge + description + suggestion
@@ -359,6 +360,7 @@ When the Quality tab already shows L1/L2 results, the Dry Run history appears as
 | Start dialog title | Start Dry Run Simulation | 启动模拟测试 |
 | Start dialog body | The system will simulate a complete MR-HCP training conversation using AI agents to validate this Skill's SOP. Estimated time: 1-3 minutes. | 系统将使用 AI Agent 模拟完整的 MR-HCP 培训对话，以验证此 Skill 的 SOP 可执行性。预计耗时：1-3 分钟。 |
 | Start button | Start Simulation | 开始模拟 |
+| Start dialog dismiss | Go Back | 返回 |
 | Cancel Run button | Cancel Run | 取消测试 |
 | Cancel confirmation | Cancel this simulation? Progress will be lost. | 取消此模拟测试？进度将丢失。 |
 | Progress heading | Dry Run in Progress | 模拟测试进行中 |
