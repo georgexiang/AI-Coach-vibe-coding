@@ -12,7 +12,6 @@ class ScenarioCreate(BaseModel):
     name: str
     product: str
     hcp_profile_id: str
-    created_by: str
     description: str = ""
     therapeutic_area: str = ""
     mode: str = "f2f"
@@ -73,7 +72,7 @@ class ScenarioUpdate(BaseModel):
             self.weight_scientific_info,
         ]
         if all(w is not None for w in weights):
-            total = sum(weights)
+            total = sum(w for w in weights if w is not None)
             if total != 100:
                 raise ValueError(f"Scoring weights must sum to 100, got {total}")
         return self

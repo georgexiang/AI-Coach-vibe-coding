@@ -148,6 +148,56 @@ test.describe("Admin Scenarios Management", () => {
     }
   });
 
+  test("creates a new scenario and verifies it appears in the table", async ({
+    page,
+  }) => {
+    const scenarioName = `E2E Scenario ${Date.now()}`;
+
+    // Click the create button
+    const createButton = page.getByRole("button", {
+      name: /create|new scenario/i,
+    });
+    await createButton.first().click();
+
+    // Wait for dialog to appear
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible({ timeout: 5000 });
+
+    // Fill the Name field (first text input in the dialog)
+    const nameInput = dialog.locator("input[type='text'], input:not([type])").first();
+    await nameInput.fill(scenarioName);
+
+    // Select Product from dropdown (first combobox in dialog)
+    const comboboxes = dialog.locator("button[role='combobox']");
+    await comboboxes.nth(0).click();
+    await page.waitForTimeout(300);
+    const productOption = page.getByRole("option", { name: /Tislelizumab/i });
+    await expect(productOption).toBeVisible({ timeout: 3000 });
+    await productOption.click();
+    await page.waitForTimeout(300);
+
+    // Select HCP from dropdown (third combobox — after Product and Therapeutic Area)
+    await comboboxes.nth(2).click();
+    await page.waitForTimeout(300);
+    const hcpOptions = page.getByRole("option");
+    const hcpCount = await hcpOptions.count();
+    if (hcpCount > 0) {
+      await hcpOptions.first().click();
+      await page.waitForTimeout(300);
+    }
+
+    // Click Save
+    await dialog.getByRole("button", { name: /save/i }).click();
+
+    // Verify: dialog should close on success (no validation error)
+    await expect(dialog).not.toBeVisible({ timeout: 10000 });
+
+    // Verify: new scenario name should appear in the table
+    await expect(page.getByText(scenarioName).first()).toBeVisible({
+      timeout: 5000,
+    });
+  });
+
   test("delete scenario shows confirmation dialog", async ({ page }) => {
     // Wait for table rows to load
     await page.waitForTimeout(1000);

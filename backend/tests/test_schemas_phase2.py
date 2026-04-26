@@ -19,7 +19,7 @@ class TestScenarioCreateSchema:
             name="Test",
             product="Drug",
             hcp_profile_id="p1",
-            created_by="u1",
+
         )
         assert data.weight_key_message == 30
         assert data.weight_objection_handling == 25
@@ -32,7 +32,7 @@ class TestScenarioCreateSchema:
             name="Test",
             product="Drug",
             hcp_profile_id="p1",
-            created_by="u1",
+
             weight_key_message=40,
             weight_objection_handling=20,
             weight_communication=20,
@@ -47,7 +47,7 @@ class TestScenarioCreateSchema:
                 name="Test",
                 product="Drug",
                 hcp_profile_id="p1",
-                created_by="u1",
+    
                 weight_key_message=50,
                 weight_objection_handling=50,
                 weight_communication=50,
@@ -61,7 +61,7 @@ class TestScenarioCreateSchema:
             name="Test",
             product="Drug",
             hcp_profile_id="p1",
-            created_by="u1",
+
         )
         assert data.mode == "f2f"
         assert data.status == "draft"
@@ -128,7 +128,7 @@ class TestScenarioResponseSchema:
             weight_product_knowledge=15,
             weight_scientific_info=10,
             pass_threshold=70,
-            created_by="u1",
+            created_by="user1",
             created_at=datetime.now(),
             updated_at=datetime.now(),
         )
@@ -143,7 +143,7 @@ class TestHcpProfileSchemas:
         data = HcpProfileCreate(
             name="Dr. Zhang",
             specialty="Oncology",
-            created_by="u1",
+
         )
         assert data.personality_type == "friendly"
         assert data.emotional_state == 50
@@ -156,7 +156,7 @@ class TestHcpProfileSchemas:
         data = HcpProfileCreate(
             name="Dr. Li",
             specialty="Cardiology",
-            created_by="u1",
+
             hospital="Beijing Hospital",
             title="Chief Physician",
             personality_type="skeptical",
@@ -193,7 +193,7 @@ class TestHcpProfileSchemas:
             probe_topics="[]",
             difficulty="medium",
             is_active=True,
-            created_by="u1",
+            created_by="user1",
             created_at=datetime.now(),
             updated_at=datetime.now(),
         )

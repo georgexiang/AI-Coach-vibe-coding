@@ -109,7 +109,7 @@ class TestScoringDirect:
             hcp_profile_id=hcp.id,
             key_messages=json.dumps(["PFS"]),
             status="active",
-            created_by=user.id,
+
         )
         db.add(scenario)
         await db.flush()
@@ -196,7 +196,7 @@ class TestSessionsDirect:
             hcp_profile_id=hcp.id,
             key_messages=json.dumps(["PFS", "Safety"]),
             status="active",
-            created_by=user.id,
+
         )
         db.add(scenario)
         await db.flush()
@@ -446,7 +446,7 @@ class TestSessionsDirect:
             hcp_profile_id=hcp.id,
             key_messages=json.dumps(["PFS"]),
             status="active",
-            created_by=user.id,
+
         )
         db_session.add(scenario)
         await db_session.flush()
@@ -498,7 +498,7 @@ class TestSessionsDirect:
             hcp_profile_id=hcp.id,
             key_messages=json.dumps(["PFS", "Safety"]),
             status="active",
-            created_by=user.id,
+
         )
         db_session.add(scenario)
         await db_session.flush()
@@ -656,7 +656,7 @@ class TestScenariosDirect:
             name="Direct Scn",
             product="Drug",
             hcp_profile_id=hcp.id,
-            created_by=user.id,
+
             key_messages=["M1"],
         )
         result = await create_scenario(data=data, db=db_session, user=user)
@@ -672,7 +672,7 @@ class TestScenariosDirect:
             name="Get Scn",
             product="Drug",
             hcp_profile_id=hcp.id,
-            created_by=user.id,
+
             key_messages=["M1"],
         )
         created = await create_scenario(data=data, db=db_session, user=user)
@@ -691,7 +691,7 @@ class TestScenariosDirect:
             name="Before Scn",
             product="Drug",
             hcp_profile_id=hcp.id,
-            created_by=user.id,
+
             key_messages=["M1"],
         )
         created = await create_scenario(data=data, db=db_session, user=user)
@@ -711,7 +711,7 @@ class TestScenariosDirect:
             name="Del Scn",
             product="Drug",
             hcp_profile_id=hcp.id,
-            created_by=user.id,
+
             key_messages=["M1"],
         )
         created = await create_scenario(data=data, db=db_session, user=user)
@@ -730,7 +730,7 @@ class TestScenariosDirect:
             name="Clone Src",
             product="Drug",
             hcp_profile_id=hcp.id,
-            created_by=user.id,
+
             key_messages=["M1"],
         )
         created = await create_scenario(data=data, db=db_session, user=user)
