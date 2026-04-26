@@ -223,7 +223,7 @@ Phases execute in numeric order: 01 -> 01.1 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07 
 | 17. Agent Knowledge Base — Foundry IQ Integration | 3/3 | Complete   | 2026-04-10 |
 | 18. Training Material Download & Preview | 3/3 | Complete | 2026-04-10 |
 | 19. AI Coach Skill Module | 6/8 | In Progress|  |
-| 20. Skill Dry Run Simulation | 3/5 | In Progress|  |
+| 20. Skill Dry Run Simulation | 5/5 | Complete   | 2026-04-26 |
 
 ### Phase 16: Voice Live Refactor — Modularize, Agent Mode, Sync
 
@@ -539,7 +539,7 @@ Plans:
 
 **Requirements**: DR-01, DR-02, DR-03, DR-04, DR-05, DR-06, DR-07, DR-08
 **Depends on:** Phase 19
-**Plans:** 3/5 plans executed
+**Plans:** 5/5 plans complete
 
 **Success Criteria** (what must be TRUE):
   1. Admin can trigger a Dry Run from the Skill Editor; system simulates a complete MR-HCP conversation using AI agents
@@ -555,7 +555,7 @@ Plans:
 - [x] 20-01-PLAN.md -- Backend data foundation: DryRun/DryRunMessage ORM models, Alembic migration, Pydantic schemas, CRUD service, REST API
 - [x] 20-02-PLAN.md -- Dry Run simulation engine: AI MR+HCP orchestration, SOP extraction, coverage tracking, background task
 - [x] 20-03-PLAN.md -- Frontend data layer: TypeScript types, API client, TanStack Query hooks, i18n translations
-- [ ] 20-04-PLAN.md -- Dry Run Report page: 6 shared components, report page with 3 sub-tabs, route registration
-- [ ] 20-05-PLAN.md -- Skill Editor integration: DryRunButton, DryRunProgress, DryRunHistoryList, backend tests
+- [x] 20-04-PLAN.md -- Dry Run Report page: 6 shared components, report page with 3 sub-tabs, route registration
+- [x] 20-05-PLAN.md -- Skill Editor integration: DryRunButton, DryRunProgress, DryRunHistoryList, backend tests
 
 **UI hint**: yes
