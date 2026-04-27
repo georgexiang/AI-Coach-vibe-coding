@@ -15,6 +15,8 @@ import {
   FileText,
   FileCode,
   File as FileIcon,
+  UserRound,
+  Stethoscope,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -584,6 +586,14 @@ export default function MetaSkillsPage() {
             <ClipboardCheck className="h-4 w-4" />
             {t("tabs.evaluator")}
           </TabsTrigger>
+          <TabsTrigger value="dry-run-mr" className="flex items-center gap-2">
+            <UserRound className="h-4 w-4" />
+            {t("tabs.dryRunMr")}
+          </TabsTrigger>
+          <TabsTrigger value="dry-run-hcp" className="flex items-center gap-2">
+            <Stethoscope className="h-4 w-4" />
+            {t("tabs.dryRunHcp")}
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="creator" className="mt-4">
@@ -597,6 +607,20 @@ export default function MetaSkillsPage() {
           <MetaSkillCard
             skillType="evaluator"
             icon={<ClipboardCheck className="h-5 w-5 text-primary" />}
+          />
+        </TabsContent>
+
+        <TabsContent value="dry-run-mr" className="mt-4">
+          <MetaSkillCard
+            skillType="dry-run-mr"
+            icon={<UserRound className="h-5 w-5 text-primary" />}
+          />
+        </TabsContent>
+
+        <TabsContent value="dry-run-hcp" className="mt-4">
+          <MetaSkillCard
+            skillType="dry-run-hcp"
+            icon={<Stethoscope className="h-5 w-5 text-primary" />}
           />
         </TabsContent>
       </Tabs>

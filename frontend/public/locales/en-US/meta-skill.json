@@ -1,9 +1,11 @@
 {
   "title": "Meta Skills Configuration",
-  "description": "Configure the AI agents used for Skill creation and evaluation",
+  "description": "Configure the AI agents used for Skill creation, evaluation, and dry run simulation",
   "tabs": {
     "creator": "Skill Creator",
     "evaluator": "Skill Evaluator",
+    "dryRunMr": "Dry Run MR",
+    "dryRunHcp": "Dry Run HCP",
     "instructions": "Agent Instructions",
     "resources": "Skill Resources"
   },
