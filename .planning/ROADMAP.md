@@ -30,6 +30,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 16: Voice Live Refactor — Modularize, Agent Mode, Sync** - 前端 Voice Live 模块化复用，后端 WebSocket 双模式（Model+Agent），SDK 升级 1.2.0b5，HCP voice 配置同步到 AI Foundry Agent (completed 2026-04-10)
 - [x] **Phase 17: Agent Knowledge Base — Foundry IQ Integration** - HCP Agent 知识库管理：连接 Azure AI Search / Foundry IQ，上传训练材料自动创建知识库索引，知识库配置同步到 AI Foundry Agent (completed 2026-04-10)
 - [x] **Phase 18: Training Material Download & Preview** - 培训材料文件下载和在线预览：后端添加文件下载 API，前端 PDF 在线预览、DOCX/XLSX 下载，修复 storage_url 信息泄露 (completed 2026-04-10)
+- [ ] **Phase 21: Scoring Criteria Refactor** - 评分标准模块重构，消除硬编码维度，ScoringRubric 升级为评分唯一权威来源，支持动态自定义维度
 
 ## Phase Details
 
@@ -557,5 +558,39 @@ Plans:
 - [x] 20-03-PLAN.md -- Frontend data layer: TypeScript types, API client, TanStack Query hooks, i18n translations
 - [x] 20-04-PLAN.md -- Dry Run Report page: 6 shared components, report page with 3 sub-tabs, route registration
 - [x] 20-05-PLAN.md -- Skill Editor integration: DryRunButton, DryRunProgress, DryRunHistoryList, backend tests
+
+**UI hint**: yes
+
+### Phase 21: Scoring Criteria Refactor — 评分标准模块重构，动态维度驱动
+
+**Goal:** 重构评分标准模块，消除5个评分维度在 Scenario 模型、Scoring Engine Prompt、Mock Score Generator、前端 ScoringWeights 组件中的硬编码。将 ScoringRubric 升级为评分的唯一权威来源（Single Source of Truth），支持管理员自定义评分维度名称/数量/权重/评分标准，所有评分流程（LLM评分、Mock评分、前端展示）统一从 Rubric 动态读取。
+
+**Key deliverables:**
+- 将 Scenario 模型中5个固定权重列迁移为 rubric_id 外键引用
+- Scoring Engine Prompt 模板改为从 Rubric 动态生成维度指令
+- Mock Score Generator 支持任意维度数量
+- 前端 ScoringWeights 组件改为从 Rubric 动态渲染
+- 评分反馈页面（RadarChart、DimensionBars、FeedbackCard）支持动态维度
+- 确保 Skill Assessment Criteria 与新 Rubric 系统兼容
+- 数据迁移：将现有 Scenario 权重数据迁移到 Rubric 记录
+
+**Requirements**: SCORE-01, SCORE-02, SCORE-03, SCORE-04, SCORE-05
+**Depends on:** Phase 03
+**Plans:** 3 plans
+
+Plans:
+- [ ] 21-01-PLAN.md -- Backend: Scenario model rubric_id FK, scoring engine dynamic prompt, mock scorer, analytics fix, seed data
+- [ ] 21-02-PLAN.md -- Frontend: TypeScript types, dimension display utility, ScenarioEditor rubric selector, i18n keys
+- [ ] 21-03-PLAN.md -- Integration: Alembic migration push, backend test fixes, frontend build verification
+
+**Success Criteria** (what must be TRUE):
+  1. Admin 可以创建含任意数量自定义维度的 Rubric，每个维度有名称、权重、评分标准、满分值
+  2. Scenario 通过 rubric_id 引用 Rubric，不再有硬编码的 weight_* 列
+  3. LLM 评分引擎从 Rubric 动态构建 prompt，维度名称和评分标准来自 Rubric 配置
+  4. Mock 评分生成器支持任意维度数量，不依赖硬编码维度名
+  5. 前端评分反馈页面（RadarChart、DimensionBars、FeedbackCard）根据 Rubric 维度动态渲染
+  6. 前端 ScoringWeights 组件从 Rubric 维度动态生成滑块，不再硬编码5个维度
+  7. Alembic 数据迁移将现有 Scenario 权重数据转换为 Rubric 记录
+  8. 所有现有评分测试通过，新增动态维度场景的测试覆盖
 
 **UI hint**: yes
