@@ -57,7 +57,7 @@ scoring_engine.py
 
 ```
 Scenario model
-  ├── rubric_id: FK -> scoring_rubrics.id (nullable for migration)
+  ├── rubric_id: FK -> scoring_rubrics.id (NOT NULL per D-05)
   ├── pass_threshold: int = 70
   └── (weight_* columns REMOVED)
 
@@ -65,7 +65,7 @@ ScoringRubric model (SSOT)
   └── dimensions: JSON  # [{name, weight, criteria[], max_score}]
 
 scoring_service.py
-  ├── Resolves rubric: scenario.rubric_id -> specific, else default rubric
+  ├── Resolves rubric: always via scenario.rubric_id (NOT NULL, no fallback needed)
   └── Passes rubric dimensions to scoring engine
 
 scoring_engine.py
@@ -73,34 +73,29 @@ scoring_engine.py
   └── No hardcoded dimension names or instructions
 
 Frontend
-  ├── ScenarioEditor: rubric selector instead of ScoringWeights
+  ├── ScenarioEditor: rubric selector (required field) instead of ScoringWeights
   └── All scoring components: read dimensions from score.details (already dynamic)
 ```
 
-### Pattern 1: Rubric Resolution Chain
+### Pattern 1: Direct Rubric Lookup (No Fallback Chain)
 
-**What:** Deterministic rubric lookup with fallback chain
+**What:** Direct rubric lookup via scenario.rubric_id (NOT NULL per D-05)
 **When to use:** Every time a session needs to be scored
 **Example:**
 ```python
-# Source: [codebase pattern from rubric_service.py]
-async def resolve_rubric(db: AsyncSession, scenario: Scenario) -> ScoringRubric:
-    """Resolve which rubric to use for scoring.
+# Source: [codebase pattern from rubric_service.py, simplified per D-05]
+async def resolve_rubric_dimensions(db: AsyncSession, scenario) -> list[dict]:
+    """Resolve rubric dimensions for scoring.
     
-    Priority:
-    1. Scenario-specific rubric (scenario.rubric_id)
-    2. Default rubric for scenario type (is_default=True, scenario_type match)
-    3. System fallback rubric (built-in 5 dimensions with standard weights)
+    Per D-05: rubric_id is NOT NULL, so direct lookup always succeeds.
+    get_default_rubric() fallback is no longer needed for scoring.
     """
-    if scenario.rubric_id:
-        rubric = await get_rubric(db, scenario.rubric_id)
-        return rubric
+    import json as _json
+    from app.services.rubric_service import get_rubric
     
-    default = await get_default_rubric(db, scenario.mode)
-    if default:
-        return default
-    
-    return _get_system_fallback_rubric()
+    rubric = await get_rubric(db, scenario.rubric_id)
+    dims = rubric.dimensions
+    return _json.loads(dims) if isinstance(dims, str) else dims
 ```
 
 ### Pattern 2: Dynamic Prompt Building
@@ -197,7 +192,6 @@ def _generate_mock_scores(
 |---------|-------------|-------------|-----|
 | Weight sum validation | Custom validator | Existing `field_validator` in `RubricCreate` schema | Already validated, tested, handles edge cases [VERIFIED: scoring_rubric.py:30] |
 | Dynamic radar charts | Custom chart component | Existing `recharts.RadarChart` with data-driven config | Already renders N-dimensional data from array input [VERIFIED: radar-chart.tsx] |
-| Default rubric fallback | Ad-hoc weight defaults | `rubric_service.get_default_rubric()` | Already implements per-scenario-type default lookup [VERIFIED: rubric_service.py:85] |
 | Proportional weight redistribution | Manual slider math | The rubric editor already handles this via individual sliders | No need to port `adjustWeights` logic [VERIFIED: rubric-editor.tsx] |
 | JSON dimension parsing | Manual JSON.parse | Existing `parse_dimensions_json` validator in `RubricResponse` | Handles both string and list inputs [VERIFIED: scoring_rubric.py:78] |
 
@@ -226,7 +220,7 @@ def _generate_mock_scores(
 ### Pitfall 4: Null rubric_id on Existing Scenarios
 **What goes wrong:** After adding `rubric_id` FK and removing weight columns, existing scenarios have `rubric_id=NULL` and no weight data.
 **Why it happens:** The data migration must create rubric records from existing weight values before dropping the columns.
-**How to avoid:** Two-step migration: (1) Add `rubric_id` column as nullable, create rubric records for each unique weight combination, update scenarios with rubric_id; (2) Only then drop weight columns. Or: single batch migration that does both.
+**How to avoid:** Three-step migration within a single Alembic file: (1) Add `rubric_id` column as nullable, (2) create rubric records from existing weight values using `op.execute` raw SQL with `uuid4()` and update scenarios to point to them, (3) alter `rubric_id` to NOT NULL, then drop weight columns.
 **Warning signs:** All existing scenarios lose their scoring configuration.
 
 ### Pitfall 5: Test File Explosions
@@ -243,29 +237,38 @@ def _generate_mock_scores(
 
 ## Data Migration Strategy
 
-### Step 1: Create Default Rubrics from Existing Weights
+### Step 1: Add rubric_id Column (nullable initially)
 
 ```python
-# In Alembic migration or seed script
-# For each unique weight combination in scenarios table:
-# 1. Create a ScoringRubric record with those weights
-# 2. Set the dimension criteria from the current SCORING_PROMPT_TEMPLATE instructions
+# In Alembic migration, first batch_alter_table call
+with op.batch_alter_table("scenarios") as batch_op:
+    batch_op.add_column(
+        sa.Column("rubric_id", sa.String(36),
+                  sa.ForeignKey("scoring_rubrics.id"), nullable=True)
+    )
 ```
 
-### Step 2: Map Existing Scenarios to Rubrics
+### Step 2: Create Rubrics from Existing Weight Combinations and Link Scenarios
 
 ```python
-# For each scenario:
-# 1. Find or create a rubric matching its weight configuration
-# 2. Set scenario.rubric_id = rubric.id
+# In the same Alembic migration, use op.execute / connection.execute
+# For each unique weight combination in the scenarios table:
+# 1. Create a ScoringRubric record with those weights as dimensions JSON
+# 2. For scenarios with that weight combination, SET rubric_id to the new rubric's id
+# The default 30/25/20/15/10 combination gets is_default=True
 ```
 
-### Step 3: Verify Before Dropping Columns
+### Step 3: Enforce NOT NULL and Drop Weight Columns
 
 ```python
-# Assert: every scenario with status='active' has a non-null rubric_id
-# Assert: every rubric has dimensions summing to 100 weight
-# Only then proceed to drop weight columns
+# After all scenarios have rubric_id populated:
+with op.batch_alter_table("scenarios") as batch_op:
+    batch_op.alter_column("rubric_id", nullable=False)
+    batch_op.drop_column("weight_key_message")
+    batch_op.drop_column("weight_objection_handling")
+    batch_op.drop_column("weight_communication")
+    batch_op.drop_column("weight_product_knowledge")
+    batch_op.drop_column("weight_scientific_info")
 ```
 
 ### Handling the Default 30/25/20/15/10 Split
@@ -287,22 +290,63 @@ These three systems are architecturally separate and must remain so. The Skill Q
 
 ## Code Examples
 
-### Alembic Migration: Add rubric_id, Remove weight columns
+### Alembic Migration: Add rubric_id with data migration, then remove weight columns
 ```python
 # Source: [CLAUDE.md Gotcha #1 pattern, adapted for this use case]
+import uuid
+import json
+
 def upgrade() -> None:
-    # Step 1: Add rubric_id column
+    # Step 1: Add rubric_id column as nullable
     with op.batch_alter_table("scenarios") as batch_op:
         batch_op.add_column(
             sa.Column("rubric_id", sa.String(36), 
                       sa.ForeignKey("scoring_rubrics.id"), nullable=True)
         )
     
-    # Step 2: Data migration -- create rubrics and link scenarios
-    # (use op.execute for SQL or connection.execute for ORM)
+    # Step 2: Data migration -- create rubrics for each unique weight combo
+    conn = op.get_bind()
     
-    # Step 3: Drop weight columns
+    # Find unique weight combinations
+    scenarios = conn.execute(sa.text(
+        "SELECT id, weight_key_message, weight_objection_handling, "
+        "weight_communication, weight_product_knowledge, weight_scientific_info "
+        "FROM scenarios"
+    )).fetchall()
+    
+    # Group by weight combo, create one rubric per unique combo
+    weight_combos = {}
+    for row in scenarios:
+        combo_key = (row[1], row[2], row[3], row[4], row[5])
+        if combo_key not in weight_combos:
+            weight_combos[combo_key] = []
+        weight_combos[combo_key].append(row[0])
+    
+    for (wkm, woh, wc, wpk, wsi), scenario_ids in weight_combos.items():
+        rubric_id = str(uuid.uuid4())
+        is_default = (wkm == 30 and woh == 25 and wc == 20 and wpk == 15 and wsi == 10)
+        dims = json.dumps([
+            {"name": "key_message", "weight": wkm, "criteria": [...], "max_score": 100.0},
+            {"name": "objection_handling", "weight": woh, "criteria": [...], "max_score": 100.0},
+            {"name": "communication", "weight": wc, "criteria": [...], "max_score": 100.0},
+            {"name": "product_knowledge", "weight": wpk, "criteria": [...], "max_score": 100.0},
+            {"name": "scientific_info", "weight": wsi, "criteria": [...], "max_score": 100.0},
+        ])
+        conn.execute(sa.text(
+            "INSERT INTO scoring_rubrics (id, name, description, scenario_type, dimensions, is_default, created_by) "
+            "VALUES (:id, :name, :desc, :stype, :dims, :is_default, :created_by)"
+        ), {"id": rubric_id, "name": f"Migrated {'Default' if is_default else 'Custom'} Rubric",
+            "desc": "Auto-created from scenario weight columns during migration",
+            "stype": "f2f", "dims": dims, "is_default": is_default, "created_by": "system"})
+        
+        for sid in scenario_ids:
+            conn.execute(sa.text(
+                "UPDATE scenarios SET rubric_id = :rid WHERE id = :sid"
+            ), {"rid": rubric_id, "sid": sid})
+    
+    # Step 3: Enforce NOT NULL and drop weight columns
     with op.batch_alter_table("scenarios") as batch_op:
+        batch_op.alter_column("rubric_id", nullable=False)
         batch_op.drop_column("weight_key_message")
         batch_op.drop_column("weight_objection_handling")
         batch_op.drop_column("weight_communication")
@@ -379,20 +423,14 @@ def build_dimensions_instructions(rubric_dimensions: list[dict]) -> str:
 
 ## Open Questions
 
-1. **Should rubric_id be required or nullable on Scenario?**
-   - What we know: Making it nullable with a fallback chain (scenario rubric -> default rubric -> system fallback) is safest for migration
-   - What's unclear: Should we enforce non-null after migration is complete?
-   - Recommendation: Keep nullable with fallback chain. Simpler and more resilient.
+1. **Should rubric_id be required or nullable on Scenario?** (RESOLVED)
+   - **Decision: NOT NULL per D-05.** rubric_id is NOT NULL on Scenario. The data migration creates rubric records for all existing scenarios before enforcing the constraint. No fallback chain needed for scoring -- every scenario always has a rubric. `get_default_rubric()` is retained only as a UI convenience for pre-selecting a rubric when creating new scenarios, not as a scoring fallback.
 
-2. **Should scenario editor show rubric dimensions inline or just a selector?**
-   - What we know: The rubric editor (separate page) already allows full dimension editing
-   - What's unclear: Do admins want to see/tweak dimensions per-scenario without visiting the rubric page?
-   - Recommendation: Start with selector only. Add inline dimension preview as a read-only display. Editing goes to rubric page.
+2. **Should scenario editor show rubric dimensions inline or just a selector?** (RESOLVED)
+   - **Decision: Selector with read-only preview per UI-SPEC IC-01.** The scenario editor shows a rubric selector dropdown. When a rubric is selected, a read-only dimension preview (name + weight bar + criteria summary) appears below. Full dimension editing goes to the rubric management page via a "Manage Rubrics" link.
 
-3. **Should the data migration run in Alembic or as a seed script?**
-   - What we know: Alembic migrations are the standard for schema changes. Seed scripts handle data population.
-   - What's unclear: Creating rubric records with UUIDs in raw SQL (Alembic) is cumbersome vs. using ORM in a script
-   - Recommendation: Use a two-phase approach: Alembic adds `rubric_id` column, a data migration script creates rubrics and links scenarios, then a second Alembic drops the old columns. This matches the project's existing pattern of seed scripts.
+3. **Should the data migration run in Alembic or as a seed script?** (RESOLVED)
+   - **Decision: Single Alembic migration with inline data migration per D-04.** The migration uses raw SQL via `op.get_bind()` to: (1) read existing weight combinations, (2) create ScoringRubric records, (3) update scenario.rubric_id, (4) enforce NOT NULL, (5) drop weight columns. This keeps the schema change and data migration atomic. The seed scripts (`seed_phase2.py`, `startup_seed.py`) are updated separately to create scenarios with explicit `rubric_id` references.
 
 ## Project Constraints (from CLAUDE.md)
 
@@ -401,7 +439,7 @@ def build_dimensions_instructions(rubric_dimensions: list[dict]) -> str:
 - **async with for all DB sessions** -- all new service code must use async patterns
 - **Service layer = business logic, routers = HTTP only** -- rubric resolution belongs in service
 - **Create returns 201, Delete returns 204** -- maintain API conventions
-- **No raw SQL** -- use SQLAlchemy ORM or Alembic for all queries
+- **No raw SQL** -- use SQLAlchemy ORM or Alembic for all queries (exception: Alembic data migration uses op.execute for raw SQL within the migration itself, which is the standard Alembic pattern)
 - **db.flush() per project convention** -- not db.commit() (session middleware handles commit)
 - **Pydantic v2 schemas with from_attributes=True** -- all schema updates must use ConfigDict
 - **TypeScript strict: true** -- no `any` types in frontend changes
