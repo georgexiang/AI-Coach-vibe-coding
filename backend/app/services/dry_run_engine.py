@@ -555,6 +555,10 @@ async def run_dry_run_simulation(dry_run_id: str) -> None:
                     )
                     return
 
+                # Skip empty responses — treat as conversation end
+                if not response_text.strip():
+                    break
+
                 conversation.append({"role": current_role, "content": response_text})
 
                 # Save message to DB (no keyword SOP matching — done by evaluator later)

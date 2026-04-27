@@ -31,7 +31,7 @@ export function DryRunConversation({ messages }: DryRunConversationProps) {
       })}
       className="space-y-4 p-4"
     >
-      {messages.map((msg) => (
+      {messages.filter((m) => m.content.trim()).map((msg) => (
         <div key={msg.id} className="flex items-start gap-2">
           <div className="flex-1">
             <ChatBubble
