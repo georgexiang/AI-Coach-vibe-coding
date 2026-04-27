@@ -102,6 +102,18 @@ async def get_dry_run(
     return DryRunOut(**dry_run_service.dry_run_to_out(dry_run))
 
 
+@router.delete("/{run_id}", status_code=204)
+async def delete_dry_run(
+    skill_id: str,
+    run_id: str,
+    db: AsyncSession = Depends(get_db),
+    _user: User = Depends(require_role("admin")),
+):
+    """Delete a completed/failed/cancelled dry run. Admin only."""
+    await dry_run_service.delete_dry_run(db, run_id, skill_id)
+    await db.commit()
+
+
 @router.post("/{run_id}/cancel", response_model=DryRunOut)
 async def cancel_dry_run(
     skill_id: str,

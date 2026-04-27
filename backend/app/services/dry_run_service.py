@@ -93,6 +93,22 @@ async def list_dry_runs(
     return items, total
 
 
+async def delete_dry_run(db: AsyncSession, dry_run_id: str, skill_id: str) -> None:
+    """Delete a dry run and its messages. Only completed/failed/cancelled runs can be deleted."""
+    dry_run = await get_dry_run_or_404(db, dry_run_id)
+
+    if dry_run.skill_id != skill_id:
+        not_found("Dry run not found for this skill")
+
+    if dry_run.status in ("pending", "running"):
+        bad_request(
+            "Cannot delete a running dry run. Cancel it first."
+        )
+
+    await db.delete(dry_run)
+    await db.flush()
+
+
 async def cancel_dry_run(db: AsyncSession, dry_run_id: str) -> DryRun:
     """Cancel a pending or running dry run. Returns updated dry run."""
     dry_run = await get_dry_run_or_404(db, dry_run_id)
