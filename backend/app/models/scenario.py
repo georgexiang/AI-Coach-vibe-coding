@@ -7,7 +7,7 @@ from app.models.base import Base, TimestampMixin
 
 
 class Scenario(Base, TimestampMixin):
-    """Training scenario with HCP profile, key messages, and scoring weights."""
+    """Training scenario with HCP profile, key messages, and rubric-based scoring."""
 
     __tablename__ = "scenarios"
 
@@ -34,27 +34,16 @@ class Scenario(Base, TimestampMixin):
         default=None,
     )
 
-    # Scoring weights (must total 100)
-    weight_key_message: Mapped[int] = mapped_column(default=30)
-    weight_objection_handling: Mapped[int] = mapped_column(default=25)
-    weight_communication: Mapped[int] = mapped_column(default=20)
-    weight_product_knowledge: Mapped[int] = mapped_column(default=15)
-    weight_scientific_info: Mapped[int] = mapped_column(default=10)
+    # Scoring rubric (NOT NULL — every scenario must have an explicit rubric per D-05)
+    rubric_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("scoring_rubrics.id"), nullable=False
+    )
 
     pass_threshold: Mapped[int] = mapped_column(default=70)
     created_by: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False)
 
     # Relationships
     hcp_profile = relationship("HcpProfile", back_populates="scenarios")
+    rubric = relationship("ScoringRubric", foreign_keys=[rubric_id])
     skill = relationship("Skill", foreign_keys=[skill_id])
     skill_version = relationship("SkillVersion", foreign_keys=[skill_version_id])
-
-    def get_scoring_weights(self) -> dict:
-        """Return scoring weights as a dictionary."""
-        return {
-            "key_message": self.weight_key_message,
-            "objection_handling": self.weight_objection_handling,
-            "communication": self.weight_communication,
-            "product_knowledge": self.weight_product_knowledge,
-            "scientific_info": self.weight_scientific_info,
-        }
