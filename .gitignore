@@ -55,7 +55,7 @@ build/
 # Local artifacts
 figma-make/
 .playwright-mcp/
-backend/storage/materials/materials/
+backend/storage/materials/
 
 # Reference sample code repos (not part of this project)
 Voice-Live-Agent-With-Avadar-sample-code/
