@@ -304,11 +304,7 @@ SEED_SCENARIOS = [
                 "Patient support program (百济患者关爱计划) available for cost management",
             ]
         ),
-        "weight_key_message": 30,
-        "weight_objection_handling": 25,
-        "weight_communication": 20,
-        "weight_product_knowledge": 15,
-        "weight_scientific_info": 10,
+        # rubric_id resolved at seed time from default rubric
         "pass_threshold": 70,
     },
     {
@@ -332,11 +328,7 @@ SEED_SCENARIOS = [
                 "Approved for esophageal squamous cell carcinoma and NSCLC indications",
             ]
         ),
-        "weight_key_message": 30,
-        "weight_objection_handling": 25,
-        "weight_communication": 20,
-        "weight_product_knowledge": 15,
-        "weight_scientific_info": 10,
+        # rubric_id resolved at seed time from default rubric
         "pass_threshold": 70,
     },
     {
@@ -360,11 +352,7 @@ SEED_SCENARIOS = [
                 "SEQUOIA trial: 85% 24-month PFS in first-line CLL/SLL, superior to BR regimen",
             ]
         ),
-        "weight_key_message": 25,
-        "weight_objection_handling": 20,
-        "weight_communication": 25,
-        "weight_product_knowledge": 15,
-        "weight_scientific_info": 15,
+        # rubric_id resolved at seed time — uses conference rubric if available
         "pass_threshold": 70,
     },
     {
@@ -389,11 +377,7 @@ SEED_SCENARIOS = [
                 "Active combination studies with BRUKINSA® in B-cell malignancies",
             ]
         ),
-        "weight_key_message": 25,
-        "weight_objection_handling": 15,
-        "weight_communication": 25,
-        "weight_product_knowledge": 20,
-        "weight_scientific_info": 15,
+        # rubric_id resolved at seed time — uses conference rubric if available
         "pass_threshold": 70,
     },
 ]
@@ -438,6 +422,20 @@ async def seed_phase2() -> None:
             hcp_map[name] = profile.id
             print(f"  [created] HCP profile '{name}' ({profile_data['specialty']})")
 
+        # Resolve default rubric for scenario creation
+        from app.models.scoring_rubric import ScoringRubric
+
+        rubric_result = await session.execute(
+            select(ScoringRubric).where(
+                ScoringRubric.is_default == True,  # noqa: E712
+                ScoringRubric.scenario_type == "f2f",
+            )
+        )
+        default_rubric = rubric_result.scalar_one_or_none()
+        if default_rubric is None:
+            print("  [warn] No default rubric found; scenarios will not be seeded")
+        default_rubric_id = default_rubric.id if default_rubric else None
+
         # Seed scenarios
         print("Seeding scenarios...")
         for scenario_data in SEED_SCENARIOS:
@@ -447,20 +445,26 @@ async def seed_phase2() -> None:
                 print(f"  [skip] Scenario '{name}' already exists")
                 continue
 
+            if default_rubric_id is None:
+                print(f"  [skip] No rubric available for scenario '{name}'")
+                continue
+
             # Resolve HCP profile ID from name
-            hcp_name = scenario_data.pop("hcp_name")
+            data = dict(scenario_data)  # copy to avoid mutating constant
+            hcp_name = data.pop("hcp_name")
             hcp_id = hcp_map.get(hcp_name)
             if hcp_id is None:
-                print(f"  [error] HCP profile '{hcp_name}' not found, skipping scenario '{name}'")
+                print(f"  [error] HCP '{hcp_name}' not found, skipping '{name}'")
                 continue
 
             scenario = Scenario(
-                **scenario_data,
+                **data,
                 hcp_profile_id=hcp_id,
+                rubric_id=default_rubric_id,
                 created_by=admin_id,
             )
             session.add(scenario)
-            print(f"  [created] Scenario '{name}' (product={scenario_data['product']})")
+            print(f"  [created] Scenario '{name}' (product={data['product']})")
 
         await session.commit()
 

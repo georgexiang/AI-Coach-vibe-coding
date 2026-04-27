@@ -10,14 +10,25 @@ from sqlalchemy.orm import selectinload
 
 from app.models.message import SessionMessage
 from app.models.scenario import Scenario
-from app.models.skill import Skill
 from app.models.score import ScoreDetail, SessionScore
 from app.models.session import CoachingSession
-from app.services.rubric_service import get_default_rubric
+from app.models.skill import Skill
+from app.services.rubric_service import get_rubric
 from app.services.scoring_engine import score_with_llm
 from app.utils.exceptions import AppException, NotFoundException
 
 logger = logging.getLogger(__name__)
+
+
+async def resolve_rubric_dimensions(db: AsyncSession, scenario: Scenario) -> list[dict]:
+    """Resolve rubric dimensions for scoring.
+
+    Per D-05: rubric_id is NOT NULL, so direct lookup always succeeds.
+    No fallback chain needed -- every scenario has an explicit rubric.
+    """
+    rubric = await get_rubric(db, scenario.rubric_id)
+    dims = rubric.dimensions
+    return json.loads(dims) if isinstance(dims, str) else dims
 
 
 async def score_session(db: AsyncSession, session_id: str) -> SessionScore:
@@ -65,16 +76,8 @@ async def score_session(db: AsyncSession, session_id: str) -> SessionScore:
     scenario = session.scenario
     key_messages_status = json.loads(session.key_messages_status)
 
-    # Check for default rubric to override scenario weights
-    rubric = await get_default_rubric(db, scenario.mode if hasattr(scenario, "mode") else "f2f")
-    if rubric is not None:
-        rubric_dims = json.loads(rubric.dimensions)
-        rubric_weights = {d["name"]: d["weight"] for d in rubric_dims}
-    else:
-        rubric_weights = None
-
-    # Build data for scoring engine
-    weights = rubric_weights if rubric_weights else scenario.get_scoring_weights()
+    # Resolve rubric dimensions — rubric_id is NOT NULL per D-05
+    rubric_dimensions = await resolve_rubric_dimensions(db, scenario)
     hcp_profile_data = {}
     if scenario.hcp_profile:
         hcp_profile_data = {
@@ -98,12 +101,12 @@ async def score_session(db: AsyncSession, session_id: str) -> SessionScore:
     # Try LLM scoring first, fall back to mock if unavailable
     scores = await score_with_llm(
         db, scenario_data, message_dicts, key_messages_status,
-        weights, scenario.pass_threshold, skill_criteria=skill_criteria,
+        rubric_dimensions, scenario.pass_threshold, skill_criteria=skill_criteria,
     )
     if scores is None:
         logger.info("LLM scoring unavailable for session %s, using mock fallback", session_id)
         scores = _generate_mock_scores(
-            scenario, messages, key_messages_status, rubric_weights=rubric_weights
+            scenario, messages, key_messages_status, rubric_dimensions
         )
 
     # Create SessionScore
@@ -269,17 +272,15 @@ def _generate_mock_scores(
     scenario: Scenario,
     messages: list[SessionMessage],
     key_messages_status: list[dict],
-    rubric_weights: dict | None = None,
+    rubric_dimensions: list[dict],
 ) -> dict:
     """Generate realistic-looking mock scores for development/testing.
 
+    Loops over rubric_dimensions (arbitrary count) instead of hardcoded 5 blocks.
     Produces scores between 60-95 with personality-appropriate feedback,
     strengths with transcript quotes, weaknesses referencing missed key messages,
     and actionable suggestions per dimension.
-
-    If rubric_weights is provided, uses those weights instead of scenario weights.
     """
-    weights = rubric_weights if rubric_weights else scenario.get_scoring_weights()
     key_messages = json.loads(scenario.key_messages)
 
     # Determine delivered/missed key messages
@@ -295,146 +296,55 @@ def _generate_mock_scores(
     base_score = 65 + int(delivery_ratio * 25)  # 65-90 range based on delivery
     dimensions = []
 
-    # 1. Key Message Delivery
-    km_score = min(95, max(60, base_score + random.randint(-5, 10)))
-    km_strengths = []
-    km_weaknesses = []
-    if delivered:
-        km_strengths.append(
+    for dim_config in rubric_dimensions:
+        dim_name = dim_config["name"]
+        dim_weight = dim_config["weight"]
+        score = min(95, max(60, base_score + random.randint(-8, 10)))
+
+        # Generic strengths/weaknesses based on dimension name
+        strengths = [
             {
-                "text": (
-                    f"Successfully delivered {len(delivered)} of {len(key_messages)} key messages"
-                ),
-                "quote": sample_quote[:100] if sample_quote else None,
+                "text": f"Demonstrated competence in {dim_name}",
+                "quote": sample_quote[:80] if mr_quotes else None,
+            }
+        ]
+        weaknesses = [{"text": f"Room for improvement in {dim_name}", "quote": None}]
+        suggestions = [
+            f"Focus on strengthening {dim_name} skills",
+            f"Review best practices for {dim_name}",
+        ]
+
+        # Special handling for key_message dimension (if present)
+        if "key_message" in dim_name.lower() or "message" in dim_name.lower():
+            if delivered:
+                strengths = [
+                    {
+                        "text": (
+                            f"Successfully delivered {len(delivered)} "
+                            f"of {len(key_messages)} key messages"
+                        ),
+                        "quote": sample_quote[:100] if sample_quote else None,
+                    }
+                ]
+            if missed:
+                weaknesses = [
+                    {"text": f"Missed key message: {m['message']}", "quote": None}
+                    for m in missed[:2]
+                ]
+            suggestions = [
+                "Prepare a structured approach to ensure all key messages are covered"
+            ]
+
+        dimensions.append(
+            {
+                "dimension": dim_name,
+                "score": score,
+                "weight": dim_weight,
+                "strengths": strengths,
+                "weaknesses": weaknesses,
+                "suggestions": suggestions,
             }
         )
-    if missed:
-        for m in missed[:2]:
-            km_weaknesses.append(
-                {
-                    "text": f"Missed key message: {m['message']}",
-                    "quote": None,
-                }
-            )
-    dimensions.append(
-        {
-            "dimension": "key_message",
-            "score": km_score,
-            "weight": weights["key_message"],
-            "strengths": km_strengths,
-            "weaknesses": km_weaknesses,
-            "suggestions": [
-                "Prepare a structured approach to ensure all key messages are covered",
-                "Practice transitioning between key messages naturally",
-            ],
-        }
-    )
-
-    # 2. Objection Handling
-    oh_score = min(95, max(60, base_score + random.randint(-8, 8)))
-    dimensions.append(
-        {
-            "dimension": "objection_handling",
-            "score": oh_score,
-            "weight": weights["objection_handling"],
-            "strengths": [
-                {
-                    "text": "Showed willingness to address HCP concerns",
-                    "quote": sample_quote[:80] if len(mr_quotes) > 1 else None,
-                }
-            ],
-            "weaknesses": [
-                {
-                    "text": (
-                        "Could provide more specific clinical evidence when addressing objections"
-                    ),
-                    "quote": None,
-                }
-            ],
-            "suggestions": [
-                "Prepare specific study references for common objections",
-                "Acknowledge the HCP's concern before presenting counter-evidence",
-            ],
-        }
-    )
-
-    # 3. Communication Skills
-    comm_score = min(95, max(60, base_score + random.randint(-5, 12)))
-    dimensions.append(
-        {
-            "dimension": "communication",
-            "score": comm_score,
-            "weight": weights["communication"],
-            "strengths": [
-                {
-                    "text": "Maintained professional tone throughout the conversation",
-                    "quote": None,
-                }
-            ],
-            "weaknesses": [
-                {
-                    "text": "Could improve active listening by referencing HCP's specific points",
-                    "quote": None,
-                }
-            ],
-            "suggestions": [
-                "Use reflective listening techniques to show understanding",
-                "Adapt communication style to match the HCP's preferences",
-            ],
-        }
-    )
-
-    # 4. Product Knowledge
-    pk_score = min(95, max(60, base_score + random.randint(-3, 10)))
-    dimensions.append(
-        {
-            "dimension": "product_knowledge",
-            "score": pk_score,
-            "weight": weights["product_knowledge"],
-            "strengths": [
-                {
-                    "text": f"Demonstrated familiarity with {scenario.product}",
-                    "quote": None,
-                }
-            ],
-            "weaknesses": [
-                {
-                    "text": "Could provide more specific dosing and administration details",
-                    "quote": None,
-                }
-            ],
-            "suggestions": [
-                "Study the full prescribing information for detailed questions",
-                f"Prepare comparison data between {scenario.product} and competitors",
-            ],
-        }
-    )
-
-    # 5. Scientific Information
-    si_score = min(95, max(60, base_score + random.randint(-10, 5)))
-    dimensions.append(
-        {
-            "dimension": "scientific_info",
-            "score": si_score,
-            "weight": weights["scientific_info"],
-            "strengths": [
-                {
-                    "text": "Referenced relevant clinical data during discussion",
-                    "quote": None,
-                }
-            ],
-            "weaknesses": [
-                {
-                    "text": "Should cite specific study names, patient populations, and endpoints",
-                    "quote": None,
-                }
-            ],
-            "suggestions": [
-                "Memorize 2-3 key pivotal trial results with specific numbers",
-                "Prepare visual aids summarizing clinical evidence",
-            ],
-        }
-    )
 
     # Calculate weighted overall score
     overall_score = sum(dim["score"] * dim["weight"] / 100 for dim in dimensions)
@@ -446,14 +356,14 @@ def _generate_mock_scores(
         feedback_summary = (
             f"Good performance with an overall score of {overall_score}. "
             f"Successfully delivered {len(delivered)} of {len(key_messages)} key messages. "
-            "Focus on strengthening objection handling and scientific evidence for improvement."
+            "Focus on strengthening weaker dimensions for continued improvement."
         )
     else:
         feedback_summary = (
             f"Score of {overall_score} is below the passing threshold of "
             f"{scenario.pass_threshold}. "
             f"Delivered {len(delivered)} of {len(key_messages)} key messages. "
-            "Review key message coverage and practice objection handling techniques."
+            "Review key message coverage and practice across all dimensions."
         )
 
     return {

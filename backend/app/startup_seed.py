@@ -99,9 +99,9 @@ async def seed_all(session: AsyncSession) -> None:
                 "name": "key_message",
                 "weight": 25,
                 "criteria": [
-                    "Delivered all key messages clearly",
-                    "Key messages were contextually relevant",
-                    "Messages were delivered in logical order",
+                    "Consider which key messages were delivered and how naturally",
+                    "Evaluate completeness of message coverage",
+                    "Assess logical flow of message delivery",
                 ],
                 "max_score": 100.0,
             },
@@ -109,9 +109,9 @@ async def seed_all(session: AsyncSession) -> None:
                 "name": "objection_handling",
                 "weight": 20,
                 "criteria": [
-                    "Acknowledged HCP concerns empathetically",
-                    "Provided evidence-based responses",
-                    "Redirected conversation constructively",
+                    "Evaluate how the MR responded to HCP resistance or concerns",
+                    "Assess use of clinical evidence in responses",
+                    "Evaluate acknowledgment of HCP concerns before countering",
                 ],
                 "max_score": 100.0,
             },
@@ -119,9 +119,9 @@ async def seed_all(session: AsyncSession) -> None:
                 "name": "communication",
                 "weight": 20,
                 "criteria": [
-                    "Maintained professional tone",
-                    "Used active listening techniques",
-                    "Adapted to HCP communication style",
+                    "Evaluate tone, active listening, professional language",
+                    "Assess adaptation to HCP communication style",
+                    "Evaluate use of reflective listening techniques",
                 ],
                 "max_score": 100.0,
             },
@@ -129,9 +129,9 @@ async def seed_all(session: AsyncSession) -> None:
                 "name": "product_knowledge",
                 "weight": 20,
                 "criteria": [
-                    "Demonstrated accurate product knowledge",
-                    "Addressed dosing and administration",
-                    "Compared with competitor products",
+                    "Evaluate accuracy and depth of product information shared",
+                    "Assess dosing and administration knowledge",
+                    "Evaluate competitive product comparison ability",
                 ],
                 "max_score": 100.0,
             },
@@ -139,9 +139,9 @@ async def seed_all(session: AsyncSession) -> None:
                 "name": "scientific_info",
                 "weight": 15,
                 "criteria": [
-                    "Referenced relevant clinical studies",
-                    "Cited specific data points and endpoints",
-                    "Discussed patient population and outcomes",
+                    "Evaluate use of clinical data, study references, and evidence-based arguments",
+                    "Assess ability to cite specific study names and endpoints",
+                    "Evaluate discussion of patient populations and outcomes",
                 ],
                 "max_score": 100.0,
             },
@@ -177,6 +177,15 @@ async def seed_all(session: AsyncSession) -> None:
     if existing_scenario.scalar_one_or_none() is None:
         from seed_phase2 import SEED_SCENARIOS
 
+        # Resolve default rubric for rubric_id assignment
+        default_rubric_result = await session.execute(
+            select(ScoringRubric).where(
+                ScoringRubric.is_default == True,  # noqa: E712
+            )
+        )
+        default_rubric = default_rubric_result.scalar_one_or_none()
+        default_rubric_id = default_rubric.id if default_rubric else None
+
         # Build HCP name -> ID map
         hcp_result = await session.execute(select(HcpProfile))
         hcp_map = {p.name: p.id for p in hcp_result.scalars().all()}
@@ -185,6 +194,9 @@ async def seed_all(session: AsyncSession) -> None:
             data = dict(scenario_data)  # copy to avoid mutating the constant
             hcp_name = data.pop("hcp_name", None)
             hcp_id = hcp_map.get(hcp_name) if hcp_name else None
+            # Assign rubric_id from default rubric (required NOT NULL per D-05)
+            if "rubric_id" not in data and default_rubric_id:
+                data["rubric_id"] = default_rubric_id
             scenario = Scenario(**data, hcp_profile_id=hcp_id, created_by=admin_id)
             session.add(scenario)
         await session.commit()

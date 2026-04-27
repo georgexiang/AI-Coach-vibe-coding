@@ -215,11 +215,7 @@ async def clone_scenario(db: AsyncSession, scenario_id: str, user_id: str) -> Sc
         key_messages=original.key_messages,
         skill_id=original.skill_id,
         skill_version_id=original.skill_version_id,
-        weight_key_message=original.weight_key_message,
-        weight_objection_handling=original.weight_objection_handling,
-        weight_communication=original.weight_communication,
-        weight_product_knowledge=original.weight_product_knowledge,
-        weight_scientific_info=original.weight_scientific_info,
+        rubric_id=original.rubric_id,
         pass_threshold=original.pass_threshold,
         created_by=user_id,
     )

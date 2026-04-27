@@ -48,11 +48,8 @@ Healthcare Professional (HCP) and provide a detailed multi-dimensional scoring.
 
 Score each dimension from 0-100 based on the actual conversation content. Be specific:
 - Reference actual quotes from the MR's responses in strengths/weaknesses
-- For key_message dimension, consider which key messages were delivered and how naturally
-- For objection_handling, evaluate how the MR responded to HCP resistance or concerns
-- For communication, evaluate tone, active listening, professional language, adaptation to HCP style
-- For product_knowledge, evaluate accuracy and depth of product information shared
-- For scientific_info, evaluate use of clinical data, study references, and evidence-based arguments
+- Use the dimension criteria provided above as your scoring guide for each dimension
+- Evaluate how well the MR addressed the HCP's concerns and delivered the required information
 
 Return a JSON object with this exact structure:
 {{
@@ -70,11 +67,25 @@ Return a JSON object with this exact structure:
 }}"""
 
 
+def build_dimensions_instructions(rubric_dimensions: list[dict]) -> str:
+    """Build dimension config text from rubric dimensions for the scoring prompt."""
+    lines = []
+    for dim in rubric_dimensions:
+        name = dim["name"]
+        weight = dim["weight"]
+        criteria = dim.get("criteria", [])
+        lines.append(f"- {name} (weight={weight}%)")
+        if criteria:
+            for criterion in criteria:
+                lines.append(f"  * {criterion}")
+    return "\n".join(lines)
+
+
 def build_scoring_prompt(
     scenario_data: dict,
     messages: list[dict],
     key_messages_status: list[dict],
-    weights: dict[str, int],
+    rubric_dimensions: list[dict],
     skill_criteria: str = "",
 ) -> str:
     """Build the scoring prompt from session data."""
@@ -98,19 +109,8 @@ def build_scoring_prompt(
         km_status_lines.append(f"- [{status}] {km.get('message', '')}")
     km_status = "\n".join(km_status_lines) if km_status_lines else "No tracking data"
 
-    # Format dimensions config
-    dim_config_lines = []
-    dim_names = {
-        "key_message": "Key Message Delivery",
-        "objection_handling": "Objection Handling",
-        "communication": "Communication Skills",
-        "product_knowledge": "Product Knowledge",
-        "scientific_info": "Scientific Information",
-    }
-    for dim_key, weight in weights.items():
-        label = dim_names.get(dim_key, dim_key)
-        dim_config_lines.append(f"- {dim_key} ({label}): weight={weight}%")
-    dims_config = "\n".join(dim_config_lines)
+    # Format dimensions config from rubric dimensions
+    dims_config = build_dimensions_instructions(rubric_dimensions)
 
     # Format Skill-specific assessment criteria section
     if skill_criteria:
@@ -147,7 +147,7 @@ async def score_with_llm(
     scenario_data: dict,
     messages: list[dict],
     key_messages_status: list[dict],
-    weights: dict[str, int],
+    rubric_dimensions: list[dict],
     pass_threshold: int = 70,
     skill_criteria: str = "",
 ) -> dict | None:
@@ -185,8 +185,11 @@ async def score_with_llm(
         logger.warning("openai package not installed, cannot use LLM scoring")
         return None
 
+    # Build weights lookup from rubric dimensions for post-validation
+    weights = {dim["name"]: dim["weight"] for dim in rubric_dimensions}
+
     prompt = build_scoring_prompt(
-        scenario_data, messages, key_messages_status, weights, skill_criteria
+        scenario_data, messages, key_messages_status, rubric_dimensions, skill_criteria
     )
 
     try:

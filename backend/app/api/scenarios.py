@@ -31,11 +31,7 @@ class ScenarioOut(BaseModel):
     key_messages: list[str]
     skill_id: str | None = None
     skill_version_id: str | None = None
-    weight_key_message: int
-    weight_objection_handling: int
-    weight_communication: int
-    weight_product_knowledge: int
-    weight_scientific_info: int
+    rubric_id: str
     pass_threshold: int
     created_by: str
     created_at: str
