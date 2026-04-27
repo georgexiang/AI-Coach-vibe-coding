@@ -357,15 +357,18 @@ export default function SkillEditorPage() {
 
   const handlePublish = useCallback(() => {
     if (!id) return;
-    publishMutation.mutate(id, {
-      onSuccess: () => {
-        toast.success(t("quality.publishSuccess"));
-        setPublishDialogOpen(false);
-        navigate("/admin/skills");
+    publishMutation.mutate(
+      { id, currentStatus: skill?.status },
+      {
+        onSuccess: () => {
+          toast.success(t("quality.publishSuccess"));
+          setPublishDialogOpen(false);
+          navigate("/admin/skills");
+        },
+        onError: () => toast.error(t("errors.saveFailed")),
       },
-      onError: () => toast.error(t("errors.saveFailed")),
-    });
-  }, [id, publishMutation, navigate, t]);
+    );
+  }, [id, skill?.status, publishMutation, navigate, t]);
 
   // ---------------------------------------------------------------------------
   // Derived state

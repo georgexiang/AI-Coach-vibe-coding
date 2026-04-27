@@ -355,6 +355,9 @@ export function ScenarioEditor({
                       <SelectItem key={s.id} value={s.id}>
                         <div className="flex items-center gap-2">
                           <span>{s.name}</span>
+                          <span className="text-xs bg-muted text-muted-foreground px-1.5 py-0.5 rounded">
+                            v{s.current_version}
+                          </span>
                           {s.quality_score != null && (
                             <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded">
                               Q:{s.quality_score}
