@@ -25,7 +25,7 @@ export function DryRunConversation({ messages }: DryRunConversationProps) {
   }
 
   return (
-    <ScrollArea className="max-h-[500px]">
+    <ScrollArea className="max-h-[calc(100vh-320px)]">
       <div
         role="log"
         aria-label={t("dryRun.tabConversation", {
