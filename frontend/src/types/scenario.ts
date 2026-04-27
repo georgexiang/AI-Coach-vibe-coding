@@ -1,13 +1,5 @@
 import type { HcpProfile } from "./hcp";
 
-export interface ScoringWeights {
-  key_message: number;
-  objection_handling: number;
-  communication: number;
-  product_knowledge: number;
-  scientific_info: number;
-}
-
 export interface Scenario {
   id: string;
   name: string;
@@ -22,11 +14,7 @@ export interface Scenario {
   key_messages: string[];
   skill_id: string | null;
   skill_version_id: string | null;
-  weight_key_message: number;
-  weight_objection_handling: number;
-  weight_communication: number;
-  weight_product_knowledge: number;
-  weight_scientific_info: number;
+  rubric_id: string;
   pass_threshold: number;
   estimated_duration?: number;
   created_by: string;
@@ -44,11 +32,7 @@ export interface ScenarioCreate {
   difficulty?: Scenario["difficulty"];
   key_messages?: string[];
   skill_id?: string | null;
-  weight_key_message?: number;
-  weight_objection_handling?: number;
-  weight_communication?: number;
-  weight_product_knowledge?: number;
-  weight_scientific_info?: number;
+  rubric_id: string;
   pass_threshold?: number;
 }
 

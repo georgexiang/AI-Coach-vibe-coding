@@ -175,7 +175,14 @@
     "objectionHandling": "异议处理",
     "communicationSkills": "沟通技巧",
     "productKnowledge": "产品知识",
-    "scientificInfo": "科学信息"
+    "scientificInfo": "科学信息",
+    "scoringRubric": "评分标准",
+    "selectRubric": "选择评分标准",
+    "rubricDefault": "(默认)",
+    "dimensionCount": "{{count}} 个维度",
+    "dimensionPreviewEmpty": "选择评分标准以查看评分维度",
+    "manageRubrics": "管理评分标准",
+    "rubricRequired": "评分标准不能为空"
   },
   "rubrics": {
     "title": "评分标准",

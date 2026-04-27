@@ -127,7 +127,7 @@ describe("Scenarios API", () => {
   });
 
   it("createScenario calls POST /scenarios", async () => {
-    const newScenario = { name: "New", product: "Tislelizumab", hcp_profile_id: "hcp-1" };
+    const newScenario = { name: "New", product: "Tislelizumab", hcp_profile_id: "hcp-1", rubric_id: "rubric-1" };
     mockClient.post.mockResolvedValue({ data: { id: "sc-2", ...newScenario } });
 
     const result = await createScenario(newScenario);
