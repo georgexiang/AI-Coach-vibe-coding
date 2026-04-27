@@ -616,13 +616,11 @@ class TestCallLlm:
 
     async def test_call_llm_success(self):
         """Successful LLM call returns content."""
-        mock_choice = MagicMock()
-        mock_choice.message.content = "Hello doctor, I am here to present our product."
         mock_response = MagicMock()
-        mock_response.choices = [mock_choice]
+        mock_response.output_text = "Hello doctor, I am here to present our product."
 
         mock_openai_client = MagicMock()
-        mock_openai_client.chat.completions.create.return_value = mock_response
+        mock_openai_client.responses.create.return_value = mock_response
 
         mock_project_client = MagicMock()
         mock_project_client.get_openai_client.return_value = mock_openai_client
@@ -643,13 +641,11 @@ class TestCallLlm:
     async def test_call_llm_truncates_long_response(self):
         """Response truncated to 500 chars."""
         long_content = "A" * 600
-        mock_choice = MagicMock()
-        mock_choice.message.content = long_content
         mock_response = MagicMock()
-        mock_response.choices = [mock_choice]
+        mock_response.output_text = long_content
 
         mock_openai_client = MagicMock()
-        mock_openai_client.chat.completions.create.return_value = mock_response
+        mock_openai_client.responses.create.return_value = mock_response
 
         mock_project_client = MagicMock()
         mock_project_client.get_openai_client.return_value = mock_openai_client
@@ -659,7 +655,9 @@ class TestCallLlm:
             return_value=mock_project_client,
         ):
             result = await _call_llm(
-                "system", [], "mr",
+                "system",
+                [],
+                "mr",
                 project_endpoint="https://test.endpoint",
                 api_key="key",
             )
@@ -667,13 +665,11 @@ class TestCallLlm:
 
     async def test_call_llm_none_content(self):
         """None content returns empty string."""
-        mock_choice = MagicMock()
-        mock_choice.message.content = None
         mock_response = MagicMock()
-        mock_response.choices = [mock_choice]
+        mock_response.output_text = None
 
         mock_openai_client = MagicMock()
-        mock_openai_client.chat.completions.create.return_value = mock_response
+        mock_openai_client.responses.create.return_value = mock_response
 
         mock_project_client = MagicMock()
         mock_project_client.get_openai_client.return_value = mock_openai_client
@@ -683,7 +679,9 @@ class TestCallLlm:
             return_value=mock_project_client,
         ):
             result = await _call_llm(
-                "system", [], "mr",
+                "system",
+                [],
+                "mr",
                 project_endpoint="https://ep",
                 api_key="key",
             )
@@ -696,21 +694,21 @@ class TestCallLlm:
             side_effect=Exception("Connection failed"),
         ):
             result = await _call_llm(
-                "system", [], "mr",
+                "system",
+                [],
+                "mr",
                 project_endpoint="https://ep",
                 api_key="key",
             )
         assert "[mr unavailable" in result.lower()
 
     async def test_call_llm_mixed_conversation_roles(self):
-        """Conversation with both mr and hcp messages maps roles correctly (line 376)."""
-        mock_choice = MagicMock()
-        mock_choice.message.content = "Response from HCP agent"
+        """Conversation with both mr and hcp messages maps roles correctly."""
         mock_response = MagicMock()
-        mock_response.choices = [mock_choice]
+        mock_response.output_text = "Response from HCP agent"
 
         mock_openai_client = MagicMock()
-        mock_openai_client.chat.completions.create.return_value = mock_response
+        mock_openai_client.responses.create.return_value = mock_response
 
         mock_project_client = MagicMock()
         mock_project_client.get_openai_client.return_value = mock_openai_client
@@ -735,14 +733,14 @@ class TestCallLlm:
             )
         assert result == "Response from HCP agent"
 
-        # Verify the messages were mapped correctly
-        call_args = mock_openai_client.chat.completions.create.call_args
-        messages = call_args.kwargs["messages"]
+        # Verify the input messages were mapped correctly
+        call_args = mock_openai_client.responses.create.call_args
+        input_msgs = call_args.kwargs["input"]
         # system + 3 conversation messages
-        assert len(messages) == 4
-        assert messages[1]["role"] == "user"  # mr -> user (not the agent)
-        assert messages[2]["role"] == "assistant"  # hcp -> assistant (is the agent)
-        assert messages[3]["role"] == "user"  # mr -> user
+        assert len(input_msgs) == 4
+        assert input_msgs[1]["role"] == "user"  # mr -> user (not the agent)
+        assert input_msgs[2]["role"] == "assistant"  # hcp -> assistant (is the agent)
+        assert input_msgs[3]["role"] == "user"  # mr -> user
 
 
 # ===========================================================================
@@ -1096,16 +1094,20 @@ class TestRunDryRunSimulation:
             else:
                 return "Tell me more about the clinical data."
 
-        with patch(
-            "app.services.dry_run_engine._call_llm",
-            side_effect=mock_call_llm,
-        ), patch(
-            "app.services.dry_run_engine.AsyncSessionLocal",
-            TestSessionLocal,
-        ), patch(
-            "app.services.agent_sync_service.get_project_endpoint",
-            new_callable=AsyncMock,
-            return_value=("https://test.endpoint", "test-key"),
+        with (
+            patch(
+                "app.services.dry_run_engine._call_llm",
+                side_effect=mock_call_llm,
+            ),
+            patch(
+                "app.services.dry_run_engine.AsyncSessionLocal",
+                TestSessionLocal,
+            ),
+            patch(
+                "app.services.agent_sync_service.get_project_endpoint",
+                new_callable=AsyncMock,
+                return_value=("https://test.endpoint", "test-key"),
+            ),
         ):
             await run_dry_run_simulation(dry_run_id)
 
@@ -1166,13 +1168,16 @@ class TestRunDryRunSimulation:
         """Exception during simulation marks dry run as failed."""
         dry_run_id = await self._setup_dry_run()
 
-        with patch(
-            "app.services.dry_run_engine.AsyncSessionLocal",
-            TestSessionLocal,
-        ), patch(
-            "app.services.agent_sync_service.get_project_endpoint",
-            new_callable=AsyncMock,
-            side_effect=Exception("Azure endpoint unavailable"),
+        with (
+            patch(
+                "app.services.dry_run_engine.AsyncSessionLocal",
+                TestSessionLocal,
+            ),
+            patch(
+                "app.services.agent_sync_service.get_project_endpoint",
+                new_callable=AsyncMock,
+                side_effect=Exception("Azure endpoint unavailable"),
+            ),
         ):
             await run_dry_run_simulation(dry_run_id)
 
@@ -1180,6 +1185,35 @@ class TestRunDryRunSimulation:
             dr = await session.get(DryRun, dry_run_id)
             assert dr.status == "failed"
             assert "Azure endpoint unavailable" in dr.error_message
+
+    async def test_simulation_early_abort_on_ai_unavailable(self):
+        """First MR turn returning fallback aborts simulation as failed."""
+        dry_run_id = await self._setup_dry_run()
+
+        async def mock_call_llm_fallback(system_prompt, conversation, agent_name, **kwargs):
+            return f"[{agent_name} unavailable -- simulation continues]"
+
+        with (
+            patch(
+                "app.services.dry_run_engine._call_llm",
+                side_effect=mock_call_llm_fallback,
+            ),
+            patch(
+                "app.services.dry_run_engine.AsyncSessionLocal",
+                TestSessionLocal,
+            ),
+            patch(
+                "app.services.agent_sync_service.get_project_endpoint",
+                new_callable=AsyncMock,
+                return_value=("https://test.endpoint", "test-key"),
+            ),
+        ):
+            await run_dry_run_simulation(dry_run_id)
+
+        async with TestSessionLocal() as session:
+            dr = await session.get(DryRun, dry_run_id)
+            assert dr.status == "failed"
+            assert "AI service unavailable" in dr.error_message
 
     async def test_simulation_double_exception(self):
         """Exception handler itself fails — lines 542-543 (double exception)."""
@@ -1208,13 +1242,16 @@ class TestRunDryRunSimulation:
             async def __aexit__(self, *args):
                 return await self._session.__aexit__(*args)
 
-        with patch(
-            "app.services.dry_run_engine.AsyncSessionLocal",
-            FailingSessionLocal,
-        ), patch(
-            "app.services.agent_sync_service.get_project_endpoint",
-            new_callable=AsyncMock,
-            side_effect=Exception("Primary failure"),
+        with (
+            patch(
+                "app.services.dry_run_engine.AsyncSessionLocal",
+                FailingSessionLocal,
+            ),
+            patch(
+                "app.services.agent_sync_service.get_project_endpoint",
+                new_callable=AsyncMock,
+                side_effect=Exception("Primary failure"),
+            ),
         ):
             # Should not raise — double exception is caught and logged
             await run_dry_run_simulation(dry_run_id)

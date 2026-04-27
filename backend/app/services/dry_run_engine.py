@@ -27,6 +27,9 @@ logger = logging.getLogger(__name__)
 MAX_TURNS = 20
 DRY_RUN_MODEL = "gpt-4o"
 
+# Fallback marker — if the first LLM response contains this, the AI service is down
+_FALLBACK_MARKER = "unavailable -- simulation continues"
+
 # Minimum keyword overlap count to consider a message matching a SOP step
 _MATCH_THRESHOLD = 2
 # Minimum word length to be considered a "meaningful" word for matching
@@ -119,11 +122,13 @@ def _extract_sop_steps(content: str) -> list[dict]:
             start = match.end()
             end = headers[i + 1].start() if i + 1 < len(headers) else len(content)
             step_content = content[start:end].strip()
-            steps.append({
-                "step_id": f"step_{step_num}",
-                "step_name": step_name,
-                "step_content": step_content,
-            })
+            steps.append(
+                {
+                    "step_id": f"step_{step_num}",
+                    "step_name": step_name,
+                    "step_content": step_content,
+                }
+            )
         return steps
 
     # Pattern 2: numbered list items "1. ...", "2. ..."
@@ -137,11 +142,13 @@ def _extract_sop_steps(content: str) -> list[dict]:
             start = match.end()
             end = items[i + 1].start() if i + 1 < len(items) else len(content)
             step_content = content[start:end].strip()
-            steps.append({
-                "step_id": f"step_{step_num}",
-                "step_name": step_name,
-                "step_content": step_content,
-            })
+            steps.append(
+                {
+                    "step_id": f"step_{step_num}",
+                    "step_name": step_name,
+                    "step_content": step_content,
+                }
+            )
         return steps
 
     # Fallback: treat whole content as one step
@@ -257,13 +264,15 @@ def _compute_sop_coverage(
                 status = "not_covered"
                 details = "No matching messages found"
 
-        coverage.append({
-            "step_id": step["step_id"],
-            "step_name": step["step_name"],
-            "status": status,
-            "matched_message_ids": matched,
-            "details": details,
-        })
+        coverage.append(
+            {
+                "step_id": step["step_id"],
+                "step_name": step["step_name"],
+                "status": status,
+                "matched_message_ids": matched,
+                "details": details,
+            }
+        )
 
     return coverage
 
@@ -286,26 +295,30 @@ def _identify_issues(
         name = step_name_map.get(sid, sid)
 
         if entry["status"] == "not_covered":
-            issues.append({
-                "severity": "error",
-                "step_id": sid,
-                "description": f"SOP step '{name}' was not covered during the simulation",
-                "suggestion": (
-                    f"Review step '{name}' -- the MR agent did not address this topic. "
-                    "Consider simplifying the step description or adding clearer keywords."
-                ),
-            })
+            issues.append(
+                {
+                    "severity": "error",
+                    "step_id": sid,
+                    "description": f"SOP step '{name}' was not covered during the simulation",
+                    "suggestion": (
+                        f"Review step '{name}' -- the MR agent did not address this topic. "
+                        "Consider simplifying the step description or adding clearer keywords."
+                    ),
+                }
+            )
         elif entry["status"] == "partial":
-            issues.append({
-                "severity": "warning",
-                "step_id": sid,
-                "description": f"SOP step '{name}' was only partially covered",
-                "suggestion": (
-                    f"Step '{name}' had weak coverage. "
-                    "Consider making the step content more specific or "
-                    "adding example phrases the MR should use."
-                ),
-            })
+            issues.append(
+                {
+                    "severity": "warning",
+                    "step_id": sid,
+                    "description": f"SOP step '{name}' was only partially covered",
+                    "suggestion": (
+                        f"Step '{name}' had weak coverage. "
+                        "Consider making the step content more specific or "
+                        "adding example phrases the MR should use."
+                    ),
+                }
+            )
 
     return issues
 
@@ -350,10 +363,10 @@ async def _call_llm(
     project_endpoint: str,
     api_key: str,
 ) -> str:
-    """Call Azure OpenAI chat completion for a conversation turn.
+    """Call Azure AI Foundry Responses API for a conversation turn.
 
     Uses the same client infrastructure as skill_evaluation_service
-    (get_project_endpoint + _get_project_client + openai_client).
+    (get_project_endpoint + _get_project_client + openai_client.responses.create).
 
     Returns the assistant response text, or a fallback message on failure.
     """
@@ -363,22 +376,20 @@ async def _call_llm(
         client = _get_project_client(project_endpoint, api_key)
         openai_client = client.get_openai_client()
 
-        # Build messages for the chat completion API
-        messages = [{"role": "system", "content": system_prompt}]
+        # Build input messages for the Responses API
+        input_messages = [{"role": "system", "content": system_prompt}]
         for msg in conversation:
             # Alternate user/assistant from the current agent's perspective
             if msg["role"] == agent_name.lower():
-                messages.append({"role": "assistant", "content": msg["content"]})
+                input_messages.append({"role": "assistant", "content": msg["content"]})
             else:
-                messages.append({"role": "user", "content": msg["content"]})
+                input_messages.append({"role": "user", "content": msg["content"]})
 
-        response = openai_client.chat.completions.create(
+        response = openai_client.responses.create(
             model=DRY_RUN_MODEL,
-            messages=messages,
-            temperature=0.7,
-            max_tokens=300,
+            input=input_messages,
         )
-        content = response.choices[0].message.content or ""
+        content = response.output_text or ""
         # Truncate to 500 chars for safety (T-20-08)
         return content[:500]
     except Exception as e:
@@ -465,6 +476,20 @@ async def run_dry_run_simulation(dry_run_id: str) -> None:
                         api_key=api_key_val,
                     )
 
+                # Early abort: if first MR turn fails, AI service is unavailable
+                if turn == 0 and _FALLBACK_MARKER in response:
+                    dry_run.status = "failed"
+                    dry_run.error_message = (
+                        "AI service unavailable — check Azure AI Foundry configuration. "
+                        f"First LLM response: {response[:200]}"
+                    )
+                    await db.commit()
+                    logger.error(
+                        "Dry run %s aborted: AI service unavailable on first turn",
+                        dry_run_id,
+                    )
+                    return
+
                 conversation.append({"role": current_role, "content": response})
 
                 # Annotate with SOP step matching
@@ -493,11 +518,13 @@ async def run_dry_run_simulation(dry_run_id: str) -> None:
             annotated_msgs: list[dict] = []
             for i, msg_data in enumerate(conversation):
                 matched = _match_sop_step(msg_data["content"], sop_steps, msg_data["role"])
-                annotated_msgs.append({
-                    "role": msg_data["role"],
-                    "content": msg_data["content"],
-                    "sop_step_id": matched["step_id"] if matched else None,
-                })
+                annotated_msgs.append(
+                    {
+                        "role": msg_data["role"],
+                        "content": msg_data["content"],
+                        "sop_step_id": matched["step_id"] if matched else None,
+                    }
+                )
 
             coverage_map = _compute_sop_coverage(sop_steps, annotated_msgs)
             issues = _identify_issues(coverage_map, sop_steps)
