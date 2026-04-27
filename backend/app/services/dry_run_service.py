@@ -34,9 +34,7 @@ async def create_dry_run(db: AsyncSession, skill_id: str, created_by: str) -> Dr
 
     # Compute next run_number for this skill
     max_result = await db.execute(
-        select(func.coalesce(func.max(DryRun.run_number), 0)).where(
-            DryRun.skill_id == skill_id
-        )
+        select(func.coalesce(func.max(DryRun.run_number), 0)).where(DryRun.skill_id == skill_id)
     )
     next_run_number = (max_result.scalar() or 0) + 1
 
@@ -51,9 +49,7 @@ async def create_dry_run(db: AsyncSession, skill_id: str, created_by: str) -> Dr
 
     # Re-query with messages loaded
     loaded = await db.execute(
-        select(DryRun)
-        .options(selectinload(DryRun.messages))
-        .where(DryRun.id == dry_run.id)
+        select(DryRun).options(selectinload(DryRun.messages)).where(DryRun.id == dry_run.id)
     )
     return loaded.scalar_one()
 
@@ -61,9 +57,7 @@ async def create_dry_run(db: AsyncSession, skill_id: str, created_by: str) -> Dr
 async def get_dry_run(db: AsyncSession, dry_run_id: str) -> DryRun | None:
     """Load a dry run with messages. Returns None if not found."""
     result = await db.execute(
-        select(DryRun)
-        .options(selectinload(DryRun.messages))
-        .where(DryRun.id == dry_run_id)
+        select(DryRun).options(selectinload(DryRun.messages)).where(DryRun.id == dry_run_id)
     )
     return result.scalar_one_or_none()
 
@@ -114,9 +108,7 @@ async def cancel_dry_run(db: AsyncSession, dry_run_id: str) -> DryRun:
 
     # Re-query with messages loaded
     result = await db.execute(
-        select(DryRun)
-        .options(selectinload(DryRun.messages))
-        .where(DryRun.id == dry_run.id)
+        select(DryRun).options(selectinload(DryRun.messages)).where(DryRun.id == dry_run.id)
     )
     return result.scalar_one()
 
@@ -172,4 +164,10 @@ def dry_run_to_out(dry_run: DryRun) -> dict:
         ],
         "created_by": dry_run.created_by,
         "created_at": dry_run.created_at,
+        "mr_agent_id": getattr(dry_run, "mr_agent_id", ""),
+        "mr_agent_version": getattr(dry_run, "mr_agent_version", ""),
+        "hcp_agent_id": getattr(dry_run, "hcp_agent_id", ""),
+        "hcp_agent_version": getattr(dry_run, "hcp_agent_version", ""),
+        "evaluator_agent_id": getattr(dry_run, "evaluator_agent_id", ""),
+        "evaluator_agent_version": getattr(dry_run, "evaluator_agent_version", ""),
     }

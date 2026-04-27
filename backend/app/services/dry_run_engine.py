@@ -1,9 +1,12 @@
 """Dry Run simulation engine — orchestrates AI MR/HCP conversation for SOP coverage testing.
 
+Uses two MetaSkill agents (dry-run-mr, dry-run-hcp) via Azure AI Foundry
+Responses API with agent_reference + previous_response_id for server-side
+multi-turn state. SOP coverage is evaluated semantically via the
+skill-evaluator agent (replacing keyword matching).
+
 Runs as a durable background task with its own DB session (not tied to the
-HTTP request lifecycle). Extracts SOP steps from Skill content, simulates a
-multi-turn MR/HCP conversation via Azure OpenAI, tracks which SOP steps are
-covered, and produces an executability score.
+HTTP request lifecycle).
 
 Launched via ``asyncio.create_task(run_dry_run_simulation(dry_run_id))``
 from the POST create endpoint.
@@ -25,53 +28,9 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 MAX_TURNS = 20
-DRY_RUN_MODEL = "gpt-4o"
 
-# Fallback marker — if the first LLM response contains this, the AI service is down
+# Fallback marker — if the first agent response contains this, the AI service is down
 _FALLBACK_MARKER = "unavailable -- simulation continues"
-
-# Minimum keyword overlap count to consider a message matching a SOP step
-_MATCH_THRESHOLD = 2
-# Minimum word length to be considered a "meaningful" word for matching
-_MIN_WORD_LENGTH = 3
-
-# ---------------------------------------------------------------------------
-# System prompt templates
-# ---------------------------------------------------------------------------
-
-_MR_SYSTEM_PROMPT = """\
-You are a Medical Representative (MR) in a training simulation. Your goal is to \
-practice selling a pharmaceutical product to a doctor (HCP).
-
-You must follow the SOP (Standard Operating Procedure) steps below and try to \
-cover all of them during the conversation. Be natural, professional, and respond \
-to the HCP's questions and objections.
-
-SOP Steps to follow:
-{formatted_sop_steps}
-
-Rules:
-- Start with a greeting and introduction
-- Follow the SOP steps in order when possible
-- Respond naturally to HCP questions/objections
-- Try to cover ALL SOP steps
-- Keep responses concise (2-4 sentences)
-- End the conversation after covering all steps or after 20 exchanges"""
-
-_HCP_SYSTEM_PROMPT = """\
-You are a Healthcare Professional (HCP/Doctor) in a training simulation. A Medical \
-Representative (MR) is visiting you to discuss a pharmaceutical product.
-
-Behave like a realistic doctor:
-- You are busy and have limited time (10-15 minutes)
-- Ask relevant clinical questions about efficacy, safety, dosing
-- Raise common objections (cost, existing treatments, guidelines)
-- Show interest when the MR presents compelling data
-- Be professional but direct
-- Keep responses concise (1-3 sentences)
-
-Product context from the Skill:
-{skill_name}: {skill_description}"""
 
 # Phrases that signal the end of a conversation (case-insensitive)
 _ENDING_PHRASES = [
@@ -156,48 +115,6 @@ def _extract_sop_steps(content: str) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
-# SOP step matching (keyword overlap)
-# ---------------------------------------------------------------------------
-
-
-def _tokenize(text: str) -> set[str]:
-    """Tokenize text into a set of lowercase meaningful words (len > _MIN_WORD_LENGTH)."""
-    words = re.findall(r"[a-zA-Z\u4e00-\u9fff]+", text.lower())
-    return {w for w in words if len(w) > _MIN_WORD_LENGTH}
-
-
-def _match_sop_step(
-    message: str,
-    sop_steps: list[dict],
-    role: str,
-) -> dict | None:
-    """Match a message to the best-fitting SOP step using keyword overlap.
-
-    Only matches for MR messages -- HCP responses don't advance SOP coverage.
-    Returns the best-matching step dict or None.
-    """
-    if role != "mr":
-        return None
-
-    msg_tokens = _tokenize(message)
-    if not msg_tokens:
-        return None
-
-    best_step: dict | None = None
-    best_score = 0
-
-    for step in sop_steps:
-        combined = f"{step['step_name']} {step['step_content']}"
-        step_tokens = _tokenize(combined)
-        overlap = len(msg_tokens & step_tokens)
-        if overlap >= _MATCH_THRESHOLD and overlap > best_score:
-            best_score = overlap
-            best_step = step
-
-    return best_step
-
-
-# ---------------------------------------------------------------------------
 # Conversation ending detection
 # ---------------------------------------------------------------------------
 
@@ -216,185 +133,233 @@ def _is_conversation_ending(message: str, turn_number: int) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# Coverage computation
+# Agent call helper (replaces _call_llm)
 # ---------------------------------------------------------------------------
 
 
-def _compute_sop_coverage(
-    sop_steps: list[dict],
-    messages: list[dict],
-) -> list[dict]:
-    """Compute per-step coverage from conversation messages.
-
-    Each message dict has keys: role, content, sop_step_id (may be None).
-
-    Returns list of dicts with:
-      step_id, step_name, status ("covered"|"partial"|"not_covered"),
-      matched_message_ids (list of sequence indices), details
-    """
-    # Build map: step_id -> list of matching message indices
-    step_matches: dict[str, list[int]] = {s["step_id"]: [] for s in sop_steps}
-
-    for idx, msg in enumerate(messages):
-        sid = msg.get("sop_step_id")
-        if sid and sid in step_matches:
-            step_matches[sid].append(idx)
-
-    coverage: list[dict] = []
-    for step in sop_steps:
-        matched = step_matches[step["step_id"]]
-        if len(matched) >= 1:
-            status = "covered"
-            details = f"Covered in {len(matched)} message(s)"
-        else:
-            # Check for weak partial match: any MR message with at least 1 keyword overlap
-            partial = False
-            for idx, msg in enumerate(messages):
-                if msg.get("role") != "mr":
-                    continue
-                msg_tokens = _tokenize(msg["content"])
-                step_tokens = _tokenize(f"{step['step_name']} {step['step_content']}")
-                if len(msg_tokens & step_tokens) >= 1:
-                    partial = True
-                    break
-            if partial:
-                status = "partial"
-                details = "Weak keyword overlap detected but below match threshold"
-            else:
-                status = "not_covered"
-                details = "No matching messages found"
-
-        coverage.append(
-            {
-                "step_id": step["step_id"],
-                "step_name": step["step_name"],
-                "status": status,
-                "matched_message_ids": matched,
-                "details": details,
-            }
-        )
-
-    return coverage
-
-
-def _identify_issues(
-    coverage_map: list[dict],
-    sop_steps: list[dict],
-) -> list[dict]:
-    """Identify issues from coverage gaps.
-
-    For each not_covered step: create error-severity issue.
-    For each partial step: create warning-severity issue.
-    """
-    # Build name lookup
-    step_name_map = {s["step_id"]: s["step_name"] for s in sop_steps}
-
-    issues: list[dict] = []
-    for entry in coverage_map:
-        sid = entry["step_id"]
-        name = step_name_map.get(sid, sid)
-
-        if entry["status"] == "not_covered":
-            issues.append(
-                {
-                    "severity": "error",
-                    "step_id": sid,
-                    "description": f"SOP step '{name}' was not covered during the simulation",
-                    "suggestion": (
-                        f"Review step '{name}' -- the MR agent did not address this topic. "
-                        "Consider simplifying the step description or adding clearer keywords."
-                    ),
-                }
-            )
-        elif entry["status"] == "partial":
-            issues.append(
-                {
-                    "severity": "warning",
-                    "step_id": sid,
-                    "description": f"SOP step '{name}' was only partially covered",
-                    "suggestion": (
-                        f"Step '{name}' had weak coverage. "
-                        "Consider making the step content more specific or "
-                        "adding example phrases the MR should use."
-                    ),
-                }
-            )
-
-    return issues
-
-
-def _compute_executability_score(
-    coverage_map: list[dict],
-    num_messages: int,
-) -> int:
-    """Compute an executability score (0-100) from coverage results.
-
-    Base score: (covered * 100 + partial * 50) / total_steps
-    Conversation quality bonus: up to 10 points if num_messages >= 8
-    Capped at 100.
-    """
-    total = len(coverage_map)
-    if total == 0:
-        return 0
-
-    covered = sum(1 for c in coverage_map if c["status"] == "covered")
-    partial = sum(1 for c in coverage_map if c["status"] == "partial")
-
-    base_score = (covered * 100 + partial * 50) / total
-
-    # Conversation quality bonus
-    quality_bonus = 0
-    if num_messages >= 8:
-        quality_bonus = min(10, (num_messages - 8) * 2)
-
-    return min(100, round(base_score + quality_bonus))
-
-
-# ---------------------------------------------------------------------------
-# LLM call helper
-# ---------------------------------------------------------------------------
-
-
-async def _call_llm(
-    system_prompt: str,
-    conversation: list[dict],
-    agent_name: str,
+async def _call_dry_run_agent(
+    message: str,
+    agent_id: str,
+    agent_version: str,
+    model: str,
+    previous_response_id: str | None,
     *,
     project_endpoint: str,
     api_key: str,
-) -> str:
-    """Call Azure AI Foundry Responses API for a conversation turn.
+) -> tuple[str, str]:
+    """Call a dry-run agent via Responses API with agent_reference.
 
-    Uses the same client infrastructure as skill_evaluation_service
-    (get_project_endpoint + _get_project_client + openai_client.responses.create).
+    Uses the same pattern as chat_with_agent() and
+    skill_evaluation_service._call_agent_for_evaluation():
+    - agent_reference in extra_body for Azure AI Foundry agent routing
+    - previous_response_id for server-side multi-turn conversation state
 
-    Returns the assistant response text, or a fallback message on failure.
+    Returns (response_text, response_id) for chaining multi-turn.
+    On failure returns (fallback_text, "").
     """
     from app.services.agent_sync_service import _get_project_client
+
+    agent_label = agent_id or "unknown-agent"
 
     try:
         client = _get_project_client(project_endpoint, api_key)
         openai_client = client.get_openai_client()
 
-        # Build input messages for the Responses API
-        input_messages = [{"role": "system", "content": system_prompt}]
-        for msg in conversation:
-            # Alternate user/assistant from the current agent's perspective
-            if msg["role"] == agent_name.lower():
-                input_messages.append({"role": "assistant", "content": msg["content"]})
-            else:
-                input_messages.append({"role": "user", "content": msg["content"]})
+        input_messages = [{"role": "user", "content": message}]
+
+        extra_body = {
+            "agent_reference": {
+                "name": agent_id,
+                "version": agent_version or "1",
+                "type": "agent_reference",
+            }
+        }
+
+        kwargs: dict = {
+            "model": model,
+            "input": input_messages,
+            "extra_body": extra_body,
+        }
+
+        if previous_response_id:
+            kwargs["previous_response_id"] = previous_response_id
+
+        response = openai_client.responses.create(**kwargs)
+        content = (response.output_text or "")[:500]
+        return content, response.id
+
+    except Exception as e:
+        logger.warning("_call_dry_run_agent failed for %s: %s", agent_label, e)
+        return f"[{agent_label} {_FALLBACK_MARKER}]", ""
+
+
+# ---------------------------------------------------------------------------
+# Semantic SOP coverage evaluation via skill-evaluator agent
+# ---------------------------------------------------------------------------
+
+# Prompt template for SOP coverage evaluation
+_SOP_EVAL_PROMPT = """\
+You are evaluating a dry run simulation conversation for SOP coverage.
+
+## SOP Steps
+{sop_steps_text}
+
+## Conversation Transcript
+{transcript_text}
+
+## Task
+
+Analyze the conversation and determine which SOP steps were covered by the MR's messages.
+
+Return a JSON object with this exact structure:
+{{
+  "steps": [
+    {{
+      "step_id": "step_1",
+      "step_name": "Opening Greeting",
+      "status": "covered",
+      "details": "MR greeted the doctor in message #0",
+      "matched_message_indices": [0]
+    }}
+  ],
+  "issues": [
+    {{
+      "severity": "error",
+      "step_id": "step_3",
+      "description": "SOP step 'Closing' was not covered during the simulation",
+      "suggestion": "Consider simplifying the step or adding clearer guidance"
+    }}
+  ],
+  "executability_score": 75,
+  "summary": "Brief assessment of overall SOP executability"
+}}
+
+Rules:
+- status must be one of: "covered", "partial", "not_covered"
+- severity must be one of: "error" (not_covered steps), "warning" (partial steps)
+- executability_score: 0-100 based on how well the SOP was executed
+- Only MR messages can cover SOP steps (HCP messages do not count)
+- Return ONLY the JSON object, no other text"""
+
+
+async def _evaluate_sop_coverage_with_agent(
+    sop_steps: list[dict],
+    conversation: list[dict],
+    evaluator_agent_id: str,
+    evaluator_agent_version: str,
+    evaluator_model: str,
+    *,
+    project_endpoint: str,
+    api_key: str,
+) -> tuple[list[dict], list[dict], int]:
+    """Evaluate SOP coverage using the skill-evaluator MetaSkill agent.
+
+    Returns (coverage_map, issues, executability_score).
+    Falls back to basic coverage on evaluator failure.
+    """
+    # Format SOP steps for the prompt
+    sop_lines = []
+    for step in sop_steps:
+        sop_lines.append(f"### {step['step_id']}: {step['step_name']}")
+        if step.get("step_content"):
+            sop_lines.append(step["step_content"][:300])
+        sop_lines.append("")
+    sop_steps_text = "\n".join(sop_lines)
+
+    # Format conversation transcript
+    transcript_lines = []
+    for i, msg in enumerate(conversation):
+        role_label = "MR" if msg["role"] == "mr" else "HCP"
+        transcript_lines.append(f"[#{i}] {role_label}: {msg['content']}")
+    transcript_text = "\n".join(transcript_lines)
+
+    prompt = _SOP_EVAL_PROMPT.format(
+        sop_steps_text=sop_steps_text,
+        transcript_text=transcript_text,
+    )
+
+    try:
+        from app.services.agent_sync_service import _get_project_client
+
+        client = _get_project_client(project_endpoint, api_key)
+        openai_client = client.get_openai_client()
+
+        extra_body = {
+            "agent_reference": {
+                "name": evaluator_agent_id,
+                "version": evaluator_agent_version or "1",
+                "type": "agent_reference",
+            }
+        }
 
         response = openai_client.responses.create(
-            model=DRY_RUN_MODEL,
-            input=input_messages,
+            model=evaluator_model,
+            input=[{"role": "user", "content": prompt}],
+            extra_body=extra_body,
         )
-        content = response.output_text or ""
-        # Truncate to 500 chars for safety (T-20-08)
-        return content[:500]
+
+        raw = response.output_text or ""
+        # Strip markdown code fences if present
+        raw = raw.strip()
+        if raw.startswith("```"):
+            raw = re.sub(r"^```(?:json)?\s*", "", raw)
+            raw = re.sub(r"\s*```$", "", raw)
+
+        result = json.loads(raw)
+
+        # Extract coverage map
+        coverage_map = []
+        for step_result in result.get("steps", []):
+            coverage_map.append(
+                {
+                    "step_id": step_result.get("step_id", ""),
+                    "step_name": step_result.get("step_name", ""),
+                    "status": step_result.get("status", "not_covered"),
+                    "matched_message_ids": step_result.get("matched_message_indices", []),
+                    "details": step_result.get("details", ""),
+                }
+            )
+
+        # Ensure all SOP steps are in coverage map
+        covered_ids = {c["step_id"] for c in coverage_map}
+        for step in sop_steps:
+            if step["step_id"] not in covered_ids:
+                coverage_map.append(
+                    {
+                        "step_id": step["step_id"],
+                        "step_name": step["step_name"],
+                        "status": "not_covered",
+                        "matched_message_ids": [],
+                        "details": "Not evaluated",
+                    }
+                )
+
+        issues = result.get("issues", [])
+        score = result.get("executability_score", 0)
+        return coverage_map, issues, int(score)
+
     except Exception as e:
-        logger.warning("_call_llm failed for %s: %s", agent_name, e)
-        return f"[{agent_name} unavailable -- simulation continues]"
+        logger.warning("SOP coverage evaluation via agent failed: %s", e)
+        # Fallback: mark all steps as not evaluated
+        coverage_map = [
+            {
+                "step_id": s["step_id"],
+                "step_name": s["step_name"],
+                "status": "not_covered",
+                "matched_message_ids": [],
+                "details": f"Evaluation failed: {str(e)[:100]}",
+            }
+            for s in sop_steps
+        ]
+        issues = [
+            {
+                "severity": "error",
+                "step_id": None,
+                "description": f"SOP coverage evaluation failed: {str(e)[:200]}",
+                "suggestion": "Check evaluator agent configuration and try again.",
+            }
+        ]
+        return coverage_map, issues, 0
 
 
 # ---------------------------------------------------------------------------
@@ -405,12 +370,16 @@ async def _call_llm(
 async def run_dry_run_simulation(dry_run_id: str) -> None:
     """Run a full dry-run simulation as a durable background task.
 
+    Uses two MetaSkill agents (dry-run-mr, dry-run-hcp) for the conversation
+    and the skill-evaluator agent for semantic SOP coverage evaluation.
+
     Creates its own DB session via AsyncSessionLocal (not tied to the
     HTTP request that spawned it). Updates the DryRun record with
     results or error state on completion.
     """
     from app.models.dry_run import DryRun, DryRunMessage
     from app.models.skill import Skill
+    from app.services import meta_skill_service
     from app.services.agent_sync_service import get_project_endpoint
 
     async with AsyncSessionLocal() as db:
@@ -428,60 +397,128 @@ async def run_dry_run_simulation(dry_run_id: str) -> None:
                 await db.commit()
                 return
 
-            # 2. Set status to running
+            # 2. Load MetaSkill agents
+            mr_meta = await meta_skill_service.get_meta_skill(db, "dry-run-mr")
+            hcp_meta = await meta_skill_service.get_meta_skill(db, "dry-run-hcp")
+            eval_meta = await meta_skill_service.get_meta_skill(db, "evaluator")
+
+            if not mr_meta or not mr_meta.agent_id:
+                dry_run.status = "failed"
+                dry_run.error_message = (
+                    "Dry Run MR agent not synced to Azure AI Foundry. "
+                    "Go to Admin > Meta Skills and sync the 'dry-run-mr' agent."
+                )
+                await db.commit()
+                return
+
+            if not hcp_meta or not hcp_meta.agent_id:
+                dry_run.status = "failed"
+                dry_run.error_message = (
+                    "Dry Run HCP agent not synced to Azure AI Foundry. "
+                    "Go to Admin > Meta Skills and sync the 'dry-run-hcp' agent."
+                )
+                await db.commit()
+                return
+
+            # 3. Set status to running and record agent audit info
             dry_run.status = "running"
+            dry_run.mr_agent_id = mr_meta.agent_id
+            dry_run.mr_agent_version = mr_meta.agent_version
+            dry_run.hcp_agent_id = hcp_meta.agent_id
+            dry_run.hcp_agent_version = hcp_meta.agent_version
+            if eval_meta and eval_meta.agent_id:
+                dry_run.evaluator_agent_id = eval_meta.agent_id
+                dry_run.evaluator_agent_version = eval_meta.agent_version
             start_time = datetime.now(tz=UTC)
             await db.flush()
 
-            # 3. Extract SOP steps
+            # 4. Extract SOP steps
             sop_steps = _extract_sop_steps(skill.content or "")
             dry_run.total_sop_steps = len(sop_steps)
             await db.flush()
 
-            # 4. Build system prompts
+            # 5. Pre-fetch AI endpoint
+            project_endpoint, api_key_val = await get_project_endpoint(db)
+
+            # 6. Compose initial messages for session-level skill binding (DR-01.3)
+            # MR gets the full skill content (SOP + script + references)
             formatted_steps = "\n".join(
                 f"  {s['step_id']}: {s['step_name']}\n    {s['step_content'][:200]}"
                 for s in sop_steps
             )
-            mr_system_prompt = _MR_SYSTEM_PROMPT.format(formatted_sop_steps=formatted_steps)
-            hcp_system_prompt = _HCP_SYSTEM_PROMPT.format(
-                skill_name=skill.name or "Unnamed Skill",
-                skill_description=skill.description or "No description provided",
+            mr_first_message = (
+                "You are starting a dry run simulation. Here is the Skill content "
+                "you must follow during this conversation:\n\n"
+                f"## Skill: {skill.name or 'Unnamed Skill'}\n"
+                f"{skill.description or ''}\n\n"
+                f"## SOP Steps\n{formatted_steps}\n\n"
+                f"## Full Content\n{(skill.content or '')[:3000]}\n\n"
+                "Begin the conversation by greeting the HCP."
             )
 
-            # 5. Pre-fetch AI endpoint (avoid DB reads during conversation loop)
-            project_endpoint, api_key_val = await get_project_endpoint(db)
+            # HCP gets brief product context
+            hcp_first_message = (
+                f"A Medical Representative is visiting to discuss: "
+                f"{skill.name or 'a pharmaceutical product'}. "
+                f"{skill.description or ''}\n\n"
+                "The MR will start the conversation. Respond as a busy doctor would."
+            )
 
-            # 6. Simulation loop
+            # 7. Simulation loop with agent_reference + previous_response_id
             conversation: list[dict] = []
             sequence = 0
+            mr_prev_response_id: str | None = None
+            hcp_prev_response_id: str | None = None
 
             for turn in range(MAX_TURNS):
                 current_role = "mr" if turn % 2 == 0 else "hcp"
 
                 if current_role == "mr":
-                    response = await _call_llm(
-                        mr_system_prompt,
-                        conversation,
-                        "mr",
+                    if turn == 0:
+                        # First MR turn: send skill content as initial message
+                        message = mr_first_message
+                    else:
+                        # Relay HCP's last response to MR
+                        message = conversation[-1]["content"]
+
+                    response_text, response_id = await _call_dry_run_agent(
+                        message=message,
+                        agent_id=mr_meta.agent_id,
+                        agent_version=mr_meta.agent_version,
+                        model=mr_meta.model,
+                        previous_response_id=mr_prev_response_id,
                         project_endpoint=project_endpoint,
                         api_key=api_key_val,
                     )
+                    mr_prev_response_id = response_id or mr_prev_response_id
                 else:
-                    response = await _call_llm(
-                        hcp_system_prompt,
-                        conversation,
-                        "hcp",
+                    if turn == 1:
+                        # First HCP turn: send product context + MR's greeting
+                        message = (
+                            f"{hcp_first_message}\n\nThe MR said: {conversation[-1]['content']}"
+                        )
+                    else:
+                        # Relay MR's last response to HCP
+                        message = conversation[-1]["content"]
+
+                    response_text, response_id = await _call_dry_run_agent(
+                        message=message,
+                        agent_id=hcp_meta.agent_id,
+                        agent_version=hcp_meta.agent_version,
+                        model=hcp_meta.model,
+                        previous_response_id=hcp_prev_response_id,
                         project_endpoint=project_endpoint,
                         api_key=api_key_val,
                     )
+                    hcp_prev_response_id = response_id or hcp_prev_response_id
 
                 # Early abort: if first MR turn fails, AI service is unavailable
-                if turn == 0 and _FALLBACK_MARKER in response:
+                if turn == 0 and _FALLBACK_MARKER in response_text:
                     dry_run.status = "failed"
                     dry_run.error_message = (
-                        "AI service unavailable — check Azure AI Foundry configuration. "
-                        f"First LLM response: {response[:200]}"
+                        "AI service unavailable — check Azure AI Foundry configuration "
+                        "and ensure dry-run agents are synced. "
+                        f"First response: {response_text[:200]}"
                     )
                     await db.commit()
                     logger.error(
@@ -490,47 +527,78 @@ async def run_dry_run_simulation(dry_run_id: str) -> None:
                     )
                     return
 
-                conversation.append({"role": current_role, "content": response})
+                conversation.append({"role": current_role, "content": response_text})
 
-                # Annotate with SOP step matching
-                matched_step = _match_sop_step(response, sop_steps, current_role)
-
-                # Save message to DB
+                # Save message to DB (no keyword SOP matching — done by evaluator later)
                 msg = DryRunMessage(
                     dry_run_id=dry_run_id,
                     sequence_number=sequence,
                     role=current_role,
-                    content=response,
-                    sop_step_id=matched_step["step_id"] if matched_step else None,
-                    sop_step_name=matched_step["step_name"] if matched_step else None,
+                    content=response_text,
                 )
                 db.add(msg)
                 sequence += 1
-
                 await db.flush()
 
                 # Check for natural conversation end
-                if _is_conversation_ending(response, turn):
+                if _is_conversation_ending(response_text, turn):
                     break
 
-            # 7. Compute coverage report
-            # Enrich conversation with sop_step_id for coverage computation
-            annotated_msgs: list[dict] = []
-            for i, msg_data in enumerate(conversation):
-                matched = _match_sop_step(msg_data["content"], sop_steps, msg_data["role"])
-                annotated_msgs.append(
-                    {
-                        "role": msg_data["role"],
-                        "content": msg_data["content"],
-                        "sop_step_id": matched["step_id"] if matched else None,
-                    }
+            # 8. Evaluate SOP coverage via skill-evaluator agent
+            if eval_meta and eval_meta.agent_id:
+                coverage_map, issues, score = await _evaluate_sop_coverage_with_agent(
+                    sop_steps=sop_steps,
+                    conversation=conversation,
+                    evaluator_agent_id=eval_meta.agent_id,
+                    evaluator_agent_version=eval_meta.agent_version,
+                    evaluator_model=eval_meta.model,
+                    project_endpoint=project_endpoint,
+                    api_key=api_key_val,
                 )
+            else:
+                # No evaluator synced — produce empty coverage
+                logger.warning(
+                    "Dry run %s: evaluator agent not synced, skipping SOP evaluation",
+                    dry_run_id,
+                )
+                coverage_map = [
+                    {
+                        "step_id": s["step_id"],
+                        "step_name": s["step_name"],
+                        "status": "not_covered",
+                        "matched_message_ids": [],
+                        "details": "Evaluator agent not synced",
+                    }
+                    for s in sop_steps
+                ]
+                issues = [
+                    {
+                        "severity": "warning",
+                        "step_id": None,
+                        "description": "SOP coverage not evaluated — evaluator agent not synced",
+                        "suggestion": "Sync the skill-evaluator agent in Admin > Meta Skills.",
+                    }
+                ]
+                score = 0
 
-            coverage_map = _compute_sop_coverage(sop_steps, annotated_msgs)
-            issues = _identify_issues(coverage_map, sop_steps)
-            score = _compute_executability_score(coverage_map, len(conversation))
+            # Update message SOP annotations from evaluator results
+            # Use explicit query to avoid lazy-loading issues in async context
+            from sqlalchemy import select as sa_select
 
-            # 8. Update DryRun with results
+            coverage_by_step = {c["step_id"]: c for c in coverage_map}
+            msg_result = await db.execute(
+                sa_select(DryRunMessage)
+                .where(DryRunMessage.dry_run_id == dry_run_id)
+                .where(DryRunMessage.role == "mr")
+            )
+            for msg_obj in msg_result.scalars():
+                for step_id, cov in coverage_by_step.items():
+                    if msg_obj.sequence_number in cov.get("matched_message_ids", []):
+                        msg_obj.sop_step_id = step_id
+                        msg_obj.sop_step_name = cov.get("step_name", "")
+                        break
+
+            # 9. Update DryRun with results
             covered_count = sum(1 for c in coverage_map if c["status"] == "covered")
             partial_count = sum(1 for c in coverage_map if c["status"] == "partial")
             total_steps = len(sop_steps)

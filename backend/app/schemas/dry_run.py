@@ -54,6 +54,14 @@ class DryRunListOut(BaseModel):
     duration_seconds: int | None
     created_at: datetime
 
+    # Agent audit trail
+    mr_agent_id: str = ""
+    mr_agent_version: str = ""
+    hcp_agent_id: str = ""
+    hcp_agent_version: str = ""
+    evaluator_agent_id: str = ""
+    evaluator_agent_version: str = ""
+
     model_config = ConfigDict(from_attributes=True)
 
 

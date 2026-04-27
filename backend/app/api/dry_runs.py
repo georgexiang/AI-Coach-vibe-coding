@@ -31,7 +31,10 @@ async def create_dry_run(
     runs asynchronously as a background task.
     """
     dry_run = await dry_run_service.create_dry_run(db, skill_id, user.id)
-    await db.flush()
+    # Commit (not just flush) so the row is visible to the background task's
+    # independent DB session.  With SQLite the background connection cannot
+    # see uncommitted rows from another connection.
+    await db.commit()
     # Launch simulation as background task (own DB session)
     asyncio.create_task(run_dry_run_simulation(dry_run.id))
     return DryRunOut(**dry_run_service.dry_run_to_out(dry_run))

@@ -38,9 +38,15 @@ class DryRun(Base, TimestampMixin):
     # Execution metadata
     duration_seconds: Mapped[int | None] = mapped_column(Integer, default=None)
     error_message: Mapped[str] = mapped_column(Text, default="")
-    created_by: Mapped[str] = mapped_column(
-        String(36), ForeignKey("users.id"), nullable=False
-    )
+    created_by: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False)
+
+    # Agent audit trail (DR-05.2)
+    mr_agent_id: Mapped[str] = mapped_column(String(100), default="")
+    mr_agent_version: Mapped[str] = mapped_column(String(50), default="")
+    hcp_agent_id: Mapped[str] = mapped_column(String(100), default="")
+    hcp_agent_version: Mapped[str] = mapped_column(String(50), default="")
+    evaluator_agent_id: Mapped[str] = mapped_column(String(100), default="")
+    evaluator_agent_version: Mapped[str] = mapped_column(String(50), default="")
 
     # Relationships
     messages = relationship(

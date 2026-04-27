@@ -9,14 +9,9 @@ from app.models.skill import Skill
 from app.models.user import User
 from app.services.auth import create_access_token, get_password_hash
 from app.services.dry_run_engine import (
-    _call_llm,
-    _compute_executability_score,
-    _compute_sop_coverage,
+    _call_dry_run_agent,
     _extract_sop_steps,
-    _identify_issues,
     _is_conversation_ending,
-    _match_sop_step,
-    _tokenize,
     run_dry_run_simulation,
 )
 from app.services.dry_run_service import (
@@ -74,6 +69,27 @@ async def _create_skill_with_content(client, token: str, name: str = "Test Skill
     return resp.json()["id"]
 
 
+# ---------------------------------------------------------------------------
+# Helper to create a mock MetaSkill object
+# ---------------------------------------------------------------------------
+
+
+def _make_mock_meta_skill(
+    skill_type: str,
+    agent_id: str = "test-agent-id",
+    agent_version: str = "1",
+    model: str = "gpt-4o",
+):
+    """Create a mock MetaSkill with the given config."""
+    meta = MagicMock()
+    meta.skill_type = skill_type
+    meta.agent_id = agent_id
+    meta.agent_version = agent_version
+    meta.model = model
+    meta.is_active = True
+    return meta
+
+
 # ===========================================================================
 # Unit Tests: Engine Helpers (no DB needed)
 # ===========================================================================
@@ -123,192 +139,6 @@ class TestExtractSopSteps:
         assert steps[0]["step_name"] == "Full Content"
 
 
-class TestMatchSopStep:
-    """Tests for _match_sop_step helper."""
-
-    def test_match_sop_step_mr_message(self):
-        steps = [
-            {
-                "step_id": "step_1",
-                "step_name": "Opening Greeting",
-                "step_content": "greet the doctor introduction",
-            },
-            {
-                "step_id": "step_2",
-                "step_name": "Efficacy Data",
-                "step_content": "clinical trial data efficacy evidence results",
-            },
-        ]
-        message = (
-            "Good morning doctor. I want to share the clinical "
-            "trial efficacy data and evidence with you."
-        )
-        result = _match_sop_step(message, steps, "mr")
-        assert result is not None
-        assert result["step_id"] == "step_2"
-
-    def test_match_sop_step_hcp_message_no_match(self):
-        steps = [
-            {
-                "step_id": "step_1",
-                "step_name": "Greeting",
-                "step_content": "greet the doctor introduction",
-            },
-        ]
-        message = "What are the side effects and efficacy data?"
-        result = _match_sop_step(message, steps, "hcp")
-        assert result is None
-
-    def test_match_sop_step_no_overlap(self):
-        steps = [
-            {
-                "step_id": "step_1",
-                "step_name": "Closing",
-                "step_content": "schedule follow up appointment next time",
-            },
-        ]
-        message = "Hello there"
-        result = _match_sop_step(message, steps, "mr")
-        assert result is None
-
-    def test_match_sop_step_empty_tokens(self):
-        """Message with only short words (len <= 3) returns None (line 177)."""
-        steps = [
-            {
-                "step_id": "step_1",
-                "step_name": "Greeting",
-                "step_content": "greet the doctor introduction",
-            },
-        ]
-        # All words are 3 chars or less — _tokenize returns empty set
-        message = "I am ok to go"
-        result = _match_sop_step(message, steps, "mr")
-        assert result is None
-
-
-class TestComputeSopCoverage:
-    """Tests for _compute_sop_coverage helper."""
-
-    def test_compute_sop_coverage(self):
-        steps = [
-            {"step_id": "step_1", "step_name": "Greeting", "step_content": "greet the doctor"},
-            {"step_id": "step_2", "step_name": "Data", "step_content": "present data"},
-            {"step_id": "step_3", "step_name": "Closing", "step_content": "schedule follow up"},
-        ]
-        messages = [
-            {"role": "mr", "content": "Hello doctor", "sop_step_id": "step_1"},
-            {"role": "hcp", "content": "Hello", "sop_step_id": None},
-            {"role": "mr", "content": "data results", "sop_step_id": "step_2"},
-        ]
-        coverage = _compute_sop_coverage(steps, messages)
-        assert len(coverage) == 3
-        assert coverage[0]["status"] == "covered"
-        assert coverage[1]["status"] == "covered"
-        # step_3 not covered
-        assert coverage[2]["status"] in ("not_covered", "partial")
-
-
-class TestIdentifyIssues:
-    """Tests for _identify_issues helper."""
-
-    def test_identify_issues_uncovered_steps(self):
-        coverage = [
-            {
-                "step_id": "step_1",
-                "step_name": "Greeting",
-                "status": "covered",
-                "matched_message_ids": [0],
-                "details": "",
-            },
-            {
-                "step_id": "step_2",
-                "step_name": "Data",
-                "status": "not_covered",
-                "matched_message_ids": [],
-                "details": "",
-            },
-        ]
-        steps = [
-            {"step_id": "step_1", "step_name": "Greeting"},
-            {"step_id": "step_2", "step_name": "Data"},
-        ]
-        issues = _identify_issues(coverage, steps)
-        assert len(issues) == 1
-        assert issues[0]["severity"] == "error"
-        assert "Data" in issues[0]["description"]
-
-    def test_identify_issues_partial_steps(self):
-        coverage = [
-            {
-                "step_id": "step_1",
-                "step_name": "Greeting",
-                "status": "partial",
-                "matched_message_ids": [],
-                "details": "",
-            },
-        ]
-        steps = [
-            {"step_id": "step_1", "step_name": "Greeting"},
-        ]
-        issues = _identify_issues(coverage, steps)
-        assert len(issues) == 1
-        assert issues[0]["severity"] == "warning"
-
-    def test_identify_issues_all_covered(self):
-        coverage = [
-            {
-                "step_id": "step_1",
-                "step_name": "Greeting",
-                "status": "covered",
-                "matched_message_ids": [0],
-                "details": "",
-            },
-        ]
-        steps = [
-            {"step_id": "step_1", "step_name": "Greeting"},
-        ]
-        issues = _identify_issues(coverage, steps)
-        assert len(issues) == 0
-
-
-class TestComputeExecutabilityScore:
-    """Tests for _compute_executability_score helper."""
-
-    def test_compute_executability_score_full_coverage(self):
-        coverage = [
-            {"status": "covered"},
-            {"status": "covered"},
-            {"status": "covered"},
-        ]
-        score = _compute_executability_score(coverage, 10)
-        assert score >= 100  # 100 base + quality bonus, capped at 100
-        assert score == 100
-
-    def test_compute_executability_score_partial(self):
-        coverage = [
-            {"status": "covered"},
-            {"status": "partial"},
-            {"status": "not_covered"},
-        ]
-        score = _compute_executability_score(coverage, 6)
-        # Base: (1*100 + 1*50) / 3 = 50
-        assert 40 <= score <= 60
-
-    def test_compute_executability_score_empty(self):
-        score = _compute_executability_score([], 0)
-        assert score == 0
-
-    def test_compute_executability_score_quality_bonus(self):
-        coverage = [
-            {"status": "covered"},
-            {"status": "covered"},
-        ]
-        score_short = _compute_executability_score(coverage, 4)
-        score_long = _compute_executability_score(coverage, 12)
-        # Quality bonus kicks in at 8+ messages
-        assert score_long >= score_short
-
-
 class TestIsConversationEnding:
     """Tests for _is_conversation_ending helper."""
 
@@ -323,6 +153,153 @@ class TestIsConversationEnding:
 
     def test_low_turn_no_phrase(self):
         assert _is_conversation_ending("I have a question about dosing", 3) is False
+
+
+# ===========================================================================
+# Unit Tests: _call_dry_run_agent
+# ===========================================================================
+
+
+@pytest.mark.asyncio
+class TestCallDryRunAgent:
+    """Tests for _call_dry_run_agent helper."""
+
+    async def test_call_agent_success(self):
+        """Successful agent call returns (content, response_id)."""
+        mock_response = MagicMock()
+        mock_response.output_text = "Hello doctor, I am here to present our product."
+        mock_response.id = "resp-001"
+
+        mock_openai_client = MagicMock()
+        mock_openai_client.responses.create.return_value = mock_response
+
+        mock_project_client = MagicMock()
+        mock_project_client.get_openai_client.return_value = mock_openai_client
+
+        with patch(
+            "app.services.agent_sync_service._get_project_client",
+            return_value=mock_project_client,
+        ):
+            text, resp_id = await _call_dry_run_agent(
+                message="Begin the conversation",
+                agent_id="test-mr-agent",
+                agent_version="1",
+                model="gpt-4o",
+                previous_response_id=None,
+                project_endpoint="https://test.endpoint",
+                api_key="test-key",
+            )
+        assert text == "Hello doctor, I am here to present our product."
+        assert resp_id == "resp-001"
+
+        # Verify agent_reference was passed
+        call_kwargs = mock_openai_client.responses.create.call_args.kwargs
+        assert "extra_body" in call_kwargs
+        assert call_kwargs["extra_body"]["agent_reference"]["name"] == "test-mr-agent"
+
+    async def test_call_agent_with_previous_response_id(self):
+        """Previous response ID is passed for multi-turn."""
+        mock_response = MagicMock()
+        mock_response.output_text = "Continuation response"
+        mock_response.id = "resp-002"
+
+        mock_openai_client = MagicMock()
+        mock_openai_client.responses.create.return_value = mock_response
+
+        mock_project_client = MagicMock()
+        mock_project_client.get_openai_client.return_value = mock_openai_client
+
+        with patch(
+            "app.services.agent_sync_service._get_project_client",
+            return_value=mock_project_client,
+        ):
+            text, resp_id = await _call_dry_run_agent(
+                message="Next message",
+                agent_id="test-mr-agent",
+                agent_version="1",
+                model="gpt-4o",
+                previous_response_id="resp-001",
+                project_endpoint="https://test.endpoint",
+                api_key="test-key",
+            )
+        assert text == "Continuation response"
+        assert resp_id == "resp-002"
+
+        # Verify previous_response_id was passed
+        call_kwargs = mock_openai_client.responses.create.call_args.kwargs
+        assert call_kwargs["previous_response_id"] == "resp-001"
+
+    async def test_call_agent_truncates_long_response(self):
+        """Response truncated to 500 chars."""
+        mock_response = MagicMock()
+        mock_response.output_text = "A" * 600
+        mock_response.id = "resp-003"
+
+        mock_openai_client = MagicMock()
+        mock_openai_client.responses.create.return_value = mock_response
+
+        mock_project_client = MagicMock()
+        mock_project_client.get_openai_client.return_value = mock_openai_client
+
+        with patch(
+            "app.services.agent_sync_service._get_project_client",
+            return_value=mock_project_client,
+        ):
+            text, _ = await _call_dry_run_agent(
+                message="test",
+                agent_id="agent",
+                agent_version="1",
+                model="gpt-4o",
+                previous_response_id=None,
+                project_endpoint="https://ep",
+                api_key="key",
+            )
+        assert len(text) == 500
+
+    async def test_call_agent_none_content(self):
+        """None content returns empty string."""
+        mock_response = MagicMock()
+        mock_response.output_text = None
+        mock_response.id = "resp-004"
+
+        mock_openai_client = MagicMock()
+        mock_openai_client.responses.create.return_value = mock_response
+
+        mock_project_client = MagicMock()
+        mock_project_client.get_openai_client.return_value = mock_openai_client
+
+        with patch(
+            "app.services.agent_sync_service._get_project_client",
+            return_value=mock_project_client,
+        ):
+            text, _ = await _call_dry_run_agent(
+                message="test",
+                agent_id="agent",
+                agent_version="1",
+                model="gpt-4o",
+                previous_response_id=None,
+                project_endpoint="https://ep",
+                api_key="key",
+            )
+        assert text == ""
+
+    async def test_call_agent_exception_returns_fallback(self):
+        """Exception returns fallback message with empty response_id."""
+        with patch(
+            "app.services.agent_sync_service._get_project_client",
+            side_effect=Exception("Connection failed"),
+        ):
+            text, resp_id = await _call_dry_run_agent(
+                message="test",
+                agent_id="mr-agent",
+                agent_version="1",
+                model="gpt-4o",
+                previous_response_id=None,
+                project_endpoint="https://ep",
+                api_key="key",
+            )
+        assert "unavailable" in text.lower()
+        assert resp_id == ""
 
 
 # ===========================================================================
@@ -398,6 +375,9 @@ class TestDryRunApi:
         assert data["id"] == run_id
         assert "messages" in data
         assert "sop_coverage" in data
+        # Agent audit fields should be present
+        assert "mr_agent_id" in data
+        assert "hcp_agent_id" in data
 
     async def test_get_dry_run_status(self, client):
         _, token = await _create_admin_and_token("status_dr_admin")
@@ -572,218 +552,6 @@ class TestDryRunApi:
 
 
 # ===========================================================================
-# Unit Tests: _tokenize helper
-# ===========================================================================
-
-
-class TestTokenize:
-    """Tests for _tokenize helper."""
-
-    def test_tokenize_basic(self):
-        tokens = _tokenize("Hello world clinical trial data")
-        assert "hello" in tokens
-        assert "world" in tokens
-        assert "clinical" in tokens
-        # Words with len <= 3 are excluded
-        assert "the" not in tokens
-
-    def test_tokenize_filters_short_words(self):
-        tokens = _tokenize("I am a dog in the car")
-        # "dog", "car" have len == 3, _MIN_WORD_LENGTH = 3, condition is > 3
-        assert "dog" not in tokens
-        assert "car" not in tokens
-
-    def test_tokenize_empty_string(self):
-        tokens = _tokenize("")
-        assert tokens == set()
-
-    def test_tokenize_special_characters(self):
-        tokens = _tokenize("Hello! What's the efficacy-data?")
-        assert "hello" in tokens
-        assert "what" in tokens
-        assert "efficacy" in tokens
-        assert "data" in tokens
-
-
-# ===========================================================================
-# Unit Tests: _call_llm
-# ===========================================================================
-
-
-@pytest.mark.asyncio
-class TestCallLlm:
-    """Tests for _call_llm helper."""
-
-    async def test_call_llm_success(self):
-        """Successful LLM call returns content."""
-        mock_response = MagicMock()
-        mock_response.output_text = "Hello doctor, I am here to present our product."
-
-        mock_openai_client = MagicMock()
-        mock_openai_client.responses.create.return_value = mock_response
-
-        mock_project_client = MagicMock()
-        mock_project_client.get_openai_client.return_value = mock_openai_client
-
-        with patch(
-            "app.services.agent_sync_service._get_project_client",
-            return_value=mock_project_client,
-        ):
-            result = await _call_llm(
-                "You are an MR.",
-                [{"role": "mr", "content": "Hello"}],
-                "mr",
-                project_endpoint="https://test.endpoint",
-                api_key="test-key",
-            )
-        assert result == "Hello doctor, I am here to present our product."
-
-    async def test_call_llm_truncates_long_response(self):
-        """Response truncated to 500 chars."""
-        long_content = "A" * 600
-        mock_response = MagicMock()
-        mock_response.output_text = long_content
-
-        mock_openai_client = MagicMock()
-        mock_openai_client.responses.create.return_value = mock_response
-
-        mock_project_client = MagicMock()
-        mock_project_client.get_openai_client.return_value = mock_openai_client
-
-        with patch(
-            "app.services.agent_sync_service._get_project_client",
-            return_value=mock_project_client,
-        ):
-            result = await _call_llm(
-                "system",
-                [],
-                "mr",
-                project_endpoint="https://test.endpoint",
-                api_key="key",
-            )
-        assert len(result) == 500
-
-    async def test_call_llm_none_content(self):
-        """None content returns empty string."""
-        mock_response = MagicMock()
-        mock_response.output_text = None
-
-        mock_openai_client = MagicMock()
-        mock_openai_client.responses.create.return_value = mock_response
-
-        mock_project_client = MagicMock()
-        mock_project_client.get_openai_client.return_value = mock_openai_client
-
-        with patch(
-            "app.services.agent_sync_service._get_project_client",
-            return_value=mock_project_client,
-        ):
-            result = await _call_llm(
-                "system",
-                [],
-                "mr",
-                project_endpoint="https://ep",
-                api_key="key",
-            )
-        assert result == ""
-
-    async def test_call_llm_exception_returns_fallback(self):
-        """Exception returns fallback message."""
-        with patch(
-            "app.services.agent_sync_service._get_project_client",
-            side_effect=Exception("Connection failed"),
-        ):
-            result = await _call_llm(
-                "system",
-                [],
-                "mr",
-                project_endpoint="https://ep",
-                api_key="key",
-            )
-        assert "[mr unavailable" in result.lower()
-
-    async def test_call_llm_mixed_conversation_roles(self):
-        """Conversation with both mr and hcp messages maps roles correctly."""
-        mock_response = MagicMock()
-        mock_response.output_text = "Response from HCP agent"
-
-        mock_openai_client = MagicMock()
-        mock_openai_client.responses.create.return_value = mock_response
-
-        mock_project_client = MagicMock()
-        mock_project_client.get_openai_client.return_value = mock_openai_client
-
-        conversation = [
-            {"role": "mr", "content": "Hello doctor"},
-            {"role": "hcp", "content": "Hi, tell me about the product"},
-            {"role": "mr", "content": "Here are the benefits"},
-        ]
-
-        with patch(
-            "app.services.agent_sync_service._get_project_client",
-            return_value=mock_project_client,
-        ):
-            # Call as HCP agent — mr messages become "user", hcp messages become "assistant"
-            result = await _call_llm(
-                "You are an HCP.",
-                conversation,
-                "hcp",
-                project_endpoint="https://test.endpoint",
-                api_key="test-key",
-            )
-        assert result == "Response from HCP agent"
-
-        # Verify the input messages were mapped correctly
-        call_args = mock_openai_client.responses.create.call_args
-        input_msgs = call_args.kwargs["input"]
-        # system + 3 conversation messages
-        assert len(input_msgs) == 4
-        assert input_msgs[1]["role"] == "user"  # mr -> user (not the agent)
-        assert input_msgs[2]["role"] == "assistant"  # hcp -> assistant (is the agent)
-        assert input_msgs[3]["role"] == "user"  # mr -> user
-
-
-# ===========================================================================
-# Unit Tests: _compute_sop_coverage partial/not_covered branches
-# ===========================================================================
-
-
-class TestComputeSopCoverageEdgeCases:
-    """Edge case tests for _compute_sop_coverage."""
-
-    def test_coverage_partial_match(self):
-        """Step with weak keyword overlap (1 match) should be partial."""
-        steps = [
-            {
-                "step_id": "step_1",
-                "step_name": "Greeting Introduction",
-                "step_content": "greet welcome doctor",
-            },
-        ]
-        # No sop_step_id match, but "greeting" overlaps with step name via 1 token
-        messages = [
-            {"role": "mr", "content": "Good morning greeting welcome today", "sop_step_id": None},
-        ]
-        coverage = _compute_sop_coverage(steps, messages)
-        assert coverage[0]["status"] in ("partial", "covered")
-
-    def test_coverage_no_mr_messages(self):
-        """Only HCP messages — steps should be not_covered."""
-        steps = [
-            {
-                "step_id": "step_1",
-                "step_name": "Greeting",
-                "step_content": "greet the doctor morning",
-            },
-        ]
-        messages = [
-            {"role": "hcp", "content": "Good morning greeting welcome", "sop_step_id": None},
-        ]
-        coverage = _compute_sop_coverage(steps, messages)
-        assert coverage[0]["status"] == "not_covered"
-
-
-# ===========================================================================
 # Unit Tests: dry_run_service functions (direct DB)
 # ===========================================================================
 
@@ -953,6 +721,12 @@ class TestDryRunToOut:
         dr.error_message = ""
         dr.created_by = "user-id"
         dr.created_at = "2026-01-01T00:00:00"
+        dr.mr_agent_id = "mr-agent-test"
+        dr.mr_agent_version = "1"
+        dr.hcp_agent_id = "hcp-agent-test"
+        dr.hcp_agent_version = "1"
+        dr.evaluator_agent_id = "eval-agent-test"
+        dr.evaluator_agent_version = "1"
         dr.messages = []
         for k, v in overrides.items():
             setattr(dr, k, v)
@@ -1029,9 +803,23 @@ class TestDryRunToOut:
 # ===========================================================================
 
 
+def _mock_get_meta_skill(skill_type):
+    """Factory for mock get_meta_skill returning appropriate agent config."""
+    configs = {
+        "dry-run-mr": _make_mock_meta_skill("dry-run-mr", "dr-mr-agent", "1"),
+        "dry-run-hcp": _make_mock_meta_skill("dry-run-hcp", "dr-hcp-agent", "1"),
+        "evaluator": _make_mock_meta_skill("evaluator", "eval-agent", "1"),
+    }
+
+    async def _get(db, st):
+        return configs.get(st)
+
+    return _get
+
+
 @pytest.mark.asyncio
 class TestRunDryRunSimulation:
-    """Tests for the full simulation background task with mocked LLM."""
+    """Tests for the full simulation background task with mocked agents."""
 
     async def _setup_dry_run(self):
         """Create user + skill + dry_run in the test DB, return dry_run_id."""
@@ -1074,30 +862,71 @@ class TestRunDryRunSimulation:
             return dry_run.id
 
     async def test_simulation_success(self):
-        """Full simulation completes with mocked LLM calls."""
+        """Full simulation completes with mocked agent calls and evaluator."""
         dry_run_id = await self._setup_dry_run()
 
         turn_counter = {"n": 0}
 
-        async def mock_call_llm(system_prompt, conversation, agent_name, **kwargs):
+        async def mock_call_agent(
+            message, agent_id, agent_version, model, previous_response_id, **kwargs
+        ):
             turn_counter["n"] += 1
-            if agent_name == "mr":
+            resp_id = f"resp-{turn_counter['n']:03d}"
+            if "mr" in agent_id:
                 if turn_counter["n"] <= 2:
-                    return "Good morning doctor. Let me introduce myself and greet you."
+                    return ("Good morning doctor. Let me introduce myself.", resp_id)
                 elif turn_counter["n"] <= 4:
-                    return "I want to present the key benefits of our product introduction."
+                    return ("Let me present the key benefits of our product.", resp_id)
                 else:
-                    return (
-                        "Thank you for your time. "
-                        "Let me summarize key points and schedule follow-up."
-                    )
+                    return ("Thank you for your time. Let me summarize.", resp_id)
             else:
-                return "Tell me more about the clinical data."
+                return ("Tell me more about the clinical data.", resp_id)
+
+        # Mock evaluator to return coverage results
+        mock_eval_result = (
+            [
+                {
+                    "step_id": "step_1",
+                    "step_name": "Opening Greeting",
+                    "status": "covered",
+                    "matched_message_ids": [0],
+                    "details": "Covered",
+                },
+                {
+                    "step_id": "step_2",
+                    "step_name": "Product Introduction",
+                    "status": "covered",
+                    "matched_message_ids": [2],
+                    "details": "Covered",
+                },
+                {
+                    "step_id": "step_3",
+                    "step_name": "Closing",
+                    "status": "partial",
+                    "matched_message_ids": [],
+                    "details": "Weak",
+                },
+            ],
+            [
+                {
+                    "severity": "warning",
+                    "step_id": "step_3",
+                    "description": "Closing partially covered",
+                    "suggestion": "Improve",
+                }
+            ],
+            75,
+        )
 
         with (
             patch(
-                "app.services.dry_run_engine._call_llm",
-                side_effect=mock_call_llm,
+                "app.services.dry_run_engine._call_dry_run_agent",
+                side_effect=mock_call_agent,
+            ),
+            patch(
+                "app.services.dry_run_engine._evaluate_sop_coverage_with_agent",
+                new_callable=AsyncMock,
+                return_value=mock_eval_result,
             ),
             patch(
                 "app.services.dry_run_engine.AsyncSessionLocal",
@@ -1108,6 +937,10 @@ class TestRunDryRunSimulation:
                 new_callable=AsyncMock,
                 return_value=("https://test.endpoint", "test-key"),
             ),
+            patch(
+                "app.services.meta_skill_service.get_meta_skill",
+                side_effect=_mock_get_meta_skill("all"),
+            ),
         ):
             await run_dry_run_simulation(dry_run_id)
 
@@ -1116,10 +949,67 @@ class TestRunDryRunSimulation:
             dr = await session.get(DryRun, dry_run_id)
             assert dr is not None
             assert dr.status == "completed"
-            assert dr.executability_score is not None
+            assert dr.executability_score == 75
             assert dr.coverage_percent is not None
             assert dr.total_sop_steps == 3
             assert dr.duration_seconds is not None
+            # Agent audit fields populated
+            assert dr.mr_agent_id == "dr-mr-agent"
+            assert dr.hcp_agent_id == "dr-hcp-agent"
+            assert dr.evaluator_agent_id == "eval-agent"
+
+    async def test_simulation_fails_when_mr_agent_not_synced(self):
+        """Simulation fails fast if MR agent is not synced to Foundry."""
+        dry_run_id = await self._setup_dry_run()
+
+        # MR agent has no agent_id (not synced)
+        mr_meta = _make_mock_meta_skill("dry-run-mr", agent_id="")
+
+        async def mock_get_meta(db, st):
+            if st == "dry-run-mr":
+                return mr_meta
+            if st == "dry-run-hcp":
+                return _make_mock_meta_skill("dry-run-hcp")
+            if st == "evaluator":
+                return _make_mock_meta_skill("evaluator")
+            return None
+
+        with (
+            patch("app.services.dry_run_engine.AsyncSessionLocal", TestSessionLocal),
+            patch("app.services.meta_skill_service.get_meta_skill", side_effect=mock_get_meta),
+        ):
+            await run_dry_run_simulation(dry_run_id)
+
+        async with TestSessionLocal() as session:
+            dr = await session.get(DryRun, dry_run_id)
+            assert dr.status == "failed"
+            assert "dry run mr agent not synced" in dr.error_message.lower()
+
+    async def test_simulation_fails_when_hcp_agent_not_synced(self):
+        """Simulation fails fast if HCP agent is not synced to Foundry."""
+        dry_run_id = await self._setup_dry_run()
+
+        hcp_meta = _make_mock_meta_skill("dry-run-hcp", agent_id="")
+
+        async def mock_get_meta(db, st):
+            if st == "dry-run-mr":
+                return _make_mock_meta_skill("dry-run-mr")
+            if st == "dry-run-hcp":
+                return hcp_meta
+            if st == "evaluator":
+                return _make_mock_meta_skill("evaluator")
+            return None
+
+        with (
+            patch("app.services.dry_run_engine.AsyncSessionLocal", TestSessionLocal),
+            patch("app.services.meta_skill_service.get_meta_skill", side_effect=mock_get_meta),
+        ):
+            await run_dry_run_simulation(dry_run_id)
+
+        async with TestSessionLocal() as session:
+            dr = await session.get(DryRun, dry_run_id)
+            assert dr.status == "failed"
+            assert "dry run hcp agent not synced" in dr.error_message.lower()
 
     async def test_simulation_dry_run_not_found(self):
         """Simulation with nonexistent dry_run_id logs error and returns."""
@@ -1164,6 +1054,41 @@ class TestRunDryRunSimulation:
             assert dr.status == "failed"
             assert "skill not found" in dr.error_message.lower()
 
+    async def test_simulation_early_abort_on_ai_unavailable(self):
+        """First MR turn returning fallback aborts simulation as failed."""
+        dry_run_id = await self._setup_dry_run()
+
+        async def mock_call_agent_fallback(
+            message, agent_id, agent_version, model, previous_response_id, **kwargs
+        ):
+            return (f"[{agent_id} unavailable -- simulation continues]", "")
+
+        with (
+            patch(
+                "app.services.dry_run_engine._call_dry_run_agent",
+                side_effect=mock_call_agent_fallback,
+            ),
+            patch(
+                "app.services.dry_run_engine.AsyncSessionLocal",
+                TestSessionLocal,
+            ),
+            patch(
+                "app.services.agent_sync_service.get_project_endpoint",
+                new_callable=AsyncMock,
+                return_value=("https://test.endpoint", "test-key"),
+            ),
+            patch(
+                "app.services.meta_skill_service.get_meta_skill",
+                side_effect=_mock_get_meta_skill("all"),
+            ),
+        ):
+            await run_dry_run_simulation(dry_run_id)
+
+        async with TestSessionLocal() as session:
+            dr = await session.get(DryRun, dry_run_id)
+            assert dr.status == "failed"
+            assert "ai service unavailable" in dr.error_message.lower()
+
     async def test_simulation_llm_exception_marks_failed(self):
         """Exception during simulation marks dry run as failed."""
         dry_run_id = await self._setup_dry_run()
@@ -1178,6 +1103,10 @@ class TestRunDryRunSimulation:
                 new_callable=AsyncMock,
                 side_effect=Exception("Azure endpoint unavailable"),
             ),
+            patch(
+                "app.services.meta_skill_service.get_meta_skill",
+                side_effect=_mock_get_meta_skill("all"),
+            ),
         ):
             await run_dry_run_simulation(dry_run_id)
 
@@ -1186,72 +1115,47 @@ class TestRunDryRunSimulation:
             assert dr.status == "failed"
             assert "Azure endpoint unavailable" in dr.error_message
 
-    async def test_simulation_early_abort_on_ai_unavailable(self):
-        """First MR turn returning fallback aborts simulation as failed."""
+    async def test_simulation_without_evaluator(self):
+        """Simulation completes but with empty coverage when evaluator not synced."""
         dry_run_id = await self._setup_dry_run()
 
-        async def mock_call_llm_fallback(system_prompt, conversation, agent_name, **kwargs):
-            return f"[{agent_name} unavailable -- simulation continues]"
+        turn_counter = {"n": 0}
+
+        async def mock_call_agent(
+            message, agent_id, agent_version, model, previous_response_id, **kwargs
+        ):
+            turn_counter["n"] += 1
+            resp_id = f"resp-{turn_counter['n']:03d}"
+            if "mr" in agent_id:
+                if turn_counter["n"] <= 4:
+                    return ("Hello doctor, let me present.", resp_id)
+                return ("Thank you for your time.", resp_id)
+            return ("Interesting, tell me more.", resp_id)
+
+        # Evaluator has no agent_id
+        async def mock_get_meta(db, st):
+            if st == "dry-run-mr":
+                return _make_mock_meta_skill("dry-run-mr", "dr-mr-agent")
+            if st == "dry-run-hcp":
+                return _make_mock_meta_skill("dry-run-hcp", "dr-hcp-agent")
+            if st == "evaluator":
+                return _make_mock_meta_skill("evaluator", agent_id="")
+            return None
 
         with (
-            patch(
-                "app.services.dry_run_engine._call_llm",
-                side_effect=mock_call_llm_fallback,
-            ),
-            patch(
-                "app.services.dry_run_engine.AsyncSessionLocal",
-                TestSessionLocal,
-            ),
+            patch("app.services.dry_run_engine._call_dry_run_agent", side_effect=mock_call_agent),
+            patch("app.services.dry_run_engine.AsyncSessionLocal", TestSessionLocal),
             patch(
                 "app.services.agent_sync_service.get_project_endpoint",
                 new_callable=AsyncMock,
                 return_value=("https://test.endpoint", "test-key"),
             ),
+            patch("app.services.meta_skill_service.get_meta_skill", side_effect=mock_get_meta),
         ):
             await run_dry_run_simulation(dry_run_id)
 
         async with TestSessionLocal() as session:
             dr = await session.get(DryRun, dry_run_id)
-            assert dr.status == "failed"
-            assert "AI service unavailable" in dr.error_message
-
-    async def test_simulation_double_exception(self):
-        """Exception handler itself fails — lines 542-543 (double exception)."""
-        dry_run_id = await self._setup_dry_run()
-
-        # Make AsyncSessionLocal return a session where commit always fails
-        original_session_local = TestSessionLocal
-
-        class FailingSessionLocal:
-            """Session factory where commit always raises."""
-
-            def __init__(self):
-                self._session = None
-
-            async def __aenter__(self):
-                self._session = original_session_local()
-                session = await self._session.__aenter__()
-
-                # Every commit fails — including the error-recovery commit
-                async def failing_commit():
-                    raise RuntimeError("DB commit always fails")
-
-                session.commit = failing_commit
-                return session
-
-            async def __aexit__(self, *args):
-                return await self._session.__aexit__(*args)
-
-        with (
-            patch(
-                "app.services.dry_run_engine.AsyncSessionLocal",
-                FailingSessionLocal,
-            ),
-            patch(
-                "app.services.agent_sync_service.get_project_endpoint",
-                new_callable=AsyncMock,
-                side_effect=Exception("Primary failure"),
-            ),
-        ):
-            # Should not raise — double exception is caught and logged
-            await run_dry_run_simulation(dry_run_id)
+            assert dr.status == "completed"
+            # Score is 0 when evaluator not available
+            assert dr.executability_score == 0

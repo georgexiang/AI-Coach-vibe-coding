@@ -11,7 +11,7 @@ from app.services.auth import get_password_hash
 from app.services.skill_evaluation_service import (
     SkillEvaluationResult,
     _AICallResult,
-    _call_openai_for_evaluation,
+    _call_agent_for_evaluation,
     _compute_verdict,
     _load_evaluation_dimensions,
     _parse_evaluation_result,
@@ -304,266 +304,128 @@ class TestParseEvaluationResult:
 
 
 # ---------------------------------------------------------------------------
-# _call_openai_for_evaluation tests
+# _call_agent_for_evaluation tests
 # ---------------------------------------------------------------------------
 
 
-class TestCallOpenaiForEvaluation:
-    """Test the Azure OpenAI call wrapper with various failure/success modes."""
+class TestCallAgentForEvaluation:
+    """Test the agent-based evaluation call wrapper with various failure/success modes."""
 
-    @patch("app.services.skill_evaluation_service.config_service")
-    async def test_no_endpoint_returns_unavailable(self, mock_config):
-        """No endpoint configured -> returns _AICallResult with data=None."""
-        mock_config.get_effective_endpoint = AsyncMock(return_value="")
-        mock_config.get_effective_key = AsyncMock(return_value="some-key")
-        db = AsyncMock()
+    def _mock_agent_pipeline(self, output_text="", side_effect=None):
+        """Helper to mock get_project_endpoint -> _get_project_client -> responses.create chain."""
+        mock_openai_client = MagicMock()
+        if side_effect:
+            mock_openai_client.responses.create = MagicMock(side_effect=side_effect)
+        else:
+            mock_response = MagicMock()
+            mock_response.output_text = output_text
+            mock_openai_client.responses.create = MagicMock(return_value=mock_response)
 
-        result = await _call_openai_for_evaluation(db, "test prompt")
-        assert isinstance(result, _AICallResult)
-        assert result.data is None
-        assert result.status == "ai_unavailable"
+        mock_project_client = MagicMock()
+        mock_project_client.get_openai_client = MagicMock(return_value=mock_openai_client)
 
-    @patch("app.services.skill_evaluation_service.config_service")
-    async def test_no_api_key_returns_unavailable(self, mock_config):
-        """No API key configured -> returns _AICallResult with data=None."""
-        mock_config.get_effective_endpoint = AsyncMock(
-            return_value="https://example.openai.azure.com"
-        )
-        mock_config.get_effective_key = AsyncMock(return_value="")
-        db = AsyncMock()
+        return mock_openai_client, mock_project_client
 
-        result = await _call_openai_for_evaluation(db, "test prompt")
-        assert isinstance(result, _AICallResult)
-        assert result.data is None
-        assert result.status == "ai_unavailable"
-
-    @patch("app.services.skill_evaluation_service.config_service")
-    async def test_no_endpoint_and_no_key_returns_unavailable(self, mock_config):
-        """Neither endpoint nor key -> returns _AICallResult with data=None."""
-        mock_config.get_effective_endpoint = AsyncMock(return_value="")
-        mock_config.get_effective_key = AsyncMock(return_value="")
-        db = AsyncMock()
-
-        result = await _call_openai_for_evaluation(db, "test prompt")
-        assert isinstance(result, _AICallResult)
-        assert result.data is None
-        assert result.status == "ai_unavailable"
-
-    @patch("app.services.skill_evaluation_service.config_service")
-    async def test_successful_api_call(self, mock_config):
+    @patch("app.services.agent_sync_service.get_project_endpoint", new_callable=AsyncMock)
+    @patch("app.services.agent_sync_service._get_project_client")
+    async def test_successful_api_call(self, mock_get_client, mock_get_endpoint):
         """Successful API call returns _AICallResult with parsed JSON data."""
-        mock_config.get_effective_endpoint = AsyncMock(
-            return_value="https://example.openai.azure.com"
-        )
-        mock_config.get_effective_key = AsyncMock(return_value="test-key-123")
-        mock_cfg = MagicMock()
-        mock_cfg.model_or_deployment = "gpt-4o"
-        mock_config.get_config = AsyncMock(return_value=mock_cfg)
-
         expected_json = {"overall_score": 80, "dimensions": []}
-        mock_message = MagicMock()
-        mock_message.content = json.dumps(expected_json)
-        mock_choice = MagicMock()
-        mock_choice.message = mock_message
-        mock_response = MagicMock()
-        mock_response.choices = [mock_choice]
-
-        mock_client = MagicMock()
-        mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
+        mock_openai_client, mock_project_client = self._mock_agent_pipeline(
+            output_text=json.dumps(expected_json)
+        )
+        mock_get_endpoint.return_value = ("https://example.azure.com", "test-key")
+        mock_get_client.return_value = mock_project_client
 
         db = AsyncMock()
-
-        mock_openai_module = MagicMock()
-        mock_openai_module.AsyncAzureOpenAI = MagicMock(return_value=mock_client)
-
-        with patch.dict("sys.modules", {"openai": mock_openai_module}):
-            result = await _call_openai_for_evaluation(db, "test prompt")
+        result = await _call_agent_for_evaluation(db, "test prompt", "eval-agent-id", "1", "gpt-4o")
 
         assert isinstance(result, _AICallResult)
         assert result.data == expected_json
         assert result.status == "ai_success"
         assert result.model_used == "gpt-4o"
 
-    @patch("app.services.skill_evaluation_service.config_service")
-    async def test_openai_import_error_returns_none(self, mock_config):
-        """openai package not installed (ImportError) -> returns None."""
-        mock_config.get_effective_endpoint = AsyncMock(
-            return_value="https://example.openai.azure.com"
-        )
-        mock_config.get_effective_key = AsyncMock(return_value="test-key-123")
-        mock_cfg = MagicMock()
-        mock_cfg.model_or_deployment = "gpt-4o"
-        mock_config.get_config = AsyncMock(return_value=mock_cfg)
+        # Verify agent_reference was passed
+        call_kwargs = mock_openai_client.responses.create.call_args
+        assert call_kwargs.kwargs["extra_body"]["agent_reference"]["name"] == "eval-agent-id"
+
+    @patch("app.services.agent_sync_service.get_project_endpoint", new_callable=AsyncMock)
+    @patch("app.services.agent_sync_service._get_project_client")
+    async def test_api_call_raises_exception_returns_error(
+        self, mock_get_client, mock_get_endpoint
+    ):
+        """API call raises exception -> returns ai_error."""
+        _, mock_project_client = self._mock_agent_pipeline(side_effect=RuntimeError("API failed"))
+        mock_get_endpoint.return_value = ("https://example.azure.com", "test-key")
+        mock_get_client.return_value = mock_project_client
 
         db = AsyncMock()
-
-        # Setting module to None causes ImportError on 'from openai import ...'
-        import sys
-
-        original = sys.modules.get("openai")
-        sys.modules["openai"] = None  # type: ignore[assignment]
-        try:
-            result = await _call_openai_for_evaluation(db, "test prompt")
-        finally:
-            if original is not None:
-                sys.modules["openai"] = original
-            else:
-                sys.modules.pop("openai", None)
+        result = await _call_agent_for_evaluation(db, "test prompt", "eval-agent-id", "1", "gpt-4o")
 
         assert isinstance(result, _AICallResult)
         assert result.data is None
-        assert result.status == "ai_unavailable"
+        assert result.status == "ai_error"
+        assert "API failed" in result.error_detail
 
-    @patch("app.services.skill_evaluation_service.config_service")
-    async def test_api_call_raises_exception_returns_none(self, mock_config):
-        """API call raises exception -> returns None."""
-        mock_config.get_effective_endpoint = AsyncMock(
-            return_value="https://example.openai.azure.com"
-        )
-        mock_config.get_effective_key = AsyncMock(return_value="test-key-123")
-        mock_cfg = MagicMock()
-        mock_cfg.model_or_deployment = "gpt-4o"
-        mock_config.get_config = AsyncMock(return_value=mock_cfg)
-
-        mock_client = MagicMock()
-        mock_client.chat.completions.create = AsyncMock(side_effect=RuntimeError("API failed"))
+    @patch("app.services.agent_sync_service.get_project_endpoint", new_callable=AsyncMock)
+    @patch("app.services.agent_sync_service._get_project_client")
+    async def test_empty_output_returns_error(self, mock_get_client, mock_get_endpoint):
+        """Agent returns empty output_text -> returns ai_error."""
+        _, mock_project_client = self._mock_agent_pipeline(output_text="")
+        mock_get_endpoint.return_value = ("https://example.azure.com", "test-key")
+        mock_get_client.return_value = mock_project_client
 
         db = AsyncMock()
-
-        mock_openai_module = MagicMock()
-        mock_openai_module.AsyncAzureOpenAI = MagicMock(return_value=mock_client)
-        with patch.dict("sys.modules", {"openai": mock_openai_module}):
-            result = await _call_openai_for_evaluation(db, "test prompt")
+        result = await _call_agent_for_evaluation(db, "test prompt", "eval-agent-id", "1", "gpt-4o")
 
         assert isinstance(result, _AICallResult)
         assert result.data is None
         assert result.status == "ai_error"
 
-    @patch("app.services.skill_evaluation_service.config_service")
-    async def test_api_returns_empty_content_returns_error(self, mock_config):
-        """API returns empty content string -> returns None."""
-        mock_config.get_effective_endpoint = AsyncMock(
-            return_value="https://example.openai.azure.com"
-        )
-        mock_config.get_effective_key = AsyncMock(return_value="test-key-123")
-        mock_cfg = MagicMock()
-        mock_cfg.model_or_deployment = "gpt-4o"
-        mock_config.get_config = AsyncMock(return_value=mock_cfg)
-
-        mock_message = MagicMock()
-        mock_message.content = ""
-        mock_choice = MagicMock()
-        mock_choice.message = mock_message
-        mock_response = MagicMock()
-        mock_response.choices = [mock_choice]
-
-        mock_client = MagicMock()
-        mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
+    @patch("app.services.agent_sync_service.get_project_endpoint", new_callable=AsyncMock)
+    @patch("app.services.agent_sync_service._get_project_client")
+    async def test_invalid_json_returns_error(self, mock_get_client, mock_get_endpoint):
+        """Agent returns non-JSON text -> returns ai_error."""
+        _, mock_project_client = self._mock_agent_pipeline(output_text="not valid json")
+        mock_get_endpoint.return_value = ("https://example.azure.com", "test-key")
+        mock_get_client.return_value = mock_project_client
 
         db = AsyncMock()
-
-        mock_openai_module = MagicMock()
-        mock_openai_module.AsyncAzureOpenAI = MagicMock(return_value=mock_client)
-        with patch.dict("sys.modules", {"openai": mock_openai_module}):
-            result = await _call_openai_for_evaluation(db, "test prompt")
+        result = await _call_agent_for_evaluation(db, "test prompt", "eval-agent-id", "1", "gpt-4o")
 
         assert isinstance(result, _AICallResult)
         assert result.data is None
+        assert result.status == "ai_error"
 
-    @patch("app.services.skill_evaluation_service.config_service")
-    async def test_api_returns_none_content_returns_error(self, mock_config):
-        """API returns None content -> returns _AICallResult with data=None."""
-        mock_config.get_effective_endpoint = AsyncMock(
-            return_value="https://example.openai.azure.com"
-        )
-        mock_config.get_effective_key = AsyncMock(return_value="test-key-123")
-        mock_cfg = MagicMock()
-        mock_cfg.model_or_deployment = "gpt-4o"
-        mock_config.get_config = AsyncMock(return_value=mock_cfg)
-
-        mock_message = MagicMock()
-        mock_message.content = None
-        mock_choice = MagicMock()
-        mock_choice.message = mock_message
-        mock_response = MagicMock()
-        mock_response.choices = [mock_choice]
-
-        mock_client = MagicMock()
-        mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
+    @patch("app.services.agent_sync_service.get_project_endpoint", new_callable=AsyncMock)
+    async def test_get_endpoint_fails_returns_error(self, mock_get_endpoint):
+        """get_project_endpoint raises exception -> returns ai_error."""
+        mock_get_endpoint.side_effect = RuntimeError("No endpoint configured")
 
         db = AsyncMock()
-
-        mock_openai_module = MagicMock()
-        mock_openai_module.AsyncAzureOpenAI = MagicMock(return_value=mock_client)
-        with patch.dict("sys.modules", {"openai": mock_openai_module}):
-            result = await _call_openai_for_evaluation(db, "test prompt")
+        result = await _call_agent_for_evaluation(db, "test prompt", "eval-agent-id", "1", "gpt-4o")
 
         assert isinstance(result, _AICallResult)
         assert result.data is None
+        assert result.status == "ai_error"
 
-    @patch("app.services.skill_evaluation_service.config_service")
-    async def test_config_none_uses_default_deployment(self, mock_config):
-        """When config returns None for model, falls back to settings default."""
-        mock_config.get_effective_endpoint = AsyncMock(
-            return_value="https://example.openai.azure.com"
+    @patch("app.services.agent_sync_service.get_project_endpoint", new_callable=AsyncMock)
+    @patch("app.services.agent_sync_service._get_project_client")
+    async def test_agent_version_defaults_to_1(self, mock_get_client, mock_get_endpoint):
+        """When agent_version is empty, defaults to '1' in agent_reference."""
+        expected_json = {"overall_score": 75}
+        mock_openai_client, mock_project_client = self._mock_agent_pipeline(
+            output_text=json.dumps(expected_json)
         )
-        mock_config.get_effective_key = AsyncMock(return_value="test-key-123")
-        mock_config.get_config = AsyncMock(return_value=None)
-
-        expected_json = {"overall_score": 60, "dimensions": []}
-        mock_message = MagicMock()
-        mock_message.content = json.dumps(expected_json)
-        mock_choice = MagicMock()
-        mock_choice.message = mock_message
-        mock_response = MagicMock()
-        mock_response.choices = [mock_choice]
-
-        mock_client = MagicMock()
-        mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
+        mock_get_endpoint.return_value = ("https://example.azure.com", "test-key")
+        mock_get_client.return_value = mock_project_client
 
         db = AsyncMock()
+        result = await _call_agent_for_evaluation(db, "test prompt", "eval-agent-id", "", "gpt-4o")
 
-        mock_openai_module = MagicMock()
-        mock_openai_module.AsyncAzureOpenAI = MagicMock(return_value=mock_client)
-        with patch.dict("sys.modules", {"openai": mock_openai_module}):
-            result = await _call_openai_for_evaluation(db, "test prompt")
-
-        assert isinstance(result, _AICallResult)
-        assert result.data == expected_json
         assert result.status == "ai_success"
-
-    @patch("app.services.skill_evaluation_service.config_service")
-    async def test_config_empty_deployment_uses_default(self, mock_config):
-        """When config.model_or_deployment is empty, falls back to settings default."""
-        mock_config.get_effective_endpoint = AsyncMock(
-            return_value="https://example.openai.azure.com"
-        )
-        mock_config.get_effective_key = AsyncMock(return_value="test-key-123")
-        mock_cfg = MagicMock()
-        mock_cfg.model_or_deployment = ""
-        mock_config.get_config = AsyncMock(return_value=mock_cfg)
-
-        expected_json = {"overall_score": 55}
-        mock_message = MagicMock()
-        mock_message.content = json.dumps(expected_json)
-        mock_choice = MagicMock()
-        mock_choice.message = mock_message
-        mock_response = MagicMock()
-        mock_response.choices = [mock_choice]
-
-        mock_client = MagicMock()
-        mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
-
-        db = AsyncMock()
-
-        mock_openai_module = MagicMock()
-        mock_openai_module.AsyncAzureOpenAI = MagicMock(return_value=mock_client)
-        with patch.dict("sys.modules", {"openai": mock_openai_module}):
-            result = await _call_openai_for_evaluation(db, "test prompt")
-
-        assert isinstance(result, _AICallResult)
-        assert result.data == expected_json
-        assert result.status == "ai_success"
+        call_kwargs = mock_openai_client.responses.create.call_args
+        assert call_kwargs.kwargs["extra_body"]["agent_reference"]["version"] == "1"
 
 
 # ---------------------------------------------------------------------------
@@ -614,6 +476,15 @@ async def _create_user_and_skill(
     return skill.id
 
 
+def _mock_evaluator_meta():
+    """Create a mock evaluator MetaSkill for get_meta_skill patch."""
+    meta = MagicMock()
+    meta.agent_id = "eval-agent-id"
+    meta.agent_version = "1"
+    meta.model = "gpt-4o"
+    return meta
+
+
 class TestEvaluateSkillQuality:
     """Integration tests for the main evaluate_skill_quality function."""
 
@@ -623,8 +494,13 @@ class TestEvaluateSkillQuality:
             with pytest.raises(ValueError, match="not found"):
                 await evaluate_skill_quality(db, "nonexistent-id-999")
 
-    @patch("app.services.skill_evaluation_service._call_openai_for_evaluation")
-    async def test_ai_unavailable_returns_fallback(self, mock_call):
+    @patch(
+        "app.services.meta_skill_service.get_meta_skill",
+        new_callable=AsyncMock,
+        return_value=_mock_evaluator_meta(),
+    )
+    @patch("app.services.skill_evaluation_service._call_agent_for_evaluation")
+    async def test_ai_unavailable_returns_fallback(self, mock_call, _mock_meta):
         """When AI returns None, fallback result has all 0 scores and FAIL verdict."""
         mock_call.return_value = _AICallResult(
             data=None, status="ai_unavailable", error_detail="not configured"
@@ -657,8 +533,13 @@ class TestEvaluateSkillQuality:
             assert "content_hash" in details
             assert "evaluated_at" in details
 
-    @patch("app.services.skill_evaluation_service._call_openai_for_evaluation")
-    async def test_ai_returns_valid_result(self, mock_call):
+    @patch(
+        "app.services.meta_skill_service.get_meta_skill",
+        new_callable=AsyncMock,
+        return_value=_mock_evaluator_meta(),
+    )
+    @patch("app.services.skill_evaluation_service._call_agent_for_evaluation")
+    async def test_ai_returns_valid_result(self, mock_call, _mock_meta):
         """Successful AI evaluation stores scores on skill object."""
         ai_response = _make_full_ai_response(
             {
@@ -694,10 +575,17 @@ class TestEvaluateSkillQuality:
             assert details["overall_score"] == 80
             assert details["content_hash"] != ""
 
-    @patch("app.services.skill_evaluation_service._call_openai_for_evaluation")
-    async def test_content_truncated_at_50000(self, mock_call):
+    @patch(
+        "app.services.meta_skill_service.get_meta_skill",
+        new_callable=AsyncMock,
+        return_value=_mock_evaluator_meta(),
+    )
+    @patch("app.services.skill_evaluation_service._call_agent_for_evaluation")
+    async def test_content_truncated_at_50000(self, mock_call, _mock_meta):
         """Content longer than 50000 chars is truncated in the prompt."""
-        mock_call.return_value = _AICallResult(data=None, status="ai_unavailable")  # We just need to verify truncation
+        mock_call.return_value = _AICallResult(
+            data=None, status="ai_unavailable"
+        )  # We just need to verify truncation
 
         long_content = "A" * 60000
 
@@ -706,15 +594,20 @@ class TestEvaluateSkillQuality:
 
             await evaluate_skill_quality(db, skill_id)
 
-            # Verify the prompt passed to _call_openai_for_evaluation
+            # Verify the prompt passed to _call_agent_for_evaluation
             call_args = mock_call.call_args
             prompt = call_args[0][1]  # Second positional arg is prompt
             assert "... (content truncated for evaluation)" in prompt
             # The original content of 60000 chars should be truncated
             assert len(prompt) < 60000 + 5000  # prompt overhead
 
-    @patch("app.services.skill_evaluation_service._call_openai_for_evaluation")
-    async def test_reference_resources_in_prompt(self, mock_call):
+    @patch(
+        "app.services.meta_skill_service.get_meta_skill",
+        new_callable=AsyncMock,
+        return_value=_mock_evaluator_meta(),
+    )
+    @patch("app.services.skill_evaluation_service._call_agent_for_evaluation")
+    async def test_reference_resources_in_prompt(self, mock_call, _mock_meta):
         """Reference resources are included in the prompt."""
         mock_call.return_value = _AICallResult(data=None, status="ai_unavailable")
 
@@ -728,8 +621,13 @@ class TestEvaluateSkillQuality:
             assert "ref_doc.pdf" in prompt
             assert "Reference material text content" in prompt
 
-    @patch("app.services.skill_evaluation_service._call_openai_for_evaluation")
-    async def test_no_reference_resources_message(self, mock_call):
+    @patch(
+        "app.services.meta_skill_service.get_meta_skill",
+        new_callable=AsyncMock,
+        return_value=_mock_evaluator_meta(),
+    )
+    @patch("app.services.skill_evaluation_service._call_agent_for_evaluation")
+    async def test_no_reference_resources_message(self, mock_call, _mock_meta):
         """No reference resources -> 'No reference materials.' in prompt."""
         mock_call.return_value = _AICallResult(data=None, status="ai_unavailable")
 
@@ -742,8 +640,13 @@ class TestEvaluateSkillQuality:
             prompt = call_args[0][1]
             assert "No reference materials." in prompt
 
-    @patch("app.services.skill_evaluation_service._call_openai_for_evaluation")
-    async def test_skill_with_empty_content(self, mock_call):
+    @patch(
+        "app.services.meta_skill_service.get_meta_skill",
+        new_callable=AsyncMock,
+        return_value=_mock_evaluator_meta(),
+    )
+    @patch("app.services.skill_evaluation_service._call_agent_for_evaluation")
+    async def test_skill_with_empty_content(self, mock_call, _mock_meta):
         """Skill with empty content still runs evaluation."""
         mock_call.return_value = _AICallResult(data=None, status="ai_unavailable")
 
@@ -755,8 +658,13 @@ class TestEvaluateSkillQuality:
             assert result.overall_score == 0
             assert result.content_hash != ""
 
-    @patch("app.services.skill_evaluation_service._call_openai_for_evaluation")
-    async def test_skill_metadata_in_prompt(self, mock_call):
+    @patch(
+        "app.services.meta_skill_service.get_meta_skill",
+        new_callable=AsyncMock,
+        return_value=_mock_evaluator_meta(),
+    )
+    @patch("app.services.skill_evaluation_service._call_agent_for_evaluation")
+    async def test_skill_metadata_in_prompt(self, mock_call, _mock_meta):
         """Skill metadata (name, description, product, area) appears in prompt."""
         mock_call.return_value = _AICallResult(data=None, status="ai_unavailable")
 
@@ -772,8 +680,13 @@ class TestEvaluateSkillQuality:
             assert "TestProduct" in prompt
             assert "Oncology" in prompt
 
-    @patch("app.services.skill_evaluation_service._call_openai_for_evaluation")
-    async def test_skill_with_empty_fields_uses_defaults_in_prompt(self, mock_call):
+    @patch(
+        "app.services.meta_skill_service.get_meta_skill",
+        new_callable=AsyncMock,
+        return_value=_mock_evaluator_meta(),
+    )
+    @patch("app.services.skill_evaluation_service._call_agent_for_evaluation")
+    async def test_skill_with_empty_fields_uses_defaults_in_prompt(self, mock_call, _mock_meta):
         """Skill with empty/None optional fields uses defaults in prompt."""
         mock_call.return_value = _AICallResult(data=None, status="ai_unavailable")
 
@@ -811,8 +724,13 @@ class TestEvaluateSkillQuality:
             assert "No description" in prompt
             assert "Not specified" in prompt  # product and therapeutic_area defaults
 
-    @patch("app.services.skill_evaluation_service._call_openai_for_evaluation")
-    async def test_non_reference_resources_excluded(self, mock_call):
+    @patch(
+        "app.services.meta_skill_service.get_meta_skill",
+        new_callable=AsyncMock,
+        return_value=_mock_evaluator_meta(),
+    )
+    @patch("app.services.skill_evaluation_service._call_agent_for_evaluation")
+    async def test_non_reference_resources_excluded(self, mock_call, _mock_meta):
         """Resources that are not 'reference' type are excluded from prompt."""
         mock_call.return_value = _AICallResult(data=None, status="ai_unavailable")
 
