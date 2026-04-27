@@ -4,6 +4,7 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { AlertTriangle } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import {
   Dialog,
   DialogContent,
@@ -24,12 +25,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ScoringWeights } from "./scoring-weights";
+import { Card, CardContent } from "@/components/ui";
 import { ObjectionList } from "./objection-list";
 import { useHcpProfiles } from "@/hooks/use-hcp-profiles";
 import { usePublishedSkills } from "@/hooks/use-skills";
+import { useRubrics } from "@/hooks/use-rubrics";
 import type { Scenario, ScenarioCreate } from "@/types/scenario";
 import type { HcpProfile } from "@/types/hcp";
+import type { Rubric } from "@/types/rubric";
 
 const PRODUCTS = [
   "Tislelizumab",
@@ -58,11 +61,7 @@ const scenarioSchema = z.object({
   difficulty: z.enum(["easy", "medium", "hard"]),
   key_messages: z.array(z.string()),
   skill_id: z.string().nullable().optional(),
-  weight_key_message: z.number().min(0).max(100),
-  weight_objection_handling: z.number().min(0).max(100),
-  weight_communication: z.number().min(0).max(100),
-  weight_product_knowledge: z.number().min(0).max(100),
-  weight_scientific_info: z.number().min(0).max(100),
+  rubric_id: z.string().min(1, "Scoring rubric is required"),
   pass_threshold: z.number().min(0).max(100),
 });
 
@@ -86,6 +85,9 @@ export function ScenarioEditor({
   const { t } = useTranslation("admin");
   const { data: profilesData } = useHcpProfiles();
   const { data: publishedSkillsData } = usePublishedSkills();
+  const { data: rubricsData } = useRubrics();
+  const navigate = useNavigate();
+  const rubrics: Rubric[] = useMemo(() => rubricsData ?? [], [rubricsData]);
   const profiles: HcpProfile[] = useMemo(
     () => profilesData?.items ?? [],
     [profilesData],
@@ -107,14 +109,12 @@ export function ScenarioEditor({
       difficulty: "medium",
       key_messages: [],
       skill_id: null,
-      weight_key_message: 30,
-      weight_objection_handling: 25,
-      weight_communication: 20,
-      weight_product_knowledge: 15,
-      weight_scientific_info: 10,
+      rubric_id: "",
       pass_threshold: 70,
     },
   });
+
+  const selectedRubric = rubrics.find((r) => r.id === form.watch("rubric_id"));
 
   useEffect(() => {
     if (scenario && !isNew) {
@@ -128,11 +128,7 @@ export function ScenarioEditor({
         difficulty: scenario.difficulty,
         key_messages: scenario.key_messages,
         skill_id: scenario.skill_id ?? null,
-        weight_key_message: scenario.weight_key_message,
-        weight_objection_handling: scenario.weight_objection_handling,
-        weight_communication: scenario.weight_communication,
-        weight_product_knowledge: scenario.weight_product_knowledge,
-        weight_scientific_info: scenario.weight_scientific_info,
+        rubric_id: scenario.rubric_id,
         pass_threshold: scenario.pass_threshold,
       });
     } else if (isNew) {
@@ -146,11 +142,7 @@ export function ScenarioEditor({
         difficulty: "medium",
         key_messages: [],
         skill_id: null,
-        weight_key_message: 30,
-        weight_objection_handling: 25,
-        weight_communication: 20,
-        weight_product_knowledge: 15,
-        weight_scientific_info: 10,
+        rubric_id: "",
         pass_threshold: 70,
       });
     }
@@ -184,7 +176,7 @@ export function ScenarioEditor({
             {isNew ? t("scenarios.createButton") : `Edit: ${scenario?.name ?? ""}`}
           </DialogTitle>
           <DialogDescription>
-            Configure scenario details and scoring weights
+            Configure scenario details and scoring rubric
           </DialogDescription>
         </DialogHeader>
 
@@ -382,22 +374,81 @@ export function ScenarioEditor({
             addLabel={t("scenarios.addKeyMessage")}
           />
 
-          <ScoringWeights
-            weights={{
-              key_message: form.watch("weight_key_message"),
-              objection_handling: form.watch("weight_objection_handling"),
-              communication: form.watch("weight_communication"),
-              product_knowledge: form.watch("weight_product_knowledge"),
-              scientific_info: form.watch("weight_scientific_info"),
-            }}
-            onChange={(w) => {
-              form.setValue("weight_key_message", w.key_message);
-              form.setValue("weight_objection_handling", w.objection_handling);
-              form.setValue("weight_communication", w.communication);
-              form.setValue("weight_product_knowledge", w.product_knowledge);
-              form.setValue("weight_scientific_info", w.scientific_info);
-            }}
-          />
+          {/* Scoring Rubric Selector — replaces ScoringWeights per D-07 */}
+          <div className="grid gap-2">
+            <Label>{t("scenarios.scoringRubric")} *</Label>
+            <Controller
+              control={form.control}
+              name="rubric_id"
+              render={({ field }) => (
+                <Select
+                  value={field.value ?? ""}
+                  onValueChange={field.onChange}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={t("scenarios.selectRubric")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {rubrics
+                      .sort((a, b) => (b.is_default ? 1 : 0) - (a.is_default ? 1 : 0))
+                      .map((r) => (
+                        <SelectItem key={r.id} value={r.id}>
+                          {r.name} {r.is_default ? t("scenarios.rubricDefault") : ""}
+                          ({t("scenarios.dimensionCount", { count: r.dimensions.length })})
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
+            {form.formState.errors.rubric_id && (
+              <p className="text-destructive text-sm">
+                {t("scenarios.rubricRequired")}
+              </p>
+            )}
+          </div>
+
+          {/* Rubric Dimension Preview — read-only per UI-SPEC IC-01 */}
+          {selectedRubric ? (
+            <Card className="bg-muted/50">
+              <CardContent className="p-4 space-y-2">
+                {selectedRubric.dimensions.map((dim) => (
+                  <div key={dim.name} className="flex items-center justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium truncate">{dim.name}</span>
+                        <span className="text-sm text-muted-foreground ml-2">{dim.weight}%</span>
+                      </div>
+                      <div className="h-1.5 bg-muted rounded-full mt-1">
+                        <div
+                          className="h-full bg-primary rounded-full"
+                          style={{ width: `${dim.weight}%` }}
+                        />
+                      </div>
+                      {dim.criteria.length > 0 && (
+                        <p className="text-xs text-muted-foreground truncate mt-0.5">
+                          {dim.criteria.join("; ")}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              {t("scenarios.dimensionPreviewEmpty")}
+            </p>
+          )}
+
+          {/* Manage Rubrics link per UI-SPEC IC-01 */}
+          <button
+            type="button"
+            className="text-sm text-primary hover:underline cursor-pointer"
+            onClick={() => navigate("/admin/scoring-rubrics")}
+          >
+            {t("scenarios.manageRubrics")}
+          </button>
 
           <div className="grid gap-2">
             <Label>{t("scenarios.passThreshold")}</Label>
