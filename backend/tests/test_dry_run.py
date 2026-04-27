@@ -1089,6 +1089,48 @@ class TestRunDryRunSimulation:
             assert dr.status == "failed"
             assert "ai service unavailable" in dr.error_message.lower()
 
+    async def test_simulation_mid_abort_on_consecutive_failures(self):
+        """Consecutive agent failures mid-simulation abort as failed."""
+        dry_run_id = await self._setup_dry_run()
+
+        turn_counter = {"n": 0}
+
+        async def mock_call_agent_partial(
+            message, agent_id, agent_version, model, previous_response_id, **kwargs
+        ):
+            turn_counter["n"] += 1
+            resp_id = f"resp-{turn_counter['n']:03d}"
+            # Turn 0 (MR) succeeds, then all subsequent turns fail
+            if turn_counter["n"] == 1:
+                return ("Hello doctor, I am here to present.", resp_id)
+            return (f"[{agent_id} unavailable -- simulation continues]", "")
+
+        with (
+            patch(
+                "app.services.dry_run_engine._call_dry_run_agent",
+                side_effect=mock_call_agent_partial,
+            ),
+            patch(
+                "app.services.dry_run_engine.AsyncSessionLocal",
+                TestSessionLocal,
+            ),
+            patch(
+                "app.services.agent_sync_service.get_project_endpoint",
+                new_callable=AsyncMock,
+                return_value=("https://test.endpoint", "test-key"),
+            ),
+            patch(
+                "app.services.meta_skill_service.get_meta_skill",
+                side_effect=_mock_get_meta_skill("all"),
+            ),
+        ):
+            await run_dry_run_simulation(dry_run_id)
+
+        async with TestSessionLocal() as session:
+            dr = await session.get(DryRun, dry_run_id)
+            assert dr.status == "failed"
+            assert "consecutive failures" in dr.error_message.lower()
+
     async def test_simulation_llm_exception_marks_failed(self):
         """Exception during simulation marks dry run as failed."""
         dry_run_id = await self._setup_dry_run()

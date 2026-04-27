@@ -29,8 +29,11 @@ logger = logging.getLogger(__name__)
 
 MAX_TURNS = 20
 
-# Fallback marker — if the first agent response contains this, the AI service is down
+# Fallback marker — if an agent response contains this, the AI service is down
 _FALLBACK_MARKER = "unavailable -- simulation continues"
+
+# Abort simulation if this many consecutive turns return fallback text
+_MAX_CONSECUTIVE_FAILURES = 2
 
 # Phrases that signal the end of a conversation (case-insensitive)
 _ENDING_PHRASES = [
@@ -469,6 +472,7 @@ async def run_dry_run_simulation(dry_run_id: str) -> None:
             sequence = 0
             mr_prev_response_id: str | None = None
             hcp_prev_response_id: str | None = None
+            consecutive_failures = 0
 
             for turn in range(MAX_TURNS):
                 current_role = "mr" if turn % 2 == 0 else "hcp"
@@ -512,8 +516,15 @@ async def run_dry_run_simulation(dry_run_id: str) -> None:
                     )
                     hcp_prev_response_id = response_id or hcp_prev_response_id
 
+                # Track consecutive failures for mid-simulation abort
+                is_fallback = _FALLBACK_MARKER in response_text
+                if is_fallback:
+                    consecutive_failures += 1
+                else:
+                    consecutive_failures = 0
+
                 # Early abort: if first MR turn fails, AI service is unavailable
-                if turn == 0 and _FALLBACK_MARKER in response_text:
+                if turn == 0 and is_fallback:
                     dry_run.status = "failed"
                     dry_run.error_message = (
                         "AI service unavailable — check Azure AI Foundry configuration "
@@ -524,6 +535,23 @@ async def run_dry_run_simulation(dry_run_id: str) -> None:
                     logger.error(
                         "Dry run %s aborted: AI service unavailable on first turn",
                         dry_run_id,
+                    )
+                    return
+
+                # Mid-simulation abort: consecutive failures indicate persistent issue
+                if consecutive_failures >= _MAX_CONSECUTIVE_FAILURES:
+                    dry_run.status = "failed"
+                    dry_run.error_message = (
+                        f"AI service became unavailable during simulation "
+                        f"({consecutive_failures} consecutive failures at turn {turn}). "
+                        f"Last response: {response_text[:200]}"
+                    )
+                    await db.commit()
+                    logger.error(
+                        "Dry run %s aborted: %d consecutive agent failures at turn %d",
+                        dry_run_id,
+                        consecutive_failures,
+                        turn,
                     )
                     return
 
