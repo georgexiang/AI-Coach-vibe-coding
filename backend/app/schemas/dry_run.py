@@ -26,7 +26,7 @@ class SopStepCoverage(BaseModel):
     step_id: str
     step_name: str
     status: str  # "covered" | "partial" | "not_covered"
-    matched_message_ids: list[str] = []
+    matched_message_ids: list[int | str] = []
     details: str = ""
 
 
