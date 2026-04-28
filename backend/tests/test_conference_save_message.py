@@ -36,6 +36,7 @@ async def conference_session(db_session):
         created_by=user.id,
         mode="conference",
         key_messages="[]",
+        rubric_id="test-rubric-id",
     )
     db_session.add(scenario)
     await db_session.flush()

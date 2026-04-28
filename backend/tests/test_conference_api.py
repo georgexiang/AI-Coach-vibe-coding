@@ -76,6 +76,7 @@ async def _seed_conference_data() -> dict:
             created_by=user.id,
             key_messages=json.dumps(["Key msg 1", "Key msg 2"]),
             description="API test conference",
+            rubric_id="test-rubric-id",
         )
         session.add(scenario)
         await session.flush()

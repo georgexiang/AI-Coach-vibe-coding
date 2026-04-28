@@ -77,6 +77,7 @@ async def _setup_session(
             key_messages=json.dumps(["Superior PFS", "Better safety"]),
             status="active",
             created_by=admin.id,
+            rubric_id="test-rubric-id",
         )
         session.add(scenario)
         await session.flush()

@@ -327,6 +327,7 @@ class TestLoadSkillForScenario:
                 hcp_profile_id=hcp_id,
                 skill_id=None,
                 created_by=user_id,
+                rubric_id="test-rubric-id",
             )
             session.add(scenario)
             await session.commit()
@@ -349,6 +350,7 @@ class TestLoadSkillForScenario:
                 hcp_profile_id=hcp_id,
                 skill_id="nonexistent-skill-id",
                 created_by=user_id,
+                rubric_id="test-rubric-id",
             )
             session.add(scenario)
             await session.commit()
@@ -383,6 +385,7 @@ class TestLoadSkillForScenario:
                 hcp_profile_id=hcp_id,
                 skill_id=skill_id,
                 created_by=user_id,
+                rubric_id="test-rubric-id",
             )
             session.add(scenario)
             await session.commit()
@@ -417,6 +420,7 @@ class TestLoadSkillForScenario:
                 hcp_profile_id=hcp_id,
                 skill_id=skill_id,
                 created_by=user_id,
+                rubric_id="test-rubric-id",
             )
             session.add(scenario)
             await session.commit()
@@ -464,6 +468,7 @@ class TestLoadSkillForScenario:
                 skill_id=skill_id,
                 skill_version_id=version_id,
                 created_by=user_id,
+                rubric_id="test-rubric-id",
             )
             session.add(scenario)
             await session.commit()
@@ -514,6 +519,7 @@ class TestLoadSkillForScenario:
                 skill_id=skill_id,
                 skill_version_id="nonexistent-version-id",
                 created_by=user_id,
+                rubric_id="test-rubric-id",
             )
             session.add(scenario)
             await session.commit()
@@ -550,6 +556,7 @@ class TestLoadSkillForScenario:
                 hcp_profile_id=hcp_id,
                 skill_id=skill_id,
                 created_by=user_id,
+                rubric_id="test-rubric-id",
             )
             session.add(scenario)
             await session.commit()
@@ -587,6 +594,7 @@ class TestLoadSkillForScenario:
                 hcp_profile_id=hcp_id,
                 skill_id=skill_id,
                 created_by=user_id,
+                rubric_id="test-rubric-id",
             )
             session.add(scenario)
             await session.commit()
@@ -634,6 +642,7 @@ class TestLoadSkillForScenario:
                 skill_id=skill_id,
                 skill_version_id=None,
                 created_by=user_id,
+                rubric_id="test-rubric-id",
             )
             session.add(scenario)
             await session.commit()

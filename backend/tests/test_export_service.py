@@ -50,6 +50,7 @@ async def _create_scenario(session, *, hcp_id: str, created_by: str, name: str =
         status="active",
         hcp_profile_id=hcp_id,
         created_by=created_by,
+        rubric_id="test-rubric-id",
     )
     session.add(scenario)
     await session.flush()

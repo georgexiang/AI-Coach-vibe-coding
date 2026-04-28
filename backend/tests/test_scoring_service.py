@@ -7,6 +7,7 @@ import pytest
 from app.models.hcp_profile import HcpProfile
 from app.models.message import SessionMessage
 from app.models.scenario import Scenario
+from app.models.scoring_rubric import ScoringRubric
 from app.models.session import CoachingSession
 from app.models.user import User
 from app.services.auth import get_password_hash
@@ -42,16 +43,22 @@ async def _seed_completed_session(db) -> tuple[str, str, str]:
     db.add(hcp)
     await db.flush()
 
+    rubric = ScoringRubric(
+        name="Test Rubric",
+        scenario_type="f2f",
+        dimensions=json.dumps(DEFAULT_RUBRIC_DIMENSIONS),
+        is_default=True,
+        created_by=user.id,
+    )
+    db.add(rubric)
+    await db.flush()
+
     scenario = Scenario(
         name="Test Scenario",
         product="Brukinsa",
         hcp_profile_id=hcp.id,
         key_messages=json.dumps(["Superior PFS", "Better safety"]),
-        weight_key_message=30,
-        weight_objection_handling=25,
-        weight_communication=20,
-        weight_product_knowledge=15,
-        weight_scientific_info=10,
+        rubric_id=rubric.id,
         pass_threshold=70,
         status="active",
         created_by=user.id,
@@ -94,6 +101,15 @@ async def _seed_completed_session(db) -> tuple[str, str, str]:
     return user.id, session.id, scenario.id
 
 
+DEFAULT_RUBRIC_DIMENSIONS = [
+    {"name": "key_message", "weight": 30, "criteria": [], "max_score": 100.0},
+    {"name": "objection_handling", "weight": 25, "criteria": [], "max_score": 100.0},
+    {"name": "communication", "weight": 20, "criteria": [], "max_score": 100.0},
+    {"name": "product_knowledge", "weight": 15, "criteria": [], "max_score": 100.0},
+    {"name": "scientific_info", "weight": 10, "criteria": [], "max_score": 100.0},
+]
+
+
 class TestGenerateMockScores:
     """Tests for the pure _generate_mock_scores function."""
 
@@ -103,11 +119,7 @@ class TestGenerateMockScores:
             "product": "TestDrug",
             "hcp_profile_id": "p1",
             "key_messages": json.dumps(["Key msg 1", "Key msg 2"]),
-            "weight_key_message": 30,
-            "weight_objection_handling": 25,
-            "weight_communication": 20,
-            "weight_product_knowledge": 15,
-            "weight_scientific_info": 10,
+            "rubric_id": "test-rubric-id",
             "pass_threshold": 70,
             "status": "active",
             "created_by": "u1",
@@ -134,12 +146,14 @@ class TestGenerateMockScores:
             {"message": "Key msg 1", "delivered": True},
             {"message": "Key msg 2", "delivered": False},
         ]
-        result = _generate_mock_scores(scenario, messages, km_status)
+        result = _generate_mock_scores(scenario, messages, km_status, DEFAULT_RUBRIC_DIMENSIONS)
         assert len(result["dimensions"]) == 5
 
     async def test_dimension_names_correct(self):
         scenario = self._make_scenario()
-        result = _generate_mock_scores(scenario, self._make_messages(), [])
+        result = _generate_mock_scores(
+            scenario, self._make_messages(), [], DEFAULT_RUBRIC_DIMENSIONS
+        )
         dim_names = {d["dimension"] for d in result["dimensions"]}
         assert dim_names == {
             "key_message",
@@ -152,13 +166,17 @@ class TestGenerateMockScores:
     async def test_scores_in_valid_range(self):
         scenario = self._make_scenario()
         km_status = [{"message": "m", "delivered": True}]
-        result = _generate_mock_scores(scenario, self._make_messages(), km_status)
+        result = _generate_mock_scores(
+            scenario, self._make_messages(), km_status, DEFAULT_RUBRIC_DIMENSIONS
+        )
         for dim in result["dimensions"]:
             assert 60 <= dim["score"] <= 95
 
     async def test_overall_score_is_weighted_average(self):
         scenario = self._make_scenario()
-        result = _generate_mock_scores(scenario, self._make_messages(), [])
+        result = _generate_mock_scores(
+            scenario, self._make_messages(), [], DEFAULT_RUBRIC_DIMENSIONS
+        )
         expected = sum(d["score"] * d["weight"] / 100 for d in result["dimensions"])
         assert abs(result["overall_score"] - round(expected, 1)) < 0.01
 
@@ -166,12 +184,16 @@ class TestGenerateMockScores:
         # Very low threshold should pass
         scenario = self._make_scenario(pass_threshold=10)
         km_status = [{"message": "m", "delivered": True}]
-        result = _generate_mock_scores(scenario, self._make_messages(), km_status)
+        result = _generate_mock_scores(
+            scenario, self._make_messages(), km_status, DEFAULT_RUBRIC_DIMENSIONS
+        )
         assert result["passed"] is True
 
     async def test_high_threshold_may_fail(self):
         scenario = self._make_scenario(pass_threshold=100)
-        result = _generate_mock_scores(scenario, self._make_messages(), [])
+        result = _generate_mock_scores(
+            scenario, self._make_messages(), [], DEFAULT_RUBRIC_DIMENSIONS
+        )
         # Score is always < 100 given the 60-95 range
         assert result["passed"] is False
 
@@ -180,8 +202,12 @@ class TestGenerateMockScores:
         scenario_fail = self._make_scenario(pass_threshold=100)
         km = [{"message": "m", "delivered": True}]
 
-        result_pass = _generate_mock_scores(scenario_pass, self._make_messages(), km)
-        result_fail = _generate_mock_scores(scenario_fail, self._make_messages(), km)
+        result_pass = _generate_mock_scores(
+            scenario_pass, self._make_messages(), km, DEFAULT_RUBRIC_DIMENSIONS
+        )
+        result_fail = _generate_mock_scores(
+            scenario_fail, self._make_messages(), km, DEFAULT_RUBRIC_DIMENSIONS
+        )
 
         assert "Good performance" in result_pass["feedback_summary"]
         assert "below the passing threshold" in result_fail["feedback_summary"]
@@ -192,7 +218,9 @@ class TestGenerateMockScores:
             {"message": "Key msg 1", "delivered": True},
             {"message": "Key msg 2", "delivered": False},
         ]
-        result = _generate_mock_scores(scenario, self._make_messages(), km_status)
+        result = _generate_mock_scores(
+            scenario, self._make_messages(), km_status, DEFAULT_RUBRIC_DIMENSIONS
+        )
         km_dim = next(d for d in result["dimensions"] if d["dimension"] == "key_message")
         assert len(km_dim["strengths"]) >= 1
         assert "1 of 2" in km_dim["strengths"][0]["text"]
@@ -256,6 +284,7 @@ class TestScoreSessionIntegration:
             product="Drug",
             hcp_profile_id=hcp.id,
             key_messages="[]",
+            rubric_id="test-rubric-id",
             status="active",
             created_by=user.id,
         )
@@ -291,7 +320,10 @@ class TestScoreSessionIntegration:
 
 
 class TestExtractSkillCriteria:
-    """Tests for _extract_skill_criteria helper that extracts assessment criteria from Skill content."""
+    """Tests for _extract_skill_criteria helper.
+
+    Extracts assessment criteria from Skill content.
+    """
 
     def test_returns_empty_for_none_skill(self):
         assert _extract_skill_criteria(None) == ""
@@ -382,8 +414,7 @@ class TestBuildScoringPromptWithSkillCriteria:
             },
             messages=[{"role": "user", "content": "Hello doctor"}],
             key_messages_status=[],
-            weights={"key_message": 30, "objection_handling": 25, "communication": 20,
-                     "product_knowledge": 15, "scientific_info": 10},
+            rubric_dimensions=DEFAULT_RUBRIC_DIMENSIONS,
             skill_criteria=criteria,
         )
         assert "Skill-Specific Assessment Criteria" in prompt
@@ -403,7 +434,6 @@ class TestBuildScoringPromptWithSkillCriteria:
             },
             messages=[{"role": "user", "content": "Hello"}],
             key_messages_status=[],
-            weights={"key_message": 30, "objection_handling": 25, "communication": 20,
-                     "product_knowledge": 15, "scientific_info": 10},
+            rubric_dimensions=DEFAULT_RUBRIC_DIMENSIONS,
         )
         assert "Skill-Specific Assessment Criteria" not in prompt

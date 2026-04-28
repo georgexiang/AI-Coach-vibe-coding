@@ -40,6 +40,7 @@ async def _seed_scored_sessions(db, count=2) -> tuple[str, list[str]]:
         key_messages=json.dumps(["Msg 1", "Msg 2"]),
         status="active",
         created_by=user.id,
+        rubric_id="test-rubric-id",
     )
     db.add(scenario)
     await db.flush()

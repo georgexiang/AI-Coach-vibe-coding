@@ -5,6 +5,7 @@ import json
 from app.models.hcp_profile import HcpProfile
 from app.models.message import SessionMessage
 from app.models.scenario import Scenario
+from app.models.scoring_rubric import ScoringRubric
 from app.models.session import CoachingSession
 from app.models.user import User
 from app.services.auth import create_access_token, get_password_hash
@@ -35,6 +36,23 @@ async def _seed_scored_session_and_token() -> tuple[str, str, str]:
         await db.commit()
         await db.refresh(hcp)
 
+        rubric = ScoringRubric(
+            name="Test Rubric",
+            scenario_type="f2f",
+            dimensions=json.dumps([
+                {"name": "key_message", "weight": 30, "criteria": [], "max_score": 100.0},
+                {"name": "objection_handling", "weight": 25, "criteria": [], "max_score": 100.0},
+                {"name": "communication", "weight": 20, "criteria": [], "max_score": 100.0},
+                {"name": "product_knowledge", "weight": 15, "criteria": [], "max_score": 100.0},
+                {"name": "scientific_info", "weight": 10, "criteria": [], "max_score": 100.0},
+            ]),
+            is_default=True,
+            created_by=user.id,
+        )
+        db.add(rubric)
+        await db.commit()
+        await db.refresh(rubric)
+
         scenario = Scenario(
             name="Report Scenario",
             product="TestDrug",
@@ -42,6 +60,7 @@ async def _seed_scored_session_and_token() -> tuple[str, str, str]:
             key_messages=json.dumps(["Key 1", "Key 2"]),
             status="active",
             created_by=user.id,
+            rubric_id=rubric.id,
         )
         db.add(scenario)
         await db.commit()
@@ -109,6 +128,7 @@ async def _seed_unscored_session_and_token() -> tuple[str, str, str]:
             key_messages=json.dumps([]),
             status="active",
             created_by=user.id,
+            rubric_id="test-rubric-id",
         )
         db.add(scenario)
         await db.commit()

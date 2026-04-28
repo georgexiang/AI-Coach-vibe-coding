@@ -57,6 +57,7 @@ async def _seed_conference_fixture(session, *, mode="conference", audience_count
         created_by=user.id,
         key_messages=json.dumps(["Safety profile", "Efficacy data"]),
         description="Cancer treatment data presentation",
+        rubric_id="test-rubric-id",
     )
     session.add(scenario)
     await session.flush()

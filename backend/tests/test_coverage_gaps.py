@@ -17,10 +17,19 @@ import pytest
 from app.models.hcp_profile import HcpProfile
 from app.models.message import SessionMessage
 from app.models.scenario import Scenario
+from app.models.scoring_rubric import ScoringRubric
 from app.models.session import CoachingSession
 from app.models.user import User
 from app.services.auth import create_access_token, get_password_hash
 from tests.conftest import TestSessionLocal
+
+_DEFAULT_RUBRIC_DIMS = json.dumps([
+    {"name": "key_message", "weight": 30, "criteria": [], "max_score": 100.0},
+    {"name": "objection_handling", "weight": 25, "criteria": [], "max_score": 100.0},
+    {"name": "communication", "weight": 20, "criteria": [], "max_score": 100.0},
+    {"name": "product_knowledge", "weight": 15, "criteria": [], "max_score": 100.0},
+    {"name": "scientific_info", "weight": 10, "criteria": [], "max_score": 100.0},
+])
 
 # ────────────────── helpers ──────────────────
 
@@ -61,18 +70,30 @@ async def _inactive_user(username="inactive") -> tuple[str, str]:
 
 
 async def _admin_scenario(client, admin_id, admin_token) -> str:
-    """Create an HCP profile + active scenario. Returns scenario_id."""
+    """Create an HCP profile + rubric + active scenario. Returns scenario_id."""
     hcp = await client.post(
         "/api/v1/hcp-profiles",
         json={"name": "Dr. Cov", "specialty": "Onc", "created_by": admin_id},
         headers={"Authorization": f"Bearer {admin_token}"},
     )
+    # Create rubric via DB (no API endpoint needed)
+    async with TestSessionLocal() as db:
+        rubric = ScoringRubric(
+            name="Test Rubric", scenario_type="f2f",
+            dimensions=_DEFAULT_RUBRIC_DIMS, is_default=True, created_by=admin_id,
+        )
+        db.add(rubric)
+        await db.commit()
+        await db.refresh(rubric)
+        rubric_id = rubric.id
+
     scn = await client.post(
         "/api/v1/scenarios",
         json={
             "name": "Cov Scenario",
             "product": "Brukinsa",
             "hcp_profile_id": hcp.json()["id"],
+            "rubric_id": rubric_id,
             "created_by": admin_id,
             "status": "active",
             "key_messages": ["Superior PFS", "Better safety"],
@@ -99,6 +120,13 @@ async def _completed_session_with_messages() -> tuple[str, str, str]:
         db.add(hcp)
         await db.flush()
 
+        rubric = ScoringRubric(
+            name="Test Rubric", scenario_type="f2f",
+            dimensions=_DEFAULT_RUBRIC_DIMS, is_default=True, created_by=user.id,
+        )
+        db.add(rubric)
+        await db.flush()
+
         scenario = Scenario(
             name="Comp Scenario",
             product="Brukinsa",
@@ -106,6 +134,7 @@ async def _completed_session_with_messages() -> tuple[str, str, str]:
             key_messages=json.dumps(["PFS", "Safety"]),
             status="active",
             created_by=user.id,
+            rubric_id=rubric.id,
         )
         db.add(scenario)
         await db.flush()
@@ -498,6 +527,7 @@ class TestSessionsApiCoverage:
                 key_messages=json.dumps(["PFS", "Safety"]),
                 status="active",
                 created_by=user.id,
+                rubric_id="test-rubric-id",
             )
             db.add(scenario)
             await db.flush()
@@ -648,6 +678,7 @@ class TestScenariosCoverage:
                 "name": "Cov Scenario",
                 "product": "Drug",
                 "hcp_profile_id": hcp_id,
+                "rubric_id": "test-rubric-id",
                 "created_by": admin_id,
                 "key_messages": ["Msg1"],
             },
@@ -667,6 +698,7 @@ class TestScenariosCoverage:
                 "name": "Active Scn",
                 "product": "Drug",
                 "hcp_profile_id": hcp_id,
+                "rubric_id": "test-rubric-id",
                 "created_by": admin_id,
                 "status": "active",
                 "key_messages": ["M"],
@@ -690,6 +722,7 @@ class TestScenariosCoverage:
                 "name": "User Active Scn",
                 "product": "Drug",
                 "hcp_profile_id": hcp_id,
+                "rubric_id": "test-rubric-id",
                 "created_by": admin_id,
                 "status": "active",
                 "key_messages": ["M"],
@@ -714,6 +747,7 @@ class TestScenariosCoverage:
                 "name": "Get Scn",
                 "product": "Drug",
                 "hcp_profile_id": hcp_id,
+                "rubric_id": "test-rubric-id",
                 "created_by": admin_id,
                 "key_messages": ["M"],
             },
@@ -737,6 +771,7 @@ class TestScenariosCoverage:
                 "name": "Before",
                 "product": "Drug",
                 "hcp_profile_id": hcp_id,
+                "rubric_id": "test-rubric-id",
                 "created_by": admin_id,
                 "key_messages": ["M"],
             },
@@ -761,6 +796,7 @@ class TestScenariosCoverage:
                 "name": "Delete Scn",
                 "product": "Drug",
                 "hcp_profile_id": hcp_id,
+                "rubric_id": "test-rubric-id",
                 "created_by": admin_id,
                 "key_messages": ["M"],
             },
@@ -783,6 +819,7 @@ class TestScenariosCoverage:
                 "name": "Clone Src",
                 "product": "Drug",
                 "hcp_profile_id": hcp_id,
+                "rubric_id": "test-rubric-id",
                 "created_by": admin_id,
                 "key_messages": ["M"],
             },

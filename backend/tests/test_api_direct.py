@@ -11,12 +11,21 @@ import pytest
 from app.models.hcp_profile import HcpProfile
 from app.models.message import SessionMessage
 from app.models.scenario import Scenario
+from app.models.scoring_rubric import ScoringRubric
 from app.models.session import CoachingSession
 from app.models.user import User
 from app.schemas.auth import LoginRequest
 from app.services.auth import create_access_token, get_password_hash
 from app.utils.exceptions import AppException
 from tests.conftest import TestSessionLocal
+
+_DEFAULT_RUBRIC_DIMS = json.dumps([
+    {"name": "key_message", "weight": 30, "criteria": [], "max_score": 100.0},
+    {"name": "objection_handling", "weight": 25, "criteria": [], "max_score": 100.0},
+    {"name": "communication", "weight": 20, "criteria": [], "max_score": 100.0},
+    {"name": "product_knowledge", "weight": 15, "criteria": [], "max_score": 100.0},
+    {"name": "scientific_info", "weight": 10, "criteria": [], "max_score": 100.0},
+])
 
 # ────────── auth.py direct calls ──────────
 
@@ -103,13 +112,21 @@ class TestScoringDirect:
         db.add(hcp)
         await db.flush()
 
+        rubric = ScoringRubric(
+            name="Test Rubric", scenario_type="f2f",
+            dimensions=_DEFAULT_RUBRIC_DIMS, is_default=True, created_by=user.id,
+        )
+        db.add(rubric)
+        await db.flush()
+
         scenario = Scenario(
             name="DScore Scn",
             product="Drug",
             hcp_profile_id=hcp.id,
             key_messages=json.dumps(["PFS"]),
             status="active",
-
+            rubric_id=rubric.id,
+            created_by=user.id,
         )
         db.add(scenario)
         await db.flush()
@@ -190,13 +207,21 @@ class TestSessionsDirect:
         db.add(hcp)
         await db.flush()
 
+        rubric = ScoringRubric(
+            name="Test Rubric", scenario_type="f2f",
+            dimensions=_DEFAULT_RUBRIC_DIMS, is_default=True, created_by=user.id,
+        )
+        db.add(rubric)
+        await db.flush()
+
         scenario = Scenario(
             name="DSess Scn",
             product="Drug",
             hcp_profile_id=hcp.id,
             key_messages=json.dumps(["PFS", "Safety"]),
             status="active",
-
+            rubric_id=rubric.id,
+            created_by=user.id,
         )
         db.add(scenario)
         await db.flush()
@@ -440,13 +465,21 @@ class TestSessionsDirect:
         db_session.add(hcp)
         await db_session.flush()
 
+        rubric = ScoringRubric(
+            name="Test Rubric", scenario_type="f2f",
+            dimensions=_DEFAULT_RUBRIC_DIMS, is_default=True, created_by=user.id,
+        )
+        db_session.add(rubric)
+        await db_session.flush()
+
         scenario = Scenario(
             name="Rpt Scn",
             product="Drug",
             hcp_profile_id=hcp.id,
             key_messages=json.dumps(["PFS"]),
             status="active",
-
+            rubric_id=rubric.id,
+            created_by=user.id,
         )
         db_session.add(scenario)
         await db_session.flush()
@@ -492,13 +525,21 @@ class TestSessionsDirect:
         db_session.add(hcp)
         await db_session.flush()
 
+        rubric = ScoringRubric(
+            name="Test Rubric", scenario_type="f2f",
+            dimensions=_DEFAULT_RUBRIC_DIMS, is_default=True, created_by=user.id,
+        )
+        db_session.add(rubric)
+        await db_session.flush()
+
         scenario = Scenario(
             name="Sug Scn",
             product="Drug",
             hcp_profile_id=hcp.id,
             key_messages=json.dumps(["PFS", "Safety"]),
             status="active",
-
+            rubric_id=rubric.id,
+            created_by=user.id,
         )
         db_session.add(scenario)
         await db_session.flush()
@@ -656,7 +697,7 @@ class TestScenariosDirect:
             name="Direct Scn",
             product="Drug",
             hcp_profile_id=hcp.id,
-
+            rubric_id="test-rubric-id",
             key_messages=["M1"],
         )
         result = await create_scenario(data=data, db=db_session, user=user)
@@ -672,7 +713,7 @@ class TestScenariosDirect:
             name="Get Scn",
             product="Drug",
             hcp_profile_id=hcp.id,
-
+            rubric_id="test-rubric-id",
             key_messages=["M1"],
         )
         created = await create_scenario(data=data, db=db_session, user=user)
@@ -691,7 +732,7 @@ class TestScenariosDirect:
             name="Before Scn",
             product="Drug",
             hcp_profile_id=hcp.id,
-
+            rubric_id="test-rubric-id",
             key_messages=["M1"],
         )
         created = await create_scenario(data=data, db=db_session, user=user)
@@ -711,7 +752,7 @@ class TestScenariosDirect:
             name="Del Scn",
             product="Drug",
             hcp_profile_id=hcp.id,
-
+            rubric_id="test-rubric-id",
             key_messages=["M1"],
         )
         created = await create_scenario(data=data, db=db_session, user=user)
@@ -730,7 +771,7 @@ class TestScenariosDirect:
             name="Clone Src",
             product="Drug",
             hcp_profile_id=hcp.id,
-
+            rubric_id="test-rubric-id",
             key_messages=["M1"],
         )
         created = await create_scenario(data=data, db=db_session, user=user)

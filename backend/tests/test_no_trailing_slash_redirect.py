@@ -70,6 +70,7 @@ async def _seed_scenario(admin_id: str) -> str:
             hcp_profile_id=profile.id,
             key_messages='["msg1"]',
             created_by=admin_id,
+            rubric_id="test-rubric-id",
         )
         session.add(scenario)
         await session.commit()
@@ -195,6 +196,7 @@ class TestNoTrailingSlashRedirect:
                 "mode": "f2f",
                 "difficulty": "easy",
                 "hcp_profile_id": profile_id,
+                "rubric_id": "test-rubric-id",
                 "key_messages": ["msg1"],
                 "created_by": user_id,
             },

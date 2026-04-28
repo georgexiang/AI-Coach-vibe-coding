@@ -37,11 +37,7 @@ def _make_scenario(**overrides) -> Scenario:
         "therapeutic_area": "Hematology",
         "hcp_profile_id": "profile-1",
         "key_messages": json.dumps(["Superior PFS vs ibrutinib", "Better safety profile"]),
-        "weight_key_message": 30,
-        "weight_objection_handling": 25,
-        "weight_communication": 20,
-        "weight_product_knowledge": 15,
-        "weight_scientific_info": 10,
+        "rubric_id": "test-rubric-id",
         "pass_threshold": 70,
         "created_by": "user-1",
         "mode": "f2f",
@@ -176,24 +172,25 @@ class TestBuildScoringPrompt:
         ]
         prompt = build_scoring_prompt(scenario, transcript, ["Key msg 1"])
 
-        assert "Key Message Delivery" in prompt
-        assert "Objection Handling" in prompt
-        assert "Communication Skills" in prompt
-        assert "Product Knowledge" in prompt
-        assert "Scientific Information" in prompt
+        assert "key_message" in prompt
+        assert "objection_handling" in prompt
+        assert "communication" in prompt
+        assert "product_knowledge" in prompt
+        assert "scientific_info" in prompt
 
-    async def test_includes_weights_from_scenario(self):
+    async def test_includes_weights_from_rubric_dimensions(self):
         from app.services.prompt_builder import build_scoring_prompt
 
-        scenario = _make_scenario(
-            weight_key_message=40,
-            weight_objection_handling=20,
-            weight_communication=20,
-            weight_product_knowledge=10,
-            weight_scientific_info=10,
-        )
+        scenario = _make_scenario()
+        rubric_dims = [
+            {"name": "key_message", "weight": 40, "criteria": []},
+            {"name": "objection_handling", "weight": 20, "criteria": []},
+            {"name": "communication", "weight": 20, "criteria": []},
+            {"name": "product_knowledge", "weight": 10, "criteria": []},
+            {"name": "scientific_info", "weight": 10, "criteria": []},
+        ]
         transcript = [{"role": "user", "content": "Test"}]
-        prompt = build_scoring_prompt(scenario, transcript, [])
+        prompt = build_scoring_prompt(scenario, transcript, [], rubric_dimensions=rubric_dims)
 
         assert "weight: 40" in prompt
         assert "weight: 20" in prompt

@@ -41,6 +41,7 @@ async def _seed_in_progress_session_and_token() -> tuple[str, str, str]:
             key_messages=json.dumps(["Efficacy data", "Safety profile"]),
             status="active",
             created_by=user.id,
+            rubric_id="test-rubric-id",
         )
         db.add(scenario)
         await db.commit()

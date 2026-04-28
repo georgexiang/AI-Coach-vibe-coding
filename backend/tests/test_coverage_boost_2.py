@@ -1688,6 +1688,7 @@ class TestHcpProfileServiceCascade:
         scenario = Scenario(
             name="Test Scenario", product="TestDrug", mode="f2f",
             hcp_profile_id=profile.id, created_by=user.id,
+            rubric_id="test-rubric-id",
         )
         db_session.add(scenario)
         await db_session.flush()

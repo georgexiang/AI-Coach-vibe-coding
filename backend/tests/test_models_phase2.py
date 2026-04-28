@@ -98,6 +98,7 @@ class TestScenarioModel:
             name="Test Scenario",
             product="Brukinsa",
             hcp_profile_id=hcp.id,
+            rubric_id="test-rubric-id",
             created_by=user.id,
         )
         db_session.add(scenario)
@@ -106,37 +107,8 @@ class TestScenarioModel:
         assert scenario.id is not None
         assert scenario.mode == "f2f"
         assert scenario.status == "draft"
-        assert scenario.weight_key_message == 30
+        assert scenario.rubric_id == "test-rubric-id"
         assert scenario.pass_threshold == 70
-
-    async def test_get_scoring_weights(self, db_session):
-        user = await _seed_user(db_session)
-        hcp = HcpProfile(name="Dr. B", specialty="Onc", created_by=user.id)
-        db_session.add(hcp)
-        await db_session.flush()
-
-        scenario = Scenario(
-            name="S",
-            product="Drug",
-            hcp_profile_id=hcp.id,
-            created_by=user.id,
-            weight_key_message=40,
-            weight_objection_handling=20,
-            weight_communication=20,
-            weight_product_knowledge=10,
-            weight_scientific_info=10,
-        )
-        db_session.add(scenario)
-        await db_session.flush()
-
-        weights = scenario.get_scoring_weights()
-        assert weights == {
-            "key_message": 40,
-            "objection_handling": 20,
-            "communication": 20,
-            "product_knowledge": 10,
-            "scientific_info": 10,
-        }
 
     async def test_hcp_profile_relationship(self, db_session):
         from sqlalchemy import select
@@ -151,6 +123,7 @@ class TestScenarioModel:
             name="S",
             product="Drug",
             hcp_profile_id=hcp.id,
+            rubric_id="test-rubric-id",
             created_by=user.id,
         )
         db_session.add(scenario)
@@ -178,6 +151,7 @@ class TestCoachingSessionModel:
             name="S",
             product="Drug",
             hcp_profile_id=hcp.id,
+            rubric_id="test-rubric-id",
             created_by=user.id,
         )
         db_session.add(scenario)
@@ -206,6 +180,7 @@ class TestCoachingSessionModel:
             name="S",
             product="Drug",
             hcp_profile_id=hcp.id,
+            rubric_id="test-rubric-id",
             created_by=user.id,
         )
         db_session.add(scenario)
@@ -235,6 +210,7 @@ class TestSessionMessageModel:
             name="S",
             product="Drug",
             hcp_profile_id=hcp.id,
+            rubric_id="test-rubric-id",
             created_by=user.id,
         )
         db_session.add(scenario)
@@ -272,6 +248,7 @@ class TestScoreModels:
             name="S",
             product="Drug",
             hcp_profile_id=hcp.id,
+            rubric_id="test-rubric-id",
             created_by=user.id,
         )
         db_session.add(scenario)
@@ -304,6 +281,7 @@ class TestScoreModels:
             name="S",
             product="Drug",
             hcp_profile_id=hcp.id,
+            rubric_id="test-rubric-id",
             created_by=user.id,
         )
         db_session.add(scenario)
@@ -351,6 +329,7 @@ class TestScoreModels:
             name="S",
             product="Drug",
             hcp_profile_id=hcp.id,
+            rubric_id="test-rubric-id",
             created_by=user.id,
         )
         db_session.add(scenario)

@@ -62,6 +62,7 @@ class TestCreateScenarioEndpoint:
                 "name": "Test Scenario",
                 "product": "Brukinsa",
                 "hcp_profile_id": hcp_id,
+                "rubric_id": "test-rubric-id",
                 "created_by": user_id,
                 "key_messages": ["KM1", "KM2"],
             },
@@ -72,6 +73,7 @@ class TestCreateScenarioEndpoint:
         assert data["name"] == "Test Scenario"
         assert data["key_messages"] == ["KM1", "KM2"]
         assert data["status"] == "draft"
+        assert data["rubric_id"] == "test-rubric-id"
 
     async def test_non_admin_gets_403(self, client):
         # Need admin to create HCP first
@@ -85,28 +87,24 @@ class TestCreateScenarioEndpoint:
                 "name": "Nope",
                 "product": "Drug",
                 "hcp_profile_id": hcp_id,
+                "rubric_id": "test-rubric-id",
                 "created_by": "u1",
             },
             headers={"Authorization": f"Bearer {user_token}"},
         )
         assert response.status_code == 403
 
-    async def test_invalid_weights_returns_422(self, client):
+    async def test_missing_rubric_id_returns_422(self, client):
         user_id, token = await _create_admin_and_token()
         hcp_id = await _create_hcp_profile(client, token, user_id)
 
         response = await client.post(
             "/api/v1/scenarios",
             json={
-                "name": "Bad Weights",
+                "name": "No Rubric",
                 "product": "Drug",
                 "hcp_profile_id": hcp_id,
                 "created_by": user_id,
-                "weight_key_message": 50,
-                "weight_objection_handling": 50,
-                "weight_communication": 50,
-                "weight_product_knowledge": 50,
-                "weight_scientific_info": 50,
             },
             headers={"Authorization": f"Bearer {token}"},
         )
@@ -120,6 +118,7 @@ class TestCreateScenarioEndpoint:
                 "name": "Bad HCP",
                 "product": "Drug",
                 "hcp_profile_id": "nonexistent-hcp",
+                "rubric_id": "test-rubric-id",
                 "created_by": user_id,
             },
             headers={"Authorization": f"Bearer {token}"},
@@ -141,6 +140,7 @@ class TestListScenariosEndpoint:
                     "name": name,
                     "product": "Drug",
                     "hcp_profile_id": hcp_id,
+                    "rubric_id": "test-rubric-id",
                     "created_by": user_id,
                 },
                 headers={"Authorization": f"Bearer {token}"},
@@ -165,6 +165,7 @@ class TestListScenariosEndpoint:
                 "name": "Draft",
                 "product": "D",
                 "hcp_profile_id": hcp_id,
+                "rubric_id": "test-rubric-id",
                 "created_by": user_id,
                 "status": "draft",
             },
@@ -176,6 +177,7 @@ class TestListScenariosEndpoint:
                 "name": "Active",
                 "product": "D",
                 "hcp_profile_id": hcp_id,
+                "rubric_id": "test-rubric-id",
                 "created_by": user_id,
                 "status": "active",
             },
@@ -205,6 +207,7 @@ class TestListActiveScenariosEndpoint:
                 "name": "Active For User",
                 "product": "Drug",
                 "hcp_profile_id": hcp_id,
+                "rubric_id": "test-rubric-id",
                 "created_by": admin_id,
                 "status": "active",
             },
@@ -236,6 +239,7 @@ class TestGetScenarioEndpoint:
                 "name": "Single",
                 "product": "Drug",
                 "hcp_profile_id": hcp_id,
+                "rubric_id": "test-rubric-id",
                 "created_by": user_id,
             },
             headers={"Authorization": f"Bearer {token}"},
@@ -263,6 +267,7 @@ class TestUpdateScenarioEndpoint:
                 "name": "Old",
                 "product": "Drug",
                 "hcp_profile_id": hcp_id,
+                "rubric_id": "test-rubric-id",
                 "created_by": user_id,
             },
             headers={"Authorization": f"Bearer {token}"},
@@ -292,6 +297,7 @@ class TestDeleteScenarioEndpoint:
                 "name": "Del",
                 "product": "Drug",
                 "hcp_profile_id": hcp_id,
+                "rubric_id": "test-rubric-id",
                 "created_by": user_id,
             },
             headers={"Authorization": f"Bearer {token}"},
@@ -318,6 +324,7 @@ class TestCloneScenarioEndpoint:
                 "name": "Original",
                 "product": "Drug",
                 "hcp_profile_id": hcp_id,
+                "rubric_id": "test-rubric-id",
                 "created_by": user_id,
                 "key_messages": ["KM1"],
             },

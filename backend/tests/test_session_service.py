@@ -50,6 +50,7 @@ async def _seed_user_and_scenario(db) -> tuple[str, str]:
         key_messages=json.dumps(["Superior PFS data", "Favorable safety profile"]),
         status="active",
         created_by=user.id,
+        rubric_id="test-rubric-id",
     )
     db.add(scenario)
     await db.flush()
@@ -97,6 +98,7 @@ class TestCreateSession:
             key_messages="[]",
             status="draft",
             created_by=user_id,
+            rubric_id="test-rubric-id",
         )
         db_session.add(draft)
         await db_session.flush()

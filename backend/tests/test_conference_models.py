@@ -40,6 +40,7 @@ async def _seed_user_and_scenario(session, *, mode: str = "conference") -> tuple
         hcp_profile_id=hcp.id,
         created_by=user.id,
         key_messages=json.dumps(["msg1", "msg2"]),
+        rubric_id="test-rubric-id",
     )
     session.add(scenario)
     await session.flush()

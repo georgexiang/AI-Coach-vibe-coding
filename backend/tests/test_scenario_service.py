@@ -51,7 +51,7 @@ class TestCreateScenario:
             name="Test Scenario",
             product="Brukinsa",
             hcp_profile_id=hcp_id,
-
+            rubric_id="test-rubric-id",
         )
         scenario = await create_scenario(db_session, data, user_id)
 
@@ -67,7 +67,7 @@ class TestCreateScenario:
             name="S",
             product="Drug",
             hcp_profile_id=hcp_id,
-
+            rubric_id="test-rubric-id",
             key_messages=["Key msg 1", "Key msg 2"],
         )
         scenario = await create_scenario(db_session, data, user_id)
@@ -80,26 +80,22 @@ class TestCreateScenario:
             name="S",
             product="Drug",
             hcp_profile_id="nonexistent-hcp",
-
+            rubric_id="test-rubric-id",
         )
         with pytest.raises(NotFoundException):
             await create_scenario(db_session, data, user_id)
 
-    async def test_applies_default_weights(self, db_session):
+    async def test_applies_rubric_id_and_defaults(self, db_session):
         user_id, hcp_id = await _seed_user_and_hcp(db_session)
         data = ScenarioCreate(
             name="S",
             product="Drug",
             hcp_profile_id=hcp_id,
-
+            rubric_id="test-rubric-id",
         )
         scenario = await create_scenario(db_session, data, user_id)
 
-        assert scenario.weight_key_message == 30
-        assert scenario.weight_objection_handling == 25
-        assert scenario.weight_communication == 20
-        assert scenario.weight_product_knowledge == 15
-        assert scenario.weight_scientific_info == 10
+        assert scenario.rubric_id == "test-rubric-id"
         assert scenario.pass_threshold == 70
 
 
@@ -113,7 +109,7 @@ class TestGetScenarios:
                 name=name,
                 product="Drug",
                 hcp_profile_id=hcp_id,
-    
+                rubric_id="test-rubric-id",
             )
             await create_scenario(db_session, data, user_id)
 
@@ -127,14 +123,14 @@ class TestGetScenarios:
             name="Draft",
             product="Drug",
             hcp_profile_id=hcp_id,
-
+            rubric_id="test-rubric-id",
             status="draft",
         )
         data_active = ScenarioCreate(
             name="Active",
             product="Drug",
             hcp_profile_id=hcp_id,
-
+            rubric_id="test-rubric-id",
             status="active",
         )
         await create_scenario(db_session, data_draft, user_id)
@@ -151,7 +147,7 @@ class TestGetScenarios:
                 name=f"Mode {mode}",
                 product="Drug",
                 hcp_profile_id=hcp_id,
-    
+                rubric_id="test-rubric-id",
                 mode=mode,
             )
             await create_scenario(db_session, data, user_id)
@@ -165,14 +161,16 @@ class TestGetScenarios:
         await create_scenario(
             db_session,
             ScenarioCreate(
-                name="Brukinsa F2F", product="Brukinsa", hcp_profile_id=hcp_id
+                name="Brukinsa F2F", product="Brukinsa", hcp_profile_id=hcp_id,
+                rubric_id="test-rubric-id",
             ),
             user_id,
         )
         await create_scenario(
             db_session,
             ScenarioCreate(
-                name="Other", product="Other", hcp_profile_id=hcp_id
+                name="Other", product="Other", hcp_profile_id=hcp_id,
+                rubric_id="test-rubric-id",
             ),
             user_id,
         )
@@ -190,7 +188,7 @@ class TestGetScenario:
             name="Single",
             product="Drug",
             hcp_profile_id=hcp_id,
-
+            rubric_id="test-rubric-id",
         )
         created = await create_scenario(db_session, data, user_id)
         fetched = await get_scenario(db_session, created.id)
@@ -210,7 +208,7 @@ class TestUpdateScenario:
             name="Old Name",
             product="Drug",
             hcp_profile_id=hcp_id,
-
+            rubric_id="test-rubric-id",
         )
         scenario = await create_scenario(db_session, data, user_id)
 
@@ -227,7 +225,7 @@ class TestUpdateScenario:
             name="S",
             product="Drug",
             hcp_profile_id=hcp_id,
-
+            rubric_id="test-rubric-id",
         )
         scenario = await create_scenario(db_session, data, user_id)
 
@@ -241,7 +239,7 @@ class TestUpdateScenario:
             name="S",
             product="Drug",
             hcp_profile_id=hcp_id,
-
+            rubric_id="test-rubric-id",
         )
         scenario = await create_scenario(db_session, data, user_id)
 
@@ -259,7 +257,7 @@ class TestDeleteScenario:
             name="Del",
             product="Drug",
             hcp_profile_id=hcp_id,
-
+            rubric_id="test-rubric-id",
         )
         scenario = await create_scenario(db_session, data, user_id)
         await delete_scenario(db_session, scenario.id)
@@ -281,7 +279,7 @@ class TestCloneScenario:
             name="Original",
             product="Brukinsa",
             hcp_profile_id=hcp_id,
-
+            rubric_id="test-rubric-id",
             key_messages=["KM 1"],
         )
         original = await create_scenario(db_session, data, user_id)
@@ -294,24 +292,18 @@ class TestCloneScenario:
         assert clone.status == "draft"
         assert clone.hcp_profile_id == hcp_id
 
-    async def test_clone_preserves_weights(self, db_session):
+    async def test_clone_preserves_rubric_id(self, db_session):
         user_id, hcp_id = await _seed_user_and_hcp(db_session)
         data = ScenarioCreate(
-            name="Weighted",
+            name="With Rubric",
             product="Drug",
             hcp_profile_id=hcp_id,
-
-            weight_key_message=40,
-            weight_objection_handling=20,
-            weight_communication=20,
-            weight_product_knowledge=10,
-            weight_scientific_info=10,
+            rubric_id="test-rubric-id",
         )
         original = await create_scenario(db_session, data, user_id)
         clone = await clone_scenario(db_session, original.id, user_id)
 
-        assert clone.weight_key_message == 40
-        assert clone.weight_objection_handling == 20
+        assert clone.rubric_id == "test-rubric-id"
 
     async def test_clone_raises_for_nonexistent(self, db_session):
         with pytest.raises(NotFoundException):
