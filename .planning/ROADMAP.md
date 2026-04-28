@@ -30,7 +30,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 16: Voice Live Refactor — Modularize, Agent Mode, Sync** - 前端 Voice Live 模块化复用，后端 WebSocket 双模式（Model+Agent），SDK 升级 1.2.0b5，HCP voice 配置同步到 AI Foundry Agent (completed 2026-04-10)
 - [x] **Phase 17: Agent Knowledge Base — Foundry IQ Integration** - HCP Agent 知识库管理：连接 Azure AI Search / Foundry IQ，上传训练材料自动创建知识库索引，知识库配置同步到 AI Foundry Agent (completed 2026-04-10)
 - [x] **Phase 18: Training Material Download & Preview** - 培训材料文件下载和在线预览：后端添加文件下载 API，前端 PDF 在线预览、DOCX/XLSX 下载，修复 storage_url 信息泄露 (completed 2026-04-10)
-- [ ] **Phase 21: Scoring Criteria Refactor** - 评分标准模块重构，消除硬编码维度，ScoringRubric 升级为评分唯一权威来源，支持动态自定义维度
+- [x] **Phase 21: Scoring Criteria Refactor** - 评分标准模块重构，消除硬编码维度，ScoringRubric 升级为评分唯一权威来源，支持动态自定义维度 (completed 2026-04-28)
 
 ## Phase Details
 

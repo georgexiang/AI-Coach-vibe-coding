@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: Ready to execute
-stopped_at: Phase 21 UI-SPEC approved
-last_updated: "2026-04-27T14:54:15.416Z"
-last_activity: 2026-04-27
+status: Phase 21 Complete
+stopped_at: Phase 21 all 3 plans executed and verified
+last_updated: "2026-04-28T07:15:00.000Z"
+last_activity: 2026-04-28
 progress:
   total_phases: 22
-  completed_phases: 20
+  completed_phases: 21
   total_plans: 102
-  completed_plans: 98
-  percent: 96
+  completed_plans: 101
+  percent: 99
 ---
 
 # Project State
@@ -21,12 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-24)
 
 **Core value:** MRs can practice realistic conversations with AI-powered digital HCPs and receive immediate, multi-dimensional feedback to improve their communication skills -- anytime, without needing a real HCP or trainer.
-**Current focus:** Phase 19 — AI Coach Skill Module (Skill 生命周期管理)
+**Current focus:** Phase 21 — scoring-criteria-refactor
 
 ## Current Position
 
-Phase: 19 (ai-coach-skill-module) — IN PROGRESS
-Plans 01-07 of 8 complete (Wave 1 + Wave 2 + Wave 3 + Wave 4 partial done).
+Phase: 21 (scoring-criteria-refactor) — COMPLETE
+Plan: 3 of 3 (all done)
+Plans 21-01 (backend model/schema/migration), 21-02 (frontend rubric selector), 21-03 (integration verification) all complete.
 
 ## Performance Metrics
 
@@ -117,6 +118,9 @@ Plans 01-07 of 8 complete (Wave 1 + Wave 2 + Wave 3 + Wave 4 partial done).
 | Phase 20 P02 | 5min | 2 tasks | 2 files |
 | Phase 20 P04 | 4min | 2 tasks | 8 files |
 | Phase 20 P05 | 8min | 2 tasks | 5 files |
+| Phase 21 P01 | 9min | 2 tasks | 10 files |
+| Phase 21 P02 | 6min | 2 tasks | 5 files |
+| Phase 21 P03 | 30min | 2 tasks | 20 files |
 
 ## Accumulated Context
 
@@ -289,7 +293,7 @@ None yet.
 
 ## Session Continuity
 
-Last activity: 2026-04-27
-Last session: 2026-04-27T14:28:14.078Z
-Stopped at: Phase 21 UI-SPEC approved
-Resume file: .planning/phases/21-scoring-criteria-refactor/21-UI-SPEC.md
+Last activity: 2026-04-28
+Last session: 2026-04-28T07:15:00.000Z
+Stopped at: Phase 21 complete — all 3 plans executed
+Resume file: .planning/phases/21-scoring-criteria-refactor/21-03-SUMMARY.md
