@@ -550,15 +550,28 @@ async def seed_sessions(session: AsyncSession) -> None:
             )
             session.add(ss)
 
-            # Get scenario weights
-            weights = scenario.get_scoring_weights()
-            weight_list = [
-                weights.get("key_message", 25),
-                weights.get("objection_handling", 20),
-                weights.get("communication", 20),
-                weights.get("product_knowledge", 20),
-                weights.get("scientific_info", 15),
-            ]
+            # Get scoring weights from rubric dimensions
+            weight_list = [25, 20, 20, 20, 15]  # defaults
+            if hasattr(scenario, "rubric_id") and scenario.rubric_id:
+                try:
+                    from app.models.scoring_rubric import ScoringRubric
+
+                    rub_result = await session.execute(
+                        select(ScoringRubric).where(ScoringRubric.id == scenario.rubric_id)
+                    )
+                    rub = rub_result.scalar_one_or_none()
+                    if rub:
+                        rub_dims = json.loads(rub.dimensions) if isinstance(rub.dimensions, str) else rub.dimensions
+                        dim_weight_map = {d["name"]: d["weight"] for d in rub_dims}
+                        weight_list = [
+                            dim_weight_map.get("key_message", 25),
+                            dim_weight_map.get("objection_handling", 20),
+                            dim_weight_map.get("communication", 20),
+                            dim_weight_map.get("product_knowledge", 20),
+                            dim_weight_map.get("scientific_info", 15),
+                        ]
+                except Exception:
+                    pass
 
             for dim_idx, dim_name in enumerate(dimensions):
                 # Vary dimension score around overall (+/- 10, clamped 0-100)

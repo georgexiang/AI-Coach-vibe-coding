@@ -22,6 +22,7 @@ from app.services.agents.base import CoachEventType, CoachRequest
 from app.services.agents.registry import registry
 from app.services.prompt_builder import build_hcp_system_prompt
 from app.services.report_service import generate_report
+from app.services.scoring_service import resolve_rubric_dimensions
 from app.services.suggestion_service import generate_suggestions, parse_key_messages_status
 from app.utils.exceptions import AppException
 from app.utils.pagination import PaginatedResponse
@@ -138,12 +139,16 @@ async def send_message(
         if session.scenario.hcp_profile:
             hcp_dict = session.scenario.hcp_profile.to_prompt_dict()
 
+        # Build scoring weights from rubric dimensions (D-05)
+        rubric_dims = await resolve_rubric_dimensions(db, session.scenario)
+        scoring_weights = {d["name"]: d["weight"] for d in rubric_dims}
+
         coach_request = CoachRequest(
             session_id=session_id,
             message=request.message,
             scenario_context=hcp_prompt,
             hcp_profile=hcp_dict,
-            scoring_criteria=(session.scenario.get_scoring_weights()),
+            scoring_criteria=scoring_weights,
             conversation_history=conversation_history,
         )
 
@@ -181,7 +186,7 @@ async def send_message(
                 suggestions = await generate_suggestions(
                     messages=msg_dicts,
                     key_messages_status=km_status_list,
-                    scoring_weights=session.scenario.get_scoring_weights(),
+                    scoring_weights=scoring_weights,
                 )
                 for suggestion in suggestions:
                     yield {
@@ -253,9 +258,12 @@ async def get_session_suggestions(
     messages = await session_service.get_session_messages(db, session_id)
     msg_dicts = [{"role": m.role, "content": m.content} for m in messages]
     km_status_list = parse_key_messages_status(session.key_messages_status)
+    # Build scoring weights from rubric dimensions (D-05)
+    rubric_dims = await resolve_rubric_dimensions(db, session.scenario)
+    scoring_weights = {d["name"]: d["weight"] for d in rubric_dims}
     suggestions = await generate_suggestions(
         messages=msg_dicts,
         key_messages_status=km_status_list,
-        scoring_weights=session.scenario.get_scoring_weights(),
+        scoring_weights=scoring_weights,
     )
     return suggestions
