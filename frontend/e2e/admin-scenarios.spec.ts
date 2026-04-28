@@ -71,7 +71,7 @@ test.describe("Admin Scenarios Management", () => {
     ).toBeVisible();
   });
 
-  test("scenario editor has scoring weights section", async ({ page }) => {
+  test("scenario editor has rubric selector instead of scoring weights", async ({ page }) => {
     // Click create to open editor dialog
     const createButton = page.getByRole("button", {
       name: /create|new scenario/i,
@@ -79,19 +79,37 @@ test.describe("Admin Scenarios Management", () => {
     await createButton.first().click();
 
     // Wait for dialog to open
-    await expect(page.getByRole("dialog")).toBeVisible({ timeout: 5000 });
-
-    // Scroll within the dialog to find scoring weights
     const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible({ timeout: 5000 });
 
-    // Key Messages section should be in the editor
+    // Rubric selector label should be visible (replaces old scoring weights)
     await expect(
-      dialog.getByText(/key message/i).first(),
+      dialog.getByText("Scoring Rubric *"),
     ).toBeVisible();
 
-    // Pass Threshold field should be present
+    // Rubric dropdown trigger with placeholder should exist
+    await expect(
+      dialog.getByText("Select scoring rubric"),
+    ).toBeVisible();
+
+    // Dimension preview empty state should show
+    await expect(
+      dialog.getByText("Select a scoring rubric to see dimensions"),
+    ).toBeVisible();
+
+    // "Manage Rubrics" link should be present
+    await expect(
+      dialog.getByText("Manage Rubrics"),
+    ).toBeVisible();
+
+    // Pass Threshold field should still be present
     await expect(
       dialog.getByText(/pass threshold/i).first(),
+    ).toBeVisible();
+
+    // Key Messages section should still be in the editor
+    await expect(
+      dialog.getByText(/key message/i).first(),
     ).toBeVisible();
   });
 
