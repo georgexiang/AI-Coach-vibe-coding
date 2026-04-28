@@ -151,4 +151,113 @@ test.describe("Scoring & Feedback (Phase 2)", () => {
       await expect(page).toHaveURL(/\/user\/dashboard/, { timeout: 5000 });
     }
   });
+
+  test("scoring results display dynamic dimensions from rubric (not hardcoded 5)", async ({
+    page,
+  }) => {
+    const mockSessionId = "mock-scored-session-123";
+
+    // Mock 3 custom dimensions (proving it's dynamic, not hardcoded 5)
+    const mockScoreResponse = {
+      session_id: mockSessionId,
+      overall_score: 78,
+      passed: true,
+      feedback_summary: "Good overall performance with room for improvement.",
+      details: [
+        {
+          dimension: "Rapport Building",
+          score: 85,
+          weight: 40,
+          strengths: [{ text: "Excellent opening", quote: "Great to see you" }],
+          weaknesses: [{ text: "Could improve closing", quote: "" }],
+          suggestions: ["Practice closing statements"],
+        },
+        {
+          dimension: "Clinical Evidence",
+          score: 72,
+          weight: 35,
+          strengths: [{ text: "Good study references", quote: "The RATIONALE trial" }],
+          weaknesses: [{ text: "Missing endpoint data", quote: "" }],
+          suggestions: ["Include more endpoint specifics"],
+        },
+        {
+          dimension: "Follow-up Planning",
+          score: 68,
+          weight: 25,
+          strengths: [{ text: "Set next meeting", quote: "Let's reconnect Thursday" }],
+          weaknesses: [{ text: "No written materials left", quote: "" }],
+          suggestions: ["Prepare leave-behind materials"],
+        },
+      ],
+    };
+
+    // Mock session data (status=scored so it doesn't trigger scoring)
+    const mockSessionResponse = {
+      id: mockSessionId,
+      status: "scored",
+      scenario_id: "test-scenario-1",
+      created_at: "2026-04-28T10:00:00Z",
+    };
+
+    // Intercept API calls
+    await page.route("**/api/v1/scoring/sessions/*/score", (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(mockScoreResponse),
+      });
+    });
+
+    await page.route("**/api/v1/sessions/*", (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(mockSessionResponse),
+      });
+    });
+
+    await page.route("**/api/v1/scoring/history*", (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([]),
+      });
+    });
+
+    // Navigate to scoring page with the mock session ID
+    await page.goto(`/user/scoring/${mockSessionId}`);
+
+    // Wait for score data to render (overall score appears in SVG and summary)
+    await expect(page.getByText("78").first()).toBeVisible({ timeout: 10000 });
+
+    // Verify exactly 3 progress bars (one per rubric dimension)
+    const progressBars = page.locator("[role='progressbar']");
+    await expect(progressBars).toHaveCount(3);
+
+    // Verify dimension names are rendered (proving dynamic, not hardcoded)
+    await expect(page.getByText("Rapport Building").first()).toBeVisible();
+    await expect(page.getByText("Clinical Evidence").first()).toBeVisible();
+    await expect(page.getByText("Follow-up Planning").first()).toBeVisible();
+
+    // Verify hardcoded default dimension names are NOT present
+    await expect(page.getByText("key_message")).not.toBeVisible();
+    await expect(page.getByText("objection_handling")).not.toBeVisible();
+    await expect(page.getByText("product_knowledge")).not.toBeVisible();
+
+    // Verify progress bar values match mock scores
+    const firstBar = progressBars.nth(0);
+    await expect(firstBar).toHaveAttribute("aria-valuenow", "85");
+    const secondBar = progressBars.nth(1);
+    await expect(secondBar).toHaveAttribute("aria-valuenow", "72");
+    const thirdBar = progressBars.nth(2);
+    await expect(thirdBar).toHaveAttribute("aria-valuenow", "68");
+
+    // Verify PASS badge is shown (overall_score=78, passed=true)
+    await expect(page.getByText("PASS")).toBeVisible();
+
+    // Verify feedback cards render strength text from each dimension
+    await expect(page.getByText("Excellent opening")).toBeVisible();
+    await expect(page.getByText("Good study references")).toBeVisible();
+    await expect(page.getByText("Set next meeting")).toBeVisible();
+  });
 });
