@@ -166,7 +166,7 @@ test.describe("Admin Scenarios Management", () => {
     }
   });
 
-  test("creates a new scenario and verifies it appears in the table", async ({
+  test("creates a new scenario with rubric and verifies it appears in the table", async ({
     page,
   }) => {
     const scenarioName = `E2E Scenario ${Date.now()}`;
@@ -203,6 +203,19 @@ test.describe("Admin Scenarios Management", () => {
       await hcpOptions.first().click();
       await page.waitForTimeout(300);
     }
+
+    // Select Scoring Rubric (fifth combobox — after Product, Therapeutic Area, HCP, Skill)
+    await comboboxes.nth(4).click();
+    await page.waitForTimeout(300);
+    const rubricOption = page.getByRole("option").first();
+    await expect(rubricOption).toBeVisible({ timeout: 3000 });
+    await rubricOption.click();
+    await page.waitForTimeout(300);
+
+    // After selecting rubric, dimension preview should appear (not the empty state)
+    await expect(
+      dialog.getByText("Select a scoring rubric to see dimensions"),
+    ).not.toBeVisible();
 
     // Click Save
     await dialog.getByRole("button", { name: /save/i }).click();

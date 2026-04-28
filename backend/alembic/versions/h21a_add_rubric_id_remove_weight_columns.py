@@ -66,9 +66,14 @@ def upgrade() -> None:
             sa.Column(
                 "rubric_id",
                 sa.String(36),
-                sa.ForeignKey("scoring_rubrics.id"),
                 nullable=True,
             )
+        )
+        batch_op.create_foreign_key(
+            "fk_scenarios_rubric_id",
+            "scoring_rubrics",
+            ["rubric_id"],
+            ["id"],
         )
 
     # -- Step 2: Data migration -- create rubric per unique weight combo --
