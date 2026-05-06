@@ -197,7 +197,7 @@ async def seed_all(session: AsyncSession) -> None:
 
     existing_hcp = await session.execute(select(HcpProfile).limit(1))
     if existing_hcp.scalar_one_or_none() is None:
-        from seed_phase2 import SEED_HCP_PROFILES
+        from seed_phase2 import SEED_HCP_PROFILES  # type: ignore[import-not-found]
 
         for profile_data in SEED_HCP_PROFILES:
             profile = HcpProfile(**profile_data, created_by=admin_id)
@@ -210,7 +210,7 @@ async def seed_all(session: AsyncSession) -> None:
 
     existing_scenario = await session.execute(select(Scenario).limit(1))
     if existing_scenario.scalar_one_or_none() is None:
-        from seed_phase2 import SEED_SCENARIOS
+        from seed_phase2 import SEED_SCENARIOS  # type: ignore[import-not-found]
 
         # Resolve default rubric for rubric_id assignment
         default_rubric_result = await session.execute(
@@ -242,7 +242,7 @@ async def seed_all(session: AsyncSession) -> None:
     existing_mat = await session.execute(select(TrainingMaterial).limit(1))
     if existing_mat.scalar_one_or_none() is None:
         try:
-            from seed_materials import seed_materials
+            from seed_materials import seed_materials  # type: ignore[import-not-found]
 
             await seed_materials()
         except Exception:

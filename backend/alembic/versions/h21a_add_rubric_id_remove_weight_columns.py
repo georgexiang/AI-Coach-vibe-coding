@@ -9,7 +9,7 @@ Create Date: 2026-04-27 15:00:00.000000
 import json
 import uuid
 from collections.abc import Sequence
-from datetime import datetime
+from datetime import datetime, timezone
 
 import sqlalchemy as sa
 
@@ -78,7 +78,7 @@ def upgrade() -> None:
 
     # -- Step 2: Data migration -- create rubric per unique weight combo --
     conn = op.get_bind()
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(timezone.utc).isoformat()
 
     # Read all existing scenarios with their weight columns
     rows = conn.execute(
