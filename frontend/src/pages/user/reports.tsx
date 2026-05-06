@@ -52,7 +52,7 @@ export default function UserReportsPage() {
     return (
       <div className="space-y-6">
         <h1 className="text-2xl font-medium text-foreground">
-          {t("pageTitle", { defaultValue: "Analytics & Reports" })}
+          {t("pageTitle")}
         </h1>
         <LoadingState variant="card" />
       </div>
@@ -64,11 +64,11 @@ export default function UserReportsPage() {
     return (
       <div className="space-y-6">
         <h1 className="text-2xl font-medium text-foreground">
-          {t("pageTitle", { defaultValue: "Analytics & Reports" })}
+          {t("pageTitle")}
         </h1>
         <EmptyState
-          title={t("noData", { defaultValue: "No data yet" })}
-          body={t("noDataBody", { defaultValue: "Complete your first training session to see reports." })}
+          title={t("noData")}
+          body={t("noDataBody")}
         />
       </div>
     );
@@ -79,7 +79,7 @@ export default function UserReportsPage() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-medium text-foreground">
-          {t("pageTitle", { defaultValue: "Analytics & Reports" })}
+          {t("pageTitle")}
         </h1>
         <div className="flex gap-2">
           <Button
@@ -89,7 +89,7 @@ export default function UserReportsPage() {
             className="transition-colors duration-150"
           >
             <Printer className="mr-1.5 size-4" />
-            {t("exportPdf", { defaultValue: "Print Report" })}
+            {t("exportPdf")}
           </Button>
           <Button
             variant="outline"
@@ -99,7 +99,7 @@ export default function UserReportsPage() {
             className="transition-colors duration-150"
           >
             <Download className="mr-1.5 size-4" />
-            {t("exportExcel", { defaultValue: "Export Excel" })}
+            {t("exportExcel")}
           </Button>
         </div>
       </div>
@@ -109,7 +109,7 @@ export default function UserReportsPage() {
         <Card className="bg-card">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              {t("totalSessions", { defaultValue: "Total Sessions" })}
+              {t("totalSessions")}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -122,7 +122,7 @@ export default function UserReportsPage() {
         <Card className="bg-card">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              {t("avgScore", { defaultValue: "Avg Score" })}
+              {t("avgScore")}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -135,7 +135,7 @@ export default function UserReportsPage() {
         <Card className="bg-card">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              {t("sessionsThisWeek", { defaultValue: "This Week" })}
+              {t("sessionsThisWeek")}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -148,14 +148,14 @@ export default function UserReportsPage() {
         <Card className="bg-card">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              {t("improvement", { defaultValue: "Improvement" })}
+              {t("improvement")}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-medium text-foreground">
               {dashStats?.improvement != null
                 ? `${dashStats.improvement > 0 ? "+" : ""}${dashStats.improvement}`
-                : t("noImprovement", { defaultValue: "N/A" })}
+                : t("noImprovement")}
             </p>
           </CardContent>
         </Card>
@@ -168,7 +168,7 @@ export default function UserReportsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base font-medium">
               <TrendingUp className="size-5 text-primary" />
-              {t("performanceTrend", { defaultValue: "Performance Trend" })}
+              {t("performanceTrend")}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -176,7 +176,7 @@ export default function UserReportsPage() {
               <TrendLineChart data={trends} height={300} />
             ) : (
               <p className="py-8 text-center text-sm text-muted-foreground">
-                {t("noData", { defaultValue: "Not enough data yet" })}
+                {t("noData")}
               </p>
             )}
           </CardContent>
@@ -187,7 +187,7 @@ export default function UserReportsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base font-medium">
               <Target className="size-5 text-primary" />
-              {t("skillGapHeatmap", { defaultValue: "Skill Radar" })}
+              {t("skillGapHeatmap")}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -199,7 +199,7 @@ export default function UserReportsPage() {
               />
             ) : (
               <p className="py-8 text-center text-sm text-muted-foreground">
-                {t("noData", { defaultValue: "Not enough data yet" })}
+                {t("noData")}
               </p>
             )}
           </CardContent>
@@ -212,7 +212,7 @@ export default function UserReportsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base font-medium">
               <Award className="size-5 text-primary" />
-              {t("recommendations", { defaultValue: "Recommended Scenarios" })}
+              {t("recommendations")}
             </CardTitle>
           </CardHeader>
           <CardContent>

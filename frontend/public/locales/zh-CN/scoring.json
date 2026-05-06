@@ -42,6 +42,7 @@
     "noSessions": "暂无评分记录。完成培训会话后即可查看历史记录。",
     "viewDetails": "查看详情",
     "improvementPct": "较上次 {{pct}}%",
+    "noSessionsBody": "开始您的第一次培训会话以跟踪进度。",
     "skillOverview": "技能概览",
     "searchPlaceholder": "搜索场景...",
     "allResults": "所有结果",

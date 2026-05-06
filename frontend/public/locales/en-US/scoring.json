@@ -42,6 +42,7 @@
     "noSessions": "No scored sessions yet. Complete a training session to see your history.",
     "viewDetails": "View Details",
     "improvementPct": "{{pct}}% vs previous",
+    "noSessionsBody": "Start your first training session to track progress.",
     "skillOverview": "Skill Overview",
     "searchPlaceholder": "Search scenarios...",
     "allResults": "All Results",

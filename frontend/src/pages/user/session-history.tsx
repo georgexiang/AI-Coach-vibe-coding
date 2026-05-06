@@ -114,7 +114,7 @@ export default function SessionHistory() {
         <h1 className="text-2xl font-medium text-foreground">{t("history.title")}</h1>
         <EmptyState
           title={t("history.noSessions")}
-          body={t("history.noSessionsBody", { defaultValue: "Start your first training session to track progress." })}
+          body={t("history.noSessionsBody")}
         />
       </div>
     );
@@ -137,7 +137,7 @@ export default function SessionHistory() {
       {latestRadarScores.length > 0 && (
         <div className="rounded-lg border border-border bg-card p-4">
           <h2 className="mb-4 text-lg font-medium text-foreground">
-            {t("history.skillOverview", { defaultValue: "Skill Overview" })}
+            {t("history.skillOverview")}
           </h2>
           <PerformanceRadar
             currentScores={latestRadarScores}
@@ -199,7 +199,7 @@ export default function SessionHistory() {
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             className="pl-9"
-            placeholder={t("history.searchPlaceholder", { defaultValue: "Search scenarios..." })}
+            placeholder={t("history.searchPlaceholder")}
             value={searchTerm}
             onChange={(e) => {
               setSearchTerm(e.target.value);
@@ -213,7 +213,7 @@ export default function SessionHistory() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value={ALL_VALUE}>
-              {t("history.allResults", { defaultValue: "All Results" })}
+              {t("history.allResults")}
             </SelectItem>
             <SelectItem value="passed">{t("passed")}</SelectItem>
             <SelectItem value="failed">{t("failed")}</SelectItem>
@@ -225,21 +225,21 @@ export default function SessionHistory() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value={ALL_VALUE}>
-              {t("history.allScores", { defaultValue: "All Scores" })}
+              {t("history.allScores")}
             </SelectItem>
             <SelectItem value="high">
-              {t("history.scoreHigh", { defaultValue: "80+ (High)" })}
+              {t("history.scoreHigh")}
             </SelectItem>
             <SelectItem value="mid">
-              {t("history.scoreMid", { defaultValue: "60-79 (Mid)" })}
+              {t("history.scoreMid")}
             </SelectItem>
             <SelectItem value="low">
-              {t("history.scoreLow", { defaultValue: "<60 (Low)" })}
+              {t("history.scoreLow")}
             </SelectItem>
           </SelectContent>
         </Select>
         <span className="text-sm text-muted-foreground">
-          {filteredHistory.length} {t("history.results", { defaultValue: "results" })}
+          {filteredHistory.length} {t("history.results")}
         </span>
       </div>
 
@@ -255,16 +255,16 @@ export default function SessionHistory() {
                 {t("history.scenario")}
               </th>
               <th className="hidden px-4 py-3 text-left text-sm font-medium text-muted-foreground md:table-cell">
-                {t("history.mode", { defaultValue: "Mode" })}
+                {t("history.mode")}
               </th>
               <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">
                 {t("history.score")}
               </th>
               <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">
-                {t("history.duration", { defaultValue: "Duration" })}
+                {t("history.duration")}
               </th>
               <th className="hidden px-4 py-3 text-left text-sm font-medium text-muted-foreground lg:table-cell">
-                {t("rubrics.dimensions", { ns: "admin", defaultValue: "Dimensions" })}
+                {t("rubrics.dimensions", { ns: "admin" })}
               </th>
               <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">
                 {t("history.viewDetails")}
@@ -377,7 +377,7 @@ export default function SessionHistory() {
               disabled={page <= 1}
               onClick={() => setPage((p) => Math.max(1, p - 1))}
             >
-              {t("history.previous", { defaultValue: "Previous" })}
+              {t("history.previous")}
             </Button>
             <span className="text-sm text-muted-foreground">
               {page} / {totalPages}
@@ -388,7 +388,7 @@ export default function SessionHistory() {
               disabled={page >= totalPages}
               onClick={() => setPage((p) => p + 1)}
             >
-              {t("history.next", { defaultValue: "Next" })}
+              {t("history.next")}
             </Button>
           </div>
         )}
@@ -451,7 +451,7 @@ export default function SessionHistory() {
               disabled={page <= 1}
               onClick={() => setPage((p) => Math.max(1, p - 1))}
             >
-              {t("history.previous", { defaultValue: "Previous" })}
+              {t("history.previous")}
             </Button>
             <span className="text-sm text-muted-foreground">
               {page} / {totalPages}
@@ -462,7 +462,7 @@ export default function SessionHistory() {
               disabled={page >= totalPages}
               onClick={() => setPage((p) => p + 1)}
             >
-              {t("history.next", { defaultValue: "Next" })}
+              {t("history.next")}
             </Button>
           </div>
         )}
