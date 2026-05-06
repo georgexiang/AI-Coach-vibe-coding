@@ -75,7 +75,7 @@ export function DryRunButton({
       className={cn(isDisabled && "cursor-not-allowed")}
     >
       <FlaskConical className="mr-2 size-4" />
-      {t("dryRun.button", { defaultValue: "Dry Run" })}
+      {t("dryRun.button")}
     </Button>
   );
 
@@ -114,7 +114,7 @@ export function DryRunButton({
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
-              {t("dryRun.goBack", { defaultValue: "Go Back" })}
+              {t("dryRun.goBack")}
             </Button>
             <Button
               onClick={handleStartSimulation}

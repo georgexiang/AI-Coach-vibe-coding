@@ -40,8 +40,8 @@ export function DryRunConversation({ messages }: DryRunConversationProps) {
               timestamp={new Date(msg.created_at)}
               speakerName={
                 msg.role === "mr"
-                  ? t("dryRun.speakerMr", { defaultValue: "AI-MR" })
-                  : t("dryRun.speakerHcp", { defaultValue: "AI-HCP" })
+                  ? t("dryRun.speakerMr")
+                  : t("dryRun.speakerHcp")
               }
               speakerColor={msg.role === "mr" ? "#A855F7" : "#1E40AF"}
             />

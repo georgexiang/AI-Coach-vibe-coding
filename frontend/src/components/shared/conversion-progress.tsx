@@ -110,7 +110,7 @@ export function ConversionProgress({
         <div className="flex items-center gap-3 rounded-lg border border-strength/20 bg-strength/5 p-4">
           <CheckCircle2 className="size-5 text-strength" />
           <div className="flex-1">
-            <Badge variant="success">{t("status.completed", { defaultValue: "Completed" })}</Badge>
+            <Badge variant="success">{t("status.completed")}</Badge>
             <p className="mt-1 text-sm text-muted-foreground">
               {t("conversion.completed")}
             </p>

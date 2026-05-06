@@ -40,7 +40,7 @@ export function DryRunScoreSummary({
       >
         <CardContent className="flex flex-col items-center p-6">
           <span className="text-sm font-semibold text-muted-foreground">
-            {t("dryRun.scoreLabel", { defaultValue: "Executability Score" })}
+            {t("dryRun.scoreLabel")}
           </span>
           <span
             className={cn(
@@ -63,7 +63,7 @@ export function DryRunScoreSummary({
       >
         <CardContent className="flex flex-col items-center p-6">
           <span className="text-sm font-semibold text-muted-foreground">
-            {t("dryRun.coverageLabel", { defaultValue: "SOP Coverage" })}
+            {t("dryRun.coverageLabel")}
           </span>
           <div className="mt-2">
             <CoverageRingChart
@@ -88,13 +88,13 @@ export function DryRunScoreSummary({
       >
         <CardContent className="flex flex-col items-center p-6">
           <span className="text-sm font-semibold text-muted-foreground">
-            {t("dryRun.issuesLabel", { defaultValue: "Issues Found" })}
+            {t("dryRun.issuesLabel")}
           </span>
           <span className="mt-2 text-4xl font-semibold text-foreground">
             {issuesCount}
           </span>
           <span className="text-sm text-muted-foreground">
-            {t("dryRun.warnings", { defaultValue: "warnings" })}
+            {t("dryRun.warnings")}
           </span>
         </CardContent>
       </Card>

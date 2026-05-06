@@ -82,10 +82,10 @@ export function DryRunComparisonChart({
                   Run #{data.run_number}
                 </p>
                 <p>
-                  {t("dryRun.score", { defaultValue: "Score" })}: {data.score}
+                  {t("dryRun.score")}: {data.score}
                 </p>
                 <p>
-                  {t("dryRun.coverage", { defaultValue: "Coverage" })}:{" "}
+                  {t("dryRun.coverage")}:{" "}
                   {data.coverage}%
                 </p>
               </div>
@@ -97,7 +97,7 @@ export function DryRunComparisonChart({
           dataKey="score"
           stroke="var(--primary, #1E40AF)"
           strokeWidth={2}
-          name={t("dryRun.score", { defaultValue: "Score" })}
+          name={t("dryRun.score")}
           dot={{ r: 4, cursor: "pointer" }}
           activeDot={{ r: 6 }}
         />
@@ -106,7 +106,7 @@ export function DryRunComparisonChart({
           dataKey="coverage"
           stroke="var(--chart-2, #06B6D4)"
           strokeWidth={2}
-          name={t("dryRun.coverage", { defaultValue: "Coverage" })}
+          name={t("dryRun.coverage")}
           dot={{ r: 4, cursor: "pointer" }}
           activeDot={{ r: 6 }}
         />

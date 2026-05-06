@@ -104,7 +104,7 @@ export function DryRunProgress({
             </div>
             <div className="flex justify-center">
               <Button variant="outline" onClick={onCancel}>
-                {t("dryRun.goBack", { defaultValue: "Go Back" })}
+                {t("dryRun.goBack")}
               </Button>
             </div>
           </div>
@@ -168,7 +168,7 @@ export function DryRunProgress({
               variant="outline"
               onClick={() => setCancelDialogOpen(false)}
             >
-              {t("dryRun.goBack", { defaultValue: "Go Back" })}
+              {t("dryRun.goBack")}
             </Button>
             <Button
               variant="destructive"

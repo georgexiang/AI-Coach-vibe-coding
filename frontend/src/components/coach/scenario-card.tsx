@@ -78,7 +78,7 @@ export function ScenarioCard({ scenario, onStart }: ScenarioCardProps) {
         onClick={() => onStart(scenario.id)}
         className="mt-4 w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary/90"
       >
-        {t("scenarioSelection.startButton", { defaultValue: "Start Training" })}
+        {t("scenarioSelection.startButton")}
       </button>
     </div>
   );

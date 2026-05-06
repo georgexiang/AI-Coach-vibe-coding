@@ -215,7 +215,9 @@
     "conference": "学术会议",
     "deleted": "评分标准已删除",
     "deleteTitle": "删除评分标准",
-    "pageDescription": "定义评分维度、权重和培训评估标准"
+    "pageDescription": "定义评分维度、权重和培训评估标准",
+    "actions": "操作",
+    "default": "默认"
   },
   "azureConfig": {
     "title": "Azure 服务配置",

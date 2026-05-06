@@ -36,7 +36,7 @@ export function DryRunIssueCard({ issue }: DryRunIssueCardProps) {
           <p className="text-sm text-foreground">{issue.description}</p>
           {issue.suggestion && (
             <p className="text-sm italic text-muted-foreground">
-              {t("dryRun.suggestionPrefix", { defaultValue: "Suggestion:" })}{" "}
+              {t("dryRun.suggestionPrefix")}{" "}
               {issue.suggestion}
             </p>
           )}

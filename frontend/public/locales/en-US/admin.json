@@ -215,7 +215,9 @@
     "conference": "Conference",
     "deleted": "Rubric deleted",
     "deleteTitle": "Delete Rubric",
-    "pageDescription": "Define scoring dimensions, weights, and criteria for training evaluations"
+    "pageDescription": "Define scoring dimensions, weights, and criteria for training evaluations",
+    "actions": "Actions",
+    "default": "Default"
   },
   "azureConfig": {
     "title": "Azure Service Configuration",

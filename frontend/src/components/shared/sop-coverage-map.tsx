@@ -39,11 +39,11 @@ function statusLabel(
 ): string {
   switch (status) {
     case "covered":
-      return t("dryRun.stepCovered", { defaultValue: "Covered" });
+      return t("dryRun.stepCovered");
     case "partial":
-      return t("dryRun.stepPartial", { defaultValue: "Partial" });
+      return t("dryRun.stepPartial");
     case "not_covered":
-      return t("dryRun.stepNotCovered", { defaultValue: "Not Covered" });
+      return t("dryRun.stepNotCovered");
   }
 }
 

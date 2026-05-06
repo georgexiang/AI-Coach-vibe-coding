@@ -44,7 +44,7 @@ export function RubricTable({ rubrics, onEdit, onDelete }: RubricTableProps) {
               {t("rubrics.isDefault")}
             </th>
             <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">
-              {t("rubrics.actions", { defaultValue: "Actions" })}
+              {t("rubrics.actions")}
             </th>
           </tr>
         </thead>
@@ -66,7 +66,7 @@ export function RubricTable({ rubrics, onEdit, onDelete }: RubricTableProps) {
               <td className="px-4 py-3">
                 {rubric.is_default && (
                   <Badge className="bg-strength/10 text-strength border-strength/20">
-                    {t("rubrics.default", { defaultValue: "Default" })}
+                    {t("rubrics.default")}
                   </Badge>
                 )}
               </td>
