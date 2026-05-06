@@ -235,7 +235,13 @@
       "regionPlaceholder": "例如 eastus2",
       "apiKey": "API 密钥",
       "apiKeyPlaceholder": "输入 API 密钥",
-      "apiKeyHint": "留空以保留现有密钥"
+      "apiKeyHint": "留空以保留现有密钥",
+      "project": "项目",
+      "projectPlaceholder": "例如 my-ai-project",
+      "projectHint": "AI Foundry 项目名称 — HCP 代理同步所需",
+      "model": "默认模型",
+      "modelPlaceholder": "例如 gpt-4o",
+      "modelHint": "AI 教练和代理创建的默认模型"
     },
     "services": {
       "title": "服务配置",
@@ -268,15 +274,7 @@
     "testAll": "测试所有服务",
     "apiKeyOverride": "API 密钥（留空使用主密钥）",
     "apiKeyPlaceholder": "使用主密钥",
-    "endpointOverrideHint": "如果此服务使用与主端点不同的 Azure 资源，请覆盖。",
-    "aiFoundry": {
-      "project": "项目",
-      "projectPlaceholder": "例如 my-ai-project",
-      "projectHint": "AI Foundry 项目名称 — HCP 代理同步所需",
-      "model": "默认模型",
-      "modelPlaceholder": "例如 gpt-4o",
-      "modelHint": "AI 教练和代理创建的默认模型"
-    }
+    "endpointOverrideHint": "如果此服务使用与主端点不同的 Azure 资源，请覆盖。"
   },
   "settings": {
     "title": "系统设置",

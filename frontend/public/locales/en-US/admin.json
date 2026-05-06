@@ -235,7 +235,13 @@
       "regionPlaceholder": "e.g. eastus2",
       "apiKey": "API Key",
       "apiKeyPlaceholder": "Enter API key",
-      "apiKeyHint": "Leave empty to keep existing key"
+      "apiKeyHint": "Leave empty to keep existing key",
+      "project": "Project",
+      "projectPlaceholder": "e.g. my-ai-project",
+      "projectHint": "AI Foundry project name — required for HCP agent sync",
+      "model": "Default Model",
+      "modelPlaceholder": "e.g. gpt-4o",
+      "modelHint": "Default model for AI coaching and agent creation"
     },
     "services": {
       "title": "Service Configuration",
@@ -268,15 +274,7 @@
     "testAll": "Test All Services",
     "apiKeyOverride": "API Key (leave empty to use master)",
     "apiKeyPlaceholder": "Uses master key",
-    "endpointOverrideHint": "Override if this service uses a different Azure resource than the master endpoint.",
-    "aiFoundry": {
-      "project": "Project",
-      "projectPlaceholder": "e.g. my-ai-project",
-      "projectHint": "AI Foundry project name — required for HCP agent sync",
-      "model": "Default Model",
-      "modelPlaceholder": "e.g. gpt-4o",
-      "modelHint": "Default model for AI coaching and agent creation"
-    }
+    "endpointOverrideHint": "Override if this service uses a different Azure resource than the master endpoint."
   },
   "settings": {
     "title": "System Settings",
