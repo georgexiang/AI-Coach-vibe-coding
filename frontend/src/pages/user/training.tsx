@@ -137,7 +137,7 @@ export default function ScenarioSelection() {
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           className="pl-9"
-          placeholder={t("scenarioSelection.searchPlaceholder", { defaultValue: tc("search") })}
+          placeholder={t("scenarioSelection.searchPlaceholder")}
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />

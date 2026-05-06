@@ -395,7 +395,7 @@ export default function TrainingMaterialsPage() {
                     {t("materials.uploadDate")}
                   </th>
                   <th className="hidden px-4 py-3 text-center text-sm font-medium text-muted-foreground md:table-cell">
-                    {t("materials.derivedSkills", { defaultValue: "关联Skills" })}
+                    {t("materials.derivedSkills")}
                   </th>
                   <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">
                     {t("materials.actions")}
