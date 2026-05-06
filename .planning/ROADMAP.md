@@ -594,3 +594,13 @@ Plans:
   8. 所有现有评分测试通过，新增动态维度场景的测试覆盖
 
 **UI hint**: yes
+
+### Phase 22: 对Scenarios 模块进行二次重构
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 21
+**Plans:** 5/6 plans executed
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 22 to break down)

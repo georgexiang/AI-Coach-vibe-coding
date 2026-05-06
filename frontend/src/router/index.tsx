@@ -21,6 +21,7 @@ const AdminDashboard = lazy(() => import("@/pages/admin/dashboard"));
 const HcpProfilesPage = lazy(() => import("@/pages/admin/hcp-profiles"));
 const HcpProfileEditorPage = lazy(() => import("@/pages/admin/hcp-profile-editor"));
 const ScenariosPage = lazy(() => import("@/pages/admin/scenarios"));
+const ScenarioEditorPage = lazy(() => import("@/pages/admin/scenario-editor"));
 const AzureConfigPage = lazy(() => import("@/pages/admin/azure-config"));
 const VoiceLiveManagementPage = lazy(() => import("@/pages/admin/voice-live-management"));
 const VlInstanceEditorPage = lazy(() => import("@/pages/admin/vl-instance-editor"));
@@ -89,6 +90,8 @@ export const router = createBrowserRouter([
               { path: "hcp-profiles/:id", element: <SuspensePage><HcpProfileEditorPage /></SuspensePage> },
               { path: "hcp-profiles/:id/edit", element: <SuspensePage><HcpProfileEditorPage /></SuspensePage> },
               { path: "scenarios", element: <SuspensePage><ScenariosPage /></SuspensePage> },
+              { path: "scenarios/new", element: <SuspensePage><ScenarioEditorPage /></SuspensePage> },
+              { path: "scenarios/:id", element: <SuspensePage><ScenarioEditorPage /></SuspensePage> },
               { path: "azure-config", element: <SuspensePage><AzureConfigPage /></SuspensePage> },
               { path: "voice-live", element: <SuspensePage><VoiceLiveManagementPage /></SuspensePage> },
               { path: "voice-live/new", element: <SuspensePage><VlInstanceEditorPage /></SuspensePage> },
