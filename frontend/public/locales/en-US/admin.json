@@ -502,5 +502,34 @@
       "testPlaceholderWithAvatar": "Digital human avatar will appear here",
       "assignToHcp": "Assign to HCP"
     }
+  },
+  "users": {
+    "title": "User Management",
+    "description": "Manage platform users, roles and permissions",
+    "searchPlaceholder": "Search by name or email...",
+    "filterRole": "Role",
+    "allRoles": "All Roles",
+    "filterStatus": "Status",
+    "allStatuses": "All Status",
+    "active": "Active",
+    "inactive": "Inactive",
+    "columnName": "Name",
+    "columnEmail": "Email",
+    "columnRole": "Role",
+    "columnBU": "BU",
+    "columnStatus": "Status",
+    "columnJoinDate": "Join Date",
+    "columnActions": "Actions",
+    "noUsers": "No users found",
+    "deactivate": "Deactivate",
+    "activate": "Activate",
+    "delete": "Delete",
+    "showing": "Showing {{from}}-{{to}} of {{total}} users",
+    "previous": "Previous",
+    "next": "Next",
+    "deleteTitle": "Delete User",
+    "deleteConfirm": "Are you sure you want to deactivate \"{{name}}\"? They will no longer be able to access the platform.",
+    "cancel": "Cancel",
+    "confirmDelete": "Deactivate"
   }
 }

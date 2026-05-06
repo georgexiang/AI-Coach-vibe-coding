@@ -166,12 +166,10 @@ export default function UserManagementPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-medium text-foreground">
-            {t("users.title", { defaultValue: "User Management" })}
+            {t("users.title")}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {t("users.description", {
-              defaultValue: "Manage platform users, roles and permissions",
-            })}
+            {t("users.description")}
           </p>
         </div>
       </div>
@@ -183,9 +181,7 @@ export default function UserManagementPage() {
             <div className="relative flex-1 min-w-[200px] max-w-sm">
               <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder={t("users.searchPlaceholder", {
-                  defaultValue: "Search by name or email...",
-                })}
+                placeholder={t("users.searchPlaceholder")}
                 value={searchQuery}
                 onChange={(e) => handleSearchChange(e.target.value)}
                 className="pl-9"
@@ -195,14 +191,12 @@ export default function UserManagementPage() {
             <Select value={filterRole} onValueChange={handleRoleChange}>
               <SelectTrigger className="w-[140px]">
                 <SelectValue
-                  placeholder={t("users.filterRole", {
-                    defaultValue: "Role",
-                  })}
+                  placeholder={t("users.filterRole")}
                 />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={ALL_VALUE}>
-                  {t("users.allRoles", { defaultValue: "All Roles" })}
+                  {t("users.allRoles")}
                 </SelectItem>
                 <SelectItem value="admin">Admin</SelectItem>
                 <SelectItem value="user">User</SelectItem>
@@ -212,20 +206,18 @@ export default function UserManagementPage() {
             <Select value={filterStatus} onValueChange={handleStatusChange}>
               <SelectTrigger className="w-[140px]">
                 <SelectValue
-                  placeholder={t("users.filterStatus", {
-                    defaultValue: "Status",
-                  })}
+                  placeholder={t("users.filterStatus")}
                 />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={ALL_VALUE}>
-                  {t("users.allStatuses", { defaultValue: "All Status" })}
+                  {t("users.allStatuses")}
                 </SelectItem>
                 <SelectItem value="active">
-                  {t("users.active", { defaultValue: "Active" })}
+                  {t("users.active")}
                 </SelectItem>
                 <SelectItem value="inactive">
-                  {t("users.inactive", { defaultValue: "Inactive" })}
+                  {t("users.inactive")}
                 </SelectItem>
               </SelectContent>
             </Select>
@@ -240,25 +232,25 @@ export default function UserManagementPage() {
             <thead>
               <tr className="border-b bg-muted/50">
                 <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">
-                  {t("users.columnName", { defaultValue: "Name" })}
+                  {t("users.columnName")}
                 </th>
                 <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">
-                  {t("users.columnEmail", { defaultValue: "Email" })}
+                  {t("users.columnEmail")}
                 </th>
                 <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">
-                  {t("users.columnRole", { defaultValue: "Role" })}
+                  {t("users.columnRole")}
                 </th>
                 <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">
-                  {t("users.columnBU", { defaultValue: "BU" })}
+                  {t("users.columnBU")}
                 </th>
                 <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">
-                  {t("users.columnStatus", { defaultValue: "Status" })}
+                  {t("users.columnStatus")}
                 </th>
                 <th className="hidden px-4 py-3 text-left text-sm font-medium text-muted-foreground lg:table-cell">
-                  {t("users.columnJoinDate", { defaultValue: "Join Date" })}
+                  {t("users.columnJoinDate")}
                 </th>
                 <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">
-                  {t("users.columnActions", { defaultValue: "Actions" })}
+                  {t("users.columnActions")}
                 </th>
               </tr>
             </thead>
@@ -269,7 +261,7 @@ export default function UserManagementPage() {
                     colSpan={7}
                     className="px-4 py-12 text-center text-sm text-muted-foreground"
                   >
-                    {t("users.noUsers", { defaultValue: "No users found" })}
+                    {t("users.noUsers")}
                   </td>
                 </tr>
               ) : (
@@ -326,10 +318,8 @@ export default function UserManagementPage() {
                         />
                         <span className="text-sm text-foreground capitalize">
                           {user.is_active
-                            ? t("users.active", { defaultValue: "Active" })
-                            : t("users.inactive", {
-                                defaultValue: "Inactive",
-                              })}
+                            ? t("users.active")
+                            : t("users.inactive")}
                         </span>
                       </div>
                     </td>
@@ -351,15 +341,15 @@ export default function UserManagementPage() {
                           <DropdownMenuItem onClick={() => toggleActive(user)}>
                             <Pencil className="size-4" />
                             {user.is_active
-                              ? t("users.deactivate", { defaultValue: "Deactivate" })
-                              : t("users.activate", { defaultValue: "Activate" })}
+                              ? t("users.deactivate")
+                              : t("users.activate")}
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             className="text-destructive focus:text-destructive"
                             onClick={() => setDeleteConfirmUser(user)}
                           >
                             <Trash2 className="size-4" />
-                            {t("users.delete", { defaultValue: "Delete" })}
+                            {t("users.delete")}
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -376,7 +366,6 @@ export default function UserManagementPage() {
           <div className="flex items-center justify-between border-t border-border px-4 py-3">
             <span className="text-sm text-muted-foreground">
               {t("users.showing", {
-                defaultValue: "Showing {{from}}-{{to}} of {{total}} users",
                 from: (page - 1) * PAGE_SIZE + 1,
                 to: Math.min(page * PAGE_SIZE, total),
                 total,
@@ -389,7 +378,7 @@ export default function UserManagementPage() {
                 disabled={page <= 1}
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
               >
-                {t("users.previous", { defaultValue: "Previous" })}
+                {t("users.previous")}
               </Button>
               <span className="text-sm text-muted-foreground">
                 {page} / {totalPages}
@@ -400,7 +389,7 @@ export default function UserManagementPage() {
                 disabled={page >= totalPages}
                 onClick={() => setPage((p) => p + 1)}
               >
-                {t("users.next", { defaultValue: "Next" })}
+                {t("users.next")}
               </Button>
             </div>
           </div>
@@ -415,12 +404,10 @@ export default function UserManagementPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {t("users.deleteTitle", { defaultValue: "Delete User" })}
+              {t("users.deleteTitle")}
             </DialogTitle>
             <DialogDescription>
               {t("users.deleteConfirm", {
-                defaultValue:
-                  'Are you sure you want to deactivate "{{name}}"? They will no longer be able to access the platform.',
                 name: deleteConfirmUser?.full_name ?? deleteConfirmUser?.username ?? "",
               })}
             </DialogDescription>
@@ -430,10 +417,10 @@ export default function UserManagementPage() {
               variant="outline"
               onClick={() => setDeleteConfirmUser(null)}
             >
-              {t("users.cancel", { defaultValue: "Cancel" })}
+              {t("users.cancel")}
             </Button>
             <Button variant="destructive" onClick={confirmDelete}>
-              {t("users.confirmDelete", { defaultValue: "Deactivate" })}
+              {t("users.confirmDelete")}
             </Button>
           </DialogFooter>
         </DialogContent>
