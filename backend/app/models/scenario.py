@@ -23,8 +23,9 @@ class Scenario(Base, TimestampMixin):
     key_messages: Mapped[str] = mapped_column(Text, default="[]")  # JSON array of strings
 
     # Skill association — version-pinned for deterministic agent behavior (D-21, D-22)
-    skill_id: Mapped[str | None] = mapped_column(
-        String(36), ForeignKey("skills.id", ondelete="SET NULL"), nullable=True, default=None
+    # NOT NULL per D-05: every scenario must reference a published skill
+    skill_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("skills.id", ondelete="RESTRICT"), nullable=False
     )
     skill_version_id: Mapped[str | None] = mapped_column(
         String(36),

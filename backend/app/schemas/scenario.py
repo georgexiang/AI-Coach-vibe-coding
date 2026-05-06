@@ -17,7 +17,7 @@ class ScenarioCreate(BaseModel):
     difficulty: str = "medium"
     status: str = "draft"
     key_messages: list[str] = []
-    skill_id: str | None = None
+    skill_id: str
     pass_threshold: int = 70
 
 
@@ -33,7 +33,7 @@ class ScenarioUpdate(BaseModel):
     difficulty: str | None = None
     status: str | None = None
     key_messages: list[str] | None = None
-    skill_id: str | None = None
+    skill_id: str | None = None  # Optional in partial update, but cannot set to empty
     pass_threshold: int | None = None
 
 
@@ -49,7 +49,7 @@ class ScenarioResponse(BaseModel):
     status: str
     hcp_profile_id: str
     key_messages: str  # JSON string from DB
-    skill_id: str | None = None
+    skill_id: str
     skill_version_id: str | None = None
     rubric_id: str
     pass_threshold: int

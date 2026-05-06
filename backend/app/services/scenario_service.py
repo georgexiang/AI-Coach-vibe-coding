@@ -16,16 +16,15 @@ from app.utils.exceptions import bad_request, not_found
 logger = logging.getLogger(__name__)
 
 
-async def _validate_and_pin_skill(
-    db: AsyncSession, skill_id: str | None
-) -> tuple[str | None, str | None]:
+async def _validate_and_pin_skill(db: AsyncSession, skill_id: str) -> tuple[str, str]:
     """Validate skill association and pin to published version.
 
     Server-side enforcement: only published or archived skills allowed (D-23).
+    skill_id is required (NOT NULL per D-05).
     Returns (skill_id, skill_version_id) tuple.
     """
     if not skill_id:
-        return None, None
+        bad_request("skill_id is required")
 
     result = await db.execute(select(Skill).where(Skill.id == skill_id))
     skill = result.scalar_one_or_none()
@@ -83,8 +82,8 @@ async def create_scenario(db: AsyncSession, data: ScenarioCreate, user_id: str) 
     if isinstance(scenario_data.get("tags"), list):
         scenario_data["tags"] = json.dumps(scenario_data["tags"])
 
-    # Validate and pin skill version
-    skill_id, skill_version_id = await _validate_and_pin_skill(db, scenario_data.get("skill_id"))
+    # Validate and pin skill version (skill_id is required)
+    skill_id, skill_version_id = await _validate_and_pin_skill(db, scenario_data["skill_id"])
     scenario_data["skill_id"] = skill_id
     scenario_data["skill_version_id"] = skill_version_id
 
@@ -93,9 +92,8 @@ async def create_scenario(db: AsyncSession, data: ScenarioCreate, user_id: str) 
     await db.flush()
     await db.refresh(scenario)
 
-    # Trigger agent re-sync if skill assigned
-    if skill_id:
-        await _trigger_agent_resync(db, scenario.hcp_profile_id)
+    # Trigger agent re-sync after skill assignment
+    await _trigger_agent_resync(db, scenario.hcp_profile_id)
 
     return scenario
 
@@ -181,10 +179,12 @@ async def update_scenario(db: AsyncSession, scenario_id: str, data: ScenarioUpda
     if "hcp_profile_id" in update_data:
         await hcp_profile_service.get_hcp_profile(db, update_data["hcp_profile_id"])
 
-    # Handle skill assignment change
+    # Handle skill assignment change (skill_id cannot be null/empty per D-05)
     skill_changed = False
     if "skill_id" in update_data:
         new_skill_id = update_data["skill_id"]
+        if not new_skill_id:
+            bad_request("skill_id is required and cannot be empty")
         if new_skill_id != scenario.skill_id:
             skill_id, skill_version_id = await _validate_and_pin_skill(db, new_skill_id)
             update_data["skill_id"] = skill_id

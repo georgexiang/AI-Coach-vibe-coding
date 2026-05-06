@@ -28,7 +28,7 @@ class ScenarioOut(BaseModel):
     status: str
     hcp_profile_id: str
     key_messages: list[str]
-    skill_id: str | None = None
+    skill_id: str
     skill_version_id: str | None = None
     rubric_id: str
     pass_threshold: int
@@ -146,8 +146,6 @@ async def get_scenario_skill(
     from app.models.skill import Skill, SkillVersion
 
     scenario = await scenario_service.get_scenario(db, scenario_id)
-    if not scenario.skill_id:
-        return None
 
     result = await db.execute(select(Skill).where(Skill.id == scenario.skill_id))
     skill = result.scalar_one_or_none()
