@@ -214,7 +214,8 @@
     "f2f": "面对面",
     "conference": "学术会议",
     "deleted": "评分标准已删除",
-    "deleteTitle": "删除评分标准"
+    "deleteTitle": "删除评分标准",
+    "pageDescription": "定义评分维度、权重和培训评估标准"
   },
   "azureConfig": {
     "title": "Azure 服务配置",
@@ -260,7 +261,35 @@
     "voiceLiveTestSuccess": "Voice Live API 端点可访问。",
     "voiceLiveTestFailed": "Voice Live API 连接失败。请验证端点和 API 密钥。",
     "avatarTestSuccess": "Avatar 服务可访问。ICE 中继令牌已获取。",
-    "avatarTestFailed": "Avatar 连接失败。请确认该区域支持 Avatar 合成。"
+    "avatarTestFailed": "Avatar 连接失败。请确认该区域支持 Avatar 合成。",
+    "saved": "配置已保存",
+    "saveFailed": "保存配置失败",
+    "description": "配置 Azure AI 服务用于教练、语音和数字人",
+    "testAll": "测试所有服务",
+    "apiKeyOverride": "API 密钥（留空使用主密钥）",
+    "apiKeyPlaceholder": "使用主密钥",
+    "endpointOverrideHint": "如果此服务使用与主端点不同的 Azure 资源，请覆盖。",
+    "aiFoundry": {
+      "project": "项目",
+      "projectPlaceholder": "例如 my-ai-project",
+      "projectHint": "AI Foundry 项目名称 — HCP 代理同步所需",
+      "model": "默认模型",
+      "modelPlaceholder": "例如 gpt-4o",
+      "modelHint": "AI 教练和代理创建的默认模型"
+    }
+  },
+  "settings": {
+    "title": "系统设置",
+    "description": "配置平台全局设置",
+    "language": "语言与区域",
+    "defaultLanguage": "默认语言",
+    "dataRetention": "数据保留",
+    "voiceRetention": "语音录音保留天数",
+    "voiceRetentionHint": "超过此天数的语音录音将被自动删除",
+    "branding": "品牌",
+    "orgName": "组织名称",
+    "darkMode": "深色模式",
+    "save": "保存设置"
   },
   "materials": {
     "title": "培训资料管理",

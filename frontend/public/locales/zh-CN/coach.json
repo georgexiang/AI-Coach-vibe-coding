@@ -36,7 +36,10 @@
     "startRecording": "开始录音",
     "stopRecording": "停止录音",
     "ttsOn": "启用语音回复",
-    "ttsOff": "关闭语音回复"
+    "ttsOff": "关闭语音回复",
+    "hideHints": "隐藏提示",
+    "showHints": "显示提示",
+    "noHints": "对话过程中提示将在此显示..."
   },
   "errors": {
     "sendFailed": "消息发送失败，请检查网络连接后重试。",

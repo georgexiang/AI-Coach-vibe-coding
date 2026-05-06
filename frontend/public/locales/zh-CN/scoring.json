@@ -60,6 +60,9 @@
     "passed": "通过",
     "failed": "未通过"
   },
+  "scenario": "场景",
+  "mode": "模式",
+  "date": "日期",
   "scoringInProgress": "评分中...",
   "errors": {
     "scoringFailed": "评分未能完成，请尝试重新结束会话。"

@@ -234,8 +234,8 @@ export default function TrainingSession() {
           onClick={() => setMobileHintsVisible((prev) => !prev)}
         >
           {mobileHintsVisible
-            ? t("session.hideHints", { defaultValue: "Hide Hints" })
-            : t("session.showHints", { defaultValue: "Show Hints" })}
+            ? t("session.hideHints")
+            : t("session.showHints")}
         </button>
         {mobileHintsVisible && (
           <div className="max-h-64 overflow-y-auto border-t border-border px-4 pb-4">
@@ -249,7 +249,7 @@ export default function TrainingSession() {
               </ul>
             ) : (
               <p className="py-4 text-center text-sm text-muted-foreground">
-                {t("session.noHints", { defaultValue: "Hints will appear as you converse..." })}
+                {t("session.noHints")}
               </p>
             )}
           </div>

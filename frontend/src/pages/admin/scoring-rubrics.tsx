@@ -105,7 +105,7 @@ export default function ScoringRubricsPage() {
         <div>
           <h1 className="text-2xl font-medium text-foreground">{t("rubrics.title")}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {t("rubrics.description", { defaultValue: "Define scoring dimensions, weights, and criteria for training evaluations" })}
+            {t("rubrics.pageDescription")}
           </p>
         </div>
         <div className="flex items-center gap-3">

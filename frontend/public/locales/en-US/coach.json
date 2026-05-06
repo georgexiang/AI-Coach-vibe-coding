@@ -36,7 +36,10 @@
     "startRecording": "Start recording",
     "stopRecording": "Stop recording",
     "ttsOn": "Enable voice replies",
-    "ttsOff": "Disable voice replies"
+    "ttsOff": "Disable voice replies",
+    "hideHints": "Hide Hints",
+    "showHints": "Show Hints",
+    "noHints": "Hints will appear as you converse..."
   },
   "errors": {
     "sendFailed": "Message could not be sent. Check your connection and try again.",

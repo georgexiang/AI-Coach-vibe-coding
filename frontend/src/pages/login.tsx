@@ -60,7 +60,7 @@ export default function LoginPage() {
               required
               autoComplete="username"
               disabled={loginMutation.isPending}
-              placeholder={t("emailPlaceholder", { defaultValue: "Enter your email" })}
+              placeholder={t("emailPlaceholder")}
               className="transition-colors duration-150"
             />
           </div>
@@ -77,7 +77,7 @@ export default function LoginPage() {
                 autoComplete="current-password"
                 disabled={loginMutation.isPending}
                 className="pr-10 transition-colors duration-150"
-                placeholder={t("passwordPlaceholder", { defaultValue: "Enter your password" })}
+                placeholder={t("passwordPlaceholder")}
               />
               <Button
                 type="button"

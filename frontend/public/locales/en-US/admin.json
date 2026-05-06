@@ -214,7 +214,8 @@
     "f2f": "Face-to-Face",
     "conference": "Conference",
     "deleted": "Rubric deleted",
-    "deleteTitle": "Delete Rubric"
+    "deleteTitle": "Delete Rubric",
+    "pageDescription": "Define scoring dimensions, weights, and criteria for training evaluations"
   },
   "azureConfig": {
     "title": "Azure Service Configuration",
@@ -260,7 +261,35 @@
     "voiceLiveTestSuccess": "Voice Live API endpoint reachable.",
     "voiceLiveTestFailed": "Voice Live API connection failed. Verify the endpoint and API key.",
     "avatarTestSuccess": "Avatar service reachable. ICE relay token retrieved.",
-    "avatarTestFailed": "Avatar connection failed. Verify the region supports Avatar synthesis."
+    "avatarTestFailed": "Avatar connection failed. Verify the region supports Avatar synthesis.",
+    "saved": "Configuration saved",
+    "saveFailed": "Failed to save configuration",
+    "description": "Configure Azure AI services for coaching, speech, and avatar",
+    "testAll": "Test All Services",
+    "apiKeyOverride": "API Key (leave empty to use master)",
+    "apiKeyPlaceholder": "Uses master key",
+    "endpointOverrideHint": "Override if this service uses a different Azure resource than the master endpoint.",
+    "aiFoundry": {
+      "project": "Project",
+      "projectPlaceholder": "e.g. my-ai-project",
+      "projectHint": "AI Foundry project name — required for HCP agent sync",
+      "model": "Default Model",
+      "modelPlaceholder": "e.g. gpt-4o",
+      "modelHint": "Default model for AI coaching and agent creation"
+    }
+  },
+  "settings": {
+    "title": "System Settings",
+    "description": "Configure platform-wide settings",
+    "language": "Language & Region",
+    "defaultLanguage": "Default Language",
+    "dataRetention": "Data Retention",
+    "voiceRetention": "Voice Recording Retention (days)",
+    "voiceRetentionHint": "Voice recordings older than this will be automatically deleted",
+    "branding": "Branding",
+    "orgName": "Organization Name",
+    "darkMode": "Dark Mode",
+    "save": "Save Settings"
   },
   "materials": {
     "title": "Training Materials",

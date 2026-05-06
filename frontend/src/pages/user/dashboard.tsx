@@ -79,7 +79,7 @@ export default function UserDashboard() {
       colorClass: "bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400",
       value: dashStats?.improvement != null
         ? `${dashStats.improvement > 0 ? "+" : ""}${dashStats.improvement}`
-        : ta("noImprovement", { defaultValue: "--" }),
+        : ta("noImprovement"),
       icon: TrendingUp,
       trend: dashStats?.improvement != null
         ? { value: `${dashStats.improvement > 0 ? "+" : ""}${dashStats.improvement}`, direction: dashStats.improvement >= 0 ? "up" as const : "down" as const }

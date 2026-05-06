@@ -60,6 +60,9 @@
     "passed": "Passed",
     "failed": "Failed"
   },
+  "scenario": "Scenario",
+  "mode": "Mode",
+  "date": "Date",
   "scoringInProgress": "Scoring in progress...",
   "errors": {
     "scoringFailed": "Scoring could not be completed. Try ending the session again."

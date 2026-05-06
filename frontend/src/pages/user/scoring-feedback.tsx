@@ -81,11 +81,11 @@ export default function ScoringFeedback() {
       {/* Session metadata */}
       {session && (
         <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
-          <span>{t("scenario", { defaultValue: "Scenario" })}: <strong className="text-foreground">{session.scenario_id ?? "---"}</strong></span>
+          <span>{t("scenario")}: <strong className="text-foreground">{session.scenario_id ?? "---"}</strong></span>
           <span className="text-border">|</span>
-          <span>{t("mode", { defaultValue: "Mode" })}: <strong className="text-foreground">F2F</strong></span>
+          <span>{t("mode")}: <strong className="text-foreground">F2F</strong></span>
           <span className="text-border">|</span>
-          <span>{t("date", { defaultValue: "Date" })}: <strong className="text-foreground">{session.created_at ? new Date(session.created_at).toLocaleDateString() : "---"}</strong></span>
+          <span>{t("date")}: <strong className="text-foreground">{session.created_at ? new Date(session.created_at).toLocaleDateString() : "---"}</strong></span>
         </div>
       )}
 
