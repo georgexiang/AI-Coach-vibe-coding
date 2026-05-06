@@ -39,8 +39,21 @@ import {
   useUpdateHcpProfile,
   useRetrySyncHcpProfile,
 } from "@/hooks/use-hcp-profiles";
-import { useSystemEnums, useEnumLabel } from "@/hooks/use-system-enums";
 import type { HcpProfileCreate, HcpProfileUpdate } from "@/types/hcp";
+
+const SPECIALTIES = [
+  "Oncology",
+  "Hematology",
+  "Immunology",
+  "Neurology",
+  "Cardiology",
+  "Endocrinology",
+  "Dermatology",
+  "Gastroenterology",
+  "General Practice",
+];
+
+const DIFFICULTIES = ["easy", "medium", "hard"] as const;
 
 const hcpSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -61,7 +74,7 @@ const hcpSchema = z.object({
   concerns: z.string().default(""),
   objections: z.array(z.string()),
   probe_topics: z.array(z.string()),
-  difficulty: z.string().min(1),
+  difficulty: z.enum(["easy", "medium", "hard"]),
   // Voice Live Instance reference
   voice_live_instance_id: z.string().nullable().default(null),
   // Voice Live agent metadata toggle
@@ -95,9 +108,6 @@ export default function HcpProfileEditorPage() {
   const createMutation = useCreateHcpProfile();
   const updateMutation = useUpdateHcpProfile();
   const retrySyncMutation = useRetrySyncHcpProfile();
-  const { data: specialtiesData = [] } = useSystemEnums("specialty");
-  const { data: difficultiesData = [] } = useSystemEnums("difficulty");
-  const getLabel = useEnumLabel();
 
   const [testChatOpen, setTestChatOpen] = useState(false);
 
@@ -335,9 +345,9 @@ export default function HcpProfileEditorPage() {
                                   </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
-                                  {specialtiesData.map((s) => (
-                                    <SelectItem key={s.value} value={s.value}>
-                                      {getLabel(s)}
+                                  {SPECIALTIES.map((s) => (
+                                    <SelectItem key={s} value={s}>
+                                      {s}
                                     </SelectItem>
                                   ))}
                                 </SelectContent>
@@ -490,20 +500,20 @@ export default function HcpProfileEditorPage() {
                   <div className="grid gap-2">
                     <Label>Difficulty</Label>
                     <div className="flex items-center gap-4">
-                      {difficultiesData.map((d) => (
+                      {DIFFICULTIES.map((d) => (
                         <label
-                          key={d.value}
+                          key={d}
                           className="flex items-center gap-2 cursor-pointer"
                         >
                           <input
                             type="radio"
                             name="difficulty"
-                            value={d.value}
-                            checked={form.watch("difficulty") === d.value}
-                            onChange={() => form.setValue("difficulty", d.value)}
+                            value={d}
+                            checked={form.watch("difficulty") === d}
+                            onChange={() => form.setValue("difficulty", d)}
                             className="accent-primary"
                           />
-                          <span className="text-sm capitalize">{getLabel(d)}</span>
+                          <span className="text-sm capitalize">{d}</span>
                         </label>
                       ))}
                     </div>

@@ -22,8 +22,7 @@ class ScenarioOut(BaseModel):
     id: str
     name: str
     description: str
-    product: str
-    therapeutic_area: str
+    tags: list[str]
     mode: str
     difficulty: str
     status: str
@@ -39,7 +38,7 @@ class ScenarioOut(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-    @field_validator("key_messages", mode="before")
+    @field_validator("key_messages", "tags", mode="before")
     @classmethod
     def parse_json_list(cls, v: str | list[str]) -> list[str]:
         """Parse JSON string field into Python list."""
@@ -74,12 +73,13 @@ async def list_scenarios(
     status: str | None = Query(None),
     mode: str | None = Query(None),
     search: str | None = Query(None),
+    tag: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role("admin")),
 ):
     """List scenarios with optional filters. Admin only."""
     items, total = await scenario_service.get_scenarios(
-        db, page=page, page_size=page_size, status=status, mode=mode, search=search
+        db, page=page, page_size=page_size, status=status, mode=mode, search=search, tag=tag
     )
     return PaginatedResponse.create(
         items=[ScenarioOut.model_validate(item) for item in items],

@@ -9,11 +9,10 @@ class ScenarioCreate(BaseModel):
     """Create a new scenario."""
 
     name: str
-    product: str
     hcp_profile_id: str
     rubric_id: str
     description: str = ""
-    therapeutic_area: str = ""
+    tags: list[str] = []
     mode: str = "f2f"
     difficulty: str = "medium"
     status: str = "draft"
@@ -26,11 +25,10 @@ class ScenarioUpdate(BaseModel):
     """Update an existing scenario. All fields optional for partial updates."""
 
     name: str | None = None
-    product: str | None = None
     hcp_profile_id: str | None = None
     rubric_id: str | None = None
     description: str | None = None
-    therapeutic_area: str | None = None
+    tags: list[str] | None = None
     mode: str | None = None
     difficulty: str | None = None
     status: str | None = None
@@ -45,8 +43,7 @@ class ScenarioResponse(BaseModel):
     id: str
     name: str
     description: str
-    product: str
-    therapeutic_area: str
+    tags: str  # JSON string from DB
     mode: str
     difficulty: str
     status: str

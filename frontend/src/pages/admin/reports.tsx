@@ -34,7 +34,6 @@ import {
   useScoreTrends,
 } from "@/hooks/use-analytics";
 import type { SkillGapCell } from "@/types/analytics";
-import { useSystemEnums, useEnumLabel } from "@/hooks/use-system-enums";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -62,9 +61,6 @@ export default function AdminReportsPage() {
   const exportAdmin = useExportAdminReport();
   const { data: orgData } = useOrgAnalytics();
   const { data: scoreTrendData } = useScoreTrends(6);
-
-  const { data: productsData = [] } = useSystemEnums("product");
-  const getLabel = useEnumLabel();
 
   const [buFilter, setBuFilter] = useState("all");
   const [regionFilter, setRegionFilter] = useState("all");
@@ -208,11 +204,9 @@ export default function AdminReportsPage() {
               <SelectItem value="all">
                 {t("allProducts", { defaultValue: "All Products" })}
               </SelectItem>
-              {productsData.map((p) => (
-                <SelectItem key={p.value} value={p.value}>
-                  {getLabel(p)}
-                </SelectItem>
-              ))}
+              <SelectItem value="zanubrutinib">Zanubrutinib</SelectItem>
+              <SelectItem value="tislelizumab">Tislelizumab</SelectItem>
+              <SelectItem value="pamiparib">Pamiparib</SelectItem>
             </SelectContent>
           </Select>
         </CardContent>

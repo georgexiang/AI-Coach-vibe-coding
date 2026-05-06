@@ -53,8 +53,5 @@
   "error.server": "出现问题，请稍后重试。",
   "error.notFound": "页面未找到。返回仪表盘。",
   "generate": "生成",
-  "regenerate": "重新生成",
-  "actions": "操作",
-  "create": "创建",
-  "confirmDelete": "确认删除"
+  "regenerate": "重新生成"
 }

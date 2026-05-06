@@ -13,8 +13,7 @@ class Scenario(Base, TimestampMixin):
 
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str] = mapped_column(Text, default="")
-    product: Mapped[str] = mapped_column(String(255), nullable=False)
-    therapeutic_area: Mapped[str] = mapped_column(String(255), default="")
+    tags: Mapped[str] = mapped_column(Text, default="[]")  # JSON array of "category:value"
     mode: Mapped[str] = mapped_column(String(20), default="f2f")  # f2f / conference
     difficulty: Mapped[str] = mapped_column(String(20), default="medium")
     status: Mapped[str] = mapped_column(String(20), default="draft")  # draft / active

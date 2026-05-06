@@ -464,24 +464,5 @@
       "testPlaceholderWithAvatar": "数字人形象将在此处显示",
       "assignToHcp": "分配给 HCP"
     }
-  },
-  "systemEnums": {
-    "title": "系统配置",
-    "categories": "分类",
-    "addValue": "添加选项",
-    "addCategory": "添加分类",
-    "editValue": "编辑选项",
-    "editDescription": "配置枚举值属性",
-    "addCategoryDescription": "输入分类名称（小写字母，下划线代替空格）",
-    "value": "值",
-    "labelEn": "英文标签",
-    "labelZh": "中文标签",
-    "sortOrder": "排序",
-    "active": "启用",
-    "deleteConfirm": "确定删除此选项？此操作不可撤销。",
-    "saved": "已保存",
-    "deleted": "已删除",
-    "noValues": "此分类暂无选项",
-    "selectCategory": "请选择分类以查看选项"
   }
 }

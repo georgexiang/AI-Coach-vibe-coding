@@ -79,6 +79,10 @@ async def create_scenario(db: AsyncSession, data: ScenarioCreate, user_id: str) 
     if isinstance(scenario_data.get("key_messages"), list):
         scenario_data["key_messages"] = json.dumps(scenario_data["key_messages"])
 
+    # Serialize tags list to JSON string
+    if isinstance(scenario_data.get("tags"), list):
+        scenario_data["tags"] = json.dumps(scenario_data["tags"])
+
     # Validate and pin skill version
     skill_id, skill_version_id = await _validate_and_pin_skill(db, scenario_data.get("skill_id"))
     scenario_data["skill_id"] = skill_id
@@ -103,6 +107,7 @@ async def get_scenarios(
     status: str | None = None,
     mode: str | None = None,
     search: str | None = None,
+    tag: str | None = None,
 ) -> tuple[list[Scenario], int]:
     """List scenarios with optional filters and eager-loaded HCP profile."""
     query = select(Scenario).options(selectinload(Scenario.hcp_profile))
@@ -114,6 +119,8 @@ async def get_scenarios(
     if search:
         search_filter = f"%{search}%"
         query = query.where(Scenario.name.ilike(search_filter))
+    if tag:
+        query = query.where(Scenario.tags.contains(f'"{tag}"'))
 
     # Count total
     count_query = select(func.count()).select_from(
@@ -125,6 +132,7 @@ async def get_scenarios(
                     Scenario.status == status if status else None,
                     Scenario.mode == mode if mode else None,
                     Scenario.name.ilike(f"%{search}%") if search else None,
+                    Scenario.tags.contains(f'"{tag}"') if tag else None,
                 ]
                 if c is not None
             ]
@@ -164,6 +172,10 @@ async def update_scenario(db: AsyncSession, scenario_id: str, data: ScenarioUpda
     # Serialize key_messages list to JSON string
     if "key_messages" in update_data and isinstance(update_data["key_messages"], list):
         update_data["key_messages"] = json.dumps(update_data["key_messages"])
+
+    # Serialize tags list to JSON string
+    if "tags" in update_data and isinstance(update_data["tags"], list):
+        update_data["tags"] = json.dumps(update_data["tags"])
 
     # If HCP profile ID is being changed, verify the new one exists
     if "hcp_profile_id" in update_data:
@@ -206,8 +218,7 @@ async def clone_scenario(db: AsyncSession, scenario_id: str, user_id: str) -> Sc
     clone = Scenario(
         name=f"{original.name} (Copy)",
         description=original.description,
-        product=original.product,
-        therapeutic_area=original.therapeutic_area,
+        tags=original.tags,
         mode=original.mode,
         difficulty=original.difficulty,
         status="draft",

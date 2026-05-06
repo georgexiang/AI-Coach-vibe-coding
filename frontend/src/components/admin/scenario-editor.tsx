@@ -30,10 +30,24 @@ import { ObjectionList } from "./objection-list";
 import { useHcpProfiles } from "@/hooks/use-hcp-profiles";
 import { usePublishedSkills } from "@/hooks/use-skills";
 import { useRubrics } from "@/hooks/use-rubrics";
-import { useSystemEnums, useEnumLabel } from "@/hooks/use-system-enums";
 import type { Scenario, ScenarioCreate } from "@/types/scenario";
 import type { HcpProfile } from "@/types/hcp";
 import type { Rubric } from "@/types/rubric";
+
+const PRODUCTS = [
+  "Tislelizumab",
+  "Zanubrutinib",
+  "Pamiparib",
+  "Lifirafenib",
+  "Ociperlimab",
+];
+
+const THERAPEUTIC_AREAS = [
+  "Oncology",
+  "Hematology",
+  "Immunology",
+  "Solid Tumors",
+];
 
 const NO_SKILL = "__none__";
 
@@ -72,9 +86,6 @@ export function ScenarioEditor({
   const { data: profilesData } = useHcpProfiles();
   const { data: publishedSkillsData } = usePublishedSkills();
   const { data: rubricsData } = useRubrics();
-  const { data: productsData = [] } = useSystemEnums("product");
-  const { data: areasData = [] } = useSystemEnums("therapeutic_area");
-  const getLabel = useEnumLabel();
   const navigate = useNavigate();
   const rubrics: Rubric[] = useMemo(() => rubricsData ?? [], [rubricsData]);
   const profiles: HcpProfile[] = useMemo(
@@ -191,9 +202,9 @@ export function ScenarioEditor({
                       <SelectValue placeholder="Select product" />
                     </SelectTrigger>
                     <SelectContent>
-                      {productsData.map((p) => (
-                        <SelectItem key={p.value} value={p.value}>
-                          {getLabel(p)}
+                      {PRODUCTS.map((p) => (
+                        <SelectItem key={p} value={p}>
+                          {p}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -220,9 +231,9 @@ export function ScenarioEditor({
                       <SelectValue placeholder="Select area" />
                     </SelectTrigger>
                     <SelectContent>
-                      {areasData.map((a) => (
-                        <SelectItem key={a.value} value={a.value}>
-                          {getLabel(a)}
+                      {THERAPEUTIC_AREAS.map((a) => (
+                        <SelectItem key={a} value={a}>
+                          {a}
                         </SelectItem>
                       ))}
                     </SelectContent>
