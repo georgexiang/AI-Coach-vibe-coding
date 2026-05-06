@@ -31,7 +31,7 @@ export default function ScenarioSelection() {
   const navigate = useNavigate();
 
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedTag, setSelectedTag] = useState(ALL_VALUE);
+  const [selectedProduct, setSelectedProduct] = useState(ALL_VALUE);
   const [selectedDifficulty, setSelectedDifficulty] = useState(ALL_VALUE);
   const [selectedVoiceMode, setSelectedVoiceMode] = useState<SessionMode>("voice_pipeline");
 
@@ -41,8 +41,8 @@ export default function ScenarioSelection() {
 
   const scenarios = data ?? [];
 
-  const allTags = useMemo(
-    () => [...new Set(scenarios.flatMap((s) => s.tags))],
+  const products = useMemo(
+    () => [...new Set(scenarios.map((s) => s.product))],
     [scenarios]
   );
   const difficulties = useMemo(
@@ -56,14 +56,14 @@ export default function ScenarioSelection() {
         searchTerm === "" ||
         s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         s.description.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesTag =
-        selectedTag === ALL_VALUE || s.tags.includes(selectedTag);
+      const matchesProduct =
+        selectedProduct === ALL_VALUE || s.product === selectedProduct;
       const matchesDifficulty =
         selectedDifficulty === ALL_VALUE ||
         s.difficulty === selectedDifficulty;
-      return matchesSearch && matchesTag && matchesDifficulty;
+      return matchesSearch && matchesProduct && matchesDifficulty;
     });
-  }, [scenarios, searchTerm, selectedTag, selectedDifficulty]);
+  }, [scenarios, searchTerm, selectedProduct, selectedDifficulty]);
 
   // Derive availability from feature flags
   const pipelineAvailable = config.voice_enabled;
@@ -100,20 +100,17 @@ export default function ScenarioSelection() {
 
   const filterRow = (
     <div className="mb-6 flex flex-wrap items-center gap-4">
-      <Select value={selectedTag} onValueChange={setSelectedTag}>
+      <Select value={selectedProduct} onValueChange={setSelectedProduct}>
         <SelectTrigger className="w-[180px]">
-          <SelectValue placeholder={t("scenarioSelection.filterAllTags", { defaultValue: "All Tags" })} />
+          <SelectValue placeholder={t("scenarioSelection.filterAllDifficulties")} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value={ALL_VALUE}>{t("scenarioSelection.allTags", { defaultValue: "All Tags" })}</SelectItem>
-          {allTags.map((tag) => {
-            const value = tag.includes(":") ? tag.split(":").slice(1).join(":") : tag;
-            return (
-              <SelectItem key={tag} value={tag}>
-                {value}
-              </SelectItem>
-            );
-          })}
+          <SelectItem value={ALL_VALUE}>{tc("allProducts")}</SelectItem>
+          {products.map((product) => (
+            <SelectItem key={product} value={product}>
+              {product}
+            </SelectItem>
+          ))}
         </SelectContent>
       </Select>
 

@@ -13,7 +13,8 @@ class Scenario(Base, TimestampMixin):
 
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str] = mapped_column(Text, default="")
-    tags: Mapped[str] = mapped_column(Text, default="[]")  # JSON array of "category:value"
+    product: Mapped[str] = mapped_column(String(255), nullable=False)
+    therapeutic_area: Mapped[str] = mapped_column(String(255), default="")
     mode: Mapped[str] = mapped_column(String(20), default="f2f")  # f2f / conference
     difficulty: Mapped[str] = mapped_column(String(20), default="medium")
     status: Mapped[str] = mapped_column(String(20), default="draft")  # draft / active
@@ -23,9 +24,8 @@ class Scenario(Base, TimestampMixin):
     key_messages: Mapped[str] = mapped_column(Text, default="[]")  # JSON array of strings
 
     # Skill association — version-pinned for deterministic agent behavior (D-21, D-22)
-    # NOT NULL per D-05: every scenario must reference a published skill
-    skill_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("skills.id", ondelete="RESTRICT"), nullable=False
+    skill_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("skills.id", ondelete="SET NULL"), nullable=True, default=None
     )
     skill_version_id: Mapped[str | None] = mapped_column(
         String(36),

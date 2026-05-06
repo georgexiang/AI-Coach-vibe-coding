@@ -148,7 +148,8 @@ export default function TrainingSession() {
     id: "",
     name: tc("loading"),
     description: "",
-    tags: [],
+    product: "",
+    therapeutic_area: "",
     mode: "f2f",
     difficulty: "medium",
     status: "active",
@@ -160,7 +161,7 @@ export default function TrainingSession() {
     created_by: "",
     created_at: "",
     updated_at: "",
-    skill_id: "",
+    skill_id: null,
     skill_version_id: null,
   };
 
@@ -195,7 +196,7 @@ export default function TrainingSession() {
             {currentScenario.hcp_profile?.name ?? currentScenario.name}
           </p>
           <p className="truncate text-xs text-muted-foreground">
-            {currentScenario.hcp_profile?.specialty ?? currentScenario.tags.map((t) => t.includes(":") ? t.split(":").slice(1).join(":") : t).join(", ")}
+            {currentScenario.hcp_profile?.specialty ?? currentScenario.product}
           </p>
         </div>
       </div>

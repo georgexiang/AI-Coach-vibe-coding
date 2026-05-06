@@ -25,13 +25,13 @@ test.describe("Admin Scenarios Management", () => {
 
     // Table headers should be visible
     await expect(page.getByText("Name").first()).toBeVisible();
-    await expect(page.getByText("Tags").first()).toBeVisible();
+    await expect(page.getByText("Product").first()).toBeVisible();
     await expect(page.getByText("HCP").first()).toBeVisible();
     await expect(page.getByText("Difficulty").first()).toBeVisible();
     await expect(page.getByText("Status").first()).toBeVisible();
   });
 
-  test("create scenario navigates to /admin/scenarios/new", async ({
+  test("create scenario opens editor dialog with form fields", async ({
     page,
   }) => {
     // Click the create button
@@ -40,21 +40,14 @@ test.describe("Admin Scenarios Management", () => {
     });
     await createButton.first().click();
 
-    // Should navigate to the full-page editor
-    await expect(page).toHaveURL(/\/admin\/scenarios\/new/);
+    // A dialog should appear with the form
+    await expect(
+      page.getByRole("dialog"),
+    ).toBeVisible({ timeout: 5000 });
 
-    // Verify editor page loads with tabs
-    await expect(page.getByText("Basic Info").first()).toBeVisible({ timeout: 5000 });
-    await expect(page.getByText("Linked Config").first()).toBeVisible();
-    await expect(page.getByText("Scoring Rules").first()).toBeVisible();
-  });
-
-  test("scenario editor basic info tab has form fields", async ({ page }) => {
-    await page.goto("/admin/scenarios/new");
-    await page.waitForLoadState("networkidle");
-
-    // Basic Info tab should be active by default
-    await expect(page.getByText("Name *").first()).toBeVisible({ timeout: 5000 });
+    // Form fields should be present in the dialog
+    await expect(page.getByText("Name *").first()).toBeVisible();
+    await expect(page.getByText("Product *").first()).toBeVisible();
     await expect(page.getByText("Description").first()).toBeVisible();
 
     // Mode radio buttons should be present (f2f, conference)
@@ -72,83 +65,52 @@ test.describe("Admin Scenarios Management", () => {
       page.locator("label").filter({ hasText: /hard/i }).first(),
     ).toBeVisible();
 
-    // Save button in header
+    // Save button in dialog footer
     await expect(
-      page.getByRole("button", { name: /save/i }),
+      page.getByRole("dialog").getByRole("button", { name: /save/i }),
     ).toBeVisible();
   });
 
-  test("scenario editor scoring tab has rubric selector", async ({ page }) => {
-    await page.goto("/admin/scenarios/new");
-    await page.waitForLoadState("networkidle");
+  test("scenario editor has rubric selector instead of scoring weights", async ({ page }) => {
+    // Click create to open editor dialog
+    const createButton = page.getByRole("button", {
+      name: /create|new scenario/i,
+    });
+    await createButton.first().click();
 
-    // Click Scoring Rules tab
-    await page.getByText("Scoring Rules").first().click();
-    await page.waitForTimeout(300);
+    // Wait for dialog to open
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible({ timeout: 5000 });
 
-    // Rubric selector label should be visible
+    // Rubric selector label should be visible (replaces old scoring weights)
     await expect(
-      page.getByText("Scoring Rubric *").first(),
-    ).toBeVisible({ timeout: 3000 });
+      dialog.getByText("Scoring Rubric *"),
+    ).toBeVisible();
 
     // Rubric dropdown trigger with placeholder should exist
     await expect(
-      page.getByText("Select scoring rubric").first(),
+      dialog.getByText("Select scoring rubric"),
     ).toBeVisible();
 
     // Dimension preview empty state should show
     await expect(
-      page.getByText("Select a scoring rubric to see dimensions").first(),
+      dialog.getByText("Select a scoring rubric to see dimensions"),
     ).toBeVisible();
 
     // "Manage Rubrics" link should be present
     await expect(
-      page.getByText("Manage Rubrics").first(),
+      dialog.getByText("Manage Rubrics"),
     ).toBeVisible();
 
     // Pass Threshold field should still be present
     await expect(
-      page.getByText(/pass threshold/i).first(),
+      dialog.getByText(/pass threshold/i).first(),
     ).toBeVisible();
-  });
 
-  test("back button returns to list", async ({ page }) => {
-    await page.goto("/admin/scenarios/new");
-    await page.waitForLoadState("networkidle");
-
-    // Click the back button (ArrowLeft icon button)
-    const backButton = page.locator("button").filter({ has: page.locator("svg") }).first();
-    await backButton.click();
-
-    await expect(page).toHaveURL(/\/admin\/scenarios$/);
-  });
-
-  test("edit scenario navigates to /admin/scenarios/:id", async ({
-    page,
-  }) => {
-    // Wait for table rows to load
-    await page.waitForTimeout(2000);
-
-    // Find the MoreHorizontal action buttons in table body rows
-    const actionButtons = page.locator("td").last().locator("button");
-    const count = await actionButtons.count();
-
-    if (count > 0) {
-      // Click the first action menu button in a table row
-      await actionButtons.first().click();
-      await page.waitForTimeout(500);
-
-      // Click Edit from dropdown
-      const editItem = page.getByRole("menuitem", { name: /edit/i });
-      const editCount = await editItem.count();
-      if (editCount > 0) {
-        await editItem.click();
-        await expect(page).toHaveURL(/\/admin\/scenarios\/[a-f0-9-]+/);
-
-        // Verify editor page loads with tabs
-        await expect(page.getByText("Basic Info").first()).toBeVisible({ timeout: 5000 });
-      }
-    }
+    // Key Messages section should still be in the editor
+    await expect(
+      dialog.getByText(/key message/i).first(),
+    ).toBeVisible();
   });
 
   test("status filter dropdown works", async ({ page }) => {
@@ -202,6 +164,69 @@ test.describe("Admin Scenarios Management", () => {
         page.getByRole("menuitem", { name: /delete/i }),
       ).toBeVisible();
     }
+  });
+
+  test("creates a new scenario with rubric and verifies it appears in the table", async ({
+    page,
+  }) => {
+    const scenarioName = `E2E Scenario ${Date.now()}`;
+
+    // Click the create button
+    const createButton = page.getByRole("button", {
+      name: /create|new scenario/i,
+    });
+    await createButton.first().click();
+
+    // Wait for dialog to appear
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible({ timeout: 5000 });
+
+    // Fill the Name field (first text input in the dialog)
+    const nameInput = dialog.locator("input[type='text'], input:not([type])").first();
+    await nameInput.fill(scenarioName);
+
+    // Select Product from dropdown (first combobox in dialog)
+    const comboboxes = dialog.locator("button[role='combobox']");
+    await comboboxes.nth(0).click();
+    await page.waitForTimeout(300);
+    const productOption = page.getByRole("option", { name: /Tislelizumab/i });
+    await expect(productOption).toBeVisible({ timeout: 3000 });
+    await productOption.click();
+    await page.waitForTimeout(300);
+
+    // Select HCP from dropdown (third combobox — after Product and Therapeutic Area)
+    await comboboxes.nth(2).click();
+    await page.waitForTimeout(300);
+    const hcpOptions = page.getByRole("option");
+    const hcpCount = await hcpOptions.count();
+    if (hcpCount > 0) {
+      await hcpOptions.first().click();
+      await page.waitForTimeout(300);
+    }
+
+    // Select Scoring Rubric (fifth combobox — after Product, Therapeutic Area, HCP, Skill)
+    await comboboxes.nth(4).click();
+    await page.waitForTimeout(300);
+    const rubricOption = page.getByRole("option").first();
+    await expect(rubricOption).toBeVisible({ timeout: 3000 });
+    await rubricOption.click();
+    await page.waitForTimeout(300);
+
+    // After selecting rubric, dimension preview should appear (not the empty state)
+    await expect(
+      dialog.getByText("Select a scoring rubric to see dimensions"),
+    ).not.toBeVisible();
+
+    // Click Save
+    await dialog.getByRole("button", { name: /save/i }).click();
+
+    // Verify: dialog should close on success (no validation error)
+    await expect(dialog).not.toBeVisible({ timeout: 10000 });
+
+    // Verify: new scenario name should appear in the table
+    await expect(page.getByText(scenarioName).first()).toBeVisible({
+      timeout: 5000,
+    });
   });
 
   test("delete scenario shows confirmation dialog", async ({ page }) => {

@@ -7,7 +7,6 @@ export async function getScenarios(params?: {
   status?: string;
   mode?: string;
   search?: string;
-  tag?: string;
 }) {
   const { data } = await apiClient.get<{
     items: Scenario[];

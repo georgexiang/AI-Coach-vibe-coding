@@ -79,18 +79,13 @@ export function ScenarioPanel({
             <CardTitle className="text-sm">{t("session.scenarioBriefing")}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
-            <div className="flex justify-between items-start">
-              <span className="text-muted-foreground">Tags</span>
-              <div className="flex flex-wrap gap-1 justify-end">
-                {scenario.tags.length > 0 ? scenario.tags.map((tag) => {
-                  const value = tag.includes(":") ? tag.split(":").slice(1).join(":") : tag;
-                  return (
-                    <Badge key={tag} variant="outline" className="text-xs">
-                      {value}
-                    </Badge>
-                  );
-                }) : <span className="text-xs text-muted-foreground">-</span>}
-              </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Product</span>
+              <span className="font-medium text-foreground">{scenario.product}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Area</span>
+              <span className="font-medium text-foreground">{scenario.therapeutic_area}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Difficulty</span>

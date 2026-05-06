@@ -22,13 +22,14 @@ class ScenarioOut(BaseModel):
     id: str
     name: str
     description: str
-    tags: list[str]
+    product: str
+    therapeutic_area: str
     mode: str
     difficulty: str
     status: str
     hcp_profile_id: str
     key_messages: list[str]
-    skill_id: str
+    skill_id: str | None = None
     skill_version_id: str | None = None
     rubric_id: str
     pass_threshold: int
@@ -38,7 +39,7 @@ class ScenarioOut(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-    @field_validator("key_messages", "tags", mode="before")
+    @field_validator("key_messages", mode="before")
     @classmethod
     def parse_json_list(cls, v: str | list[str]) -> list[str]:
         """Parse JSON string field into Python list."""
@@ -73,13 +74,12 @@ async def list_scenarios(
     status: str | None = Query(None),
     mode: str | None = Query(None),
     search: str | None = Query(None),
-    tag: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role("admin")),
 ):
     """List scenarios with optional filters. Admin only."""
     items, total = await scenario_service.get_scenarios(
-        db, page=page, page_size=page_size, status=status, mode=mode, search=search, tag=tag
+        db, page=page, page_size=page_size, status=status, mode=mode, search=search
     )
     return PaginatedResponse.create(
         items=[ScenarioOut.model_validate(item) for item in items],
@@ -146,6 +146,8 @@ async def get_scenario_skill(
     from app.models.skill import Skill, SkillVersion
 
     scenario = await scenario_service.get_scenario(db, scenario_id)
+    if not scenario.skill_id:
+        return None
 
     result = await db.execute(select(Skill).where(Skill.id == scenario.skill_id))
     skill = result.scalar_one_or_none()

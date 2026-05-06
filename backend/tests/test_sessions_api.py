@@ -74,12 +74,12 @@ async def _create_active_scenario(client, admin_id, admin_token) -> str:
         "/api/v1/scenarios",
         json={
             "name": "Active Scenario",
+            "product": "Brukinsa",
             "hcp_profile_id": hcp_id,
             "rubric_id": rubric_id,
             "created_by": admin_id,
             "status": "active",
             "key_messages": ["Superior PFS", "Better safety"],
-            "tags": ["product:Brukinsa"],
         },
         headers={"Authorization": f"Bearer {admin_token}"},
     )

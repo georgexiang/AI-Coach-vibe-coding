@@ -6,6 +6,7 @@ export { ObjectionList } from "./objection-list";
 export { PersonalitySliders } from "./personality-sliders";
 export { RubricEditor } from "./rubric-editor";
 export { RubricTable } from "./rubric-table";
+export { ScenarioEditor } from "./scenario-editor";
 export { ScenarioTable } from "./scenario-table";
 export { ScoringWeights, adjustWeights } from "./scoring-weights";
 export { ServiceConfigCard } from "./service-config-card";

@@ -22,7 +22,8 @@ const mockScenario: Scenario = {
   id: "sc-1",
   name: "Oncology Visit",
   description: "Practice session",
-  tags: ["product:DrugX", "therapeutic_area:Oncology"],
+  product: "DrugX",
+  therapeutic_area: "Oncology",
   mode: "f2f",
   difficulty: "medium",
   status: "active",
@@ -75,7 +76,7 @@ const mockScenario: Scenario = {
   created_by: "admin",
   created_at: "2024-01-01",
   updated_at: "2024-01-01",
-  skill_id: "skill-1",
+  skill_id: null,
   skill_version_id: null,
 };
 
@@ -105,10 +106,10 @@ describe("ScenarioPanel", () => {
     expect(screen.getByText("Dr. Jane Doe")).toBeInTheDocument();
   });
 
-  it("renders scoring criteria section with rubric-based info", () => {
+  it("renders scoring weight entries", () => {
     render(<ScenarioPanel {...defaultProps} />);
-    expect(screen.getByText("session.scoringCriteria")).toBeInTheDocument();
-    expect(screen.getByText("session.rubricBased")).toBeInTheDocument();
+    expect(screen.getByText("Key Message")).toBeInTheDocument();
+    expect(screen.getByText("30%")).toBeInTheDocument();
   });
 
   it("renders collapsed state with toggle button", () => {

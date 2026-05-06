@@ -4,14 +4,15 @@ export interface Scenario {
   id: string;
   name: string;
   description: string;
-  tags: string[];
+  product: string;
+  therapeutic_area: string;
   mode: "f2f" | "conference";
   difficulty: "easy" | "medium" | "hard";
-  status: "draft" | "active" | "archived";
+  status: "draft" | "active";
   hcp_profile_id: string;
   hcp_profile?: HcpProfile;
   key_messages: string[];
-  skill_id: string;
+  skill_id: string | null;
   skill_version_id: string | null;
   rubric_id: string;
   pass_threshold: number;
@@ -23,18 +24,18 @@ export interface Scenario {
 
 export interface ScenarioCreate {
   name: string;
+  product: string;
   hcp_profile_id: string;
   description?: string;
-  tags?: string[];
+  therapeutic_area?: string;
   mode?: Scenario["mode"];
   difficulty?: Scenario["difficulty"];
   key_messages?: string[];
-  skill_id: string;
+  skill_id?: string | null;
   rubric_id: string;
   pass_threshold?: number;
 }
 
-export interface ScenarioUpdate extends Partial<Omit<ScenarioCreate, "skill_id">> {
-  skill_id?: string;
+export interface ScenarioUpdate extends Partial<ScenarioCreate> {
   status?: Scenario["status"];
 }

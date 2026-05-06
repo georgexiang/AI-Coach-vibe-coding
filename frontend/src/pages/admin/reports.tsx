@@ -204,9 +204,9 @@ export default function AdminReportsPage() {
               <SelectItem value="all">
                 {t("allProducts", { defaultValue: "All Products" })}
               </SelectItem>
-              <SelectItem value="product:Zanubrutinib">Zanubrutinib</SelectItem>
-              <SelectItem value="product:Tislelizumab">Tislelizumab</SelectItem>
-              <SelectItem value="product:Pamiparib">Pamiparib</SelectItem>
+              <SelectItem value="zanubrutinib">Zanubrutinib</SelectItem>
+              <SelectItem value="tislelizumab">Tislelizumab</SelectItem>
+              <SelectItem value="pamiparib">Pamiparib</SelectItem>
             </SelectContent>
           </Select>
         </CardContent>

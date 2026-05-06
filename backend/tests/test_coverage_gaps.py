@@ -91,12 +91,12 @@ async def _admin_scenario(client, admin_id, admin_token) -> str:
         "/api/v1/scenarios",
         json={
             "name": "Cov Scenario",
+            "product": "Brukinsa",
             "hcp_profile_id": hcp.json()["id"],
             "rubric_id": rubric_id,
             "created_by": admin_id,
             "status": "active",
             "key_messages": ["Superior PFS", "Better safety"],
-            "tags": ["product:Brukinsa"],
         },
         headers={"Authorization": f"Bearer {admin_token}"},
     )
@@ -676,11 +676,11 @@ class TestScenariosCoverage:
             "/api/v1/scenarios",
             json={
                 "name": "Cov Scenario",
+                "product": "Drug",
                 "hcp_profile_id": hcp_id,
                 "rubric_id": "test-rubric-id",
                 "created_by": admin_id,
                 "key_messages": ["Msg1"],
-                "tags": ["product:Drug"],
             },
             headers={"Authorization": f"Bearer {admin_token}"},
         )
@@ -696,12 +696,12 @@ class TestScenariosCoverage:
             "/api/v1/scenarios",
             json={
                 "name": "Active Scn",
+                "product": "Drug",
                 "hcp_profile_id": hcp_id,
                 "rubric_id": "test-rubric-id",
                 "created_by": admin_id,
                 "status": "active",
                 "key_messages": ["M"],
-                "tags": ["product:Drug"],
             },
             headers={"Authorization": f"Bearer {admin_token}"},
         )
@@ -720,12 +720,12 @@ class TestScenariosCoverage:
             "/api/v1/scenarios",
             json={
                 "name": "User Active Scn",
+                "product": "Drug",
                 "hcp_profile_id": hcp_id,
                 "rubric_id": "test-rubric-id",
                 "created_by": admin_id,
                 "status": "active",
                 "key_messages": ["M"],
-                "tags": ["product:Drug"],
             },
             headers={"Authorization": f"Bearer {admin_token}"},
         )
@@ -745,11 +745,11 @@ class TestScenariosCoverage:
             "/api/v1/scenarios",
             json={
                 "name": "Get Scn",
+                "product": "Drug",
                 "hcp_profile_id": hcp_id,
                 "rubric_id": "test-rubric-id",
                 "created_by": admin_id,
                 "key_messages": ["M"],
-                "tags": ["product:Drug"],
             },
             headers={"Authorization": f"Bearer {admin_token}"},
         )
@@ -769,11 +769,11 @@ class TestScenariosCoverage:
             "/api/v1/scenarios",
             json={
                 "name": "Before",
+                "product": "Drug",
                 "hcp_profile_id": hcp_id,
                 "rubric_id": "test-rubric-id",
                 "created_by": admin_id,
                 "key_messages": ["M"],
-                "tags": ["product:Drug"],
             },
             headers={"Authorization": f"Bearer {admin_token}"},
         )
@@ -794,11 +794,11 @@ class TestScenariosCoverage:
             "/api/v1/scenarios",
             json={
                 "name": "Delete Scn",
+                "product": "Drug",
                 "hcp_profile_id": hcp_id,
                 "rubric_id": "test-rubric-id",
                 "created_by": admin_id,
                 "key_messages": ["M"],
-                "tags": ["product:Drug"],
             },
             headers={"Authorization": f"Bearer {admin_token}"},
         )
@@ -817,11 +817,11 @@ class TestScenariosCoverage:
             "/api/v1/scenarios",
             json={
                 "name": "Clone Src",
+                "product": "Drug",
                 "hcp_profile_id": hcp_id,
                 "rubric_id": "test-rubric-id",
                 "created_by": admin_id,
                 "key_messages": ["M"],
-                "tags": ["product:Drug"],
             },
             headers={"Authorization": f"Bearer {admin_token}"},
         )

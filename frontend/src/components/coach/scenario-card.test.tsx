@@ -15,7 +15,8 @@ const mockScenario: Scenario = {
   id: "sc-1",
   name: "Oncology Visit",
   description: "Practice F2F with oncologist",
-  tags: ["product:DrugX", "therapeutic_area:Oncology"],
+  product: "DrugX",
+  therapeutic_area: "Oncology",
   mode: "f2f",
   difficulty: "medium",
   status: "active",
@@ -69,7 +70,7 @@ const mockScenario: Scenario = {
   created_by: "admin",
   created_at: "2024-01-01",
   updated_at: "2024-01-01",
-  skill_id: "skill-1",
+  skill_id: null,
   skill_version_id: null,
 };
 
@@ -100,9 +101,8 @@ describe("ScenarioCard", () => {
     expect(onStart).toHaveBeenCalledWith("sc-1");
   });
 
-  it("renders tag badges", () => {
+  it("renders product badge", () => {
     render(<ScenarioCard scenario={mockScenario} onStart={vi.fn()} />);
     expect(screen.getByText("DrugX")).toBeInTheDocument();
-    expect(screen.getByText("Oncology")).toBeInTheDocument();
   });
 });

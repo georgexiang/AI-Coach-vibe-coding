@@ -54,16 +54,13 @@ export function ScenarioCard({ scenario, onStart }: ScenarioCardProps) {
         )}
       </div>
 
-      {/* Tags + traits badges */}
+      {/* Product + traits badges */}
       <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5">
-        {scenario.tags.map((tag) => {
-          const value = tag.includes(":") ? tag.split(":").slice(1).join(":") : tag;
-          return (
-            <Badge key={tag} variant="outline" className="text-xs">
-              {value}
-            </Badge>
-          );
-        })}
+        {scenario.product && (
+          <Badge variant="outline" className="text-xs">
+            {scenario.product}
+          </Badge>
+        )}
         {scenario.hcp_profile?.personality_type && (
           <Badge variant="secondary" className="text-xs">
             {scenario.hcp_profile.personality_type}

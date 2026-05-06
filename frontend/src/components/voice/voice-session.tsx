@@ -313,7 +313,8 @@ export function VoiceSession({
     id: "",
     name: tc("loading"),
     description: "",
-    tags: [],
+    product: "",
+    therapeutic_area: "",
     mode: "f2f",
     difficulty: "medium",
     status: "active",
@@ -325,7 +326,7 @@ export function VoiceSession({
     created_by: "",
     created_at: "",
     updated_at: "",
-    skill_id: "",
+    skill_id: null,
     skill_version_id: null,
   };
 

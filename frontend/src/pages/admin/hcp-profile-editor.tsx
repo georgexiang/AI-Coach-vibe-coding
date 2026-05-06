@@ -56,8 +56,8 @@ const SPECIALTIES = [
 const DIFFICULTIES = ["easy", "medium", "hard"] as const;
 
 const hcpSchema = z.object({
-  name: z.string().min(1, "Name is required"),
-  specialty: z.string().min(1, "Specialty is required"),
+  name: z.string().min(1),
+  specialty: z.string().min(1),
   hospital: z.string().default(""),
   title: z.string().default(""),
   personality_type: z.enum([
@@ -321,7 +321,7 @@ export default function HcpProfileEditorPage() {
                           name="name"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Name *</FormLabel>
+                              <FormLabel>{t("admin:hcp.name")} *</FormLabel>
                               <FormControl>
                                 <Input {...field} />
                               </FormControl>
@@ -334,14 +334,14 @@ export default function HcpProfileEditorPage() {
                           name="specialty"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Specialty *</FormLabel>
+                              <FormLabel>{t("admin:hcp.specialty")} *</FormLabel>
                               <Select
                                 value={field.value}
                                 onValueChange={field.onChange}
                               >
                                 <FormControl>
                                   <SelectTrigger>
-                                    <SelectValue placeholder="Select specialty" />
+                                    <SelectValue placeholder={t("admin:hcp.selectSpecialty")} />
                                   </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
@@ -361,7 +361,7 @@ export default function HcpProfileEditorPage() {
                           name="hospital"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Hospital</FormLabel>
+                              <FormLabel>{t("admin:hcp.hospital")}</FormLabel>
                               <FormControl>
                                 <Input {...field} />
                               </FormControl>
@@ -373,7 +373,7 @@ export default function HcpProfileEditorPage() {
                           name="title"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Title</FormLabel>
+                              <FormLabel>{t("admin:hcp.titleField")}</FormLabel>
                               <FormControl>
                                 <Input {...field} />
                               </FormControl>
@@ -443,7 +443,7 @@ export default function HcpProfileEditorPage() {
                           e.target.value.split(",").map((s) => s.trim()),
                         )
                       }
-                      placeholder="e.g., Breast Cancer, Lung Cancer, Immunotherapy"
+                      placeholder={t("admin:hcp.expertiseAreasPlaceholder")}
                     />
                   </div>
                   <FormField
@@ -498,7 +498,7 @@ export default function HcpProfileEditorPage() {
                     addLabel={t("admin:hcp.addTopic")}
                   />
                   <div className="grid gap-2">
-                    <Label>Difficulty</Label>
+                    <Label>{t("admin:hcp.difficulty")}</Label>
                     <div className="flex items-center gap-4">
                       {DIFFICULTIES.map((d) => (
                         <label
@@ -513,7 +513,7 @@ export default function HcpProfileEditorPage() {
                             onChange={() => form.setValue("difficulty", d)}
                             className="accent-primary"
                           />
-                          <span className="text-sm capitalize">{d}</span>
+                          <span className="text-sm capitalize">{t(`common:difficulty${d.charAt(0).toUpperCase() + d.slice(1)}`)}</span>
                         </label>
                       ))}
                     </div>

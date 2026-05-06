@@ -60,11 +60,11 @@ class TestCreateScenarioEndpoint:
             "/api/v1/scenarios",
             json={
                 "name": "Test Scenario",
+                "product": "Brukinsa",
                 "hcp_profile_id": hcp_id,
                 "rubric_id": "test-rubric-id",
                 "created_by": user_id,
                 "key_messages": ["KM1", "KM2"],
-                "tags": ["product:Brukinsa", "therapeutic_area:Oncology"],
             },
             headers={"Authorization": f"Bearer {token}"},
         )
@@ -72,7 +72,6 @@ class TestCreateScenarioEndpoint:
         data = response.json()
         assert data["name"] == "Test Scenario"
         assert data["key_messages"] == ["KM1", "KM2"]
-        assert data["tags"] == ["product:Brukinsa", "therapeutic_area:Oncology"]
         assert data["status"] == "draft"
         assert data["rubric_id"] == "test-rubric-id"
 
@@ -86,10 +85,10 @@ class TestCreateScenarioEndpoint:
             "/api/v1/scenarios",
             json={
                 "name": "Nope",
+                "product": "Drug",
                 "hcp_profile_id": hcp_id,
                 "rubric_id": "test-rubric-id",
                 "created_by": "u1",
-                "tags": ["product:Drug"],
             },
             headers={"Authorization": f"Bearer {user_token}"},
         )
@@ -103,9 +102,9 @@ class TestCreateScenarioEndpoint:
             "/api/v1/scenarios",
             json={
                 "name": "No Rubric",
+                "product": "Drug",
                 "hcp_profile_id": hcp_id,
                 "created_by": user_id,
-                "tags": ["product:Drug"],
             },
             headers={"Authorization": f"Bearer {token}"},
         )
@@ -117,10 +116,10 @@ class TestCreateScenarioEndpoint:
             "/api/v1/scenarios",
             json={
                 "name": "Bad HCP",
+                "product": "Drug",
                 "hcp_profile_id": "nonexistent-hcp",
                 "rubric_id": "test-rubric-id",
                 "created_by": user_id,
-                "tags": ["product:Drug"],
             },
             headers={"Authorization": f"Bearer {token}"},
         )
@@ -139,10 +138,10 @@ class TestListScenariosEndpoint:
                 "/api/v1/scenarios",
                 json={
                     "name": name,
+                    "product": "Drug",
                     "hcp_profile_id": hcp_id,
                     "rubric_id": "test-rubric-id",
                     "created_by": user_id,
-                    "tags": ["product:Drug"],
                 },
                 headers={"Authorization": f"Bearer {token}"},
             )
@@ -164,11 +163,11 @@ class TestListScenariosEndpoint:
             "/api/v1/scenarios",
             json={
                 "name": "Draft",
+                "product": "D",
                 "hcp_profile_id": hcp_id,
                 "rubric_id": "test-rubric-id",
                 "created_by": user_id,
                 "status": "draft",
-                "tags": ["product:D"],
             },
             headers={"Authorization": f"Bearer {token}"},
         )
@@ -176,11 +175,11 @@ class TestListScenariosEndpoint:
             "/api/v1/scenarios",
             json={
                 "name": "Active",
+                "product": "D",
                 "hcp_profile_id": hcp_id,
                 "rubric_id": "test-rubric-id",
                 "created_by": user_id,
                 "status": "active",
-                "tags": ["product:D"],
             },
             headers={"Authorization": f"Bearer {token}"},
         )
@@ -206,11 +205,11 @@ class TestListActiveScenariosEndpoint:
             "/api/v1/scenarios",
             json={
                 "name": "Active For User",
+                "product": "Drug",
                 "hcp_profile_id": hcp_id,
                 "rubric_id": "test-rubric-id",
                 "created_by": admin_id,
                 "status": "active",
-                "tags": ["product:Drug"],
             },
             headers={"Authorization": f"Bearer {admin_token}"},
         )
@@ -238,10 +237,10 @@ class TestGetScenarioEndpoint:
             "/api/v1/scenarios",
             json={
                 "name": "Single",
+                "product": "Drug",
                 "hcp_profile_id": hcp_id,
                 "rubric_id": "test-rubric-id",
                 "created_by": user_id,
-                "tags": ["product:Drug"],
             },
             headers={"Authorization": f"Bearer {token}"},
         )
@@ -266,10 +265,10 @@ class TestUpdateScenarioEndpoint:
             "/api/v1/scenarios",
             json={
                 "name": "Old",
+                "product": "Drug",
                 "hcp_profile_id": hcp_id,
                 "rubric_id": "test-rubric-id",
                 "created_by": user_id,
-                "tags": ["product:Drug"],
             },
             headers={"Authorization": f"Bearer {token}"},
         )
@@ -296,10 +295,10 @@ class TestDeleteScenarioEndpoint:
             "/api/v1/scenarios",
             json={
                 "name": "Del",
+                "product": "Drug",
                 "hcp_profile_id": hcp_id,
                 "rubric_id": "test-rubric-id",
                 "created_by": user_id,
-                "tags": ["product:Drug"],
             },
             headers={"Authorization": f"Bearer {token}"},
         )
@@ -323,11 +322,11 @@ class TestCloneScenarioEndpoint:
             "/api/v1/scenarios",
             json={
                 "name": "Original",
+                "product": "Drug",
                 "hcp_profile_id": hcp_id,
                 "rubric_id": "test-rubric-id",
                 "created_by": user_id,
                 "key_messages": ["KM1"],
-                "tags": ["product:Drug", "therapeutic_area:Oncology"],
             },
             headers={"Authorization": f"Bearer {token}"},
         )
@@ -342,4 +341,3 @@ class TestCloneScenarioEndpoint:
         assert data["name"] == "Original (Copy)"
         assert data["status"] == "draft"
         assert data["id"] != scn_id
-        assert data["tags"] == ["product:Drug", "therapeutic_area:Oncology"]

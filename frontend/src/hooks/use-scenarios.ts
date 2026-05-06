@@ -16,7 +16,6 @@ export function useScenarios(params?: {
   status?: string;
   mode?: string;
   search?: string;
-  tag?: string;
 }) {
   return useQuery({
     queryKey: ["scenarios", params],

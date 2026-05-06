@@ -1,6 +1,5 @@
 import { useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router-dom";
 import {
   MoreHorizontal,
   Edit,
@@ -22,12 +21,13 @@ import type { Scenario } from "@/types/scenario";
 
 interface ScenarioTableProps {
   scenarios: Scenario[];
+  onEdit: (scenario: Scenario) => void;
   onDelete: (id: string) => void;
   onClone: (id: string) => void;
   onStatusChange?: (id: string, status: Scenario["status"]) => void;
 }
 
-type SortKey = "name" | "difficulty";
+type SortKey = "name" | "product" | "difficulty";
 type SortDirection = "asc" | "desc";
 
 const DIFFICULTY_STYLES: Record<string, string> = {
@@ -36,29 +36,13 @@ const DIFFICULTY_STYLES: Record<string, string> = {
   hard: "bg-red-100 text-red-700",
 };
 
-const TAG_CATEGORY_STYLES: Record<string, string> = {
-  product: "bg-purple-100 text-purple-700 border-purple-200",
-  therapeutic_area: "bg-green-100 text-green-700 border-green-200",
-  custom: "bg-gray-100 text-gray-700 border-gray-200",
-};
-
-function getTagStyle(tag: string): string {
-  const category = tag.split(":")[0] ?? "custom";
-  return TAG_CATEGORY_STYLES[category] ?? "bg-gray-100 text-gray-700 border-gray-200";
-}
-
-function getTagValue(tag: string): string {
-  const parts = tag.split(":");
-  return parts.length > 1 ? parts.slice(1).join(":") : tag;
-}
-
 export function ScenarioTable({
   scenarios,
+  onEdit,
   onDelete,
   onClone,
 }: ScenarioTableProps) {
   const { t } = useTranslation("admin");
-  const navigate = useNavigate();
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<SortDirection>("asc");
   const [page, setPage] = useState(0);
@@ -107,12 +91,19 @@ export function ScenarioTable({
                   className="flex items-center gap-1"
                   onClick={() => toggleSort("name")}
                 >
-                  {t("scenarios.colName", { defaultValue: "Name" })}
+                  Name
                   <ArrowUpDown className="size-3.5" />
                 </button>
               </th>
               <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                {t("scenarios.tags", { defaultValue: "Tags" })}
+                <button
+                  type="button"
+                  className="flex items-center gap-1"
+                  onClick={() => toggleSort("product")}
+                >
+                  Product
+                  <ArrowUpDown className="size-3.5" />
+                </button>
               </th>
               <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">HCP</th>
               <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Mode</th>
@@ -144,24 +135,8 @@ export function ScenarioTable({
                   className="border-b hover:bg-muted/50 transition-colors"
                 >
                   <td className="px-4 py-3 font-medium">{scenario.name}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex flex-wrap gap-1">
-                      {scenario.tags.length > 0 ? (
-                        scenario.tags.map((tag) => (
-                          <Badge
-                            key={tag}
-                            variant="outline"
-                            className={cn("text-xs", getTagStyle(tag))}
-                          >
-                            {getTagValue(tag)}
-                          </Badge>
-                        ))
-                      ) : (
-                        <span className="text-xs text-muted-foreground">
-                          {t("scenarios.noTags", { defaultValue: "No tags" })}
-                        </span>
-                      )}
-                    </div>
+                  <td className="px-4 py-3 text-muted-foreground">
+                    {scenario.product}
                   </td>
                   <td className="px-4 py-3">
                     {scenario.hcp_profile ? (
@@ -211,7 +186,7 @@ export function ScenarioTable({
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => navigate(`/admin/scenarios/${scenario.id}`)}>
+                        <DropdownMenuItem onClick={() => onEdit(scenario)}>
                           <Edit className="size-4" />
                           Edit
                         </DropdownMenuItem>
