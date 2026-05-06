@@ -44,7 +44,7 @@ const mockScenario: Scenario = {
   status: "active",
   hcp_profile_id: "hcp-1",
   key_messages: ["Key message 1"],
-  skill_id: null,
+  skill_id: "skill-1",
   skill_version_id: null,
   rubric_id: "rubric-1",
   pass_threshold: 70,

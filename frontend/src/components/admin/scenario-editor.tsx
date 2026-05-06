@@ -41,8 +41,6 @@ const PREDEFINED_TAGS: Record<string, string[]> = {
   therapeutic_area: ["Oncology", "Hematology", "Immunology", "Solid Tumors"],
 };
 
-const NO_SKILL = "__none__";
-
 const scenarioSchema = z.object({
   name: z.string().min(1, "Name is required"),
   description: z.string().optional(),
@@ -51,7 +49,7 @@ const scenarioSchema = z.object({
   mode: z.enum(["f2f", "conference"]),
   difficulty: z.enum(["easy", "medium", "hard"]),
   key_messages: z.array(z.string()),
-  skill_id: z.string().nullable().optional(),
+  skill_id: z.string().min(1, "Skill is required"),
   rubric_id: z.string().min(1, "Scoring rubric is required"),
   pass_threshold: z.number().min(0).max(100),
 });
@@ -100,7 +98,7 @@ export function ScenarioEditor({
       mode: "f2f",
       difficulty: "medium",
       key_messages: [],
-      skill_id: null,
+      skill_id: "",
       rubric_id: "",
       pass_threshold: 70,
     },
@@ -119,7 +117,7 @@ export function ScenarioEditor({
         mode: scenario.mode,
         difficulty: scenario.difficulty,
         key_messages: scenario.key_messages,
-        skill_id: scenario.skill_id ?? null,
+        skill_id: scenario.skill_id,
         rubric_id: scenario.rubric_id,
         pass_threshold: scenario.pass_threshold,
       });
@@ -132,7 +130,7 @@ export function ScenarioEditor({
         mode: "f2f",
         difficulty: "medium",
         key_messages: [],
-        skill_id: null,
+        skill_id: "",
         rubric_id: "",
         pass_threshold: 70,
       });
@@ -143,7 +141,6 @@ export function ScenarioEditor({
     onSave({
       ...values,
       key_messages: values.key_messages.filter(Boolean),
-      skill_id: values.skill_id || null,
     });
   };
 
@@ -373,27 +370,19 @@ export function ScenarioEditor({
           </div>
 
           <div className="grid gap-2">
-            <Label>{t("scenarios.fieldSkill", { defaultValue: "Skill" })}</Label>
+            <Label>{t("scenarios.skillRequired", { defaultValue: "Skill *" })}</Label>
             <Controller
               control={form.control}
               name="skill_id"
               render={({ field }) => (
                 <Select
-                  value={field.value ?? NO_SKILL}
-                  onValueChange={(v) => field.onChange(v === NO_SKILL ? null : v)}
+                  value={field.value}
+                  onValueChange={field.onChange}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder={t("scenarios.selectSkill", { defaultValue: "Select skill (optional)" })} />
+                    <SelectValue placeholder={t("scenarios.selectSkill", { defaultValue: "Select a published skill" })} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={NO_SKILL}>
-                      <span className="text-muted-foreground">{t("scenarios.noSkill", { defaultValue: "No skill" })}</span>
-                    </SelectItem>
-                    {publishedSkills.length === 0 && (
-                      <SelectItem value="__placeholder__" disabled>
-                        <span className="text-muted-foreground text-sm">{t("scenarios.noPublishedSkills", { defaultValue: "No published skills available" })}</span>
-                      </SelectItem>
-                    )}
                     {publishedSkills.map((s) => (
                       <SelectItem key={s.id} value={s.id}>
                         <div className="flex items-center gap-2">
@@ -413,6 +402,16 @@ export function ScenarioEditor({
                 </Select>
               )}
             />
+            {form.formState.errors.skill_id && (
+              <p className="text-destructive text-sm">
+                {form.formState.errors.skill_id.message}
+              </p>
+            )}
+            {publishedSkills.length === 0 && (
+              <p className="text-sm text-destructive">
+                {t("scenarios.noPublishedSkillsWarning", { defaultValue: "No published skills available. Create and publish a skill first." })}
+              </p>
+            )}
             {scenario?.skill_id && scenario.skill_id === form.watch("skill_id") && (
               <SkillStatusBadge skillId={scenario.skill_id} />
             )}

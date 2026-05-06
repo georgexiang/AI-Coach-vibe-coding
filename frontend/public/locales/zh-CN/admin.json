@@ -194,12 +194,12 @@
     "fieldDescription": "描述",
     "fieldMode": "模式",
     "fieldDifficulty": "难度",
-    "fieldSkill": "Skill",
+    "fieldSkill": "技能",
+    "skillRequired": "技能 *",
     "selectHcp": "选择 HCP",
-    "selectSkill": "选择 Skill（可选）",
-    "noSkill": "无 Skill",
-    "noPublishedSkills": "暂无已发布的 Skill",
-    "skillArchived": "此 Skill 已归档",
+    "selectSkill": "选择已发布的技能",
+    "noPublishedSkillsWarning": "没有已发布的技能。请先创建并发布一个技能。",
+    "skillArchived": "此技能已归档",
     "editorDescription": "配置场景详情和评分标准"
   },
   "rubrics": {

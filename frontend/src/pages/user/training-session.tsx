@@ -160,7 +160,7 @@ export default function TrainingSession() {
     created_by: "",
     created_at: "",
     updated_at: "",
-    skill_id: null,
+    skill_id: "",
     skill_version_id: null,
   };
 

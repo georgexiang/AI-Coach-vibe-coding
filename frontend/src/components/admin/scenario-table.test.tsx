@@ -68,7 +68,7 @@ const makeScenario = (overrides: Partial<Scenario> = {}): Scenario => ({
   created_by: "admin",
   created_at: "2024-01-01",
   updated_at: "2024-01-01",
-  skill_id: null,
+  skill_id: "skill-1",
   skill_version_id: null,
   ...overrides,
 });

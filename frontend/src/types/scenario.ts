@@ -11,7 +11,7 @@ export interface Scenario {
   hcp_profile_id: string;
   hcp_profile?: HcpProfile;
   key_messages: string[];
-  skill_id: string | null;
+  skill_id: string;
   skill_version_id: string | null;
   rubric_id: string;
   pass_threshold: number;
@@ -29,11 +29,12 @@ export interface ScenarioCreate {
   mode?: Scenario["mode"];
   difficulty?: Scenario["difficulty"];
   key_messages?: string[];
-  skill_id?: string | null;
+  skill_id: string;
   rubric_id: string;
   pass_threshold?: number;
 }
 
-export interface ScenarioUpdate extends Partial<ScenarioCreate> {
+export interface ScenarioUpdate extends Partial<Omit<ScenarioCreate, "skill_id">> {
+  skill_id?: string;
   status?: Scenario["status"];
 }

@@ -195,10 +195,10 @@
     "fieldMode": "Mode",
     "fieldDifficulty": "Difficulty",
     "fieldSkill": "Skill",
+    "skillRequired": "Skill *",
     "selectHcp": "Select HCP",
-    "selectSkill": "Select skill (optional)",
-    "noSkill": "No skill",
-    "noPublishedSkills": "No published skills available",
+    "selectSkill": "Select a published skill",
+    "noPublishedSkillsWarning": "No published skills available. Create and publish a skill first.",
     "skillArchived": "This skill is archived",
     "editorDescription": "Configure scenario details and scoring rubric"
   },
