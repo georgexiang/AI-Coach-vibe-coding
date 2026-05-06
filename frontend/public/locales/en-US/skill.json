@@ -15,7 +15,10 @@
     "createFromMaterials": "Create from Materials",
     "importZipPackage": "Import ZIP Package",
     "createDialogTitle": "Create New Skill",
-    "createDialogDescription": "Choose how to create your skill"
+    "createDialogDescription": "Choose how to create your skill",
+    "selectMaterials": "Select Materials",
+    "selectMaterialsDesc": "Choose training materials to convert into a skill.",
+    "convertSelected": "Convert {{count}} material(s)"
   },
   "editor": {
     "title": "Skill Editor",
@@ -56,7 +59,8 @@
     "filesUploaded": "Files uploaded",
     "saveFirstForResources": "Save the skill first to manage resources",
     "skillNamePlaceholder": "Enter skill name...",
-    "defaultSkillName": "New Skill"
+    "defaultSkillName": "New Skill",
+    "sourceMaterials": "Source Materials"
   },
   "status": {
     "draft": "Draft",
@@ -67,6 +71,7 @@
     "completed": "Completed"
   },
   "conversion": {
+    "started": "Conversion started",
     "processing": "Converting materials to skill...",
     "completed": "Skill generated successfully. Please review the content.",
     "failed": "Conversion failed. Check your materials and try again.",
@@ -133,6 +138,7 @@
     "noResources": "No resources",
     "selectFile": "Select a file from the tree to preview",
     "download": "Download",
+    "downloadPackage": "Download Package",
     "type": "Type"
   },
   "errors": {

@@ -15,7 +15,10 @@
     "createFromMaterials": "从材料创建",
     "importZipPackage": "导入 ZIP 包",
     "createDialogTitle": "创建新技能",
-    "createDialogDescription": "选择创建方式"
+    "createDialogDescription": "选择创建方式",
+    "selectMaterials": "选择材料",
+    "selectMaterialsDesc": "选择要转换为技能的培训材料。",
+    "convertSelected": "转换 {{count}} 个材料"
   },
   "editor": {
     "title": "技能编辑器",
@@ -56,7 +59,8 @@
     "filesUploaded": "文件已上传",
     "saveFirstForResources": "请先保存技能以管理资源",
     "skillNamePlaceholder": "请输入技能名称...",
-    "defaultSkillName": "新技能"
+    "defaultSkillName": "新技能",
+    "sourceMaterials": "来源材料"
   },
   "status": {
     "draft": "草稿",
@@ -67,6 +71,7 @@
     "completed": "已完成"
   },
   "conversion": {
+    "started": "转换已启动",
     "processing": "正在将材料转换为技能...",
     "completed": "技能已成功生成，请审阅内容。",
     "failed": "转换失败，请检查材料后重试。",
@@ -133,6 +138,7 @@
     "noResources": "暂无资源",
     "selectFile": "从文件树中选择文件进行预览",
     "download": "下载",
+    "downloadPackage": "下载包",
     "type": "类型"
   },
   "errors": {
