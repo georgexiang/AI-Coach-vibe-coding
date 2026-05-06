@@ -51,19 +51,19 @@ async def _create_scenario(
     created_by: str,
     name: str = "Test Scenario",
     status: str = "active",
-    product: str = "TestDrug",
     difficulty: str = "medium",
     rubric_id: str = "test-rubric-id",
 ) -> Scenario:
     """Helper to create a scenario."""
     scenario = Scenario(
         name=name,
-        product=product,
+        tags="[]",
         difficulty=difficulty,
         status=status,
         hcp_profile_id=hcp_id,
         created_by=created_by,
         rubric_id=rubric_id,
+        skill_id="test-skill-id",
     )
     session.add(scenario)
     await session.flush()

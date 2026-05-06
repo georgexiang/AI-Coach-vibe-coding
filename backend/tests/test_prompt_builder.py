@@ -33,8 +33,7 @@ def _make_scenario(**overrides) -> Scenario:
     """Create a minimal Scenario ORM instance for prompt builder tests."""
     defaults = {
         "name": "Test Scenario",
-        "product": "Brukinsa",
-        "therapeutic_area": "Hematology",
+        "tags": json.dumps(["product:Brukinsa", "area:Hematology"]),
         "hcp_profile_id": "profile-1",
         "key_messages": json.dumps(["Superior PFS vs ibrutinib", "Better safety profile"]),
         "rubric_id": "test-rubric-id",
@@ -42,6 +41,7 @@ def _make_scenario(**overrides) -> Scenario:
         "created_by": "user-1",
         "mode": "f2f",
         "status": "active",
+        "skill_id": "test-skill-id",
     }
     defaults.update(overrides)
     return Scenario(**defaults)
@@ -123,7 +123,7 @@ class TestBuildHcpSystemPrompt:
         from app.services.prompt_builder import build_hcp_system_prompt
 
         hcp = _make_hcp_profile()
-        scenario = _make_scenario(product="Tislelizumab")
+        scenario = _make_scenario(tags=json.dumps(["product:Tislelizumab"]))
         prompt = build_hcp_system_prompt(hcp, scenario, [])
 
         assert "Tislelizumab" in prompt

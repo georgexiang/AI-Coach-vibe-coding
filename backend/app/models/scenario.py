@@ -1,5 +1,7 @@
 """Scenario ORM model for training session configuration."""
 
+import json
+
 from sqlalchemy import ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -13,19 +15,18 @@ class Scenario(Base, TimestampMixin):
 
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str] = mapped_column(Text, default="")
-    product: Mapped[str] = mapped_column(String(255), nullable=False)
-    therapeutic_area: Mapped[str] = mapped_column(String(255), default="")
+    tags: Mapped[str] = mapped_column(Text, default="[]")  # JSON array of tag strings
     mode: Mapped[str] = mapped_column(String(20), default="f2f")  # f2f / conference
     difficulty: Mapped[str] = mapped_column(String(20), default="medium")
-    status: Mapped[str] = mapped_column(String(20), default="draft")  # draft / active
+    status: Mapped[str] = mapped_column(String(20), default="draft")  # draft / active / archived
     hcp_profile_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("hcp_profiles.id"), nullable=False, index=True
     )
     key_messages: Mapped[str] = mapped_column(Text, default="[]")  # JSON array of strings
 
     # Skill association — version-pinned for deterministic agent behavior (D-21, D-22)
-    skill_id: Mapped[str | None] = mapped_column(
-        String(36), ForeignKey("skills.id", ondelete="SET NULL"), nullable=True, default=None
+    skill_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("skills.id", ondelete="RESTRICT"), nullable=False
     )
     skill_version_id: Mapped[str | None] = mapped_column(
         String(36),
@@ -47,3 +48,27 @@ class Scenario(Base, TimestampMixin):
     rubric = relationship("ScoringRubric", foreign_keys=[rubric_id])
     skill = relationship("Skill", foreign_keys=[skill_id])
     skill_version = relationship("SkillVersion", foreign_keys=[skill_version_id])
+
+    @property
+    def product(self) -> str:
+        """Extract product from tags for backward compatibility."""
+        try:
+            tag_list = json.loads(self.tags) if self.tags else []
+            for tag in tag_list:
+                if tag.startswith("product:"):
+                    return tag.split(":", 1)[1]
+        except (json.JSONDecodeError, TypeError):
+            pass
+        return ""
+
+    @property
+    def therapeutic_area(self) -> str:
+        """Extract therapeutic_area from tags for backward compatibility."""
+        try:
+            tag_list = json.loads(self.tags) if self.tags else []
+            for tag in tag_list:
+                if tag.startswith("area:") or tag.startswith("therapeutic_area:"):
+                    return tag.split(":", 1)[1]
+        except (json.JSONDecodeError, TypeError):
+            pass
+        return ""

@@ -53,9 +53,9 @@ async def _setup_scored_session() -> tuple[str, str, str]:
 
         scenario = Scenario(
             name="Score Scenario",
-            product="Brukinsa",
             hcp_profile_id=hcp.id,
             key_messages=json.dumps(["PFS", "Safety"]),
+            skill_id="test-skill-id",
             status="active",
             created_by=user.id,
             rubric_id=rubric.id,

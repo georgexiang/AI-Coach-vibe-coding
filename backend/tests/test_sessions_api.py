@@ -4,6 +4,7 @@ import json
 from unittest.mock import patch
 
 from app.models.scoring_rubric import ScoringRubric
+from app.models.skill import Skill, SkillVersion
 from app.models.user import User
 from app.services.auth import create_access_token, get_password_hash
 from tests.conftest import TestSessionLocal
@@ -52,7 +53,7 @@ async def _create_active_scenario(client, admin_id, admin_token) -> str:
     )
     hcp_id = hcp_resp.json()["id"]
 
-    # Create rubric via DB
+    # Create rubric and skill via DB
     async with TestSessionLocal() as db:
         rubric = ScoringRubric(
             name="Test Rubric", scenario_type="f2f",
@@ -66,6 +67,13 @@ async def _create_active_scenario(client, admin_id, admin_token) -> str:
             is_default=True, created_by=admin_id,
         )
         db.add(rubric)
+        await db.flush()
+
+        skill = Skill(id="test-skill-id", name="Test Skill", status="published", created_by=admin_id)
+        db.add(skill)
+        await db.flush()
+        skill_ver = SkillVersion(skill_id=skill.id, version_number=1, content="test", is_published=True, created_by=admin_id)
+        db.add(skill_ver)
         await db.commit()
         await db.refresh(rubric)
         rubric_id = rubric.id
@@ -74,16 +82,25 @@ async def _create_active_scenario(client, admin_id, admin_token) -> str:
         "/api/v1/scenarios",
         json={
             "name": "Active Scenario",
-            "product": "Brukinsa",
+            "tags": ["product:Brukinsa"],
             "hcp_profile_id": hcp_id,
             "rubric_id": rubric_id,
-            "created_by": admin_id,
-            "status": "active",
+            "skill_id": "test-skill-id",
             "key_messages": ["Superior PFS", "Better safety"],
         },
         headers={"Authorization": f"Bearer {admin_token}"},
     )
-    return scn_resp.json()["id"]
+    scenario_id = scn_resp.json()["id"]
+
+    # Activate the scenario so sessions can be created
+    async with TestSessionLocal() as db:
+        from sqlalchemy import update
+
+        from app.models.scenario import Scenario
+        await db.execute(update(Scenario).where(Scenario.id == scenario_id).values(status="active"))
+        await db.commit()
+
+    return scenario_id
 
 
 class TestCreateSessionEndpoint:

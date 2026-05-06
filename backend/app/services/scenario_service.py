@@ -75,9 +75,11 @@ async def create_scenario(db: AsyncSession, data: ScenarioCreate, user_id: str) 
     scenario_data = data.model_dump()
     scenario_data["created_by"] = user_id
 
-    # Serialize key_messages list to JSON string
+    # Serialize list fields to JSON strings
     if isinstance(scenario_data.get("key_messages"), list):
         scenario_data["key_messages"] = json.dumps(scenario_data["key_messages"])
+    if isinstance(scenario_data.get("tags"), list):
+        scenario_data["tags"] = json.dumps(scenario_data["tags"])
 
     # Validate and pin skill version
     skill_id, skill_version_id = await _validate_and_pin_skill(db, scenario_data.get("skill_id"))
@@ -161,9 +163,11 @@ async def update_scenario(db: AsyncSession, scenario_id: str, data: ScenarioUpda
     scenario = await get_scenario(db, scenario_id)
     update_data = data.model_dump(exclude_unset=True)
 
-    # Serialize key_messages list to JSON string
+    # Serialize list fields to JSON strings
     if "key_messages" in update_data and isinstance(update_data["key_messages"], list):
         update_data["key_messages"] = json.dumps(update_data["key_messages"])
+    if "tags" in update_data and isinstance(update_data["tags"], list):
+        update_data["tags"] = json.dumps(update_data["tags"])
 
     # If HCP profile ID is being changed, verify the new one exists
     if "hcp_profile_id" in update_data:
@@ -206,8 +210,7 @@ async def clone_scenario(db: AsyncSession, scenario_id: str, user_id: str) -> Sc
     clone = Scenario(
         name=f"{original.name} (Copy)",
         description=original.description,
-        product=original.product,
-        therapeutic_area=original.therapeutic_area,
+        tags=original.tags,
         mode=original.mode,
         difficulty=original.difficulty,
         status="draft",

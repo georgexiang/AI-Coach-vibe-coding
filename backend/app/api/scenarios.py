@@ -22,14 +22,13 @@ class ScenarioOut(BaseModel):
     id: str
     name: str
     description: str
-    product: str
-    therapeutic_area: str
+    tags: list[str]
     mode: str
     difficulty: str
     status: str
     hcp_profile_id: str
     key_messages: list[str]
-    skill_id: str | None = None
+    skill_id: str
     skill_version_id: str | None = None
     rubric_id: str
     pass_threshold: int
@@ -39,7 +38,7 @@ class ScenarioOut(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-    @field_validator("key_messages", mode="before")
+    @field_validator("tags", "key_messages", mode="before")
     @classmethod
     def parse_json_list(cls, v: str | list[str]) -> list[str]:
         """Parse JSON string field into Python list."""

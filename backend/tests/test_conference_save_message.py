@@ -31,13 +31,14 @@ async def conference_session(db_session):
 
     scenario = Scenario(
         name="Test Conference",
-        product="TestDrug",
         hcp_profile_id=hcp.id,
         created_by=user.id,
         mode="conference",
         key_messages="[]",
         rubric_id="test-rubric-id",
-    )
+    
+            skill_id="test-skill-id",
+        )
     db_session.add(scenario)
     await db_session.flush()
 

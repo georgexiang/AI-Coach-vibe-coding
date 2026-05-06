@@ -13,8 +13,7 @@ def _make_scenario(**overrides) -> Scenario:
     """Create a minimal Scenario ORM instance for conference prompt tests."""
     defaults = {
         "name": "Conference Scenario",
-        "product": "Brukinsa",
-        "therapeutic_area": "Hematology",
+        "tags": json.dumps(["product:Brukinsa", "area:Hematology"]),
         "hcp_profile_id": "profile-1",
         "key_messages": json.dumps(["Superior PFS vs ibrutinib", "Better safety profile"]),
         "rubric_id": "test-rubric-id",
@@ -22,6 +21,7 @@ def _make_scenario(**overrides) -> Scenario:
         "created_by": "user-1",
         "mode": "conference",
         "status": "active",
+        "skill_id": "test-skill-id",
     }
     defaults.update(overrides)
     return Scenario(**defaults)
@@ -115,7 +115,7 @@ class TestBuildConferenceAudiencePrompt:
         }
         prompt = build_conference_audience_prompt(
             hcp_config=hcp_config,
-            scenario=_make_scenario(product="Tislelizumab"),
+            scenario=_make_scenario(tags=json.dumps(["product:Tislelizumab"])),
             presentation_topic="",
             conversation_history=[],
             other_hcp_questions=[],
@@ -133,7 +133,7 @@ class TestBuildConferenceAudiencePrompt:
         }
         prompt = build_conference_audience_prompt(
             hcp_config=hcp_config,
-            scenario=_make_scenario(therapeutic_area="Hematology"),
+            scenario=_make_scenario(),
             presentation_topic="",
             conversation_history=[],
             other_hcp_questions=[],

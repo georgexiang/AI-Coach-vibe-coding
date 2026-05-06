@@ -70,11 +70,11 @@ async def _seed_conference_data() -> dict:
 
         scenario = Scenario(
             name="API Conference Scenario",
-            product="TestDrug",
             mode="conference",
             hcp_profile_id=hcps[0].id,
             created_by=user.id,
             key_messages=json.dumps(["Key msg 1", "Key msg 2"]),
+            skill_id="test-skill-id",
             description="API test conference",
             rubric_id="test-rubric-id",
         )

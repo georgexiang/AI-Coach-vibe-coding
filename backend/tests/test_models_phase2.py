@@ -96,9 +96,10 @@ class TestScenarioModel:
 
         scenario = Scenario(
             name="Test Scenario",
-            product="Brukinsa",
+            tags=json.dumps(["product:Brukinsa"]),
             hcp_profile_id=hcp.id,
             rubric_id="test-rubric-id",
+            skill_id="test-skill-id",
             created_by=user.id,
         )
         db_session.add(scenario)
@@ -121,9 +122,10 @@ class TestScenarioModel:
 
         scenario = Scenario(
             name="S",
-            product="Drug",
+            tags=json.dumps(["product:Drug"]),
             hcp_profile_id=hcp.id,
             rubric_id="test-rubric-id",
+            skill_id="test-skill-id",
             created_by=user.id,
         )
         db_session.add(scenario)
@@ -149,9 +151,10 @@ class TestCoachingSessionModel:
 
         scenario = Scenario(
             name="S",
-            product="Drug",
+            tags=json.dumps(["product:Drug"]),
             hcp_profile_id=hcp.id,
             rubric_id="test-rubric-id",
+            skill_id="test-skill-id",
             created_by=user.id,
         )
         db_session.add(scenario)
@@ -178,9 +181,10 @@ class TestCoachingSessionModel:
 
         scenario = Scenario(
             name="S",
-            product="Drug",
+            tags=json.dumps(["product:Drug"]),
             hcp_profile_id=hcp.id,
             rubric_id="test-rubric-id",
+            skill_id="test-skill-id",
             created_by=user.id,
         )
         db_session.add(scenario)
@@ -208,9 +212,10 @@ class TestSessionMessageModel:
 
         scenario = Scenario(
             name="S",
-            product="Drug",
+            tags=json.dumps(["product:Drug"]),
             hcp_profile_id=hcp.id,
             rubric_id="test-rubric-id",
+            skill_id="test-skill-id",
             created_by=user.id,
         )
         db_session.add(scenario)
@@ -246,9 +251,10 @@ class TestScoreModels:
 
         scenario = Scenario(
             name="S",
-            product="Drug",
+            tags=json.dumps(["product:Drug"]),
             hcp_profile_id=hcp.id,
             rubric_id="test-rubric-id",
+            skill_id="test-skill-id",
             created_by=user.id,
         )
         db_session.add(scenario)
@@ -279,9 +285,10 @@ class TestScoreModels:
 
         scenario = Scenario(
             name="S",
-            product="Drug",
+            tags=json.dumps(["product:Drug"]),
             hcp_profile_id=hcp.id,
             rubric_id="test-rubric-id",
+            skill_id="test-skill-id",
             created_by=user.id,
         )
         db_session.add(scenario)
@@ -327,9 +334,10 @@ class TestScoreModels:
 
         scenario = Scenario(
             name="S",
-            product="Drug",
+            tags=json.dumps(["product:Drug"]),
             hcp_profile_id=hcp.id,
             rubric_id="test-rubric-id",
+            skill_id="test-skill-id",
             created_by=user.id,
         )
         db_session.add(scenario)

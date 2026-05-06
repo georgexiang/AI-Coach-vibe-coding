@@ -55,13 +55,13 @@ async def _seed_completed_session(db) -> tuple[str, str, str]:
 
     scenario = Scenario(
         name="Test Scenario",
-        product="Brukinsa",
         hcp_profile_id=hcp.id,
         key_messages=json.dumps(["Superior PFS", "Better safety"]),
         rubric_id=rubric.id,
         pass_threshold=70,
         status="active",
         created_by=user.id,
+        skill_id="test-skill-id",
     )
     db.add(scenario)
     await db.flush()
@@ -116,13 +116,14 @@ class TestGenerateMockScores:
     def _make_scenario(self, **overrides):
         defaults = {
             "name": "S",
-            "product": "TestDrug",
+            "tags": json.dumps(["product:TestDrug"]),
             "hcp_profile_id": "p1",
             "key_messages": json.dumps(["Key msg 1", "Key msg 2"]),
             "rubric_id": "test-rubric-id",
             "pass_threshold": 70,
             "status": "active",
             "created_by": "u1",
+            "skill_id": "test-skill-id",
         }
         defaults.update(overrides)
         return Scenario(**defaults)
@@ -281,12 +282,12 @@ class TestScoreSessionIntegration:
 
         scenario = Scenario(
             name="S",
-            product="Drug",
             hcp_profile_id=hcp.id,
             key_messages="[]",
             rubric_id="test-rubric-id",
             status="active",
             created_by=user.id,
+            skill_id="test-skill-id",
         )
         db_session.add(scenario)
         await db_session.flush()

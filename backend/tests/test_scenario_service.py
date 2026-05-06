@@ -5,6 +5,7 @@ import json
 import pytest
 
 from app.models.hcp_profile import HcpProfile
+from app.models.skill import Skill, SkillVersion
 from app.models.user import User
 from app.schemas.scenario import ScenarioCreate, ScenarioUpdate
 from app.services.auth import get_password_hash
@@ -42,61 +43,133 @@ async def _seed_user_and_hcp(db) -> tuple[str, str]:
     return user.id, hcp.id
 
 
+async def _seed_skill(db, user_id: str) -> str:
+    """Create a published skill with a published version. Returns skill_id."""
+    skill = Skill(
+        name="Test Skill",
+        description="A test skill",
+        status="published",
+        created_by=user_id,
+    )
+    db.add(skill)
+    await db.flush()
+
+    version = SkillVersion(
+        skill_id=skill.id,
+        version_number=1,
+        content="test content",
+        is_published=True,
+        created_by=user_id,
+    )
+    db.add(version)
+    await db.flush()
+
+    return skill.id
+
+
 class TestCreateScenario:
     """Tests for create_scenario."""
 
     async def test_creates_scenario_with_required_fields(self, db_session):
         user_id, hcp_id = await _seed_user_and_hcp(db_session)
+        skill_id = await _seed_skill(db_session, user_id)
         data = ScenarioCreate(
             name="Test Scenario",
-            product="Brukinsa",
             hcp_profile_id=hcp_id,
             rubric_id="test-rubric-id",
+            skill_id=skill_id,
         )
         scenario = await create_scenario(db_session, data, user_id)
 
         assert scenario.name == "Test Scenario"
-        assert scenario.product == "Brukinsa"
         assert scenario.hcp_profile_id == hcp_id
         assert scenario.created_by == user_id
+        assert scenario.skill_id == skill_id
         assert scenario.id is not None
 
     async def test_serializes_key_messages(self, db_session):
         user_id, hcp_id = await _seed_user_and_hcp(db_session)
+        skill_id = await _seed_skill(db_session, user_id)
         data = ScenarioCreate(
             name="S",
-            product="Drug",
             hcp_profile_id=hcp_id,
             rubric_id="test-rubric-id",
+            skill_id=skill_id,
             key_messages=["Key msg 1", "Key msg 2"],
         )
         scenario = await create_scenario(db_session, data, user_id)
 
         assert json.loads(scenario.key_messages) == ["Key msg 1", "Key msg 2"]
 
-    async def test_raises_for_nonexistent_hcp_profile(self, db_session):
-        user_id, _ = await _seed_user_and_hcp(db_session)
+    async def test_serializes_tags(self, db_session):
+        user_id, hcp_id = await _seed_user_and_hcp(db_session)
+        skill_id = await _seed_skill(db_session, user_id)
         data = ScenarioCreate(
             name="S",
-            product="Drug",
+            hcp_profile_id=hcp_id,
+            rubric_id="test-rubric-id",
+            skill_id=skill_id,
+            tags=["product:Brukinsa", "area:Oncology"],
+        )
+        scenario = await create_scenario(db_session, data, user_id)
+
+        assert json.loads(scenario.tags) == ["product:Brukinsa", "area:Oncology"]
+
+    async def test_default_tags_empty_list(self, db_session):
+        user_id, hcp_id = await _seed_user_and_hcp(db_session)
+        skill_id = await _seed_skill(db_session, user_id)
+        data = ScenarioCreate(
+            name="S",
+            hcp_profile_id=hcp_id,
+            rubric_id="test-rubric-id",
+            skill_id=skill_id,
+        )
+        scenario = await create_scenario(db_session, data, user_id)
+
+        assert json.loads(scenario.tags) == []
+
+    async def test_raises_for_nonexistent_hcp_profile(self, db_session):
+        user_id, _ = await _seed_user_and_hcp(db_session)
+        skill_id = await _seed_skill(db_session, user_id)
+        data = ScenarioCreate(
+            name="S",
             hcp_profile_id="nonexistent-hcp",
             rubric_id="test-rubric-id",
+            skill_id=skill_id,
         )
         with pytest.raises(NotFoundException):
             await create_scenario(db_session, data, user_id)
 
     async def test_applies_rubric_id_and_defaults(self, db_session):
         user_id, hcp_id = await _seed_user_and_hcp(db_session)
+        skill_id = await _seed_skill(db_session, user_id)
         data = ScenarioCreate(
             name="S",
-            product="Drug",
             hcp_profile_id=hcp_id,
             rubric_id="test-rubric-id",
+            skill_id=skill_id,
         )
         scenario = await create_scenario(db_session, data, user_id)
 
         assert scenario.rubric_id == "test-rubric-id"
         assert scenario.pass_threshold == 70
+        assert scenario.mode == "f2f"
+        assert scenario.difficulty == "medium"
+        assert scenario.status == "draft"
+
+    async def test_pins_skill_version(self, db_session):
+        user_id, hcp_id = await _seed_user_and_hcp(db_session)
+        skill_id = await _seed_skill(db_session, user_id)
+        data = ScenarioCreate(
+            name="S",
+            hcp_profile_id=hcp_id,
+            rubric_id="test-rubric-id",
+            skill_id=skill_id,
+        )
+        scenario = await create_scenario(db_session, data, user_id)
+
+        assert scenario.skill_id == skill_id
+        assert scenario.skill_version_id is not None
 
 
 class TestGetScenarios:
@@ -104,12 +177,13 @@ class TestGetScenarios:
 
     async def test_returns_all_scenarios(self, db_session):
         user_id, hcp_id = await _seed_user_and_hcp(db_session)
+        skill_id = await _seed_skill(db_session, user_id)
         for name in ["S1", "S2"]:
             data = ScenarioCreate(
                 name=name,
-                product="Drug",
                 hcp_profile_id=hcp_id,
                 rubric_id="test-rubric-id",
+                skill_id=skill_id,
             )
             await create_scenario(db_session, data, user_id)
 
@@ -119,22 +193,27 @@ class TestGetScenarios:
 
     async def test_filters_by_status(self, db_session):
         user_id, hcp_id = await _seed_user_and_hcp(db_session)
-        data_draft = ScenarioCreate(
-            name="Draft",
-            product="Drug",
-            hcp_profile_id=hcp_id,
-            rubric_id="test-rubric-id",
-            status="draft",
+        skill_id = await _seed_skill(db_session, user_id)
+        # Create a draft (default)
+        await create_scenario(
+            db_session,
+            ScenarioCreate(
+                name="Draft", hcp_profile_id=hcp_id,
+                rubric_id="test-rubric-id", skill_id=skill_id,
+            ),
+            user_id,
         )
-        data_active = ScenarioCreate(
-            name="Active",
-            product="Drug",
-            hcp_profile_id=hcp_id,
-            rubric_id="test-rubric-id",
-            status="active",
+        # Create and manually set to active
+        active = await create_scenario(
+            db_session,
+            ScenarioCreate(
+                name="Active", hcp_profile_id=hcp_id,
+                rubric_id="test-rubric-id", skill_id=skill_id,
+            ),
+            user_id,
         )
-        await create_scenario(db_session, data_draft, user_id)
-        await create_scenario(db_session, data_active, user_id)
+        active.status = "active"
+        await db_session.flush()
 
         scenarios, total = await get_scenarios(db_session, status="active")
         assert total == 1
@@ -142,12 +221,13 @@ class TestGetScenarios:
 
     async def test_filters_by_mode(self, db_session):
         user_id, hcp_id = await _seed_user_and_hcp(db_session)
+        skill_id = await _seed_skill(db_session, user_id)
         for mode in ["f2f", "conference"]:
             data = ScenarioCreate(
                 name=f"Mode {mode}",
-                product="Drug",
                 hcp_profile_id=hcp_id,
                 rubric_id="test-rubric-id",
+                skill_id=skill_id,
                 mode=mode,
             )
             await create_scenario(db_session, data, user_id)
@@ -158,19 +238,20 @@ class TestGetScenarios:
 
     async def test_search_by_name(self, db_session):
         user_id, hcp_id = await _seed_user_and_hcp(db_session)
+        skill_id = await _seed_skill(db_session, user_id)
         await create_scenario(
             db_session,
             ScenarioCreate(
-                name="Brukinsa F2F", product="Brukinsa", hcp_profile_id=hcp_id,
-                rubric_id="test-rubric-id",
+                name="Brukinsa F2F", hcp_profile_id=hcp_id,
+                rubric_id="test-rubric-id", skill_id=skill_id,
             ),
             user_id,
         )
         await create_scenario(
             db_session,
             ScenarioCreate(
-                name="Other", product="Other", hcp_profile_id=hcp_id,
-                rubric_id="test-rubric-id",
+                name="Other", hcp_profile_id=hcp_id,
+                rubric_id="test-rubric-id", skill_id=skill_id,
             ),
             user_id,
         )
@@ -178,17 +259,35 @@ class TestGetScenarios:
         scenarios, total = await get_scenarios(db_session, search="Brukinsa")
         assert total == 1
 
+    async def test_pagination(self, db_session):
+        user_id, hcp_id = await _seed_user_and_hcp(db_session)
+        skill_id = await _seed_skill(db_session, user_id)
+        for i in range(5):
+            await create_scenario(
+                db_session,
+                ScenarioCreate(
+                    name=f"S{i}", hcp_profile_id=hcp_id,
+                    rubric_id="test-rubric-id", skill_id=skill_id,
+                ),
+                user_id,
+            )
+
+        scenarios, total = await get_scenarios(db_session, page=1, page_size=2)
+        assert total == 5
+        assert len(scenarios) == 2
+
 
 class TestGetScenario:
     """Tests for get_scenario (single by ID)."""
 
     async def test_returns_scenario_by_id(self, db_session):
         user_id, hcp_id = await _seed_user_and_hcp(db_session)
+        skill_id = await _seed_skill(db_session, user_id)
         data = ScenarioCreate(
             name="Single",
-            product="Drug",
             hcp_profile_id=hcp_id,
             rubric_id="test-rubric-id",
+            skill_id=skill_id,
         )
         created = await create_scenario(db_session, data, user_id)
         fetched = await get_scenario(db_session, created.id)
@@ -204,28 +303,29 @@ class TestUpdateScenario:
 
     async def test_updates_partial_fields(self, db_session):
         user_id, hcp_id = await _seed_user_and_hcp(db_session)
+        skill_id = await _seed_skill(db_session, user_id)
         data = ScenarioCreate(
             name="Old Name",
-            product="Drug",
             hcp_profile_id=hcp_id,
             rubric_id="test-rubric-id",
+            skill_id=skill_id,
         )
         scenario = await create_scenario(db_session, data, user_id)
 
-        update = ScenarioUpdate(name="New Name", status="active")
+        update = ScenarioUpdate(name="New Name")
         updated = await update_scenario(db_session, scenario.id, update)
 
         assert updated.name == "New Name"
-        assert updated.status == "active"
-        assert updated.product == "Drug"  # unchanged
+        assert updated.skill_id == skill_id  # unchanged
 
     async def test_updates_key_messages(self, db_session):
         user_id, hcp_id = await _seed_user_and_hcp(db_session)
+        skill_id = await _seed_skill(db_session, user_id)
         data = ScenarioCreate(
             name="S",
-            product="Drug",
             hcp_profile_id=hcp_id,
             rubric_id="test-rubric-id",
+            skill_id=skill_id,
         )
         scenario = await create_scenario(db_session, data, user_id)
 
@@ -233,13 +333,30 @@ class TestUpdateScenario:
         updated = await update_scenario(db_session, scenario.id, update)
         assert json.loads(updated.key_messages) == ["New KM 1", "New KM 2"]
 
-    async def test_validates_new_hcp_profile_exists(self, db_session):
+    async def test_updates_tags(self, db_session):
         user_id, hcp_id = await _seed_user_and_hcp(db_session)
+        skill_id = await _seed_skill(db_session, user_id)
         data = ScenarioCreate(
             name="S",
-            product="Drug",
             hcp_profile_id=hcp_id,
             rubric_id="test-rubric-id",
+            skill_id=skill_id,
+            tags=["old-tag"],
+        )
+        scenario = await create_scenario(db_session, data, user_id)
+
+        update = ScenarioUpdate(tags=["new-tag-1", "new-tag-2"])
+        updated = await update_scenario(db_session, scenario.id, update)
+        assert json.loads(updated.tags) == ["new-tag-1", "new-tag-2"]
+
+    async def test_validates_new_hcp_profile_exists(self, db_session):
+        user_id, hcp_id = await _seed_user_and_hcp(db_session)
+        skill_id = await _seed_skill(db_session, user_id)
+        data = ScenarioCreate(
+            name="S",
+            hcp_profile_id=hcp_id,
+            rubric_id="test-rubric-id",
+            skill_id=skill_id,
         )
         scenario = await create_scenario(db_session, data, user_id)
 
@@ -253,11 +370,12 @@ class TestDeleteScenario:
 
     async def test_deletes_existing_scenario(self, db_session):
         user_id, hcp_id = await _seed_user_and_hcp(db_session)
+        skill_id = await _seed_skill(db_session, user_id)
         data = ScenarioCreate(
             name="Del",
-            product="Drug",
             hcp_profile_id=hcp_id,
             rubric_id="test-rubric-id",
+            skill_id=skill_id,
         )
         scenario = await create_scenario(db_session, data, user_id)
         await delete_scenario(db_session, scenario.id)
@@ -270,17 +388,142 @@ class TestDeleteScenario:
             await delete_scenario(db_session, "nonexistent")
 
 
+class TestSkillValidation:
+    """Tests for skill validation in create/update scenarios."""
+
+    async def test_nonexistent_skill_raises_not_found(self, db_session):
+        user_id, hcp_id = await _seed_user_and_hcp(db_session)
+        data = ScenarioCreate(
+            name="S",
+            hcp_profile_id=hcp_id,
+            rubric_id="test-rubric-id",
+            skill_id="nonexistent-skill-id",
+        )
+        with pytest.raises(NotFoundException):
+            await create_scenario(db_session, data, user_id)
+
+    async def test_draft_skill_raises_bad_request(self, db_session):
+        from app.utils.exceptions import ValidationException
+
+        user_id, hcp_id = await _seed_user_and_hcp(db_session)
+        # Create a draft skill (not published)
+        skill = Skill(
+            name="Draft Skill",
+            status="draft",
+            created_by=user_id,
+        )
+        db_session.add(skill)
+        await db_session.flush()
+
+        data = ScenarioCreate(
+            name="S",
+            hcp_profile_id=hcp_id,
+            rubric_id="test-rubric-id",
+            skill_id=skill.id,
+        )
+        with pytest.raises(ValidationException):
+            await create_scenario(db_session, data, user_id)
+
+    async def test_skill_without_published_version_raises(self, db_session):
+        from app.utils.exceptions import ValidationException
+
+        user_id, hcp_id = await _seed_user_and_hcp(db_session)
+        # Create published skill but NO published version
+        skill = Skill(
+            name="No Version Skill",
+            status="published",
+            created_by=user_id,
+        )
+        db_session.add(skill)
+        await db_session.flush()
+
+        # Add unpublished version only
+        version = SkillVersion(
+            skill_id=skill.id,
+            version_number=1,
+            content="draft content",
+            is_published=False,
+            created_by=user_id,
+        )
+        db_session.add(version)
+        await db_session.flush()
+
+        data = ScenarioCreate(
+            name="S",
+            hcp_profile_id=hcp_id,
+            rubric_id="test-rubric-id",
+            skill_id=skill.id,
+        )
+        with pytest.raises(ValidationException):
+            await create_scenario(db_session, data, user_id)
+
+    async def test_update_skill_change_validates_new_skill(self, db_session):
+        user_id, hcp_id = await _seed_user_and_hcp(db_session)
+        skill_id = await _seed_skill(db_session, user_id)
+
+        # Create second published skill
+        skill2 = Skill(
+            name="Skill 2",
+            status="published",
+            created_by=user_id,
+        )
+        db_session.add(skill2)
+        await db_session.flush()
+        version2 = SkillVersion(
+            skill_id=skill2.id,
+            version_number=1,
+            content="v2 content",
+            is_published=True,
+            created_by=user_id,
+        )
+        db_session.add(version2)
+        await db_session.flush()
+
+        data = ScenarioCreate(
+            name="S",
+            hcp_profile_id=hcp_id,
+            rubric_id="test-rubric-id",
+            skill_id=skill_id,
+        )
+        scenario = await create_scenario(db_session, data, user_id)
+
+        # Update to new skill
+        update = ScenarioUpdate(skill_id=skill2.id)
+        updated = await update_scenario(db_session, scenario.id, update)
+        assert updated.skill_id == skill2.id
+        assert updated.skill_version_id == version2.id
+
+    async def test_update_same_skill_no_revalidation(self, db_session):
+        user_id, hcp_id = await _seed_user_and_hcp(db_session)
+        skill_id = await _seed_skill(db_session, user_id)
+
+        data = ScenarioCreate(
+            name="S",
+            hcp_profile_id=hcp_id,
+            rubric_id="test-rubric-id",
+            skill_id=skill_id,
+        )
+        scenario = await create_scenario(db_session, data, user_id)
+
+        # Update with same skill_id - should not revalidate
+        update = ScenarioUpdate(skill_id=skill_id)
+        updated = await update_scenario(db_session, scenario.id, update)
+        assert updated.skill_id == skill_id
+
+
 class TestCloneScenario:
     """Tests for clone_scenario."""
 
     async def test_clones_with_copy_suffix(self, db_session):
         user_id, hcp_id = await _seed_user_and_hcp(db_session)
+        skill_id = await _seed_skill(db_session, user_id)
         data = ScenarioCreate(
             name="Original",
-            product="Brukinsa",
             hcp_profile_id=hcp_id,
             rubric_id="test-rubric-id",
+            skill_id=skill_id,
             key_messages=["KM 1"],
+            tags=["product:Brukinsa"],
         )
         original = await create_scenario(db_session, data, user_id)
 
@@ -288,17 +531,19 @@ class TestCloneScenario:
 
         assert clone.name == "Original (Copy)"
         assert clone.id != original.id
-        assert clone.product == "Brukinsa"
+        assert clone.tags == original.tags
         assert clone.status == "draft"
         assert clone.hcp_profile_id == hcp_id
+        assert clone.skill_id == skill_id
 
     async def test_clone_preserves_rubric_id(self, db_session):
         user_id, hcp_id = await _seed_user_and_hcp(db_session)
+        skill_id = await _seed_skill(db_session, user_id)
         data = ScenarioCreate(
             name="With Rubric",
-            product="Drug",
             hcp_profile_id=hcp_id,
             rubric_id="test-rubric-id",
+            skill_id=skill_id,
         )
         original = await create_scenario(db_session, data, user_id)
         clone = await clone_scenario(db_session, original.id, user_id)

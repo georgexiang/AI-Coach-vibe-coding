@@ -72,9 +72,9 @@ async def _setup_session(
 
         scenario = Scenario(
             name="Extended Scenario",
-            product="Brukinsa",
             hcp_profile_id=hcp.id,
             key_messages=json.dumps(["Superior PFS", "Better safety"]),
+            skill_id="test-skill-id",
             status="active",
             created_by=admin.id,
             rubric_id="test-rubric-id",

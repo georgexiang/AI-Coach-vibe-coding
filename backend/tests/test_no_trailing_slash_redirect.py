@@ -10,6 +10,7 @@ every list/create endpoint returns its proper status code, not 307.
 
 from app.models.hcp_profile import HcpProfile
 from app.models.scenario import Scenario
+from app.models.skill import Skill, SkillVersion
 from app.models.user import User
 from app.services.auth import create_access_token, get_password_hash
 from tests.conftest import TestSessionLocal
@@ -62,8 +63,6 @@ async def _seed_scenario(admin_id: str) -> str:
         scenario = Scenario(
             name="Redirect Test",
             description="Test scenario",
-            product="TestDrug",
-            therapeutic_area="Oncology",
             mode="f2f",
             difficulty="easy",
             status="active",
@@ -71,6 +70,7 @@ async def _seed_scenario(admin_id: str) -> str:
             key_messages='["msg1"]',
             created_by=admin_id,
             rubric_id="test-rubric-id",
+            skill_id="test-skill-id",
         )
         session.add(scenario)
         await session.commit()
@@ -174,7 +174,7 @@ class TestNoTrailingSlashRedirect:
     async def test_scenarios_create_no_redirect(self, client):
         """POST /api/v1/scenarios must return 201, not 307."""
         user_id, token = await _seed_admin()
-        # Need an HCP profile first
+        # Need an HCP profile + skill first
         async with TestSessionLocal() as session:
             profile = HcpProfile(
                 name="Dr. ScenarioRedirect",
@@ -182,6 +182,20 @@ class TestNoTrailingSlashRedirect:
                 created_by=user_id,
             )
             session.add(profile)
+            await session.flush()
+
+            skill = Skill(
+                id="redirect-test-skill", name="Redirect Skill",
+                status="published", created_by=user_id,
+            )
+            session.add(skill)
+            await session.flush()
+
+            skill_ver = SkillVersion(
+                skill_id=skill.id, version_number=1, content="test",
+                is_published=True, created_by=user_id,
+            )
+            session.add(skill_ver)
             await session.commit()
             await session.refresh(profile)
             profile_id = profile.id
@@ -191,14 +205,13 @@ class TestNoTrailingSlashRedirect:
             json={
                 "name": "No Redirect Scenario",
                 "description": "Test",
-                "product": "TestDrug",
-                "therapeutic_area": "Oncology",
+                "tags": ["product:TestDrug", "area:Oncology"],
                 "mode": "f2f",
                 "difficulty": "easy",
                 "hcp_profile_id": profile_id,
                 "rubric_id": "test-rubric-id",
+                "skill_id": "redirect-test-skill",
                 "key_messages": ["msg1"],
-                "created_by": user_id,
             },
             headers={"Authorization": f"Bearer {token}"},
         )

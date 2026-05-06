@@ -13,6 +13,7 @@ from app.models.message import SessionMessage
 from app.models.scenario import Scenario
 from app.models.scoring_rubric import ScoringRubric
 from app.models.session import CoachingSession
+from app.models.skill import Skill, SkillVersion
 from app.models.user import User
 from app.schemas.auth import LoginRequest
 from app.services.auth import create_access_token, get_password_hash
@@ -121,9 +122,9 @@ class TestScoringDirect:
 
         scenario = Scenario(
             name="DScore Scn",
-            product="Drug",
             hcp_profile_id=hcp.id,
             key_messages=json.dumps(["PFS"]),
+            skill_id="test-skill-id",
             status="active",
             rubric_id=rubric.id,
             created_by=user.id,
@@ -216,9 +217,9 @@ class TestSessionsDirect:
 
         scenario = Scenario(
             name="DSess Scn",
-            product="Drug",
             hcp_profile_id=hcp.id,
             key_messages=json.dumps(["PFS", "Safety"]),
+            skill_id="test-skill-id",
             status="active",
             rubric_id=rubric.id,
             created_by=user.id,
@@ -474,9 +475,9 @@ class TestSessionsDirect:
 
         scenario = Scenario(
             name="Rpt Scn",
-            product="Drug",
             hcp_profile_id=hcp.id,
             key_messages=json.dumps(["PFS"]),
+            skill_id="test-skill-id",
             status="active",
             rubric_id=rubric.id,
             created_by=user.id,
@@ -534,9 +535,9 @@ class TestSessionsDirect:
 
         scenario = Scenario(
             name="Sug Scn",
-            product="Drug",
             hcp_profile_id=hcp.id,
             key_messages=json.dumps(["PFS", "Safety"]),
+            skill_id="test-skill-id",
             status="active",
             rubric_id=rubric.id,
             created_by=user.id,
@@ -684,6 +685,25 @@ class TestScenariosDirect:
         hcp = HcpProfile(name="Dr. DScn", specialty="Onc", created_by=user.id)
         db.add(hcp)
         await db.flush()
+
+        skill = Skill(
+            id="test-skill-id",
+            name="Test Skill",
+            status="published",
+            created_by=user.id,
+        )
+        db.add(skill)
+        await db.flush()
+
+        skill_version = SkillVersion(
+            skill_id=skill.id,
+            version_number=1,
+            content="test content",
+            is_published=True,
+            created_by=user.id,
+        )
+        db.add(skill_version)
+        await db.flush()
         await db.commit()
         return user, hcp
 
@@ -695,9 +715,9 @@ class TestScenariosDirect:
         user, hcp = await self._seed_hcp(db_session)
         data = ScenarioCreate(
             name="Direct Scn",
-            product="Drug",
             hcp_profile_id=hcp.id,
             rubric_id="test-rubric-id",
+            skill_id="test-skill-id",
             key_messages=["M1"],
         )
         result = await create_scenario(data=data, db=db_session, user=user)
@@ -711,9 +731,9 @@ class TestScenariosDirect:
         user, hcp = await self._seed_hcp(db_session)
         data = ScenarioCreate(
             name="Get Scn",
-            product="Drug",
             hcp_profile_id=hcp.id,
             rubric_id="test-rubric-id",
+            skill_id="test-skill-id",
             key_messages=["M1"],
         )
         created = await create_scenario(data=data, db=db_session, user=user)
@@ -730,9 +750,9 @@ class TestScenariosDirect:
         user, hcp = await self._seed_hcp(db_session)
         data = ScenarioCreate(
             name="Before Scn",
-            product="Drug",
             hcp_profile_id=hcp.id,
             rubric_id="test-rubric-id",
+            skill_id="test-skill-id",
             key_messages=["M1"],
         )
         created = await create_scenario(data=data, db=db_session, user=user)
@@ -750,9 +770,9 @@ class TestScenariosDirect:
         user, hcp = await self._seed_hcp(db_session)
         data = ScenarioCreate(
             name="Del Scn",
-            product="Drug",
             hcp_profile_id=hcp.id,
             rubric_id="test-rubric-id",
+            skill_id="test-skill-id",
             key_messages=["M1"],
         )
         created = await create_scenario(data=data, db=db_session, user=user)
@@ -769,9 +789,9 @@ class TestScenariosDirect:
         user, hcp = await self._seed_hcp(db_session)
         data = ScenarioCreate(
             name="Clone Src",
-            product="Drug",
             hcp_profile_id=hcp.id,
             rubric_id="test-rubric-id",
+            skill_id="test-skill-id",
             key_messages=["M1"],
         )
         created = await create_scenario(data=data, db=db_session, user=user)

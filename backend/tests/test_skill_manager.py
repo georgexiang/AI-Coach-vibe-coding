@@ -23,7 +23,6 @@ from app.services.skill_manager import (
 )
 from tests.conftest import TestSessionLocal
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -315,17 +314,16 @@ class TestLoadSkillForScenario:
         result = await load_skill_for_scenario(db_session, "nonexistent-scenario-id")
         assert result is None
 
-    async def test_scenario_no_skill_id_returns_none(self):
-        """Scenario exists but has no skill associated."""
+    async def test_scenario_with_nonexistent_skill_returns_none(self):
+        """Scenario references a skill_id that doesn't exist in DB."""
         user_id = await _seed_user()
         hcp_id = await _seed_hcp_profile(user_id)
 
         async with TestSessionLocal() as session:
             scenario = Scenario(
-                name="No-skill scenario",
-                product="TestProduct",
+                name="Bad-skill scenario",
                 hcp_profile_id=hcp_id,
-                skill_id=None,
+                skill_id="nonexistent-skill-id",
                 created_by=user_id,
                 rubric_id="test-rubric-id",
             )
@@ -346,7 +344,6 @@ class TestLoadSkillForScenario:
         async with TestSessionLocal() as session:
             scenario = Scenario(
                 name="Bad-skill scenario",
-                product="TestProduct",
                 hcp_profile_id=hcp_id,
                 skill_id="nonexistent-skill-id",
                 created_by=user_id,
@@ -381,7 +378,6 @@ class TestLoadSkillForScenario:
 
             scenario = Scenario(
                 name="Draft-skill scenario",
-                product="TestProduct",
                 hcp_profile_id=hcp_id,
                 skill_id=skill_id,
                 created_by=user_id,
@@ -416,7 +412,6 @@ class TestLoadSkillForScenario:
 
             scenario = Scenario(
                 name="Review-skill scenario",
-                product="TestProduct",
                 hcp_profile_id=hcp_id,
                 skill_id=skill_id,
                 created_by=user_id,
@@ -463,7 +458,6 @@ class TestLoadSkillForScenario:
 
             scenario = Scenario(
                 name="Pinned-version scenario",
-                product="TestProduct",
                 hcp_profile_id=hcp_id,
                 skill_id=skill_id,
                 skill_version_id=version_id,
@@ -514,7 +508,6 @@ class TestLoadSkillForScenario:
 
             scenario = Scenario(
                 name="Missing-pin scenario",
-                product="TestProduct",
                 hcp_profile_id=hcp_id,
                 skill_id=skill_id,
                 skill_version_id="nonexistent-version-id",
@@ -552,7 +545,6 @@ class TestLoadSkillForScenario:
 
             scenario = Scenario(
                 name="No-version scenario",
-                product="TestProduct",
                 hcp_profile_id=hcp_id,
                 skill_id=skill_id,
                 created_by=user_id,
@@ -590,7 +582,6 @@ class TestLoadSkillForScenario:
 
             scenario = Scenario(
                 name="Archived-skill scenario",
-                product="TestProduct",
                 hcp_profile_id=hcp_id,
                 skill_id=skill_id,
                 created_by=user_id,
@@ -637,7 +628,6 @@ class TestLoadSkillForScenario:
 
             scenario = Scenario(
                 name="No-published-version scenario",
-                product="TestProduct",
                 hcp_profile_id=hcp_id,
                 skill_id=skill_id,
                 skill_version_id=None,

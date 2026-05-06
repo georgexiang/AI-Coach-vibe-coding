@@ -12,26 +12,27 @@ from app.schemas.session import MessageResponse, SendMessageRequest, SessionCrea
 
 
 class TestScenarioCreateSchema:
-    """Tests for ScenarioCreate validation with rubric_id."""
+    """Tests for ScenarioCreate validation with rubric_id and skill_id."""
 
     async def test_requires_rubric_id(self):
         data = ScenarioCreate(
             name="Test",
-            product="Drug",
+            tags=["product:Drug"],
             hcp_profile_id="p1",
             rubric_id="rubric-1",
+            skill_id="skill-1",
         )
         assert data.rubric_id == "rubric-1"
 
-    async def test_default_mode_and_status(self):
+    async def test_default_mode_and_difficulty(self):
         data = ScenarioCreate(
             name="Test",
-            product="Drug",
+            tags=["product:Drug"],
             hcp_profile_id="p1",
             rubric_id="rubric-1",
+            skill_id="skill-1",
         )
         assert data.mode == "f2f"
-        assert data.status == "draft"
         assert data.difficulty == "medium"
         assert data.pass_threshold == 70
 
@@ -39,8 +40,18 @@ class TestScenarioCreateSchema:
         with pytest.raises(ValidationError):
             ScenarioCreate(
                 name="Test",
-                product="Drug",
+                tags=["product:Drug"],
                 hcp_profile_id="p1",
+                skill_id="skill-1",
+            )
+
+    async def test_missing_skill_id_raises(self):
+        with pytest.raises(ValidationError):
+            ScenarioCreate(
+                name="Test",
+                tags=["product:Drug"],
+                hcp_profile_id="p1",
+                rubric_id="rubric-1",
             )
 
 
@@ -65,13 +76,13 @@ class TestScenarioResponseSchema:
             id="s1",
             name="Test",
             description="Desc",
-            product="Drug",
-            therapeutic_area="Onc",
+            tags='["product:Drug", "area:Onc"]',
             mode="f2f",
             difficulty="medium",
             status="active",
             hcp_profile_id="p1",
             key_messages='["KM1"]',
+            skill_id="skill-1",
             rubric_id="rubric-1",
             pass_threshold=70,
             created_by="user1",
@@ -81,6 +92,7 @@ class TestScenarioResponseSchema:
         assert resp.id == "s1"
         assert resp.key_messages == '["KM1"]'
         assert resp.rubric_id == "rubric-1"
+        assert resp.skill_id == "skill-1"
 
 
 class TestHcpProfileSchemas:

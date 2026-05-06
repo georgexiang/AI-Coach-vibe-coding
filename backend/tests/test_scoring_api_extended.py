@@ -56,9 +56,9 @@ async def _setup_completed_session(
 
         scenario = Scenario(
             name="Score Ext Scenario",
-            product="Brukinsa",
             hcp_profile_id=hcp.id,
             key_messages=json.dumps(["PFS data", "Safety profile"]),
+            skill_id="test-skill-id",
             status="active",
             created_by=user.id,
             rubric_id=rubric.id,

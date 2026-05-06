@@ -296,10 +296,11 @@ async def _create_user_with_data_and_token() -> tuple[str, str]:
 
         scenario = Scenario(
             name="Edge Scenario",
-            product="Drug",
+            tags="[]",
             status="active",
             hcp_profile_id=hcp.id,
             rubric_id=rubric.id,
+            skill_id="test-skill-id",
             created_by=admin.id,
         )
         session.add(scenario)

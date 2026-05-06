@@ -18,17 +18,15 @@ import asyncio
 import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from app.database import get_db
-from app.main import app
-
 import pytest
 from sqlalchemy import select
 
+from app.database import get_db
+from app.main import app
 from app.models.hcp_profile import HcpProfile
 from app.models.scoring_rubric import ScoringRubric
 from app.models.service_config import ServiceConfig
 from app.models.user import User
-
 
 # ===========================================================================
 # 1. Voice Live WebSocket: _load_connection_config
@@ -763,9 +761,8 @@ class TestConnectionTester:
         assert ok is True
 
     async def test_detect_region_from_header(self):
-        from app.services.connection_tester import detect_region_from_endpoint
 
-        import httpx
+        from app.services.connection_tester import detect_region_from_endpoint
 
         mock_response = MagicMock()
         mock_response.headers = {"x-ms-region": "East US 2"}
@@ -1686,9 +1683,9 @@ class TestHcpProfileServiceCascade:
 
         # Create scenario linked to profile
         scenario = Scenario(
-            name="Test Scenario", product="TestDrug", mode="f2f",
+            name="Test Scenario", tags='["product:TestDrug"]', mode="f2f",
             hcp_profile_id=profile.id, created_by=user.id,
-            rubric_id="test-rubric-id",
+            rubric_id="test-rubric-id", skill_id="test-skill-id",
         )
         db_session.add(scenario)
         await db_session.flush()

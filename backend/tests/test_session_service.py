@@ -45,12 +45,12 @@ async def _seed_user_and_scenario(db) -> tuple[str, str]:
 
     scenario = Scenario(
         name="Active Scenario",
-        product="Brukinsa",
         hcp_profile_id=hcp.id,
         key_messages=json.dumps(["Superior PFS data", "Favorable safety profile"]),
         status="active",
         created_by=user.id,
         rubric_id="test-rubric-id",
+        skill_id="test-skill-id",
     )
     db.add(scenario)
     await db.flush()
@@ -93,12 +93,12 @@ class TestCreateSession:
 
         draft = Scenario(
             name="Draft",
-            product="Drug",
             hcp_profile_id=hcp.id,
             key_messages="[]",
             status="draft",
             created_by=user_id,
             rubric_id="test-rubric-id",
+            skill_id="test-skill-id",
         )
         db_session.add(draft)
         await db_session.flush()

@@ -13,7 +13,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision = "s22c_skill_id_not_null"
-down_revision = "q20a_add_dry_run_tables"
+down_revision = "s22b00000001"
 branch_labels = None
 depends_on = None
 

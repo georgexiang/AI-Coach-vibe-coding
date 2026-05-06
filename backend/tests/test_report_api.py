@@ -55,9 +55,9 @@ async def _seed_scored_session_and_token() -> tuple[str, str, str]:
 
         scenario = Scenario(
             name="Report Scenario",
-            product="TestDrug",
             hcp_profile_id=hcp.id,
             key_messages=json.dumps(["Key 1", "Key 2"]),
+            skill_id="test-skill-id",
             status="active",
             created_by=user.id,
             rubric_id=rubric.id,
@@ -123,9 +123,9 @@ async def _seed_unscored_session_and_token() -> tuple[str, str, str]:
 
         scenario = Scenario(
             name="Unscored Scenario",
-            product="Drug",
             hcp_profile_id=hcp.id,
             key_messages=json.dumps([]),
+            skill_id="test-skill-id",
             status="active",
             created_by=user.id,
             rubric_id="test-rubric-id",
