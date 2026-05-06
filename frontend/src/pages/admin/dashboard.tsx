@@ -128,7 +128,7 @@ export default function AdminDashboard() {
         <Card className="bg-card rounded-lg border border-border shadow-sm">
           <CardHeader>
             <CardTitle className="text-base font-medium">
-              {t("scoreDistribution", { defaultValue: "Score Distribution" })}
+              {t("scoreDistribution")}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -175,7 +175,7 @@ export default function AdminDashboard() {
             <div className="flex items-center gap-2">
               <Trophy className="size-5 text-chart-3" />
               <CardTitle className="text-base font-medium">
-                {t("topPerformers", { defaultValue: "Top Performers" })}
+                {t("topPerformers")}
               </CardTitle>
             </div>
           </CardHeader>
@@ -216,7 +216,7 @@ export default function AdminDashboard() {
             <div className="flex items-center gap-2">
               <AlertTriangle className="size-5 text-weakness" />
               <CardTitle className="text-base font-medium">
-                {t("needsAttention", { defaultValue: "Needs Attention" })}
+                {t("needsAttention")}
               </CardTitle>
             </div>
           </CardHeader>
@@ -229,7 +229,7 @@ export default function AdminDashboard() {
                 <div>
                   <p className="text-sm font-medium text-foreground">{user.name}</p>
                   <p className="text-xs text-muted-foreground">
-                    {user.bu} · {user.sessions} {t("sessions", { defaultValue: "sessions" })}
+                    {user.bu} · {user.sessions} {t("sessions")}
                   </p>
                 </div>
                 <span className="rounded bg-destructive/10 px-2 py-0.5 text-sm font-semibold text-destructive">
@@ -245,12 +245,10 @@ export default function AdminDashboard() {
       <Card className="bg-card rounded-lg border border-border shadow-sm">
         <CardHeader>
           <CardTitle className="text-base font-medium">
-            {t("trainingActivity", { defaultValue: "Training Activity" })}
+            {t("trainingActivity")}
           </CardTitle>
           <p className="text-sm text-muted-foreground">
-            {t("trainingActivityDesc", {
-              defaultValue: "Sessions completed per day over the last 4 weeks",
-            })}
+            {t("trainingActivityDesc")}
           </p>
         </CardHeader>
         <CardContent>
@@ -267,7 +265,7 @@ export default function AdminDashboard() {
             {(orgData?.training_activity ?? []).map((week, weekIdx) => (
               <div key={weekIdx} className="flex items-center gap-1">
                 <span className="w-14 text-right text-xs text-muted-foreground">
-                  {t("week", { defaultValue: "Week" })} {weekIdx + 1}
+                  {t("week")} {weekIdx + 1}
                 </span>
                 <div className="flex flex-1 gap-1">
                   {week.map((value, dayIdx) => (

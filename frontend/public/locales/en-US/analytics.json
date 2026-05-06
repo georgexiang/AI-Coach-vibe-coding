@@ -73,5 +73,12 @@
   "completionPct": "Completion %",
   "skillGapAnalysis": "Skill Gap Analysis",
   "buColumn": "BU",
-  "noDataBody": "Complete your first training session to see reports."
+  "noDataBody": "Complete your first training session to see reports.",
+  "scoreDistribution": "Score Distribution",
+  "topPerformers": "Top Performers",
+  "needsAttention": "Needs Attention",
+  "sessions": "sessions",
+  "trainingActivity": "Training Activity",
+  "trainingActivityDesc": "Sessions completed per day over the last 4 weeks",
+  "week": "Week"
 }

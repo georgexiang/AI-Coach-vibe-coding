@@ -73,5 +73,12 @@
   "completionPct": "完成百分比",
   "skillGapAnalysis": "技能差距分析",
   "buColumn": "事业部",
-  "noDataBody": "完成您的第一次培训会话即可查看报告。"
+  "noDataBody": "完成您的第一次培训会话即可查看报告。",
+  "scoreDistribution": "分数分布",
+  "topPerformers": "优秀学员",
+  "needsAttention": "需要关注",
+  "sessions": "次会话",
+  "trainingActivity": "培训活动",
+  "trainingActivityDesc": "过去4周每日完成的会话数",
+  "week": "第"
 }
