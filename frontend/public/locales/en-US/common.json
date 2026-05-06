@@ -11,7 +11,10 @@
     "returnDashboard": "Return to Dashboard"
   },
   "loading": "Loading...",
-  "lang": { "zhCN": "Chinese", "enUS": "English" },
+  "lang": {
+    "zhCN": "Chinese",
+    "enUS": "English"
+  },
   "logout": "Sign Out",
   "profile": "Profile",
   "startTraining": "Start Training",
@@ -57,5 +60,6 @@
   "active": "Active",
   "draft": "Draft",
   "back": "Back",
-  "user": "User"
+  "user": "User",
+  "archived": "Archived"
 }

@@ -94,18 +94,18 @@ export function ScenarioTable({
                   className="flex items-center gap-1"
                   onClick={() => toggleSort("name")}
                 >
-                  {t("scenarios.name", { defaultValue: "Name" })}
+                  {t("scenarios.table.name")}
                   <ArrowUpDown className="size-3.5" />
                 </button>
               </th>
               <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                {t("scenarios.tags", { defaultValue: "Tags" })}
+                {t("scenarios.table.tags")}
               </th>
               <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                {t("scenarios.hcp", { defaultValue: "HCP" })}
+                {t("scenarios.table.hcp")}
               </th>
               <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                {t("scenarios.mode", { defaultValue: "Mode" })}
+                {t("scenarios.table.mode")}
               </th>
               <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 <button
@@ -113,15 +113,15 @@ export function ScenarioTable({
                   className="flex items-center gap-1"
                   onClick={() => toggleSort("difficulty")}
                 >
-                  {t("scenarios.difficulty", { defaultValue: "Difficulty" })}
+                  {t("scenarios.table.difficulty")}
                   <ArrowUpDown className="size-3.5" />
                 </button>
               </th>
               <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                {t("scenarios.status", { defaultValue: "Status" })}
+                {t("scenarios.table.status")}
               </th>
               <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                {t("scenarios.actions", { defaultValue: "Actions" })}
+                {t("scenarios.table.actions")}
               </th>
             </tr>
           </thead>
@@ -212,24 +212,24 @@ export function ScenarioTable({
                         {scenario.status !== "archived" && (
                           <DropdownMenuItem onClick={() => navigate(`/admin/scenarios/${scenario.id}`)}>
                             <Edit className="size-4" />
-                            {t("scenarios.edit", { defaultValue: "Edit" })}
+                            {t("scenarios.table.edit")}
                           </DropdownMenuItem>
                         )}
                         {scenario.status === "draft" && (
                           <DropdownMenuItem onClick={() => onTransition(scenario.id, "active")}>
                             <CheckCircle className="size-4" />
-                            {t("scenarios.activate", { defaultValue: "Activate" })}
+                            {t("scenarios.table.activate")}
                           </DropdownMenuItem>
                         )}
                         {scenario.status === "active" && (
                           <DropdownMenuItem onClick={() => onTransition(scenario.id, "archived")}>
                             <Archive className="size-4" />
-                            {t("scenarios.archive", { defaultValue: "Archive" })}
+                            {t("scenarios.table.archive")}
                           </DropdownMenuItem>
                         )}
                         <DropdownMenuItem onClick={() => onClone(scenario.id)}>
                           <Copy className="size-4" />
-                          {t("scenarios.clone", { defaultValue: "Clone" })}
+                          {t("scenarios.table.clone")}
                         </DropdownMenuItem>
                         {scenario.status !== "archived" && (
                           <DropdownMenuItem
@@ -237,7 +237,7 @@ export function ScenarioTable({
                             onClick={() => onDelete(scenario.id)}
                           >
                             <Trash2 className="size-4" />
-                            {t("scenarios.delete", { defaultValue: "Delete" })}
+                            {t("scenarios.table.delete")}
                           </DropdownMenuItem>
                         )}
                       </DropdownMenuContent>
@@ -253,7 +253,7 @@ export function ScenarioTable({
       {totalPages > 1 && (
         <div className="flex items-center justify-between mt-4">
           <span className="text-sm text-muted-foreground">
-            {t("scenarios.pageInfo", { defaultValue: "Page {{page}} of {{total}}", page: page + 1, total: totalPages })}
+            {t("scenarios.table.pageInfo", { page: page + 1, total: totalPages })}
           </span>
           <div className="flex items-center gap-2">
             <Button
@@ -262,7 +262,7 @@ export function ScenarioTable({
               disabled={page === 0}
               onClick={() => setPage((p) => p - 1)}
             >
-              {t("scenarios.previous", { defaultValue: "Previous" })}
+              {t("scenarios.table.previous")}
             </Button>
             <Button
               variant="outline"
@@ -270,7 +270,7 @@ export function ScenarioTable({
               disabled={page >= totalPages - 1}
               onClick={() => setPage((p) => p + 1)}
             >
-              {t("scenarios.next", { defaultValue: "Next" })}
+              {t("scenarios.table.next")}
             </Button>
           </div>
         </div>

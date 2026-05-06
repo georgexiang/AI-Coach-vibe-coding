@@ -11,7 +11,10 @@
     "returnDashboard": "返回仪表盘"
   },
   "loading": "加载中...",
-  "lang": { "zhCN": "中文", "enUS": "English" },
+  "lang": {
+    "zhCN": "中文",
+    "enUS": "English"
+  },
   "logout": "退出登录",
   "profile": "个人资料",
   "startTraining": "开始培训",
@@ -57,5 +60,6 @@
   "active": "活跃",
   "draft": "草稿",
   "back": "返回",
-  "user": "用户"
+  "user": "用户",
+  "archived": "已归档"
 }

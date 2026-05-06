@@ -77,10 +77,10 @@ export default function ScenariosPage() {
       { id, status },
       {
         onSuccess: () => {
-          toast.success(t("scenarios.statusChanged", { defaultValue: "Status updated" }));
+          toast.success(t("scenarios.statusChanged"));
         },
         onError: () => {
-          toast.error(t("scenarios.statusChangeFailed", { defaultValue: "Status change failed" }));
+          toast.error(t("scenarios.statusChangeFailed"));
         },
       },
     );
@@ -104,7 +104,7 @@ export default function ScenariosPage() {
               <SelectItem value={ALL_STATUS}>{tc("all")}</SelectItem>
               <SelectItem value="active">{tc("active")}</SelectItem>
               <SelectItem value="draft">{tc("draft")}</SelectItem>
-              <SelectItem value="archived">{tc("archived", { defaultValue: "Archived" })}</SelectItem>
+              <SelectItem value="archived">{tc("archived")}</SelectItem>
             </SelectContent>
           </Select>
           <Button onClick={handleCreate}>

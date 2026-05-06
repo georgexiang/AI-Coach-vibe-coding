@@ -143,7 +143,7 @@ export default function ScenarioEditorPage() {
           toast.success(t("admin:scenarios.save"));
           navigate("/admin/scenarios");
         },
-        onError: () => toast.error(t("admin:errors.scenarioSaveFailed", { defaultValue: "Failed to save scenario" })),
+        onError: () => toast.error(t("scenarios.save")),
       });
     } else if (id) {
       const updateData: ScenarioUpdate = {
@@ -157,7 +157,7 @@ export default function ScenarioEditorPage() {
             toast.success(t("admin:scenarios.save"));
             navigate("/admin/scenarios");
           },
-          onError: () => toast.error(t("admin:errors.scenarioSaveFailed", { defaultValue: "Failed to save scenario" })),
+          onError: () => toast.error(t("scenarios.save")),
         },
       );
     }
@@ -222,7 +222,7 @@ export default function ScenarioEditorPage() {
             <h1 className="text-2xl font-medium">
               {isNew
                 ? t("admin:scenarios.createButton")
-                : t("admin:scenarios.editTitle", { name: scenario?.name ?? "", defaultValue: `Edit: ${scenario?.name ?? ""}` })}
+                : t("scenarios.editor.editTitle")}
             </h1>
           </div>
         </div>
@@ -232,7 +232,7 @@ export default function ScenarioEditorPage() {
         >
           <Save className="size-4 mr-2" />
           {createMutation.isPending || updateMutation.isPending
-            ? t("common:saving", { defaultValue: "Saving..." })
+            ? t("common:saving")
             : t("admin:scenarios.save")}
         </Button>
       </div>
@@ -242,7 +242,7 @@ export default function ScenarioEditorPage() {
         <div className="flex items-center gap-2 p-3 rounded-md bg-muted border border-border">
           <Info className="size-4 text-muted-foreground shrink-0" />
           <p className="text-sm text-muted-foreground">
-            {t("admin:scenarios.archivedBanner", { defaultValue: "This scenario is archived and read-only. Clone to create an editable copy." })}
+            {t("scenarios.editor.archivedBanner")}
           </p>
         </div>
       )}
@@ -256,19 +256,19 @@ export default function ScenarioEditorPage() {
                 value="basic"
                 className="flex-1 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
               >
-                {t("admin:scenarios.tabBasic", { defaultValue: "Basic Info" })}
+                {t("scenarios.editor.tabs.basicInfo")}
               </TabsTrigger>
               <TabsTrigger
                 value="linked"
                 className="flex-1 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
               >
-                {t("admin:scenarios.tabLinked", { defaultValue: "Linked Config" })}
+                {t("scenarios.editor.tabs.linkedConfig")}
               </TabsTrigger>
               <TabsTrigger
                 value="scoring"
                 className="flex-1 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
               >
-                {t("admin:scenarios.tabScoring", { defaultValue: "Scoring Rules" })}
+                {t("scenarios.editor.tabs.scoringRules")}
               </TabsTrigger>
             </TabsList>
 
@@ -277,7 +277,7 @@ export default function ScenarioEditorPage() {
               <Card>
                 <CardHeader>
                   <CardTitle className="text-base font-semibold">
-                    {t("admin:scenarios.tabBasic", { defaultValue: "Basic Info" })}
+                    {t("scenarios.editor.tabs.basicInfo")}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -286,7 +286,7 @@ export default function ScenarioEditorPage() {
                     name="name"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>{t("admin:scenarios.fieldName", { defaultValue: "Name *" })}</FormLabel>
+                        <FormLabel>{t("scenarios.editor.fields.name")}</FormLabel>
                         <FormControl>
                           <Input {...field} />
                         </FormControl>
@@ -300,7 +300,7 @@ export default function ScenarioEditorPage() {
                     name="description"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>{t("admin:scenarios.fieldDescription", { defaultValue: "Description" })}</FormLabel>
+                        <FormLabel>{t("scenarios.editor.fields.description")}</FormLabel>
                         <FormControl>
                           <Textarea rows={3} {...field} />
                         </FormControl>
@@ -310,7 +310,7 @@ export default function ScenarioEditorPage() {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="grid gap-2">
-                      <Label>{t("admin:scenarios.fieldMode", { defaultValue: "Mode" })}</Label>
+                      <Label>{t("scenarios.editor.fields.mode")}</Label>
                       <div className="flex items-center gap-4">
                         {(["f2f", "conference"] as const).map((m) => (
                           <label key={m} className="flex items-center gap-2 cursor-pointer">
@@ -327,7 +327,7 @@ export default function ScenarioEditorPage() {
                       </div>
                     </div>
                     <div className="grid gap-2">
-                      <Label>{t("admin:scenarios.fieldDifficulty", { defaultValue: "Difficulty" })}</Label>
+                      <Label>{t("scenarios.editor.fields.difficulty")}</Label>
                       <div className="flex items-center gap-4">
                         {(["easy", "medium", "hard"] as const).map((d) => (
                           <label key={d} className="flex items-center gap-2 cursor-pointer">
@@ -347,13 +347,13 @@ export default function ScenarioEditorPage() {
 
                   {/* Tags Section */}
                   <div className="grid gap-2">
-                    <Label>{t("admin:scenarios.tags", { defaultValue: "Tags" })}</Label>
+                    <Label>{t("scenarios.editor.fields.tags")}</Label>
 
                     {/* Current tags display */}
                     <div className="flex flex-wrap gap-1.5 min-h-[32px] p-2 border rounded-md bg-muted/30">
                       {currentTags.length === 0 && (
                         <span className="text-xs text-muted-foreground">
-                          {t("admin:scenarios.noTags", { defaultValue: "No tags" })}
+                          {t("scenarios.editor.fields.tagsPlaceholder")}
                         </span>
                       )}
                       {currentTags.map((tag) => {
@@ -407,7 +407,7 @@ export default function ScenarioEditorPage() {
                     {/* Custom tag input */}
                     <div className="flex items-center gap-2">
                       <Input
-                        placeholder={t("admin:scenarios.customTag", { defaultValue: "Custom tag" })}
+                        placeholder={t("scenarios.editor.fields.tagsPlaceholder")}
                         value={customTagInput}
                         onChange={(e) => setCustomTagInput(e.target.value)}
                         onKeyDown={(e) => {
@@ -426,7 +426,7 @@ export default function ScenarioEditorPage() {
                         className="h-8"
                       >
                         <Plus className="size-3.5" />
-                        {t("admin:scenarios.addTag", { defaultValue: "Add" })}
+                        {t("scenarios.editor.fields.addTag")}
                       </Button>
                     </div>
                   </div>
@@ -447,20 +447,20 @@ export default function ScenarioEditorPage() {
               <Card>
                 <CardHeader>
                   <CardTitle className="text-base font-semibold">
-                    {t("admin:scenarios.tabLinked", { defaultValue: "Linked Config" })}
+                    {t("scenarios.editor.tabs.linkedConfig")}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   {/* HCP Profile Selector */}
                   <div className="grid gap-2">
-                    <Label>{t("admin:scenarios.fieldHcp", { defaultValue: "HCP Profile *" })}</Label>
+                    <Label>{t("scenarios.editor.fields.hcpProfile")}</Label>
                     <Controller
                       control={form.control}
                       name="hcp_profile_id"
                       render={({ field }) => (
                         <Select value={field.value} onValueChange={field.onChange}>
                           <SelectTrigger>
-                            <SelectValue placeholder={t("admin:scenarios.selectHcp", { defaultValue: "Select HCP" })}>
+                            <SelectValue placeholder={t("scenarios.editor.fields.selectHcp")}>
                               {selectedProfile && (
                                 <div className="flex items-center gap-2">
                                   <Avatar className="size-5">
@@ -494,21 +494,21 @@ export default function ScenarioEditorPage() {
                     />
                     {form.formState.errors.hcp_profile_id && (
                       <p className="text-destructive text-sm">
-                        {t("admin:scenarios.hcpRequired", { defaultValue: "HCP profile is required" })}
+                        {t("scenarios.editor.fields.hcpProfile")}
                       </p>
                     )}
                   </div>
 
                   {/* Skill Selector */}
                   <div className="grid gap-2">
-                    <Label>{t("admin:scenarios.skillLabel", { defaultValue: "Skill *" })}</Label>
+                    <Label>{t("scenarios.editor.fields.skill")}</Label>
                     <Controller
                       control={form.control}
                       name="skill_id"
                       render={({ field }) => (
                         <Select value={field.value} onValueChange={field.onChange}>
                           <SelectTrigger>
-                            <SelectValue placeholder={t("admin:scenarios.selectSkill", { defaultValue: "Select a published skill" })} />
+                            <SelectValue placeholder={t("scenarios.editor.fields.selectSkill")} />
                           </SelectTrigger>
                           <SelectContent>
                             {publishedSkills.map((s) => (
@@ -537,7 +537,7 @@ export default function ScenarioEditorPage() {
                     )}
                     {publishedSkills.length === 0 && (
                       <p className="text-sm text-destructive">
-                        {t("admin:scenarios.noPublishedSkillsWarning", { defaultValue: "No published skills available. Create and publish a skill first." })}
+                        {t("scenarios.editor.fields.noPublishedSkills")}
                       </p>
                     )}
                     {scenario?.skill_id && scenario.skill_id === form.watch("skill_id") && (
@@ -553,7 +553,7 @@ export default function ScenarioEditorPage() {
               <Card>
                 <CardHeader>
                   <CardTitle className="text-base font-semibold">
-                    {t("admin:scenarios.tabScoring", { defaultValue: "Scoring Rules" })}
+                    {t("scenarios.editor.tabs.scoringRules")}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -666,7 +666,7 @@ function SkillStatusBadge({ skillId }: { skillId: string }) {
   return (
     <div className="flex items-center gap-1 text-xs text-warning">
       <AlertTriangle className="size-3" />
-      <span>{t("scenarios.skillArchived", { defaultValue: "This skill is archived" })}</span>
+      <span>{t("scenarios.editor.fields.skillArchived")}</span>
     </div>
   );
 }

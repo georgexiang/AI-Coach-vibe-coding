@@ -9,11 +9,31 @@ vi.mock("react-router-dom", () => ({
   useNavigate: () => mockNavigate,
 }));
 
+const i18nKeys: Record<string, string> = {
+  "scenarios.table.name": "Name",
+  "scenarios.table.tags": "Tags",
+  "scenarios.table.hcp": "HCP",
+  "scenarios.table.mode": "Mode",
+  "scenarios.table.difficulty": "Difficulty",
+  "scenarios.table.status": "Status",
+  "scenarios.table.actions": "Actions",
+  "scenarios.table.edit": "Edit",
+  "scenarios.table.activate": "Activate",
+  "scenarios.table.archive": "Archive",
+  "scenarios.table.clone": "Clone",
+  "scenarios.table.delete": "Delete",
+  "scenarios.table.previous": "Previous",
+  "scenarios.table.next": "Next",
+  "scenarios.emptyTitle": "No scenarios found",
+};
+
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string, opts?: Record<string, unknown>) => {
-      if (opts?.defaultValue) return opts.defaultValue as string;
-      return key;
+      if (key === "scenarios.table.pageInfo" && opts) {
+        return `Page ${opts.page} of ${opts.total}`;
+      }
+      return i18nKeys[key] ?? key;
     },
     i18n: { changeLanguage: vi.fn(), language: "en" },
   }),
@@ -112,7 +132,7 @@ describe("ScenarioTable", () => {
 
   it("renders empty state when no scenarios", () => {
     render(<ScenarioTable {...defaultProps} scenarios={[]} />);
-    expect(screen.getByText("scenarios.emptyTitle")).toBeInTheDocument();
+    expect(screen.getByText("No scenarios found")).toBeInTheDocument();
   });
 
   it("renders column headers", () => {
