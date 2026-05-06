@@ -34,9 +34,9 @@ test.describe("Coaching Session (Phase 2)", () => {
   test("left panel shows scenario briefing with key messages and scoring criteria", async ({
     page,
   }) => {
-    // Scenario briefing card should contain Product and Difficulty info
+    // Scenario briefing card should contain tags and Difficulty info
     await expect(
-      page.getByText(/product/i).first(),
+      page.getByText(/tags|product|therapeutic/i).first(),
     ).toBeVisible({ timeout: 5000 });
     await expect(
       page.getByText(/difficulty/i).first(),

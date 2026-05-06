@@ -109,7 +109,7 @@ describe("ScenarioTable", () => {
 
   it("toggles sort direction when clicking column header", async () => {
     render(<ScenarioTable {...defaultProps} />);
-    const nameHeader = screen.getByText("Name");
+    const nameHeader = screen.getByText("scenarios.colName");
     await userEvent.click(nameHeader);
     // Clicking again toggles direction - just verify no crash
     await userEvent.click(nameHeader);

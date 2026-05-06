@@ -116,13 +116,13 @@ class TestGenerateMockScores:
     def _make_scenario(self, **overrides):
         defaults = {
             "name": "S",
-            "product": "TestDrug",
             "hcp_profile_id": "p1",
             "key_messages": json.dumps(["Key msg 1", "Key msg 2"]),
             "rubric_id": "test-rubric-id",
             "pass_threshold": 70,
             "status": "active",
             "created_by": "u1",
+            "tags": json.dumps(["product:TestDrug"]),
         }
         defaults.update(overrides)
         return Scenario(**defaults)

@@ -105,10 +105,10 @@ describe("ScenarioPanel", () => {
     expect(screen.getByText("Dr. Jane Doe")).toBeInTheDocument();
   });
 
-  it("renders scoring weight entries", () => {
+  it("renders scoring criteria section with rubric-based info", () => {
     render(<ScenarioPanel {...defaultProps} />);
-    expect(screen.getByText("Key Message")).toBeInTheDocument();
-    expect(screen.getByText("30%")).toBeInTheDocument();
+    expect(screen.getByText("session.scoringCriteria")).toBeInTheDocument();
+    expect(screen.getByText("session.rubricBased")).toBeInTheDocument();
   });
 
   it("renders collapsed state with toggle button", () => {

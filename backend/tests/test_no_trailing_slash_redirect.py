@@ -191,14 +191,13 @@ class TestNoTrailingSlashRedirect:
             json={
                 "name": "No Redirect Scenario",
                 "description": "Test",
-                "product": "TestDrug",
-                "therapeutic_area": "Oncology",
                 "mode": "f2f",
                 "difficulty": "easy",
                 "hcp_profile_id": profile_id,
                 "rubric_id": "test-rubric-id",
                 "key_messages": ["msg1"],
                 "created_by": user_id,
+                "tags": ["product:TestDrug", "therapeutic_area:Oncology"],
             },
             headers={"Authorization": f"Bearer {token}"},
         )

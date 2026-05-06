@@ -49,14 +49,13 @@ class TestCreateScenario:
         user_id, hcp_id = await _seed_user_and_hcp(db_session)
         data = ScenarioCreate(
             name="Test Scenario",
-            product="Brukinsa",
             hcp_profile_id=hcp_id,
             rubric_id="test-rubric-id",
+            tags=["product:Brukinsa", "therapeutic_area:Oncology"],
         )
         scenario = await create_scenario(db_session, data, user_id)
 
         assert scenario.name == "Test Scenario"
-        assert scenario.product == "Brukinsa"
         assert scenario.hcp_profile_id == hcp_id
         assert scenario.created_by == user_id
         assert scenario.id is not None
@@ -65,7 +64,6 @@ class TestCreateScenario:
         user_id, hcp_id = await _seed_user_and_hcp(db_session)
         data = ScenarioCreate(
             name="S",
-            product="Drug",
             hcp_profile_id=hcp_id,
             rubric_id="test-rubric-id",
             key_messages=["Key msg 1", "Key msg 2"],
@@ -74,11 +72,36 @@ class TestCreateScenario:
 
         assert json.loads(scenario.key_messages) == ["Key msg 1", "Key msg 2"]
 
+    async def test_serializes_tags(self, db_session):
+        user_id, hcp_id = await _seed_user_and_hcp(db_session)
+        data = ScenarioCreate(
+            name="S",
+            hcp_profile_id=hcp_id,
+            rubric_id="test-rubric-id",
+            tags=["product:Brukinsa", "therapeutic_area:Oncology"],
+        )
+        scenario = await create_scenario(db_session, data, user_id)
+
+        assert json.loads(scenario.tags) == [
+            "product:Brukinsa",
+            "therapeutic_area:Oncology",
+        ]
+
+    async def test_tags_defaults_to_empty_list(self, db_session):
+        user_id, hcp_id = await _seed_user_and_hcp(db_session)
+        data = ScenarioCreate(
+            name="S",
+            hcp_profile_id=hcp_id,
+            rubric_id="test-rubric-id",
+        )
+        scenario = await create_scenario(db_session, data, user_id)
+
+        assert json.loads(scenario.tags) == []
+
     async def test_raises_for_nonexistent_hcp_profile(self, db_session):
         user_id, _ = await _seed_user_and_hcp(db_session)
         data = ScenarioCreate(
             name="S",
-            product="Drug",
             hcp_profile_id="nonexistent-hcp",
             rubric_id="test-rubric-id",
         )
@@ -89,7 +112,6 @@ class TestCreateScenario:
         user_id, hcp_id = await _seed_user_and_hcp(db_session)
         data = ScenarioCreate(
             name="S",
-            product="Drug",
             hcp_profile_id=hcp_id,
             rubric_id="test-rubric-id",
         )
@@ -107,7 +129,6 @@ class TestGetScenarios:
         for name in ["S1", "S2"]:
             data = ScenarioCreate(
                 name=name,
-                product="Drug",
                 hcp_profile_id=hcp_id,
                 rubric_id="test-rubric-id",
             )
@@ -121,14 +142,12 @@ class TestGetScenarios:
         user_id, hcp_id = await _seed_user_and_hcp(db_session)
         data_draft = ScenarioCreate(
             name="Draft",
-            product="Drug",
             hcp_profile_id=hcp_id,
             rubric_id="test-rubric-id",
             status="draft",
         )
         data_active = ScenarioCreate(
             name="Active",
-            product="Drug",
             hcp_profile_id=hcp_id,
             rubric_id="test-rubric-id",
             status="active",
@@ -145,7 +164,6 @@ class TestGetScenarios:
         for mode in ["f2f", "conference"]:
             data = ScenarioCreate(
                 name=f"Mode {mode}",
-                product="Drug",
                 hcp_profile_id=hcp_id,
                 rubric_id="test-rubric-id",
                 mode=mode,
@@ -161,7 +179,8 @@ class TestGetScenarios:
         await create_scenario(
             db_session,
             ScenarioCreate(
-                name="Brukinsa F2F", product="Brukinsa", hcp_profile_id=hcp_id,
+                name="Brukinsa F2F",
+                hcp_profile_id=hcp_id,
                 rubric_id="test-rubric-id",
             ),
             user_id,
@@ -169,7 +188,8 @@ class TestGetScenarios:
         await create_scenario(
             db_session,
             ScenarioCreate(
-                name="Other", product="Other", hcp_profile_id=hcp_id,
+                name="Other",
+                hcp_profile_id=hcp_id,
                 rubric_id="test-rubric-id",
             ),
             user_id,
@@ -177,6 +197,49 @@ class TestGetScenarios:
 
         scenarios, total = await get_scenarios(db_session, search="Brukinsa")
         assert total == 1
+
+    async def test_filters_by_tag(self, db_session):
+        user_id, hcp_id = await _seed_user_and_hcp(db_session)
+        await create_scenario(
+            db_session,
+            ScenarioCreate(
+                name="Tagged",
+                hcp_profile_id=hcp_id,
+                rubric_id="test-rubric-id",
+                tags=["product:Brukinsa", "therapeutic_area:Oncology"],
+            ),
+            user_id,
+        )
+        await create_scenario(
+            db_session,
+            ScenarioCreate(
+                name="Other",
+                hcp_profile_id=hcp_id,
+                rubric_id="test-rubric-id",
+                tags=["product:Tislelizumab"],
+            ),
+            user_id,
+        )
+
+        scenarios, total = await get_scenarios(db_session, tag="product:Brukinsa")
+        assert total == 1
+        assert scenarios[0].name == "Tagged"
+
+    async def test_tag_filter_no_match(self, db_session):
+        user_id, hcp_id = await _seed_user_and_hcp(db_session)
+        await create_scenario(
+            db_session,
+            ScenarioCreate(
+                name="S1",
+                hcp_profile_id=hcp_id,
+                rubric_id="test-rubric-id",
+                tags=["product:Brukinsa"],
+            ),
+            user_id,
+        )
+
+        scenarios, total = await get_scenarios(db_session, tag="product:NonExistent")
+        assert total == 0
 
 
 class TestGetScenario:
@@ -186,7 +249,6 @@ class TestGetScenario:
         user_id, hcp_id = await _seed_user_and_hcp(db_session)
         data = ScenarioCreate(
             name="Single",
-            product="Drug",
             hcp_profile_id=hcp_id,
             rubric_id="test-rubric-id",
         )
@@ -206,7 +268,6 @@ class TestUpdateScenario:
         user_id, hcp_id = await _seed_user_and_hcp(db_session)
         data = ScenarioCreate(
             name="Old Name",
-            product="Drug",
             hcp_profile_id=hcp_id,
             rubric_id="test-rubric-id",
         )
@@ -217,13 +278,11 @@ class TestUpdateScenario:
 
         assert updated.name == "New Name"
         assert updated.status == "active"
-        assert updated.product == "Drug"  # unchanged
 
     async def test_updates_key_messages(self, db_session):
         user_id, hcp_id = await _seed_user_and_hcp(db_session)
         data = ScenarioCreate(
             name="S",
-            product="Drug",
             hcp_profile_id=hcp_id,
             rubric_id="test-rubric-id",
         )
@@ -233,11 +292,24 @@ class TestUpdateScenario:
         updated = await update_scenario(db_session, scenario.id, update)
         assert json.loads(updated.key_messages) == ["New KM 1", "New KM 2"]
 
+    async def test_updates_tags(self, db_session):
+        user_id, hcp_id = await _seed_user_and_hcp(db_session)
+        data = ScenarioCreate(
+            name="S",
+            hcp_profile_id=hcp_id,
+            rubric_id="test-rubric-id",
+            tags=["product:Old"],
+        )
+        scenario = await create_scenario(db_session, data, user_id)
+
+        update = ScenarioUpdate(tags=["product:New", "therapeutic_area:Hematology"])
+        updated = await update_scenario(db_session, scenario.id, update)
+        assert json.loads(updated.tags) == ["product:New", "therapeutic_area:Hematology"]
+
     async def test_validates_new_hcp_profile_exists(self, db_session):
         user_id, hcp_id = await _seed_user_and_hcp(db_session)
         data = ScenarioCreate(
             name="S",
-            product="Drug",
             hcp_profile_id=hcp_id,
             rubric_id="test-rubric-id",
         )
@@ -255,7 +327,6 @@ class TestDeleteScenario:
         user_id, hcp_id = await _seed_user_and_hcp(db_session)
         data = ScenarioCreate(
             name="Del",
-            product="Drug",
             hcp_profile_id=hcp_id,
             rubric_id="test-rubric-id",
         )
@@ -277,9 +348,9 @@ class TestCloneScenario:
         user_id, hcp_id = await _seed_user_and_hcp(db_session)
         data = ScenarioCreate(
             name="Original",
-            product="Brukinsa",
             hcp_profile_id=hcp_id,
             rubric_id="test-rubric-id",
+            tags=["product:Brukinsa", "therapeutic_area:Oncology"],
             key_messages=["KM 1"],
         )
         original = await create_scenario(db_session, data, user_id)
@@ -288,7 +359,7 @@ class TestCloneScenario:
 
         assert clone.name == "Original (Copy)"
         assert clone.id != original.id
-        assert clone.product == "Brukinsa"
+        assert json.loads(clone.tags) == ["product:Brukinsa", "therapeutic_area:Oncology"]
         assert clone.status == "draft"
         assert clone.hcp_profile_id == hcp_id
 
@@ -296,7 +367,6 @@ class TestCloneScenario:
         user_id, hcp_id = await _seed_user_and_hcp(db_session)
         data = ScenarioCreate(
             name="With Rubric",
-            product="Drug",
             hcp_profile_id=hcp_id,
             rubric_id="test-rubric-id",
         )

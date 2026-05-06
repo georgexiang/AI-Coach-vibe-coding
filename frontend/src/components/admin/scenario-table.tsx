@@ -44,7 +44,7 @@ const TAG_CATEGORY_STYLES: Record<string, string> = {
 
 function getTagStyle(tag: string): string {
   const category = tag.split(":")[0] ?? "custom";
-  return TAG_CATEGORY_STYLES[category] ?? TAG_CATEGORY_STYLES.custom;
+  return TAG_CATEGORY_STYLES[category] ?? "bg-gray-100 text-gray-700 border-gray-200";
 }
 
 function getTagValue(tag: string): string {

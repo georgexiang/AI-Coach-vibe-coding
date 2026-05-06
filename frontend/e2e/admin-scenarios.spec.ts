@@ -25,7 +25,7 @@ test.describe("Admin Scenarios Management", () => {
 
     // Table headers should be visible
     await expect(page.getByText("Name").first()).toBeVisible();
-    await expect(page.getByText("Product").first()).toBeVisible();
+    await expect(page.getByText("Tags").first()).toBeVisible();
     await expect(page.getByText("HCP").first()).toBeVisible();
     await expect(page.getByText("Difficulty").first()).toBeVisible();
     await expect(page.getByText("Status").first()).toBeVisible();
@@ -47,7 +47,7 @@ test.describe("Admin Scenarios Management", () => {
 
     // Form fields should be present in the dialog
     await expect(page.getByText("Name *").first()).toBeVisible();
-    await expect(page.getByText("Product *").first()).toBeVisible();
+    await expect(page.getByText("Tags").first()).toBeVisible();
     await expect(page.getByText("Description").first()).toBeVisible();
 
     // Mode radio buttons should be present (f2f, conference)
@@ -185,17 +185,17 @@ test.describe("Admin Scenarios Management", () => {
     const nameInput = dialog.locator("input[type='text'], input:not([type])").first();
     await nameInput.fill(scenarioName);
 
-    // Select Product from dropdown (first combobox in dialog)
+    // Add a tag by clicking a predefined tag button (tags section uses buttons, not comboboxes)
+    const tagButton = dialog.getByRole("button", { name: /Tislelizumab/i });
+    const tagBtnCount = await tagButton.count();
+    if (tagBtnCount > 0) {
+      await tagButton.first().click();
+      await page.waitForTimeout(300);
+    }
+
+    // Select HCP from dropdown (first combobox in dialog after tags refactor)
     const comboboxes = dialog.locator("button[role='combobox']");
     await comboboxes.nth(0).click();
-    await page.waitForTimeout(300);
-    const productOption = page.getByRole("option", { name: /Tislelizumab/i });
-    await expect(productOption).toBeVisible({ timeout: 3000 });
-    await productOption.click();
-    await page.waitForTimeout(300);
-
-    // Select HCP from dropdown (third combobox — after Product and Therapeutic Area)
-    await comboboxes.nth(2).click();
     await page.waitForTimeout(300);
     const hcpOptions = page.getByRole("option");
     const hcpCount = await hcpOptions.count();
@@ -204,8 +204,8 @@ test.describe("Admin Scenarios Management", () => {
       await page.waitForTimeout(300);
     }
 
-    // Select Scoring Rubric (fifth combobox — after Product, Therapeutic Area, HCP, Skill)
-    await comboboxes.nth(4).click();
+    // Select Scoring Rubric (third combobox — after HCP, Skill)
+    await comboboxes.nth(2).click();
     await page.waitForTimeout(300);
     const rubricOption = page.getByRole("option").first();
     await expect(rubricOption).toBeVisible({ timeout: 3000 });
