@@ -23,7 +23,11 @@ class ScenarioCreate(BaseModel):
 
 
 class ScenarioUpdate(BaseModel):
-    """Update an existing scenario. All fields optional for partial updates."""
+    """Update an existing scenario. All fields optional for partial updates.
+
+    Note: status is NOT included here — status changes are only allowed
+    through the dedicated transition endpoint (POST /scenarios/{id}/transition).
+    """
 
     name: str | None = None
     product: str | None = None
@@ -33,7 +37,6 @@ class ScenarioUpdate(BaseModel):
     therapeutic_area: str | None = None
     mode: str | None = None
     difficulty: str | None = None
-    status: str | None = None
     key_messages: list[str] | None = None
     skill_id: str | None = None
     pass_threshold: int | None = None
