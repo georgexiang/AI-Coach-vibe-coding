@@ -95,7 +95,7 @@ export default function ScenariosPage() {
     if (deleteConfirmId) {
       deleteMutation.mutate(deleteConfirmId, {
         onSuccess: () => {
-          toast.success(t("scenarios.deleted", { defaultValue: "Scenario deleted" }));
+          toast.success(t("scenarios.deleted"));
           setDeleteConfirmId(null);
         },
       });
@@ -104,7 +104,7 @@ export default function ScenariosPage() {
 
   const handleClone = (id: string) => {
     cloneMutation.mutate(id, {
-      onSuccess: () => toast.success(t("scenarios.cloned", { defaultValue: "Scenario cloned" })),
+      onSuccess: () => toast.success(t("scenarios.cloned")),
     });
   };
 
@@ -114,7 +114,7 @@ export default function ScenariosPage() {
         <div>
           <h1 className="text-2xl font-medium text-foreground">{t("scenarios.title")}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {t("scenarios.description", { defaultValue: "Configure training scenarios with products, HCP assignments, and scoring weights" })}
+            {t("scenarios.description")}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -123,9 +123,9 @@ export default function ScenariosPage() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={ALL_STATUS}>{tc("all", { defaultValue: "All" })}</SelectItem>
-              <SelectItem value="active">{tc("active", { defaultValue: "Active" })}</SelectItem>
-              <SelectItem value="draft">{tc("draft", { defaultValue: "Draft" })}</SelectItem>
+              <SelectItem value={ALL_STATUS}>{tc("all")}</SelectItem>
+              <SelectItem value="active">{tc("active")}</SelectItem>
+              <SelectItem value="draft">{tc("draft")}</SelectItem>
             </SelectContent>
           </Select>
           <Button onClick={handleCreate}>
@@ -157,7 +157,7 @@ export default function ScenariosPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {t("scenarios.deleteTitle", { defaultValue: "Delete Scenario" })}
+              {t("scenarios.deleteTitle")}
             </DialogTitle>
             <DialogDescription>
               {t("scenarios.deleteConfirm")}
@@ -165,10 +165,10 @@ export default function ScenariosPage() {
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteConfirmId(null)}>
-              {tc("cancel", { defaultValue: "Cancel" })}
+              {tc("cancel")}
             </Button>
             <Button variant="destructive" onClick={confirmDelete}>
-              {tc("delete", { defaultValue: "Delete" })}
+              {tc("delete")}
             </Button>
           </DialogFooter>
         </DialogContent>

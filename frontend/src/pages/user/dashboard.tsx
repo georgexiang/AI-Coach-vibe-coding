@@ -162,8 +162,8 @@ export default function UserDashboard() {
               ))
             ) : (
               <EmptyState
-                title={t("noSessions", { defaultValue: "No sessions yet" })}
-                body={t("noSessionsBody", { defaultValue: "Start training to see your sessions here." })}
+                title={t("noSessions")}
+                body={t("noSessionsBody")}
               />
             )}
           </CardContent>
@@ -173,7 +173,7 @@ export default function UserDashboard() {
         <div className="flex flex-col gap-6 lg:col-span-2">
           <Card className="bg-card">
             <CardHeader>
-              <CardTitle className="text-base font-medium">{t("startTraining", { defaultValue: "Start Training" })}</CardTitle>
+              <CardTitle className="text-base font-medium">{t("startTraining")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <ActionCard
