@@ -26,6 +26,7 @@ import {
   useUpdateScenario,
   useDeleteScenario,
   useCloneScenario,
+  useTransitionScenarioStatus,
 } from "@/hooks/use-scenarios";
 import type { Scenario, ScenarioCreate, ScenarioUpdate } from "@/types/scenario";
 
@@ -39,6 +40,7 @@ export default function ScenariosPage() {
   const [editingScenario, setEditingScenario] = useState<Scenario | null>(null);
   const [isNew, setIsNew] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [archiveConfirmId, setArchiveConfirmId] = useState<string | null>(null);
 
   const queryStatus = filterStatus === ALL_STATUS ? undefined : filterStatus;
   const { data: scenariosData } = useScenarios({ status: queryStatus });
@@ -46,6 +48,7 @@ export default function ScenariosPage() {
   const updateMutation = useUpdateScenario();
   const deleteMutation = useDeleteScenario();
   const cloneMutation = useCloneScenario();
+  const transitionMutation = useTransitionScenarioStatus();
 
   const scenarios = useMemo(
     () => scenariosData?.items ?? [],
@@ -108,6 +111,35 @@ export default function ScenariosPage() {
     });
   };
 
+  const handleArchive = (id: string) => {
+    setArchiveConfirmId(id);
+  };
+
+  const confirmArchive = () => {
+    if (archiveConfirmId) {
+      transitionMutation.mutate(
+        { id: archiveConfirmId, status: "archived" },
+        {
+          onSuccess: () => {
+            toast.success(t("scenarios.archived", { defaultValue: "Scenario archived" }));
+            setArchiveConfirmId(null);
+          },
+          onError: () => toast.error(t("errors.transitionFailed", { defaultValue: "Status transition failed" })),
+        },
+      );
+    }
+  };
+
+  const handleActivate = (id: string) => {
+    transitionMutation.mutate(
+      { id, status: "active" },
+      {
+        onSuccess: () => toast.success(t("scenarios.activated", { defaultValue: "Scenario activated" })),
+        onError: () => toast.error(t("errors.transitionFailed", { defaultValue: "Status transition failed" })),
+      },
+    );
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -126,6 +158,7 @@ export default function ScenariosPage() {
               <SelectItem value={ALL_STATUS}>{tc("all", { defaultValue: "All" })}</SelectItem>
               <SelectItem value="active">{tc("active", { defaultValue: "Active" })}</SelectItem>
               <SelectItem value="draft">{tc("draft", { defaultValue: "Draft" })}</SelectItem>
+              <SelectItem value="archived">{tc("archived", { defaultValue: "Archived" })}</SelectItem>
             </SelectContent>
           </Select>
           <Button onClick={handleCreate}>
@@ -140,6 +173,8 @@ export default function ScenariosPage() {
         onEdit={handleEdit}
         onDelete={handleDelete}
         onClone={handleClone}
+        onArchive={handleArchive}
+        onActivate={handleActivate}
       />
 
       <ScenarioEditor
@@ -169,6 +204,30 @@ export default function ScenariosPage() {
             </Button>
             <Button variant="destructive" onClick={confirmDelete}>
               {tc("delete", { defaultValue: "Delete" })}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={archiveConfirmId !== null}
+        onOpenChange={() => setArchiveConfirmId(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {t("scenarios.archiveTitle", { defaultValue: "Archive Scenario" })}
+            </DialogTitle>
+            <DialogDescription>
+              {t("scenarios.archiveConfirm", { defaultValue: "This scenario will become read-only. You can still clone it to create a new draft." })}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setArchiveConfirmId(null)}>
+              {tc("cancel", { defaultValue: "Cancel" })}
+            </Button>
+            <Button onClick={confirmArchive}>
+              {tc("archive", { defaultValue: "Archive" })}
             </Button>
           </DialogFooter>
         </DialogContent>

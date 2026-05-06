@@ -182,7 +182,18 @@
     "dimensionCount": "{{count}} 个维度",
     "dimensionPreviewEmpty": "选择评分标准以查看评分维度",
     "manageRubrics": "管理评分标准",
-    "rubricRequired": "评分标准不能为空"
+    "rubricRequired": "评分标准不能为空",
+    "archiveTitle": "归档场景",
+    "archiveConfirm": "此场景将变为只读。您仍然可以克隆它来创建新的草稿。",
+    "archived": "场景已归档",
+    "activated": "场景已激活",
+    "cannotEditArchived": "已归档场景不可编辑",
+    "edit": "编辑",
+    "activate": "激活",
+    "archive": "归档",
+    "clone": "克隆",
+    "delete": "删除",
+    "deleteTitle": "删除场景"
   },
   "rubrics": {
     "title": "评分标准",
