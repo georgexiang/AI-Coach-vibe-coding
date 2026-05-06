@@ -200,7 +200,15 @@
     "selectSkill": "选择已发布的技能",
     "noPublishedSkillsWarning": "没有已发布的技能。请先创建并发布一个技能。",
     "skillArchived": "此技能已归档",
-    "editorDescription": "配置场景详情和评分标准"
+    "editorDescription": "配置场景详情和评分标准",
+    "tabBasic": "基本信息",
+    "tabLinked": "关联配置",
+    "tabScoring": "评分规则",
+    "editTitle": "编辑: {{name}}",
+    "archivedBanner": "此场景已归档，只读。克隆以创建可编辑副本。",
+    "nameRequired": "场景名称必填",
+    "hcpRequired": "HCP必选",
+    "skillLabel": "技能 *"
   },
   "rubrics": {
     "title": "评分标准",

@@ -1,8 +1,19 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 import { ScenarioTable } from "./scenario-table";
 import type { Scenario } from "@/types/scenario";
+
+const mockNavigate = vi.fn();
+
+vi.mock("react-router-dom", async () => {
+  const actual = await vi.importActual("react-router-dom");
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate,
+  };
+});
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
@@ -73,32 +84,40 @@ const makeScenario = (overrides: Partial<Scenario> = {}): Scenario => ({
   ...overrides,
 });
 
-describe("ScenarioTable", () => {
+function renderTable(props: Partial<React.ComponentProps<typeof ScenarioTable>> = {}) {
   const defaultProps = {
     scenarios: [makeScenario()],
-    onEdit: vi.fn(),
     onDelete: vi.fn(),
     onClone: vi.fn(),
   };
+  return render(
+    <MemoryRouter>
+      <ScenarioTable {...defaultProps} {...props} />
+    </MemoryRouter>
+  );
+}
+
+describe("ScenarioTable", () => {
+  beforeEach(() => vi.clearAllMocks());
 
   it("renders scenario name in table", () => {
-    render(<ScenarioTable {...defaultProps} />);
+    renderTable();
     expect(screen.getByText("Test Scenario")).toBeInTheDocument();
   });
 
   it("renders tags column with tag badges", () => {
-    render(<ScenarioTable {...defaultProps} />);
+    renderTable();
     expect(screen.getByText("ProductA")).toBeInTheDocument();
     expect(screen.getByText("Oncology")).toBeInTheDocument();
   });
 
   it("renders empty state when no scenarios", () => {
-    render(<ScenarioTable {...defaultProps} scenarios={[]} />);
+    renderTable({ scenarios: [] });
     expect(screen.getByText("scenarios.emptyTitle")).toBeInTheDocument();
   });
 
   it("renders column headers", () => {
-    render(<ScenarioTable {...defaultProps} />);
+    renderTable();
     expect(screen.getByText("scenarios.colName")).toBeInTheDocument();
     expect(screen.getByText("scenarios.tags")).toBeInTheDocument();
     expect(screen.getByText("HCP")).toBeInTheDocument();
@@ -108,82 +127,54 @@ describe("ScenarioTable", () => {
   });
 
   it("toggles sort direction when clicking column header", async () => {
-    render(<ScenarioTable {...defaultProps} />);
+    renderTable();
     const nameHeader = screen.getByText("scenarios.colName");
     await userEvent.click(nameHeader);
-    // Clicking again toggles direction - just verify no crash
     await userEvent.click(nameHeader);
-  });
-
-  it("renders tags as badges in the tags column", () => {
-    render(<ScenarioTable {...defaultProps} />);
-    // Tags display the value part (after the colon)
-    expect(screen.getByText("ProductA")).toBeInTheDocument();
-    expect(screen.getByText("Oncology")).toBeInTheDocument();
   });
 
   it("sorts by difficulty when Difficulty header clicked", async () => {
-    render(<ScenarioTable {...defaultProps} />);
+    renderTable();
     await userEvent.click(screen.getByText("Difficulty"));
     expect(screen.getByText("easy")).toBeInTheDocument();
   });
 
   it("renders HCP avatar fallback for scenario with hcp_profile", () => {
-    render(<ScenarioTable {...defaultProps} />);
-    expect(screen.getByText("DT")).toBeInTheDocument(); // Dr. Test -> DT
+    renderTable();
+    expect(screen.getByText("DT")).toBeInTheDocument();
   });
 
   it("renders dash for scenario without hcp_profile", () => {
     const noHcpScenario = makeScenario({ hcp_profile: undefined });
-    render(
-      <ScenarioTable
-        {...defaultProps}
-        scenarios={[noHcpScenario]}
-      />
-    );
+    renderTable({ scenarios: [noHcpScenario] });
     expect(screen.getByText("-")).toBeInTheDocument();
   });
 
   it("renders mode badge", () => {
-    render(<ScenarioTable {...defaultProps} />);
+    renderTable();
     expect(screen.getByText("f2f")).toBeInTheDocument();
   });
 
   it("renders status badge", () => {
-    render(<ScenarioTable {...defaultProps} />);
+    renderTable();
     expect(screen.getByText("active")).toBeInTheDocument();
   });
 
   it("renders secondary badge for non-active status", () => {
     const draftScenario = makeScenario({ status: "draft" });
-    render(
-      <ScenarioTable
-        {...defaultProps}
-        scenarios={[draftScenario]}
-      />
-    );
+    renderTable({ scenarios: [draftScenario] });
     expect(screen.getByText("draft")).toBeInTheDocument();
   });
 
   it("renders difficulty with correct style", () => {
     const medScenario = makeScenario({ difficulty: "medium" });
-    render(
-      <ScenarioTable
-        {...defaultProps}
-        scenarios={[medScenario]}
-      />
-    );
+    renderTable({ scenarios: [medScenario] });
     expect(screen.getByText("medium")).toBeInTheDocument();
   });
 
   it("renders hard difficulty style", () => {
     const hardScenario = makeScenario({ difficulty: "hard" });
-    render(
-      <ScenarioTable
-        {...defaultProps}
-        scenarios={[hardScenario]}
-      />
-    );
+    renderTable({ scenarios: [hardScenario] });
     expect(screen.getByText("hard")).toBeInTheDocument();
   });
 
@@ -191,12 +182,7 @@ describe("ScenarioTable", () => {
     const manyScenarios = Array.from({ length: 15 }, (_, i) =>
       makeScenario({ id: `sc-${i}`, name: `Scenario ${i}` })
     );
-    render(
-      <ScenarioTable
-        {...defaultProps}
-        scenarios={manyScenarios}
-      />
-    );
+    renderTable({ scenarios: manyScenarios });
     expect(screen.getByText("Page 1 of 2")).toBeInTheDocument();
     expect(screen.getByText("Previous")).toBeInTheDocument();
     expect(screen.getByText("Next")).toBeInTheDocument();
@@ -206,12 +192,7 @@ describe("ScenarioTable", () => {
     const manyScenarios = Array.from({ length: 15 }, (_, i) =>
       makeScenario({ id: `sc-${i}`, name: `Scenario ${i}` })
     );
-    render(
-      <ScenarioTable
-        {...defaultProps}
-        scenarios={manyScenarios}
-      />
-    );
+    renderTable({ scenarios: manyScenarios });
     await userEvent.click(screen.getByText("Next"));
     expect(screen.getByText("Page 2 of 2")).toBeInTheDocument();
   });
@@ -220,12 +201,7 @@ describe("ScenarioTable", () => {
     const manyScenarios = Array.from({ length: 15 }, (_, i) =>
       makeScenario({ id: `sc-${i}`, name: `Scenario ${i}` })
     );
-    render(
-      <ScenarioTable
-        {...defaultProps}
-        scenarios={manyScenarios}
-      />
-    );
+    renderTable({ scenarios: manyScenarios });
     await userEvent.click(screen.getByText("Next"));
     expect(screen.getByText("Page 2 of 2")).toBeInTheDocument();
     await userEvent.click(screen.getByText("Previous"));
@@ -233,23 +209,21 @@ describe("ScenarioTable", () => {
   });
 
   it("does not show pagination for 10 or fewer scenarios", () => {
-    render(<ScenarioTable {...defaultProps} />);
+    renderTable();
     expect(screen.queryByText(/Page \d+ of \d+/)).not.toBeInTheDocument();
   });
 
-  it("calls onEdit via dropdown menu", async () => {
-    const onEdit = vi.fn();
-    render(<ScenarioTable {...defaultProps} onEdit={onEdit} />);
-    // Open the dropdown
+  it("navigates to edit page via dropdown menu", async () => {
+    renderTable();
     const menuButton = screen.getByRole("button", { name: "" });
     await userEvent.click(menuButton);
     await userEvent.click(screen.getByText("Edit"));
-    expect(onEdit).toHaveBeenCalled();
+    expect(mockNavigate).toHaveBeenCalledWith("/admin/scenarios/sc-1");
   });
 
   it("calls onClone via dropdown menu", async () => {
     const onClone = vi.fn();
-    render(<ScenarioTable {...defaultProps} onClone={onClone} />);
+    renderTable({ onClone });
     const menuButton = screen.getByRole("button", { name: "" });
     await userEvent.click(menuButton);
     await userEvent.click(screen.getByText("Clone"));
@@ -258,7 +232,7 @@ describe("ScenarioTable", () => {
 
   it("calls onDelete via dropdown menu", async () => {
     const onDelete = vi.fn();
-    render(<ScenarioTable {...defaultProps} onDelete={onDelete} />);
+    renderTable({ onDelete });
     const menuButton = screen.getByRole("button", { name: "" });
     await userEvent.click(menuButton);
     await userEvent.click(screen.getByText("Delete"));

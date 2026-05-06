@@ -200,7 +200,15 @@
     "selectSkill": "Select a published skill",
     "noPublishedSkillsWarning": "No published skills available. Create and publish a skill first.",
     "skillArchived": "This skill is archived",
-    "editorDescription": "Configure scenario details and scoring rubric"
+    "editorDescription": "Configure scenario details and scoring rubric",
+    "tabBasic": "Basic Info",
+    "tabLinked": "Linked Config",
+    "tabScoring": "Scoring Rules",
+    "editTitle": "Edit: {{name}}",
+    "archivedBanner": "This scenario is archived and read-only. Clone to create an editable copy.",
+    "nameRequired": "Scenario name is required",
+    "hcpRequired": "HCP profile is required",
+    "skillLabel": "Skill *"
   },
   "rubrics": {
     "title": "Scoring Rubrics",

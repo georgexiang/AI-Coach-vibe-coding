@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
 import {
   MoreHorizontal,
   Edit,
@@ -21,7 +22,6 @@ import type { Scenario } from "@/types/scenario";
 
 interface ScenarioTableProps {
   scenarios: Scenario[];
-  onEdit: (scenario: Scenario) => void;
   onDelete: (id: string) => void;
   onClone: (id: string) => void;
   onStatusChange?: (id: string, status: Scenario["status"]) => void;
@@ -54,11 +54,11 @@ function getTagValue(tag: string): string {
 
 export function ScenarioTable({
   scenarios,
-  onEdit,
   onDelete,
   onClone,
 }: ScenarioTableProps) {
   const { t } = useTranslation("admin");
+  const navigate = useNavigate();
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<SortDirection>("asc");
   const [page, setPage] = useState(0);
@@ -211,7 +211,7 @@ export function ScenarioTable({
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => onEdit(scenario)}>
+                        <DropdownMenuItem onClick={() => navigate(`/admin/scenarios/${scenario.id}`)}>
                           <Edit className="size-4" />
                           Edit
                         </DropdownMenuItem>

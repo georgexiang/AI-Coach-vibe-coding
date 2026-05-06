@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -19,31 +20,23 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { ScenarioTable } from "@/components/admin/scenario-table";
-import { ScenarioEditor } from "@/components/admin/scenario-editor";
 import {
   useScenarios,
-  useCreateScenario,
-  useUpdateScenario,
   useDeleteScenario,
   useCloneScenario,
 } from "@/hooks/use-scenarios";
-import type { Scenario, ScenarioCreate, ScenarioUpdate } from "@/types/scenario";
 
 const ALL_STATUS = "__all__";
 
 export default function ScenariosPage() {
   const { t } = useTranslation("admin");
   const { t: tc } = useTranslation("common");
+  const navigate = useNavigate();
   const [filterStatus, setFilterStatus] = useState(ALL_STATUS);
-  const [editorOpen, setEditorOpen] = useState(false);
-  const [editingScenario, setEditingScenario] = useState<Scenario | null>(null);
-  const [isNew, setIsNew] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   const queryStatus = filterStatus === ALL_STATUS ? undefined : filterStatus;
   const { data: scenariosData } = useScenarios({ status: queryStatus });
-  const createMutation = useCreateScenario();
-  const updateMutation = useUpdateScenario();
   const deleteMutation = useDeleteScenario();
   const cloneMutation = useCloneScenario();
 
@@ -53,38 +46,7 @@ export default function ScenariosPage() {
   );
 
   const handleCreate = () => {
-    setEditingScenario(null);
-    setIsNew(true);
-    setEditorOpen(true);
-  };
-
-  const handleEdit = (scenario: Scenario) => {
-    setEditingScenario(scenario);
-    setIsNew(false);
-    setEditorOpen(true);
-  };
-
-  const handleSave = (data: ScenarioCreate) => {
-    if (isNew) {
-      createMutation.mutate(data, {
-        onSuccess: () => {
-          toast.success(t("scenarios.save"));
-          setEditorOpen(false);
-        },
-        onError: () => toast.error(t("errors.scenarioSaveFailed")),
-      });
-    } else if (editingScenario) {
-      updateMutation.mutate(
-        { id: editingScenario.id, data: data as ScenarioUpdate },
-        {
-          onSuccess: () => {
-            toast.success(t("scenarios.save"));
-            setEditorOpen(false);
-          },
-          onError: () => toast.error(t("errors.scenarioSaveFailed")),
-        },
-      );
-    }
+    navigate("/admin/scenarios/new");
   };
 
   const handleDelete = (id: string) => {
@@ -137,17 +99,8 @@ export default function ScenariosPage() {
 
       <ScenarioTable
         scenarios={scenarios}
-        onEdit={handleEdit}
         onDelete={handleDelete}
         onClone={handleClone}
-      />
-
-      <ScenarioEditor
-        scenario={editingScenario}
-        open={editorOpen}
-        onOpenChange={setEditorOpen}
-        onSave={handleSave}
-        isNew={isNew}
       />
 
       <Dialog
