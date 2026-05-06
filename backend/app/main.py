@@ -32,6 +32,7 @@ from app.api import (
     sessions_router,
     skills_router,
     speech_router,
+    system_enums_router,
     voice_live_router,
 )
 from app.api.health import router as health_router
@@ -117,6 +118,7 @@ app.include_router(dry_runs_router, prefix=settings.api_prefix)
 app.include_router(meta_skills_router, prefix=settings.api_prefix)
 app.include_router(speech_router, prefix=settings.api_prefix)
 app.include_router(admin_users_router, prefix=settings.api_prefix)
+app.include_router(system_enums_router, prefix=settings.api_prefix)
 
 # Health check (standalone router, no api_prefix)
 app.include_router(health_router)

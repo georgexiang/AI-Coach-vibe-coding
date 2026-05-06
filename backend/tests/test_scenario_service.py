@@ -1,4 +1,4 @@
-"""Tests for the scenario service: CRUD operations, cloning, and state transitions."""
+"""Tests for the scenario service: CRUD operations and scenario cloning."""
 
 import json
 
@@ -14,10 +14,9 @@ from app.services.scenario_service import (
     delete_scenario,
     get_scenario,
     get_scenarios,
-    transition_status,
     update_scenario,
 )
-from app.utils.exceptions import NotFoundException, ValidationException
+from app.utils.exceptions import NotFoundException
 
 
 async def _seed_user_and_hcp(db) -> tuple[str, str]:
@@ -162,9 +161,7 @@ class TestGetScenarios:
         await create_scenario(
             db_session,
             ScenarioCreate(
-                name="Brukinsa F2F",
-                product="Brukinsa",
-                hcp_profile_id=hcp_id,
+                name="Brukinsa F2F", product="Brukinsa", hcp_profile_id=hcp_id,
                 rubric_id="test-rubric-id",
             ),
             user_id,
@@ -172,9 +169,7 @@ class TestGetScenarios:
         await create_scenario(
             db_session,
             ScenarioCreate(
-                name="Other",
-                product="Other",
-                hcp_profile_id=hcp_id,
+                name="Other", product="Other", hcp_profile_id=hcp_id,
                 rubric_id="test-rubric-id",
             ),
             user_id,
@@ -217,11 +212,11 @@ class TestUpdateScenario:
         )
         scenario = await create_scenario(db_session, data, user_id)
 
-        update = ScenarioUpdate(name="New Name")
+        update = ScenarioUpdate(name="New Name", status="active")
         updated = await update_scenario(db_session, scenario.id, update)
 
         assert updated.name == "New Name"
-        assert updated.status == "draft"  # status unchanged (use transition endpoint)
+        assert updated.status == "active"
         assert updated.product == "Drug"  # unchanged
 
     async def test_updates_key_messages(self, db_session):
@@ -313,111 +308,3 @@ class TestCloneScenario:
     async def test_clone_raises_for_nonexistent(self, db_session):
         with pytest.raises(NotFoundException):
             await clone_scenario(db_session, "nonexistent", "user")
-
-
-class TestTransitionStatus:
-    """Tests for state machine transitions."""
-
-    async def test_draft_to_active(self, db_session):
-        user_id, hcp_id = await _seed_user_and_hcp(db_session)
-        data = ScenarioCreate(
-            name="Draft Scenario",
-            product="Drug",
-            hcp_profile_id=hcp_id,
-            rubric_id="test-rubric-id",
-            status="draft",
-        )
-        scenario = await create_scenario(db_session, data, user_id)
-        assert scenario.status == "draft"
-
-        result = await transition_status(db_session, scenario.id, "active")
-        assert result.status == "active"
-
-    async def test_active_to_archived(self, db_session):
-        user_id, hcp_id = await _seed_user_and_hcp(db_session)
-        data = ScenarioCreate(
-            name="Active Scenario",
-            product="Drug",
-            hcp_profile_id=hcp_id,
-            rubric_id="test-rubric-id",
-            status="active",
-        )
-        scenario = await create_scenario(db_session, data, user_id)
-
-        result = await transition_status(db_session, scenario.id, "archived")
-        assert result.status == "archived"
-
-    async def test_invalid_transition_draft_to_archived(self, db_session):
-        user_id, hcp_id = await _seed_user_and_hcp(db_session)
-        data = ScenarioCreate(
-            name="Draft",
-            product="Drug",
-            hcp_profile_id=hcp_id,
-            rubric_id="test-rubric-id",
-            status="draft",
-        )
-        scenario = await create_scenario(db_session, data, user_id)
-
-        with pytest.raises(ValidationException):
-            await transition_status(db_session, scenario.id, "archived")
-
-    async def test_invalid_transition_archived_to_active(self, db_session):
-        user_id, hcp_id = await _seed_user_and_hcp(db_session)
-        data = ScenarioCreate(
-            name="To Archive",
-            product="Drug",
-            hcp_profile_id=hcp_id,
-            rubric_id="test-rubric-id",
-            status="active",
-        )
-        scenario = await create_scenario(db_session, data, user_id)
-        await transition_status(db_session, scenario.id, "archived")
-
-        with pytest.raises(ValidationException):
-            await transition_status(db_session, scenario.id, "active")
-
-    async def test_invalid_transition_active_to_draft(self, db_session):
-        user_id, hcp_id = await _seed_user_and_hcp(db_session)
-        data = ScenarioCreate(
-            name="Active",
-            product="Drug",
-            hcp_profile_id=hcp_id,
-            rubric_id="test-rubric-id",
-            status="active",
-        )
-        scenario = await create_scenario(db_session, data, user_id)
-
-        with pytest.raises(ValidationException):
-            await transition_status(db_session, scenario.id, "draft")
-
-    async def test_update_archived_scenario_raises(self, db_session):
-        user_id, hcp_id = await _seed_user_and_hcp(db_session)
-        data = ScenarioCreate(
-            name="Will Archive",
-            product="Drug",
-            hcp_profile_id=hcp_id,
-            rubric_id="test-rubric-id",
-            status="active",
-        )
-        scenario = await create_scenario(db_session, data, user_id)
-        await transition_status(db_session, scenario.id, "archived")
-
-        with pytest.raises(ValidationException):
-            await update_scenario(db_session, scenario.id, ScenarioUpdate(name="New Name"))
-
-    async def test_clone_archived_scenario_succeeds(self, db_session):
-        user_id, hcp_id = await _seed_user_and_hcp(db_session)
-        data = ScenarioCreate(
-            name="Archived Original",
-            product="Drug",
-            hcp_profile_id=hcp_id,
-            rubric_id="test-rubric-id",
-            status="active",
-        )
-        scenario = await create_scenario(db_session, data, user_id)
-        await transition_status(db_session, scenario.id, "archived")
-
-        clone = await clone_scenario(db_session, scenario.id, user_id)
-        assert clone.status == "draft"
-        assert clone.name == "Archived Original (Copy)"
-        assert clone.id != scenario.id

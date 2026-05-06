@@ -100,27 +100,6 @@ async def list_active_scenarios(
     return [ScenarioOut.model_validate(item) for item in items]
 
 
-class StatusTransitionRequest(BaseModel):
-    """Request body for scenario status transition."""
-
-    status: str
-
-
-@router.post("/{scenario_id}/transition", response_model=ScenarioOut)
-async def transition_scenario_status(
-    scenario_id: str,
-    body: StatusTransitionRequest,
-    db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("admin")),
-):
-    """Transition scenario status. Admin only.
-
-    Valid transitions: draft -> active, active -> archived.
-    """
-    scenario = await scenario_service.transition_status(db, scenario_id, body.status)
-    return scenario
-
-
 @router.get("/{scenario_id}", response_model=ScenarioOut)
 async def get_scenario(
     scenario_id: str,

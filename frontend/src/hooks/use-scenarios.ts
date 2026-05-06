@@ -7,7 +7,6 @@ import {
   updateScenario,
   deleteScenario,
   cloneScenario,
-  transitionScenarioStatus,
 } from "@/api/scenarios";
 import type { ScenarioCreate, ScenarioUpdate } from "@/types/scenario";
 
@@ -76,17 +75,6 @@ export function useCloneScenario() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => cloneScenario(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["scenarios"] });
-    },
-  });
-}
-
-export function useTransitionScenarioStatus() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, status }: { id: string; status: string }) =>
-      transitionScenarioStatus(id, status),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["scenarios"] });
     },

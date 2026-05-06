@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: Executing Phase 22
-stopped_at: Phase 22 context gathered
-last_updated: "2026-05-06T07:05:06.042Z"
-last_activity: 2026-05-06
+status: Phase 21 Complete
+stopped_at: Phase 21 all 3 plans executed and verified
+last_updated: "2026-04-28T07:15:00.000Z"
+last_activity: 2026-04-28
 progress:
-  total_phases: 23
+  total_phases: 22
   completed_phases: 21
-  total_plans: 108
+  total_plans: 102
   completed_plans: 101
-  percent: 94
+  percent: 99
 ---
 
 # Project State
@@ -21,12 +21,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-24)
 
 **Core value:** MRs can practice realistic conversations with AI-powered digital HCPs and receive immediate, multi-dimensional feedback to improve their communication skills -- anytime, without needing a real HCP or trainer.
-**Current focus:** Phase 22 — scenarios
+**Current focus:** Phase 21 — scoring-criteria-refactor
 
 ## Current Position
 
-Phase: 22 (scenarios) — EXECUTING
-Plan: 1 of 6
+Phase: 21 (scoring-criteria-refactor) — COMPLETE
+Plan: 3 of 3 (all done)
 Plans 21-01 (backend model/schema/migration), 21-02 (frontend rubric selector), 21-03 (integration verification) all complete.
 
 ## Performance Metrics
@@ -284,7 +284,6 @@ None yet.
 - Phase 14 added: HCP Agent Refactor — VL Instance Read-Only Reference + Knowledge/Tools Config
 - Phase 17 added: Agent Knowledge Base — Foundry IQ Integration (HCP Agent 知识库管理，Azure AI Search / Foundry IQ 连接，材料自动索引)
 - Phase 19 added: AI Coach Skill Module — Skill 生命周期管理、材料转 Skill、Skill Hub、HCP Agent Skill 分配与 SOP 驱动培训
-- Phase 22 added: 对Scenarios 模块进行二次重构
 
 ### Quick Tasks Completed
 
@@ -294,7 +293,7 @@ None yet.
 
 ## Session Continuity
 
-Last activity: 2026-05-06
-Last session: 2026-05-06T06:37:17.940Z
-Stopped at: Phase 22 context gathered
-Resume file: .planning/phases/22-scenarios/22-CONTEXT.md
+Last activity: 2026-04-28
+Last session: 2026-04-28T07:15:00.000Z
+Stopped at: Phase 21 complete — all 3 plans executed
+Resume file: .planning/phases/21-scoring-criteria-refactor/21-03-SUMMARY.md

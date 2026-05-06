@@ -8,7 +8,7 @@ export interface Scenario {
   therapeutic_area: string;
   mode: "f2f" | "conference";
   difficulty: "easy" | "medium" | "hard";
-  status: "draft" | "active" | "archived";
+  status: "draft" | "active";
   hcp_profile_id: string;
   hcp_profile?: HcpProfile;
   key_messages: string[];

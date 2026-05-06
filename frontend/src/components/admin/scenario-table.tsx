@@ -6,8 +6,6 @@ import {
   Copy,
   Trash2,
   ArrowUpDown,
-  Archive,
-  CheckCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -26,8 +24,7 @@ interface ScenarioTableProps {
   onEdit: (scenario: Scenario) => void;
   onDelete: (id: string) => void;
   onClone: (id: string) => void;
-  onArchive?: (id: string) => void;
-  onActivate?: (id: string) => void;
+  onStatusChange?: (id: string, status: Scenario["status"]) => void;
 }
 
 type SortKey = "name" | "product" | "difficulty";
@@ -44,8 +41,6 @@ export function ScenarioTable({
   onEdit,
   onDelete,
   onClone,
-  onArchive,
-  onActivate,
 }: ScenarioTableProps) {
   const { t } = useTranslation("admin");
   const [sortKey, setSortKey] = useState<SortKey>("name");
@@ -137,10 +132,7 @@ export function ScenarioTable({
               paged.map((scenario) => (
                 <tr
                   key={scenario.id}
-                  className={cn(
-                    "border-b hover:bg-muted/50 transition-colors",
-                    scenario.status === "archived" && "opacity-60",
-                  )}
+                  className="border-b hover:bg-muted/50 transition-colors"
                 >
                   <td className="px-4 py-3 font-medium">{scenario.name}</td>
                   <td className="px-4 py-3 text-muted-foreground">
@@ -181,13 +173,7 @@ export function ScenarioTable({
                   </td>
                   <td className="px-4 py-3">
                     <Badge
-                      variant={
-                        scenario.status === "active"
-                          ? "default"
-                          : scenario.status === "archived"
-                            ? "outline"
-                            : "secondary"
-                      }
+                      variant={scenario.status === "active" ? "default" : "secondary"}
                     >
                       {scenario.status}
                     </Badge>
@@ -200,37 +186,21 @@ export function ScenarioTable({
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        {scenario.status !== "archived" && (
-                          <DropdownMenuItem onClick={() => onEdit(scenario)}>
-                            <Edit className="size-4" />
-                            {t("scenarios.edit", { defaultValue: "Edit" })}
-                          </DropdownMenuItem>
-                        )}
-                        {scenario.status === "draft" && onActivate && (
-                          <DropdownMenuItem onClick={() => onActivate(scenario.id)}>
-                            <CheckCircle className="size-4" />
-                            {t("scenarios.activate", { defaultValue: "Activate" })}
-                          </DropdownMenuItem>
-                        )}
-                        {scenario.status === "active" && onArchive && (
-                          <DropdownMenuItem onClick={() => onArchive(scenario.id)}>
-                            <Archive className="size-4" />
-                            {t("scenarios.archive", { defaultValue: "Archive" })}
-                          </DropdownMenuItem>
-                        )}
+                        <DropdownMenuItem onClick={() => onEdit(scenario)}>
+                          <Edit className="size-4" />
+                          Edit
+                        </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => onClone(scenario.id)}>
                           <Copy className="size-4" />
-                          {t("scenarios.clone", { defaultValue: "Clone" })}
+                          Clone
                         </DropdownMenuItem>
-                        {scenario.status !== "archived" && (
-                          <DropdownMenuItem
-                            variant="destructive"
-                            onClick={() => onDelete(scenario.id)}
-                          >
-                            <Trash2 className="size-4" />
-                            {t("scenarios.delete", { defaultValue: "Delete" })}
-                          </DropdownMenuItem>
-                        )}
+                        <DropdownMenuItem
+                          variant="destructive"
+                          onClick={() => onDelete(scenario.id)}
+                        >
+                          <Trash2 className="size-4" />
+                          Delete
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </td>

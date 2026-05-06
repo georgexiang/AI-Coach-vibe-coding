@@ -15,13 +15,6 @@ from app.utils.exceptions import bad_request, not_found
 
 logger = logging.getLogger(__name__)
 
-# State machine: valid transitions for scenario status
-VALID_TRANSITIONS: dict[str, set[str]] = {
-    "draft": {"active"},
-    "active": {"archived"},
-    # archived has no outgoing transitions (clone creates a new draft)
-}
-
 
 async def _validate_and_pin_skill(
     db: AsyncSession, skill_id: str | None
@@ -72,24 +65,6 @@ async def _trigger_agent_resync(db: AsyncSession, hcp_profile_id: str) -> None:
             await agent_sync_service.sync_agent_for_profile(db, profile)
     except Exception as e:
         logger.warning("Agent re-sync after skill assignment failed: %s", e)
-
-
-async def transition_status(db: AsyncSession, scenario_id: str, new_status: str) -> Scenario:
-    """Transition scenario status with validation.
-
-    Enforces linear state machine: draft -> active -> archived.
-    """
-    scenario = await get_scenario(db, scenario_id)
-    allowed = VALID_TRANSITIONS.get(scenario.status, set())
-    if new_status not in allowed:
-        bad_request(
-            f"Cannot transition from '{scenario.status}' to '{new_status}'. "
-            f"Allowed transitions: {allowed or 'none'}"
-        )
-    scenario.status = new_status
-    await db.flush()
-    await db.refresh(scenario)
-    return scenario
 
 
 async def create_scenario(db: AsyncSession, data: ScenarioCreate, user_id: str) -> Scenario:
@@ -184,11 +159,6 @@ async def get_scenario(db: AsyncSession, scenario_id: str) -> Scenario:
 async def update_scenario(db: AsyncSession, scenario_id: str, data: ScenarioUpdate) -> Scenario:
     """Update an existing scenario with partial data."""
     scenario = await get_scenario(db, scenario_id)
-
-    # Archived scenarios cannot be edited — use clone to create a new draft
-    if scenario.status == "archived":
-        bad_request("Archived scenarios cannot be edited. Clone to create a new draft.")
-
     update_data = data.model_dump(exclude_unset=True)
 
     # Serialize key_messages list to JSON string
