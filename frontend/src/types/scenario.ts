@@ -4,11 +4,10 @@ export interface Scenario {
   id: string;
   name: string;
   description: string;
-  product: string;
-  therapeutic_area: string;
+  tags: string[];
   mode: "f2f" | "conference";
   difficulty: "easy" | "medium" | "hard";
-  status: "draft" | "active";
+  status: "draft" | "active" | "archived";
   hcp_profile_id: string;
   hcp_profile?: HcpProfile;
   key_messages: string[];
@@ -24,10 +23,9 @@ export interface Scenario {
 
 export interface ScenarioCreate {
   name: string;
-  product: string;
   hcp_profile_id: string;
   description?: string;
-  therapeutic_area?: string;
+  tags?: string[];
   mode?: Scenario["mode"];
   difficulty?: Scenario["difficulty"];
   key_messages?: string[];

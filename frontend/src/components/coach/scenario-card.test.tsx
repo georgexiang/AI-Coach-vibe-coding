@@ -15,8 +15,7 @@ const mockScenario: Scenario = {
   id: "sc-1",
   name: "Oncology Visit",
   description: "Practice F2F with oncologist",
-  product: "DrugX",
-  therapeutic_area: "Oncology",
+  tags: ["product:DrugX", "therapeutic_area:Oncology"],
   mode: "f2f",
   difficulty: "medium",
   status: "active",
@@ -101,8 +100,9 @@ describe("ScenarioCard", () => {
     expect(onStart).toHaveBeenCalledWith("sc-1");
   });
 
-  it("renders product badge", () => {
+  it("renders tag badges", () => {
     render(<ScenarioCard scenario={mockScenario} onStart={vi.fn()} />);
     expect(screen.getByText("DrugX")).toBeInTheDocument();
+    expect(screen.getByText("Oncology")).toBeInTheDocument();
   });
 });

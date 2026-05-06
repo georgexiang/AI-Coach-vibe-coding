@@ -148,8 +148,7 @@ export default function TrainingSession() {
     id: "",
     name: tc("loading"),
     description: "",
-    product: "",
-    therapeutic_area: "",
+    tags: [],
     mode: "f2f",
     difficulty: "medium",
     status: "active",
@@ -196,7 +195,7 @@ export default function TrainingSession() {
             {currentScenario.hcp_profile?.name ?? currentScenario.name}
           </p>
           <p className="truncate text-xs text-muted-foreground">
-            {currentScenario.hcp_profile?.specialty ?? currentScenario.product}
+            {currentScenario.hcp_profile?.specialty ?? currentScenario.tags.map((t) => t.includes(":") ? t.split(":").slice(1).join(":") : t).join(", ")}
           </p>
         </div>
       </div>

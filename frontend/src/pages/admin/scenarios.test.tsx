@@ -21,7 +21,7 @@ vi.mock("react-i18next", () => ({
 }));
 
 const scenarios = [
-  { id: "s1", name: "Test Scenario", product: "ProductA", status: "active" },
+  { id: "s1", name: "Test Scenario", tags: ["product:ProductA"], status: "active" },
 ];
 
 vi.mock("@/hooks/use-scenarios", () => ({

@@ -1,9 +1,9 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, X, Plus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import {
   Dialog,
@@ -25,6 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui";
 import { ObjectionList } from "./objection-list";
 import { useHcpProfiles } from "@/hooks/use-hcp-profiles";
@@ -34,28 +35,18 @@ import type { Scenario, ScenarioCreate } from "@/types/scenario";
 import type { HcpProfile } from "@/types/hcp";
 import type { Rubric } from "@/types/rubric";
 
-const PRODUCTS = [
-  "Tislelizumab",
-  "Zanubrutinib",
-  "Pamiparib",
-  "Lifirafenib",
-  "Ociperlimab",
-];
-
-const THERAPEUTIC_AREAS = [
-  "Oncology",
-  "Hematology",
-  "Immunology",
-  "Solid Tumors",
-];
+/** Predefined tag categories with values. Will migrate to system_enums API in future. */
+const PREDEFINED_TAGS: Record<string, string[]> = {
+  product: ["Tislelizumab", "Zanubrutinib", "Pamiparib", "Lifirafenib", "Ociperlimab"],
+  therapeutic_area: ["Oncology", "Hematology", "Immunology", "Solid Tumors"],
+};
 
 const NO_SKILL = "__none__";
 
 const scenarioSchema = z.object({
   name: z.string().min(1, "Name is required"),
   description: z.string().optional(),
-  product: z.string().min(1, "Product is required"),
-  therapeutic_area: z.string().optional(),
+  tags: z.array(z.string()),
   hcp_profile_id: z.string().min(1, "HCP profile is required"),
   mode: z.enum(["f2f", "conference"]),
   difficulty: z.enum(["easy", "medium", "hard"]),
@@ -97,13 +88,14 @@ export function ScenarioEditor({
     [publishedSkillsData],
   );
 
+  const [customTagInput, setCustomTagInput] = useState("");
+
   const form = useForm<ScenarioFormValues>({
     resolver: zodResolver(scenarioSchema),
     defaultValues: {
       name: "",
       description: "",
-      product: "",
-      therapeutic_area: "",
+      tags: [],
       hcp_profile_id: "",
       mode: "f2f",
       difficulty: "medium",
@@ -115,14 +107,14 @@ export function ScenarioEditor({
   });
 
   const selectedRubric = rubrics.find((r) => r.id === form.watch("rubric_id"));
+  const currentTags = form.watch("tags");
 
   useEffect(() => {
     if (scenario && !isNew) {
       form.reset({
         name: scenario.name,
         description: scenario.description ?? "",
-        product: scenario.product,
-        therapeutic_area: scenario.therapeutic_area ?? "",
+        tags: scenario.tags ?? [],
         hcp_profile_id: scenario.hcp_profile_id,
         mode: scenario.mode,
         difficulty: scenario.difficulty,
@@ -135,8 +127,7 @@ export function ScenarioEditor({
       form.reset({
         name: "",
         description: "",
-        product: "",
-        therapeutic_area: "",
+        tags: [],
         hcp_profile_id: "",
         mode: "f2f",
         difficulty: "medium",
@@ -154,6 +145,25 @@ export function ScenarioEditor({
       key_messages: values.key_messages.filter(Boolean),
       skill_id: values.skill_id || null,
     });
+  };
+
+  const addTag = (tag: string) => {
+    if (tag && !currentTags.includes(tag)) {
+      form.setValue("tags", [...currentTags, tag]);
+    }
+  };
+
+  const removeTag = (tag: string) => {
+    form.setValue("tags", currentTags.filter((t) => t !== tag));
+  };
+
+  const handleAddCustomTag = () => {
+    const trimmed = customTagInput.trim();
+    if (trimmed) {
+      const tagValue = trimmed.includes(":") ? trimmed : `custom:${trimmed}`;
+      addTag(tagValue);
+      setCustomTagInput("");
+    }
   };
 
   const selectedProfile = profiles.find(
@@ -176,14 +186,14 @@ export function ScenarioEditor({
             {isNew ? t("scenarios.createButton") : `Edit: ${scenario?.name ?? ""}`}
           </DialogTitle>
           <DialogDescription>
-            Configure scenario details and scoring rubric
+            {t("scenarios.editorDescription", { defaultValue: "Configure scenario details and scoring rubric" })}
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
-              <Label>Name *</Label>
+              <Label>{t("scenarios.fieldName", { defaultValue: "Name *" })}</Label>
               <Input {...form.register("name")} />
               {form.formState.errors.name && (
                 <p className="text-destructive text-sm">
@@ -192,64 +202,14 @@ export function ScenarioEditor({
               )}
             </div>
             <div className="grid gap-2">
-              <Label>Product *</Label>
-              <Controller
-                control={form.control}
-                name="product"
-                render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select product" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {PRODUCTS.map((p) => (
-                        <SelectItem key={p} value={p}>
-                          {p}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-            </div>
-          </div>
-
-          <div className="grid gap-2">
-            <Label>Description</Label>
-            <Textarea rows={2} {...form.register("description")} />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="grid gap-2">
-              <Label>Therapeutic Area</Label>
-              <Controller
-                control={form.control}
-                name="therapeutic_area"
-                render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select area" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {THERAPEUTIC_AREAS.map((a) => (
-                        <SelectItem key={a} value={a}>
-                          {a}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label>Assigned HCP *</Label>
+              <Label>{t("scenarios.fieldHcp", { defaultValue: "Assigned HCP *" })}</Label>
               <Controller
                 control={form.control}
                 name="hcp_profile_id"
                 render={({ field }) => (
                   <Select value={field.value} onValueChange={field.onChange}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select HCP">
+                      <SelectValue placeholder={t("scenarios.selectHcp", { defaultValue: "Select HCP" })}>
                         {selectedProfile && (
                           <div className="flex items-center gap-2">
                             <Avatar className="size-5">
@@ -284,9 +244,100 @@ export function ScenarioEditor({
             </div>
           </div>
 
+          <div className="grid gap-2">
+            <Label>{t("scenarios.fieldDescription", { defaultValue: "Description" })}</Label>
+            <Textarea rows={2} {...form.register("description")} />
+          </div>
+
+          {/* Tags Section */}
+          <div className="grid gap-2">
+            <Label>{t("scenarios.tags", { defaultValue: "Tags" })}</Label>
+
+            {/* Current tags display */}
+            <div className="flex flex-wrap gap-1.5 min-h-[32px] p-2 border rounded-md bg-muted/30">
+              {currentTags.length === 0 && (
+                <span className="text-xs text-muted-foreground">
+                  {t("scenarios.noTags", { defaultValue: "No tags" })}
+                </span>
+              )}
+              {currentTags.map((tag) => {
+                const value = tag.includes(":") ? tag.split(":").slice(1).join(":") : tag;
+                return (
+                  <Badge
+                    key={tag}
+                    variant="outline"
+                    className="text-xs gap-1 pr-1"
+                  >
+                    {value}
+                    <button
+                      type="button"
+                      onClick={() => removeTag(tag)}
+                      className="ml-0.5 rounded-full hover:bg-destructive/20 p-0.5"
+                    >
+                      <X className="size-3" />
+                    </button>
+                  </Badge>
+                );
+              })}
+            </div>
+
+            {/* Predefined tag categories */}
+            {Object.entries(PREDEFINED_TAGS).map(([category, values]) => (
+              <div key={category} className="flex flex-wrap items-center gap-1.5">
+                <span className="text-xs text-muted-foreground capitalize min-w-[80px]">
+                  {category.replace("_", " ")}:
+                </span>
+                {values.map((value) => {
+                  const fullTag = `${category}:${value}`;
+                  const isSelected = currentTags.includes(fullTag);
+                  return (
+                    <button
+                      key={fullTag}
+                      type="button"
+                      onClick={() => isSelected ? removeTag(fullTag) : addTag(fullTag)}
+                      className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
+                        isSelected
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-background hover:bg-muted border-border"
+                      }`}
+                    >
+                      {value}
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
+
+            {/* Custom tag input */}
+            <div className="flex items-center gap-2">
+              <Input
+                placeholder={t("scenarios.customTag", { defaultValue: "Custom tag" })}
+                value={customTagInput}
+                onChange={(e) => setCustomTagInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleAddCustomTag();
+                  }
+                }}
+                className="flex-1 h-8 text-sm"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleAddCustomTag}
+                className="h-8"
+              >
+                <Plus className="size-3.5" />
+                {t("scenarios.addTag", { defaultValue: "Add" })}
+              </Button>
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
-              <Label>Mode</Label>
+              <Label>{t("scenarios.fieldMode", { defaultValue: "Mode" })}</Label>
               <div className="flex items-center gap-4">
                 {(["f2f", "conference"] as const).map((m) => (
                   <label key={m} className="flex items-center gap-2 cursor-pointer">
@@ -303,7 +354,7 @@ export function ScenarioEditor({
               </div>
             </div>
             <div className="grid gap-2">
-              <Label>Difficulty</Label>
+              <Label>{t("scenarios.fieldDifficulty", { defaultValue: "Difficulty" })}</Label>
               <div className="flex items-center gap-4">
                 {(["easy", "medium", "hard"] as const).map((d) => (
                   <label key={d} className="flex items-center gap-2 cursor-pointer">
@@ -322,7 +373,7 @@ export function ScenarioEditor({
           </div>
 
           <div className="grid gap-2">
-            <Label>Skill</Label>
+            <Label>{t("scenarios.fieldSkill", { defaultValue: "Skill" })}</Label>
             <Controller
               control={form.control}
               name="skill_id"
@@ -332,15 +383,15 @@ export function ScenarioEditor({
                   onValueChange={(v) => field.onChange(v === NO_SKILL ? null : v)}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select skill (optional)" />
+                    <SelectValue placeholder={t("scenarios.selectSkill", { defaultValue: "Select skill (optional)" })} />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value={NO_SKILL}>
-                      <span className="text-muted-foreground">No skill</span>
+                      <span className="text-muted-foreground">{t("scenarios.noSkill", { defaultValue: "No skill" })}</span>
                     </SelectItem>
                     {publishedSkills.length === 0 && (
                       <SelectItem value="__placeholder__" disabled>
-                        <span className="text-muted-foreground text-sm">No published skills available</span>
+                        <span className="text-muted-foreground text-sm">{t("scenarios.noPublishedSkills", { defaultValue: "No published skills available" })}</span>
                       </SelectItem>
                     )}
                     {publishedSkills.map((s) => (
@@ -374,7 +425,7 @@ export function ScenarioEditor({
             addLabel={t("scenarios.addKeyMessage")}
           />
 
-          {/* Scoring Rubric Selector — replaces ScoringWeights per D-07 */}
+          {/* Scoring Rubric Selector */}
           <div className="grid gap-2">
             <Label>{t("scenarios.scoringRubric")} *</Label>
             <Controller
@@ -408,7 +459,7 @@ export function ScenarioEditor({
             )}
           </div>
 
-          {/* Rubric Dimension Preview — read-only per UI-SPEC IC-01 */}
+          {/* Rubric Dimension Preview */}
           {selectedRubric ? (
             <Card className="bg-muted/50">
               <CardContent className="p-4 space-y-2">
@@ -441,7 +492,7 @@ export function ScenarioEditor({
             </p>
           )}
 
-          {/* Manage Rubrics link per UI-SPEC IC-01 */}
+          {/* Manage Rubrics link */}
           <button
             type="button"
             className="text-sm text-primary hover:underline cursor-pointer"
@@ -484,7 +535,7 @@ function SkillStatusBadge({ skillId }: { skillId: string }) {
   return (
     <div className="flex items-center gap-1 text-xs text-warning">
       <AlertTriangle className="size-3" />
-      <span>This skill is archived</span>
+      <span>{useTranslation("admin").t("scenarios.skillArchived", { defaultValue: "This skill is archived" })}</span>
     </div>
   );
 }

@@ -15,8 +15,7 @@ const makeScenario = (overrides: Partial<Scenario> = {}): Scenario => ({
   id: "sc-1",
   name: "Test Scenario",
   description: "A test",
-  product: "ProductA",
-  therapeutic_area: "Oncology",
+  tags: ["product:ProductA", "therapeutic_area:Oncology"],
   mode: "f2f",
   difficulty: "easy",
   status: "active",
@@ -87,9 +86,10 @@ describe("ScenarioTable", () => {
     expect(screen.getByText("Test Scenario")).toBeInTheDocument();
   });
 
-  it("renders product column", () => {
+  it("renders tags column with tag badges", () => {
     render(<ScenarioTable {...defaultProps} />);
     expect(screen.getByText("ProductA")).toBeInTheDocument();
+    expect(screen.getByText("Oncology")).toBeInTheDocument();
   });
 
   it("renders empty state when no scenarios", () => {
@@ -99,8 +99,8 @@ describe("ScenarioTable", () => {
 
   it("renders column headers", () => {
     render(<ScenarioTable {...defaultProps} />);
-    expect(screen.getByText("Name")).toBeInTheDocument();
-    expect(screen.getByText("Product")).toBeInTheDocument();
+    expect(screen.getByText("scenarios.colName")).toBeInTheDocument();
+    expect(screen.getByText("scenarios.tags")).toBeInTheDocument();
     expect(screen.getByText("HCP")).toBeInTheDocument();
     expect(screen.getByText("Mode")).toBeInTheDocument();
     expect(screen.getByText("Difficulty")).toBeInTheDocument();
@@ -115,11 +115,11 @@ describe("ScenarioTable", () => {
     await userEvent.click(nameHeader);
   });
 
-  it("sorts by product when Product header clicked", async () => {
+  it("renders tags as badges in the tags column", () => {
     render(<ScenarioTable {...defaultProps} />);
-    await userEvent.click(screen.getByText("Product"));
-    // No crash, sorts by product
+    // Tags display the value part (after the colon)
     expect(screen.getByText("ProductA")).toBeInTheDocument();
+    expect(screen.getByText("Oncology")).toBeInTheDocument();
   });
 
   it("sorts by difficulty when Difficulty header clicked", async () => {
