@@ -53,5 +53,8 @@
   "error.server": "Something went wrong. Please try again later.",
   "error.notFound": "Page not found. Return to dashboard.",
   "generate": "Generate",
-  "regenerate": "Regenerate"
+  "regenerate": "Regenerate",
+  "actions": "Actions",
+  "create": "Create",
+  "confirmDelete": "Confirm Delete"
 }

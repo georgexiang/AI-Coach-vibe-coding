@@ -464,5 +464,24 @@
       "testPlaceholderWithAvatar": "Digital human avatar will appear here",
       "assignToHcp": "Assign to HCP"
     }
+  },
+  "systemEnums": {
+    "title": "System Configuration",
+    "categories": "Categories",
+    "addValue": "Add Value",
+    "addCategory": "Add Category",
+    "editValue": "Edit Value",
+    "editDescription": "Configure the enum value properties",
+    "addCategoryDescription": "Enter the category name (lowercase, underscores for spaces)",
+    "value": "Value",
+    "labelEn": "English Label",
+    "labelZh": "Chinese Label",
+    "sortOrder": "Sort Order",
+    "active": "Active",
+    "deleteConfirm": "Are you sure you want to delete this value? This action cannot be undone.",
+    "saved": "Saved successfully",
+    "deleted": "Deleted successfully",
+    "noValues": "No values in this category",
+    "selectCategory": "Select a category to view values"
   }
 }
