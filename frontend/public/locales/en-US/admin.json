@@ -182,7 +182,18 @@
     "dimensionCount": "{{count}} dimensions",
     "dimensionPreviewEmpty": "Select a scoring rubric to see dimensions",
     "manageRubrics": "Manage Rubrics",
-    "rubricRequired": "Scoring rubric is required"
+    "rubricRequired": "Scoring rubric is required",
+    "archiveTitle": "Archive Scenario",
+    "archiveConfirm": "This scenario will become read-only. You can still clone it to create a new draft.",
+    "archived": "Scenario archived",
+    "activated": "Scenario activated",
+    "cannotEditArchived": "Archived scenarios cannot be edited",
+    "edit": "Edit",
+    "activate": "Activate",
+    "archive": "Archive",
+    "clone": "Clone",
+    "delete": "Delete",
+    "deleteTitle": "Delete Scenario"
   },
   "rubrics": {
     "title": "Scoring Rubrics",
