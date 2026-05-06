@@ -16,6 +16,7 @@ import {
 
 export default function AdminSettingsPage() {
   const { t } = useTranslation("admin");
+  const { t: tc } = useTranslation("common");
   const [defaultLanguage, setDefaultLanguage] = useState("zh-CN");
   const [retentionDays, setRetentionDays] = useState("90");
   const [darkMode, setDarkMode] = useState(false);
@@ -25,10 +26,10 @@ export default function AdminSettingsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-medium text-foreground">
-          {t("settings.title", { defaultValue: "System Settings" })}
+          {t("settings.title")}
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          {t("settings.description", { defaultValue: "Configure platform-wide settings" })}
+          {t("settings.description")}
         </p>
       </div>
 
@@ -38,21 +39,21 @@ export default function AdminSettingsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg font-medium">
               <Globe className="size-5 text-primary" />
-              {t("settings.language", { defaultValue: "Language & Region" })}
+              {t("settings.language")}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label className="text-sm font-medium">
-                {t("settings.defaultLanguage", { defaultValue: "Default Language" })}
+                {t("settings.defaultLanguage")}
               </Label>
               <Select value={defaultLanguage} onValueChange={setDefaultLanguage}>
                 <SelectTrigger className="w-[240px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="zh-CN">Chinese (Simplified)</SelectItem>
-                  <SelectItem value="en-US">English (US)</SelectItem>
+                  <SelectItem value="zh-CN">{tc("lang.zhCN")}</SelectItem>
+                  <SelectItem value="en-US">{tc("lang.enUS")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -64,13 +65,13 @@ export default function AdminSettingsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg font-medium">
               <Shield className="size-5 text-primary" />
-              {t("settings.dataRetention", { defaultValue: "Data Retention" })}
+              {t("settings.dataRetention")}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label className="text-sm font-medium">
-                {t("settings.voiceRetention", { defaultValue: "Voice Recording Retention (days)" })}
+                {t("settings.voiceRetention")}
               </Label>
               <Input
                 type="number"
@@ -79,9 +80,7 @@ export default function AdminSettingsPage() {
                 className="w-[240px]"
               />
               <p className="text-xs text-muted-foreground">
-                {t("settings.voiceRetentionHint", {
-                  defaultValue: "Voice recordings older than this will be automatically deleted",
-                })}
+                {t("settings.voiceRetentionHint")}
               </p>
             </div>
           </CardContent>
@@ -92,13 +91,13 @@ export default function AdminSettingsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg font-medium">
               <Palette className="size-5 text-primary" />
-              {t("settings.branding", { defaultValue: "Branding" })}
+              {t("settings.branding")}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label className="text-sm font-medium">
-                {t("settings.orgName", { defaultValue: "Organization Name" })}
+                {t("settings.orgName")}
               </Label>
               <Input
                 value={orgName}
@@ -109,14 +108,14 @@ export default function AdminSettingsPage() {
             <div className="flex items-center gap-3">
               <Switch checked={darkMode} onCheckedChange={setDarkMode} />
               <Label className="text-sm">
-                {t("settings.darkMode", { defaultValue: "Dark Mode" })}
+                {t("settings.darkMode")}
               </Label>
             </div>
           </CardContent>
         </Card>
 
         <Button className="w-fit">
-          {t("settings.save", { defaultValue: "Save Settings" })}
+          {t("settings.save")}
         </Button>
       </div>
     </div>
