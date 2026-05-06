@@ -38,18 +38,10 @@ export default function DryRunReportPage() {
     createMutation.mutate(skillId, {
       onSuccess: (newRun) => {
         navigate(`/admin/skills/${skillId}/dry-run/${newRun.id}`);
-        toast.success(
-          t("dryRun.runCompleteToast", {
-            defaultValue: "Dry Run started. View the report for details.",
-          }),
-        );
+        toast.success(t("dryRun.runCompleteToast"));
       },
       onError: () => {
-        toast.error(
-          t("dryRun.errors.startFailed", {
-            defaultValue: "Failed to start simulation",
-          }),
-        );
+        toast.error(t("dryRun.errors.startFailed"));
       },
     });
   };
@@ -79,13 +71,11 @@ export default function DryRunReportPage() {
       <div className="flex flex-col items-center justify-center gap-4 rounded-lg border bg-muted/50 py-16">
         <AlertTriangle className="size-8 text-destructive" />
         <p className="text-sm text-muted-foreground">
-          {t("dryRun.errorLoadFailed", {
-            defaultValue: "Failed to load Dry Run results.",
-          })}
+          {t("dryRun.errorLoadFailed")}
         </p>
         <Button variant="outline" onClick={() => refetch()}>
           <RefreshCw className="mr-2 size-4" />
-          {t("dryRun.retry", { defaultValue: "Retry" })}
+          {t("dryRun.retry")}
         </Button>
       </div>
     );
@@ -102,10 +92,10 @@ export default function DryRunReportPage() {
             onClick={() => navigate(`/admin/skills/${skillId}/edit`)}
           >
             <ArrowLeft className="mr-1 size-4" />
-            {t("dryRun.backToEditor", { defaultValue: "Back to Editor" })}
+            {t("dryRun.backToEditor")}
           </Button>
           <h1 className="text-2xl font-semibold">
-            {t("dryRun.reportTitle", { defaultValue: "Dry Run Report" })}
+            {t("dryRun.reportTitle")}
           </h1>
         </div>
         <Button
@@ -117,7 +107,7 @@ export default function DryRunReportPage() {
           ) : (
             <Rocket className="mr-2 size-4" />
           )}
-          {t("dryRun.startNewRun", { defaultValue: "Start New Run" })}
+          {t("dryRun.startNewRun")}
         </Button>
       </div>
 
@@ -128,7 +118,7 @@ export default function DryRunReportPage() {
         <span>{formatDate(dryRun.created_at)}</span>
         <span className="text-border">|</span>
         <span>
-          {t("dryRun.durationLabel", { defaultValue: "Duration" })}:{" "}
+          {t("dryRun.durationLabel")}:{" "}
           {formatDuration(dryRun.duration_seconds)}
         </span>
       </div>
@@ -149,19 +139,19 @@ export default function DryRunReportPage() {
             value="conversation"
             className="flex-1 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
           >
-            {t("dryRun.tabConversation", { defaultValue: "Conversation" })}
+            {t("dryRun.tabConversation")}
           </TabsTrigger>
           <TabsTrigger
             value="sop-coverage"
             className="flex-1 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
           >
-            {t("dryRun.tabSopCoverage", { defaultValue: "SOP Coverage" })}
+            {t("dryRun.tabSopCoverage")}
           </TabsTrigger>
           <TabsTrigger
             value="issues"
             className="flex-1 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
           >
-            {t("dryRun.tabIssues", { defaultValue: "Issues" })}
+            {t("dryRun.tabIssues")}
           </TabsTrigger>
         </TabsList>
 
@@ -198,10 +188,7 @@ export default function DryRunReportPage() {
               <CardContent className="flex items-center justify-center gap-3 p-8">
                 <Check className="size-5 text-strength" />
                 <p className="text-sm text-foreground">
-                  {t("dryRun.noIssues", {
-                    defaultValue:
-                      "No issues found. The SOP drives a complete and effective conversation.",
-                  })}
+                  {t("dryRun.noIssues")}
                 </p>
               </CardContent>
             </Card>

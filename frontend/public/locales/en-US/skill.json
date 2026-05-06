@@ -197,6 +197,12 @@
     "warnings": "warnings",
     "noConversationData": "No conversation data available",
     "noSopSteps": "No SOP steps detected in skill content",
-    "errorStartFailed": "Failed to start simulation"
+    "errorStartFailed": "Failed to start simulation",
+    "runCompleteToast": "Dry Run started. View the report for details.",
+    "retry": "Retry",
+    "tabSopCoverage": "SOP Coverage",
+    "errors": {
+      "startFailed": "Failed to start simulation"
+    }
   }
 }

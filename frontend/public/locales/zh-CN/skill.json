@@ -197,6 +197,12 @@
     "warnings": "个警告",
     "noConversationData": "无对话数据",
     "noSopSteps": "未在 Skill 内容中检测到 SOP 步骤",
-    "errorStartFailed": "启动模拟测试失败"
+    "errorStartFailed": "启动模拟测试失败",
+    "runCompleteToast": "模拟测试已启动，请查看报告了解详情。",
+    "retry": "重试",
+    "tabSopCoverage": "SOP 覆盖率",
+    "errors": {
+      "startFailed": "启动模拟测试失败"
+    }
   }
 }
