@@ -595,12 +595,34 @@ Plans:
 
 **UI hint**: yes
 
+
 ### Phase 22: 对Scenarios 模块进行二次重构
 
-**Goal:** [To be planned]
-**Requirements**: TBD
+**Goal:** Scenarios module second refactor: Editor full-page route-based, I18N complete, metadata to tags system, state machine (draft/active/archived), skill_id NOT NULL, global hardcoded enum elimination via DB config table.
+**Requirements**: D-01, D-02, D-03, D-04, D-05, D-06, D-07
 **Depends on:** Phase 21
-**Plans:** 5/6 plans executed
+**Plans:** 12 plans (6 original + 6 gap closure)
 
 Plans:
-- [ ] TBD (run /gsd-plan-phase 22 to break down)
+- [x] 22-01-PLAN.md -- Backend model prep and full-page editor scaffolding
+- [x] 22-02-PLAN.md -- Backend state machine and tags foundation
+- [x] 22-03-PLAN.md -- Backend system enums and skill NOT NULL
+- [x] 22-04-PLAN.md -- Frontend types, hooks, and editor page
+- [x] 22-05-PLAN.md -- Frontend table, list page, and wiring
+- [x] 22-06-PLAN.md -- I18N global audit (non-scenario pages)
+- [ ] 22-07-PLAN.md -- [Gap closure] Backend model + schema + migration chain fix (tags, skill_id, archived)
+- [ ] 22-08-PLAN.md -- [Gap closure] Backend service + API (state machine transitions, tags serialization)
+- [ ] 22-09-PLAN.md -- [Gap closure] System Enums full stack (model, service, API, frontend page)
+- [ ] 22-10-PLAN.md -- [Gap closure] Frontend types + API + hooks update (tags, archived, transitions)
+- [ ] 22-11-PLAN.md -- [Gap closure] Frontend list page + table wiring (navigate, tags display, transitions)
+- [ ] 22-12-PLAN.md -- [Gap closure] I18N for scenario module (locale keys, remove defaultValue)
+
+**Success Criteria** (what must be TRUE):
+  1. State machine enforces draft -> active -> archived transitions via dedicated POST /transition endpoint
+  2. System enums table replaces all hardcoded frontend constants (products, specialties, difficulties) with DB-driven values
+  3. Scenario model uses tags JSON array instead of product/therapeutic_area columns
+  4. skill_id is NOT NULL on Scenario model with RESTRICT on delete
+  5. Full-page route-based scenario editor replaces Dialog editor (old editor deleted)
+  6. I18N audit eliminates all hardcoded text and defaultValue fallbacks from scenario module
+
+**UI hint**: yes
