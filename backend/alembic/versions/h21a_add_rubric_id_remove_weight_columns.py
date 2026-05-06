@@ -104,6 +104,16 @@ def upgrade() -> None:
     for combo, scenario_ids in weight_combos.items():
         rubric_id = str(uuid.uuid4())
         is_default = combo == (30, 25, 20, 15, 10)
+
+        # If marking this rubric as default, unset any existing defaults first
+        if is_default:
+            conn.execute(
+                sa.text(
+                    "UPDATE scoring_rubrics SET is_default = 0 "
+                    "WHERE scenario_type = 'f2f' AND is_default = 1"
+                )
+            )
+
         dims = json.dumps(
             [
                 {

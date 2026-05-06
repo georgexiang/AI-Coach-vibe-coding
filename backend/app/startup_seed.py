@@ -157,6 +157,41 @@ async def seed_all(session: AsyncSession) -> None:
         session.add(rubric)
         await session.commit()
 
+    # --- 2b. Deduplicate defaults (fix for h21a migration creating duplicate) ---
+    from sqlalchemy import func, update
+
+    for stype in ("f2f", "conference"):
+        count_result = await session.execute(
+            select(func.count()).select_from(ScoringRubric).where(
+                ScoringRubric.scenario_type == stype,
+                ScoringRubric.is_default == True,  # noqa: E712
+            )
+        )
+        default_count = count_result.scalar() or 0
+        if default_count > 1:
+            # Keep only the most recently updated default, unset the rest
+            latest_result = await session.execute(
+                select(ScoringRubric.id)
+                .where(
+                    ScoringRubric.scenario_type == stype,
+                    ScoringRubric.is_default == True,  # noqa: E712
+                )
+                .order_by(ScoringRubric.updated_at.desc())
+                .limit(1)
+            )
+            keep_id = latest_result.scalar()
+            if keep_id:
+                await session.execute(
+                    update(ScoringRubric)
+                    .where(
+                        ScoringRubric.scenario_type == stype,
+                        ScoringRubric.is_default == True,  # noqa: E712
+                        ScoringRubric.id != keep_id,
+                    )
+                    .values(is_default=False)
+                )
+                await session.commit()
+
     # --- 3. HCP profiles ---
     from app.models.hcp_profile import HcpProfile
 
