@@ -553,3 +553,107 @@ class TestCloneScenario:
     async def test_clone_raises_for_nonexistent(self, db_session):
         with pytest.raises(NotFoundException):
             await clone_scenario(db_session, "nonexistent", "user")
+
+
+class TestTransitionScenarioStatus:
+    """Tests for state machine transitions (D-04)."""
+
+    async def test_draft_to_active(self, db_session):
+        from app.services.scenario_service import transition_scenario_status
+
+        user_id, hcp_id = await _seed_user_and_hcp(db_session)
+        skill_id = await _seed_skill(db_session, user_id)
+        data = ScenarioCreate(
+            name="Trans", hcp_profile_id=hcp_id, rubric_id="r1", skill_id=skill_id
+        )
+        scenario = await create_scenario(db_session, data, user_id)
+        assert scenario.status == "draft"
+
+        result = await transition_scenario_status(db_session, scenario.id, "active")
+        assert result.status == "active"
+
+    async def test_active_to_archived(self, db_session):
+        from app.services.scenario_service import transition_scenario_status
+
+        user_id, hcp_id = await _seed_user_and_hcp(db_session)
+        skill_id = await _seed_skill(db_session, user_id)
+        data = ScenarioCreate(
+            name="Trans2", hcp_profile_id=hcp_id, rubric_id="r1", skill_id=skill_id
+        )
+        scenario = await create_scenario(db_session, data, user_id)
+        await transition_scenario_status(db_session, scenario.id, "active")
+        result = await transition_scenario_status(db_session, scenario.id, "archived")
+        assert result.status == "archived"
+
+    async def test_invalid_transition_raises(self, db_session):
+        from app.services.scenario_service import transition_scenario_status
+        from app.utils.exceptions import ValidationException
+
+        user_id, hcp_id = await _seed_user_and_hcp(db_session)
+        skill_id = await _seed_skill(db_session, user_id)
+        data = ScenarioCreate(
+            name="Trans3", hcp_profile_id=hcp_id, rubric_id="r1", skill_id=skill_id
+        )
+        scenario = await create_scenario(db_session, data, user_id)
+        # draft -> archived is invalid (must go through active)
+        with pytest.raises(ValidationException):
+            await transition_scenario_status(db_session, scenario.id, "archived")
+
+    async def test_archived_no_outgoing(self, db_session):
+        from app.services.scenario_service import transition_scenario_status
+        from app.utils.exceptions import ValidationException
+
+        user_id, hcp_id = await _seed_user_and_hcp(db_session)
+        skill_id = await _seed_skill(db_session, user_id)
+        data = ScenarioCreate(
+            name="Trans4", hcp_profile_id=hcp_id, rubric_id="r1", skill_id=skill_id
+        )
+        scenario = await create_scenario(db_session, data, user_id)
+        await transition_scenario_status(db_session, scenario.id, "active")
+        await transition_scenario_status(db_session, scenario.id, "archived")
+        # archived -> anything is invalid
+        with pytest.raises(ValidationException):
+            await transition_scenario_status(db_session, scenario.id, "active")
+
+
+class TestArchivedGuard:
+    """Tests for archived scenario edit protection."""
+
+    async def test_update_archived_raises(self, db_session):
+        from app.services.scenario_service import transition_scenario_status
+        from app.utils.exceptions import ValidationException
+
+        user_id, hcp_id = await _seed_user_and_hcp(db_session)
+        skill_id = await _seed_skill(db_session, user_id)
+        data = ScenarioCreate(
+            name="Arch", hcp_profile_id=hcp_id, rubric_id="r1", skill_id=skill_id
+        )
+        scenario = await create_scenario(db_session, data, user_id)
+        await transition_scenario_status(db_session, scenario.id, "active")
+        await transition_scenario_status(db_session, scenario.id, "archived")
+
+        with pytest.raises(ValidationException, match="Cannot edit an archived"):
+            await update_scenario(db_session, scenario.id, ScenarioUpdate(name="New"))
+
+    async def test_update_draft_allowed(self, db_session):
+        user_id, hcp_id = await _seed_user_and_hcp(db_session)
+        skill_id = await _seed_skill(db_session, user_id)
+        data = ScenarioCreate(
+            name="Draft", hcp_profile_id=hcp_id, rubric_id="r1", skill_id=skill_id
+        )
+        scenario = await create_scenario(db_session, data, user_id)
+        result = await update_scenario(db_session, scenario.id, ScenarioUpdate(name="Updated"))
+        assert result.name == "Updated"
+
+    async def test_update_active_allowed(self, db_session):
+        from app.services.scenario_service import transition_scenario_status
+
+        user_id, hcp_id = await _seed_user_and_hcp(db_session)
+        skill_id = await _seed_skill(db_session, user_id)
+        data = ScenarioCreate(
+            name="Active", hcp_profile_id=hcp_id, rubric_id="r1", skill_id=skill_id
+        )
+        scenario = await create_scenario(db_session, data, user_id)
+        await transition_scenario_status(db_session, scenario.id, "active")
+        result = await update_scenario(db_session, scenario.id, ScenarioUpdate(name="Still OK"))
+        assert result.name == "Still OK"

@@ -386,6 +386,98 @@ class TestGetScenarioSkillEndpoint:
         assert data["version_number"] == 1
 
 
+class TestTransitionEndpoint:
+    """Tests for POST /api/v1/scenarios/{scenario_id}/transition."""
+
+    async def test_transition_draft_to_active(self, client):
+        user_id, token = await _create_admin_and_token()
+        hcp_id = await _create_hcp_profile(client, token, user_id)
+        skill_id = await _create_skill(user_id)
+
+        create_resp = await client.post(
+            "/api/v1/scenarios",
+            json={
+                "name": "Trans",
+                "hcp_profile_id": hcp_id,
+                "rubric_id": "test-rubric-id",
+                "skill_id": skill_id,
+            },
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        scn_id = create_resp.json()["id"]
+
+        response = await client.post(
+            f"/api/v1/scenarios/{scn_id}/transition",
+            json={"status": "active"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 200
+        assert response.json()["status"] == "active"
+
+    async def test_invalid_transition_returns_400(self, client):
+        user_id, token = await _create_admin_and_token()
+        hcp_id = await _create_hcp_profile(client, token, user_id)
+        skill_id = await _create_skill(user_id)
+
+        create_resp = await client.post(
+            "/api/v1/scenarios",
+            json={
+                "name": "Trans2",
+                "hcp_profile_id": hcp_id,
+                "rubric_id": "test-rubric-id",
+                "skill_id": skill_id,
+            },
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        scn_id = create_resp.json()["id"]
+
+        # draft -> archived is invalid
+        response = await client.post(
+            f"/api/v1/scenarios/{scn_id}/transition",
+            json={"status": "archived"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 422
+
+    async def test_update_archived_returns_422(self, client):
+        user_id, token = await _create_admin_and_token()
+        hcp_id = await _create_hcp_profile(client, token, user_id)
+        skill_id = await _create_skill(user_id)
+
+        create_resp = await client.post(
+            "/api/v1/scenarios",
+            json={
+                "name": "ArchGuard",
+                "hcp_profile_id": hcp_id,
+                "rubric_id": "test-rubric-id",
+                "skill_id": skill_id,
+            },
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        scn_id = create_resp.json()["id"]
+
+        # Transition to active then archived
+        await client.post(
+            f"/api/v1/scenarios/{scn_id}/transition",
+            json={"status": "active"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        await client.post(
+            f"/api/v1/scenarios/{scn_id}/transition",
+            json={"status": "archived"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        # Try to update - should fail
+        response = await client.put(
+            f"/api/v1/scenarios/{scn_id}",
+            json={"name": "Should Fail"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 422
+        assert "archived" in response.json()["message"].lower()
+
+
 class TestCloneScenarioEndpoint:
     """Tests for POST /api/v1/scenarios/{scenario_id}/clone."""
 

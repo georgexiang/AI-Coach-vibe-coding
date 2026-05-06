@@ -15,6 +15,12 @@ from app.utils.exceptions import bad_request, not_found
 
 logger = logging.getLogger(__name__)
 
+VALID_TRANSITIONS: dict[str, set[str]] = {
+    "draft": {"active"},
+    "active": {"archived"},
+    # archived: no outgoing transitions (clone creates a new draft instead)
+}
+
 
 async def _validate_and_pin_skill(
     db: AsyncSession, skill_id: str | None
@@ -158,9 +164,28 @@ async def get_scenario(db: AsyncSession, scenario_id: str) -> Scenario:
     return scenario
 
 
+async def transition_scenario_status(
+    db: AsyncSession, scenario_id: str, new_status: str
+) -> Scenario:
+    """Transition scenario to a new status. Validates against allowed transitions."""
+    scenario = await get_scenario(db, scenario_id)
+    allowed = VALID_TRANSITIONS.get(scenario.status, set())
+    if new_status not in allowed:
+        bad_request(
+            f"Cannot transition from '{scenario.status}' to '{new_status}'. "
+            f"Allowed: {allowed or 'none (terminal state)'}"
+        )
+    scenario.status = new_status
+    await db.flush()
+    await db.refresh(scenario)
+    return scenario
+
+
 async def update_scenario(db: AsyncSession, scenario_id: str, data: ScenarioUpdate) -> Scenario:
     """Update an existing scenario with partial data."""
     scenario = await get_scenario(db, scenario_id)
+    if scenario.status == "archived":
+        bad_request("Cannot edit an archived scenario. Clone it to create a new draft.")
     update_data = data.model_dump(exclude_unset=True)
 
     # Serialize list fields to JSON strings
