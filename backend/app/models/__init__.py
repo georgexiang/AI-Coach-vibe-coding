@@ -12,6 +12,7 @@ from app.models.scoring_rubric import ScoringRubric
 from app.models.service_config import ServiceConfig
 from app.models.session import CoachingSession
 from app.models.skill import Skill, SkillResource, SkillSourceMaterial, SkillVersion
+from app.models.system_enum import SystemEnum
 from app.models.user import User
 from app.models.voice_live_instance import VoiceLiveInstance
 
@@ -39,4 +40,5 @@ __all__ = [
     "SkillVersion",
     "SkillResource",
     "SkillSourceMaterial",
+    "SystemEnum",
 ]

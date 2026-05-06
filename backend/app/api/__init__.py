@@ -15,6 +15,7 @@ from app.api.scoring import router as scoring_router
 from app.api.sessions import router as sessions_router
 from app.api.skills import router as skills_router
 from app.api.speech import router as speech_router
+from app.api.system_enums import router as system_enums_router
 from app.api.voice_live import router as voice_live_router
 
 __all__ = [
@@ -35,5 +36,6 @@ __all__ = [
     "sessions_router",
     "skills_router",
     "speech_router",
+    "system_enums_router",
     "voice_live_router",
 ]
