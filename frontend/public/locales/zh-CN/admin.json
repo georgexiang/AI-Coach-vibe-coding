@@ -169,6 +169,7 @@
     "description": "配置训练场景的HCP分配、技能和评分规则",
     "createButton": "创建场景",
     "save": "场景已保存",
+    "saveFailed": "保存场景失败",
     "deleted": "场景已删除",
     "cloned": "场景已克隆",
     "deleteTitle": "删除场景",

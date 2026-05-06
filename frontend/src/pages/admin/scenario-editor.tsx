@@ -143,7 +143,7 @@ export default function ScenarioEditorPage() {
           toast.success(t("admin:scenarios.save"));
           navigate("/admin/scenarios");
         },
-        onError: () => toast.error(t("scenarios.save")),
+        onError: () => toast.error(t("scenarios.saveFailed")),
       });
     } else if (id) {
       const updateData: ScenarioUpdate = {
@@ -157,7 +157,7 @@ export default function ScenarioEditorPage() {
             toast.success(t("admin:scenarios.save"));
             navigate("/admin/scenarios");
           },
-          onError: () => toast.error(t("scenarios.save")),
+          onError: () => toast.error(t("scenarios.saveFailed")),
         },
       );
     }

@@ -169,6 +169,7 @@
     "description": "Configure training scenarios with HCP assignments, skills, and scoring",
     "createButton": "Create Scenario",
     "save": "Scenario saved",
+    "saveFailed": "Failed to save scenario",
     "deleted": "Scenario deleted",
     "cloned": "Scenario cloned",
     "deleteTitle": "Delete Scenario",

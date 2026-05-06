@@ -40,10 +40,10 @@ def upgrade():
             f"  URL: /admin/scenarios (edit each scenario and select a Skill)\n"
         )
 
-    # All clear - alter column to NOT NULL and change ondelete from SET NULL to RESTRICT
-    with op.batch_alter_table("scenarios") as batch_op:
+    # All clear - alter column to NOT NULL with RESTRICT FK
+    # SQLite batch mode recreates the table, so we just define the desired state
+    with op.batch_alter_table("scenarios", recreate="always") as batch_op:
         batch_op.alter_column("skill_id", existing_type=sa.String(36), nullable=False)
-        batch_op.drop_constraint("fk_scenarios_skill_id_skills", type_="foreignkey")
         batch_op.create_foreign_key(
             "fk_scenarios_skill_id_skills",
             "skills",
