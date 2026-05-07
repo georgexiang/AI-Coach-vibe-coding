@@ -54,6 +54,8 @@ class SessionResponse(BaseModel):
     overall_score: float | None
     passed: bool | None
     mode: str = "text"
+    audio_url: str | None = None
+    voice_score_status: str = "none"
     created_at: datetime
     updated_at: datetime
 

@@ -1,8 +1,9 @@
 """Session lifecycle API: create, message with SSE streaming, end, list."""
 
+import asyncio
 import json
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 from sse_starlette.sse import EventSourceResponse
 
@@ -267,3 +268,54 @@ async def get_session_suggestions(
         scoring_weights=scoring_weights,
     )
     return suggestions
+
+
+@router.post("/{session_id}/audio", status_code=201)
+async def upload_session_audio_endpoint(
+    session_id: str,
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Upload recorded audio for a session. Triggers async voice scoring."""
+    from app.services.audio_storage_service import upload_session_audio
+    from app.services.voice_scoring_service import trigger_voice_scoring
+
+    # Validate session ownership
+    session = await session_service.get_session(db, session_id, user.id)
+    if session.user_id != user.id:
+        raise HTTPException(status_code=403, detail="Not your session")
+
+    # Validate file size (50MB max)
+    content = await file.read()
+    if len(content) > 50 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Audio file too large (max 50MB)")
+
+    # Upload to storage
+    audio_url = await upload_session_audio(session_id, content, file.filename or "recording.webm")
+    session.audio_url = audio_url
+    session.voice_score_status = "pending"
+    await db.flush()
+
+    # Trigger async voice scoring
+    asyncio.create_task(trigger_voice_scoring(session_id))
+
+    return {"audio_url": audio_url, "voice_score_status": "pending"}
+
+
+@router.get("/{session_id}/voice-score")
+async def get_voice_score_status(
+    session_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Poll voice scoring status for a session."""
+    session = await session_service.get_session(db, session_id, user.id)
+    if session.user_id != user.id:
+        raise HTTPException(status_code=403, detail="Not your session")
+
+    return {
+        "session_id": session_id,
+        "voice_score_status": session.voice_score_status,
+        "audio_url": session.audio_url,
+    }

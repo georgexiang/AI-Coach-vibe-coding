@@ -48,12 +48,21 @@ class CoachingSession(Base, TimestampMixin):
         Text, nullable=True, default=None
     )  # JSON string
 
+    # Phase 23: Audio storage for voice scoring
+    audio_url: Mapped[str | None] = mapped_column(Text, nullable=True, default=None)
+    voice_score_status: Mapped[str] = mapped_column(
+        String(20), server_default="none"
+    )  # none / pending / processing / completed / failed
+
     # Skill audit trail — snapshot of which Skill was active when session started
     skill_id: Mapped[str | None] = mapped_column(
         String(36), ForeignKey("skills.id", ondelete="SET NULL"), nullable=True, default=None
     )
     skill_version_id: Mapped[str | None] = mapped_column(
-        String(36), ForeignKey("skill_versions.id", ondelete="SET NULL"), nullable=True, default=None
+        String(36),
+        ForeignKey("skill_versions.id", ondelete="SET NULL"),
+        nullable=True,
+        default=None,
     )
 
     # Relationships
