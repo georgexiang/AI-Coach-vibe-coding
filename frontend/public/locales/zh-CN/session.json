@@ -1,0 +1,39 @@
+{
+  "title": "培训会话",
+  "mode": {
+    "text": "文本",
+    "voice": "语音",
+    "digitalHuman": "数字人",
+    "switching": "正在切换模式..."
+  },
+  "guidance": {
+    "startTalking": "点击麦克风按钮开始说话",
+    "switchModes": "您可以随时使用上方按钮切换模式",
+    "endSession": "完成后点击"结束会话"查看评分报告",
+    "micRequired": "语音模式需要麦克风权限"
+  },
+  "textPanel": {
+    "hcpInfo": "HCP 信息",
+    "keyMessages": "关键信息",
+    "scenario": "场景",
+    "specialty": "专业"
+  },
+  "voicePanel": {
+    "connecting": "正在连接语音服务...",
+    "connected": "语音已连接",
+    "disconnected": "语音已断开",
+    "error": "连接错误"
+  },
+  "session": {
+    "chat": {
+      "placeholder": "输入您的消息..."
+    }
+  },
+  "micDenied": "麦克风权限被拒绝，已切换到文本模式。",
+  "micDeniedDetail": "您可以在浏览器设置中启用麦克风权限以使用语音模式。",
+  "endSession": "结束会话",
+  "endSessionConfirm": "确定要结束此会话吗？",
+  "endSessionDescription": "您的对话将被评分，音频将被分析以评估语音质量。",
+  "uploadingAudio": "正在上传会话录音...",
+  "audioUploaded": "会话录音上传成功"
+}

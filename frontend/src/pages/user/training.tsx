@@ -92,7 +92,7 @@ export default function ScenarioSelection() {
   const handleStartVoiceSession = async (scenarioId: string) => {
     try {
       const session = await createSession.mutateAsync({ scenarioId, mode: selectedVoiceMode });
-      navigate(`/user/training/voice?id=${session.id}&mode=${selectedVoiceMode}`);
+      navigate(`/user/training/session?id=${session.id}&mode=${selectedVoiceMode}`);
     } catch {
       // Error handled by TanStack Query
     }

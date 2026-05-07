@@ -57,6 +57,10 @@ vi.mock("@/pages/user/voice-session", () => ({
   default: () => <div>Voice Session</div>,
 }));
 
+vi.mock("@/pages/user/unified-session", () => ({
+  default: () => <div>Unified Session</div>,
+}));
+
 vi.mock("@/pages/admin/hcp-profiles", () => ({
   default: () => <div>HCP Profiles</div>,
 }));

@@ -13,9 +13,8 @@ const ScenarioSelection = lazy(() => import("@/pages/user/training"));
 const ScoringFeedback = lazy(() => import("@/pages/user/scoring-feedback"));
 const SessionHistory = lazy(() => import("@/pages/user/session-history"));
 const UserReportsPage = lazy(() => import("@/pages/user/reports"));
-const TrainingSession = lazy(() => import("@/pages/user/training-session"));
 const ConferenceSession = lazy(() => import("@/pages/user/conference-session"));
-const VoiceSession = lazy(() => import("@/pages/user/voice-session"));
+const UnifiedSession = lazy(() => import("@/pages/user/unified-session"));
 
 const AdminDashboard = lazy(() => import("@/pages/admin/dashboard"));
 const HcpProfilesPage = lazy(() => import("@/pages/admin/hcp-profiles"));
@@ -68,7 +67,7 @@ export const router = createBrowserRouter([
       },
       {
         path: "/user/training/session",
-        element: <SuspensePage><TrainingSession /></SuspensePage>,
+        element: <SuspensePage><UnifiedSession /></SuspensePage>,
       },
       {
         path: "/user/training/conference",
@@ -76,7 +75,7 @@ export const router = createBrowserRouter([
       },
       {
         path: "/user/training/voice",
-        element: <SuspensePage><VoiceSession /></SuspensePage>,
+        element: <Navigate to="/user/training/session" replace />,
       },
       {
         element: <AdminRoute />,
