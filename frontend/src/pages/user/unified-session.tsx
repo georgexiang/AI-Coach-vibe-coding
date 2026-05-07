@@ -52,11 +52,18 @@ export default function UnifiedSession() {
   // Audio recorder for voice capture (D-06)
   const { stopAndGetBlob } = useAudioRecorder();
 
-  // Key messages from session state
-  const keyMessagesStatus: KeyMessageStatus[] = useMemo(
-    () => session?.key_messages_status ?? [],
-    [session?.key_messages_status],
-  );
+  // Key messages from session state (backend returns JSON string)
+  const keyMessagesStatus: KeyMessageStatus[] = useMemo(() => {
+    const raw = session?.key_messages_status;
+    if (!raw) return [];
+    if (Array.isArray(raw)) return raw;
+    try {
+      const parsed = JSON.parse(raw as string);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }, [session?.key_messages_status]);
 
   // Chat messages (placeholder — will be connected to SSE/voice transcript)
   const messages: SessionMessage[] = useMemo(() => [], []);
