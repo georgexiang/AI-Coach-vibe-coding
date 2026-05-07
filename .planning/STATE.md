@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: Phase 21 Complete
-stopped_at: Phase 21 all 3 plans executed and verified
-last_updated: "2026-04-28T07:15:00.000Z"
-last_activity: 2026-04-28
+status: Executing Phase 22
+stopped_at: Phase 23 context gathered
+last_updated: "2026-05-07T13:38:38.181Z"
+last_activity: 2026-05-06
 progress:
-  total_phases: 22
+  total_phases: 24
   completed_phases: 21
-  total_plans: 102
-  completed_plans: 101
-  percent: 99
+  total_plans: 114
+  completed_plans: 107
+  percent: 94
 ---
 
 # Project State
@@ -21,12 +21,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-24)
 
 **Core value:** MRs can practice realistic conversations with AI-powered digital HCPs and receive immediate, multi-dimensional feedback to improve their communication skills -- anytime, without needing a real HCP or trainer.
-**Current focus:** Phase 21 — scoring-criteria-refactor
+**Current focus:** Phase 22 — scenarios
 
 ## Current Position
 
-Phase: 21 (scoring-criteria-refactor) — COMPLETE
-Plan: 3 of 3 (all done)
+Phase: 22 (scenarios) — EXECUTING
+Plan: 1 of 12
 Plans 21-01 (backend model/schema/migration), 21-02 (frontend rubric selector), 21-03 (integration verification) all complete.
 
 ## Performance Metrics
@@ -284,6 +284,7 @@ None yet.
 - Phase 14 added: HCP Agent Refactor — VL Instance Read-Only Reference + Knowledge/Tools Config
 - Phase 17 added: Agent Knowledge Base — Foundry IQ Integration (HCP Agent 知识库管理，Azure AI Search / Foundry IQ 连接，材料自动索引)
 - Phase 19 added: AI Coach Skill Module — Skill 生命周期管理、材料转 Skill、Skill Hub、HCP Agent Skill 分配与 SOP 驱动培训
+- Phase 23 added: Complete training session with digital human — full implementation and refactoring (多语言、UI、数字人、引导、评分完整实现)
 
 ### Quick Tasks Completed
 
@@ -293,7 +294,7 @@ None yet.
 
 ## Session Continuity
 
-Last activity: 2026-04-28
-Last session: 2026-04-28T07:15:00.000Z
-Stopped at: Phase 21 complete — all 3 plans executed
-Resume file: .planning/phases/21-scoring-criteria-refactor/21-03-SUMMARY.md
+Last activity: 2026-05-06
+Last session: 2026-05-07T13:38:38.168Z
+Stopped at: Phase 23 context gathered
+Resume file: .planning/phases/23-complete-training-session-with-digital-human-full-implementa/23-CONTEXT.md
