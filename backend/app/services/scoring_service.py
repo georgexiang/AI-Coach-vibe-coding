@@ -235,6 +235,75 @@ async def get_score_history(db: AsyncSession, user_id: str, limit: int = 10) -> 
     return history
 
 
+async def get_combined_score_report(
+    db: AsyncSession, session_id: str, user_id: str
+) -> dict:
+    """Get combined content + voice scoring report for a session (D-09, D-11).
+
+    Separates ScoreDetail records by category and computes combined overall score.
+    Content weighted 70%, voice weighted 30% when voice scores exist.
+    """
+    result = await db.execute(
+        select(CoachingSession)
+        .options(
+            selectinload(CoachingSession.score).selectinload(SessionScore.details),
+        )
+        .where(CoachingSession.id == session_id)
+    )
+    session = result.scalar_one_or_none()
+    if not session:
+        raise NotFoundException("Session not found")
+    if session.user_id != user_id:
+        raise AppException(
+            status_code=403, code="FORBIDDEN", message="Not your session"
+        )
+
+    score = session.score
+    if not score:
+        raise NotFoundException("Score not found for session")
+
+    content_dims = [d for d in score.details if d.category == "content"]
+    voice_dims = [d for d in score.details if d.category == "voice"]
+
+    content_score = score.overall_score or 0
+    voice_score = 0.0
+    if voice_dims:
+        total_weight = sum(d.weight for d in voice_dims)
+        if total_weight > 0:
+            voice_score = sum(d.score * d.weight for d in voice_dims) / total_weight
+
+    combined_score = (
+        content_score
+        if not voice_dims
+        else (content_score * 0.7 + voice_score * 0.3)
+    )
+
+    strengths = (
+        json.loads(score.feedback_summary)
+        if score.feedback_summary.startswith("[")
+        else []
+    )
+
+    return {
+        "session_id": session_id,
+        "overall_score": content_score,
+        "overall_combined_score": round(combined_score, 1),
+        "passed": score.passed,
+        "content_dimensions": content_dims,
+        "voice_dimensions": voice_dims,
+        "voice_summary": {
+            "overall_voice_score": round(voice_score, 1),
+            "voice_score_status": session.voice_score_status,
+            "dimensions": voice_dims,
+        },
+        "strengths": strengths if isinstance(strengths, list) else [],
+        "weaknesses": [],
+        "suggestions": [],
+        "feedback_summary": score.feedback_summary,
+        "audio_url": session.audio_url,
+    }
+
+
 def _extract_skill_criteria(skill: Skill | None) -> str:
     """Extract assessment criteria section from Skill content for scoring enrichment.
 

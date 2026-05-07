@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies import get_current_user, get_db
 from app.models.user import User
-from app.schemas.score import SessionScoreResponse
+from app.schemas.score import CombinedScoreReport, SessionScoreResponse
 from app.services import scoring_service, session_service
 from app.utils.exceptions import NotFoundException
 
@@ -56,3 +56,19 @@ async def get_session_score(
     if score is None:
         raise NotFoundException("Session has not been scored yet")
     return score
+
+
+@router.get(
+    "/sessions/{session_id}/combined-report",
+    response_model=CombinedScoreReport,
+)
+async def get_combined_report(
+    session_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Get combined content + voice scoring report (D-09, D-11)."""
+    report = await scoring_service.get_combined_score_report(
+        db, session_id, user.id
+    )
+    return report
