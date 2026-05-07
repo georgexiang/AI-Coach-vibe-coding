@@ -513,6 +513,108 @@ class TestCloneScenarioEndpoint:
         assert data["skill_id"] == skill_id
 
 
+class TestActiveScenarioProtection:
+    """Tests that active scenarios block changes to critical fields."""
+
+    async def _make_active_scenario(self, client, token, user_id):
+        """Helper: create scenario and transition to active."""
+        hcp_id = await _create_hcp_profile(client, token, user_id)
+        skill_id = await _create_skill(user_id)
+        create_resp = await client.post(
+            "/api/v1/scenarios",
+            json={
+                "name": "Protected Active",
+                "hcp_profile_id": hcp_id,
+                "rubric_id": "test-rubric-id",
+                "skill_id": skill_id,
+            },
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        scn_id = create_resp.json()["id"]
+        await client.post(
+            f"/api/v1/scenarios/{scn_id}/transition",
+            json={"status": "active"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        return scn_id, hcp_id, skill_id
+
+    async def test_active_blocks_hcp_change(self, client):
+        """Cannot change hcp_profile_id on an active scenario."""
+        user_id, token = await _create_admin_and_token()
+        scn_id, _, _ = await self._make_active_scenario(client, token, user_id)
+
+        response = await client.put(
+            f"/api/v1/scenarios/{scn_id}",
+            json={"hcp_profile_id": "some-other-hcp"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 422
+        assert "hcp_profile_id" in response.json()["message"]
+
+    async def test_active_blocks_skill_change(self, client):
+        """Cannot change skill_id on an active scenario."""
+        user_id, token = await _create_admin_and_token()
+        scn_id, _, _ = await self._make_active_scenario(client, token, user_id)
+
+        response = await client.put(
+            f"/api/v1/scenarios/{scn_id}",
+            json={"skill_id": "some-other-skill"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 422
+        assert "skill_id" in response.json()["message"]
+
+    async def test_active_blocks_key_messages_change(self, client):
+        """Cannot change key_messages on an active scenario."""
+        user_id, token = await _create_admin_and_token()
+        scn_id, _, _ = await self._make_active_scenario(client, token, user_id)
+
+        response = await client.put(
+            f"/api/v1/scenarios/{scn_id}",
+            json={"key_messages": ["new msg"]},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 422
+        assert "key_messages" in response.json()["message"]
+
+    async def test_active_allows_name_change(self, client):
+        """Can still change name/description/tags on an active scenario."""
+        user_id, token = await _create_admin_and_token()
+        scn_id, _, _ = await self._make_active_scenario(client, token, user_id)
+
+        response = await client.put(
+            f"/api/v1/scenarios/{scn_id}",
+            json={"name": "Renamed Active", "description": "Updated", "tags": ["new-tag"]},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 200
+        assert response.json()["name"] == "Renamed Active"
+
+    async def test_draft_allows_all_changes(self, client):
+        """Draft scenarios allow changing any field."""
+        user_id, token = await _create_admin_and_token()
+        hcp_id = await _create_hcp_profile(client, token, user_id)
+        skill_id = await _create_skill(user_id)
+        create_resp = await client.post(
+            "/api/v1/scenarios",
+            json={
+                "name": "Draft Editable",
+                "hcp_profile_id": hcp_id,
+                "rubric_id": "test-rubric-id",
+                "skill_id": skill_id,
+            },
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        scn_id = create_resp.json()["id"]
+
+        response = await client.put(
+            f"/api/v1/scenarios/{scn_id}",
+            json={"key_messages": ["new msg"], "skill_id": skill_id},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 200
+
+
 class TestHcpProfileInResponse:
     """Tests that hcp_profile is included in all scenario API responses."""
 

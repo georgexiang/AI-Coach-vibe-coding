@@ -197,6 +197,17 @@ async def update_scenario(db: AsyncSession, scenario_id: str, data: ScenarioUpda
         bad_request("Cannot edit an archived scenario. Clone it to create a new draft.")
     update_data = data.model_dump(exclude_unset=True)
 
+    # Active scenarios: block changes to critical fields (HCP, Skill, Rubric, key_messages)
+    # These affect live training sessions. To change them, archive → clone → edit draft.
+    if scenario.status == "active":
+        protected_fields = {"hcp_profile_id", "skill_id", "rubric_id", "key_messages"}
+        attempted = protected_fields & set(update_data.keys())
+        if attempted:
+            bad_request(
+                f"Cannot change {', '.join(sorted(attempted))} on an active scenario. "
+                "Archive it first, then clone to create a new draft."
+            )
+
     # Serialize list fields to JSON strings
     if "key_messages" in update_data and isinstance(update_data["key_messages"], list):
         update_data["key_messages"] = json.dumps(update_data["key_messages"])
