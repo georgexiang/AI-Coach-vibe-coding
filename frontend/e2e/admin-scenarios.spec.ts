@@ -251,6 +251,33 @@ test.describe("Admin Scenarios Management", () => {
     expect(rowCount).toBeGreaterThan(0);
   });
 
+  test("scenario list displays HCP name in HCP column", async ({ page }) => {
+    // Wait for data to load
+    await page.waitForTimeout(2000);
+
+    // The table should have at least one row
+    const tableRows = page.locator("tbody tr");
+    const rowCount = await tableRows.count();
+    expect(rowCount).toBeGreaterThan(0);
+
+    // Check that at least one row shows an HCP name (not just "-")
+    // HCP column contains avatar + name text
+    const hcpCells = page.locator("tbody tr td:nth-child(3)");
+    const cellCount = await hcpCells.count();
+    let foundHcpName = false;
+
+    for (let i = 0; i < cellCount; i++) {
+      const cellText = await hcpCells.nth(i).textContent();
+      if (cellText && cellText.trim() !== "-" && cellText.trim() !== "") {
+        foundHcpName = true;
+        break;
+      }
+    }
+
+    // If seeded scenarios have HCP profiles linked, at least one should display
+    expect(foundHcpName).toBe(true);
+  });
+
   test("delete scenario shows confirmation dialog", async ({ page }) => {
     // Wait for table rows to load
     await page.waitForTimeout(1000);

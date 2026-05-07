@@ -511,3 +511,169 @@ class TestCloneScenarioEndpoint:
         assert data["id"] != scn_id
         assert data["tags"] == ["product:Drug"]
         assert data["skill_id"] == skill_id
+
+
+class TestHcpProfileInResponse:
+    """Tests that hcp_profile is included in all scenario API responses."""
+
+    async def test_create_returns_hcp_profile(self, client):
+        """POST /scenarios returns nested hcp_profile with name."""
+        user_id, token = await _create_admin_and_token()
+        hcp_id = await _create_hcp_profile(client, token, user_id)
+        skill_id = await _create_skill(user_id)
+
+        response = await client.post(
+            "/api/v1/scenarios",
+            json={
+                "name": "HCP Test Create",
+                "hcp_profile_id": hcp_id,
+                "rubric_id": "test-rubric-id",
+                "skill_id": skill_id,
+            },
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 201
+        data = response.json()
+        assert data["hcp_profile"] is not None
+        assert data["hcp_profile"]["id"] == hcp_id
+        assert data["hcp_profile"]["name"] == "Dr. Scn"
+
+    async def test_list_returns_hcp_profile(self, client):
+        """GET /scenarios list includes hcp_profile in each item."""
+        user_id, token = await _create_admin_and_token()
+        hcp_id = await _create_hcp_profile(client, token, user_id)
+        skill_id = await _create_skill(user_id)
+
+        await client.post(
+            "/api/v1/scenarios",
+            json={
+                "name": "HCP Test List",
+                "hcp_profile_id": hcp_id,
+                "rubric_id": "test-rubric-id",
+                "skill_id": skill_id,
+            },
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        response = await client.get(
+            "/api/v1/scenarios",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 200
+        items = response.json()["items"]
+        assert len(items) >= 1
+        item = next(i for i in items if i["name"] == "HCP Test List")
+        assert item["hcp_profile"] is not None
+        assert item["hcp_profile"]["id"] == hcp_id
+        assert item["hcp_profile"]["name"] == "Dr. Scn"
+
+    async def test_get_by_id_returns_hcp_profile(self, client):
+        """GET /scenarios/{id} includes hcp_profile."""
+        user_id, token = await _create_admin_and_token()
+        hcp_id = await _create_hcp_profile(client, token, user_id)
+        skill_id = await _create_skill(user_id)
+
+        create_resp = await client.post(
+            "/api/v1/scenarios",
+            json={
+                "name": "HCP Test Get",
+                "hcp_profile_id": hcp_id,
+                "rubric_id": "test-rubric-id",
+                "skill_id": skill_id,
+            },
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        scn_id = create_resp.json()["id"]
+
+        response = await client.get(
+            f"/api/v1/scenarios/{scn_id}",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["hcp_profile"] is not None
+        assert data["hcp_profile"]["name"] == "Dr. Scn"
+
+    async def test_update_returns_hcp_profile(self, client):
+        """PUT /scenarios/{id} returns hcp_profile after update."""
+        user_id, token = await _create_admin_and_token()
+        hcp_id = await _create_hcp_profile(client, token, user_id)
+        skill_id = await _create_skill(user_id)
+
+        create_resp = await client.post(
+            "/api/v1/scenarios",
+            json={
+                "name": "HCP Test Update",
+                "hcp_profile_id": hcp_id,
+                "rubric_id": "test-rubric-id",
+                "skill_id": skill_id,
+            },
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        scn_id = create_resp.json()["id"]
+
+        response = await client.put(
+            f"/api/v1/scenarios/{scn_id}",
+            json={"name": "Updated Name"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["hcp_profile"] is not None
+        assert data["hcp_profile"]["id"] == hcp_id
+
+    async def test_clone_returns_hcp_profile(self, client):
+        """POST /scenarios/{id}/clone returns hcp_profile on cloned scenario."""
+        user_id, token = await _create_admin_and_token()
+        hcp_id = await _create_hcp_profile(client, token, user_id)
+        skill_id = await _create_skill(user_id)
+
+        create_resp = await client.post(
+            "/api/v1/scenarios",
+            json={
+                "name": "HCP Test Clone",
+                "hcp_profile_id": hcp_id,
+                "rubric_id": "test-rubric-id",
+                "skill_id": skill_id,
+            },
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        scn_id = create_resp.json()["id"]
+
+        response = await client.post(
+            f"/api/v1/scenarios/{scn_id}/clone",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 201
+        data = response.json()
+        assert data["hcp_profile"] is not None
+        assert data["hcp_profile"]["id"] == hcp_id
+        assert data["hcp_profile"]["name"] == "Dr. Scn"
+
+    async def test_transition_returns_hcp_profile(self, client):
+        """POST /scenarios/{id}/transition returns hcp_profile."""
+        user_id, token = await _create_admin_and_token()
+        hcp_id = await _create_hcp_profile(client, token, user_id)
+        skill_id = await _create_skill(user_id)
+
+        create_resp = await client.post(
+            "/api/v1/scenarios",
+            json={
+                "name": "HCP Test Transition",
+                "hcp_profile_id": hcp_id,
+                "rubric_id": "test-rubric-id",
+                "skill_id": skill_id,
+            },
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        scn_id = create_resp.json()["id"]
+
+        response = await client.post(
+            f"/api/v1/scenarios/{scn_id}/transition",
+            json={"status": "active"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["hcp_profile"] is not None
+        assert data["hcp_profile"]["id"] == hcp_id
