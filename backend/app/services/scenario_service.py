@@ -73,6 +73,16 @@ async def _trigger_agent_resync(db: AsyncSession, hcp_profile_id: str) -> None:
         logger.warning("Agent re-sync after skill assignment failed: %s", e)
 
 
+async def _reload_with_hcp(db: AsyncSession, scenario_id: str) -> Scenario:
+    """Re-load a scenario with eagerly-loaded HCP profile after a mutation."""
+    result = await db.execute(
+        select(Scenario)
+        .options(selectinload(Scenario.hcp_profile))
+        .where(Scenario.id == scenario_id)
+    )
+    return result.scalar_one()
+
+
 async def create_scenario(db: AsyncSession, data: ScenarioCreate, user_id: str) -> Scenario:
     """Create a new scenario. Verifies the referenced HCP profile exists."""
     # Verify HCP profile exists
@@ -101,7 +111,7 @@ async def create_scenario(db: AsyncSession, data: ScenarioCreate, user_id: str) 
     if skill_id:
         await _trigger_agent_resync(db, scenario.hcp_profile_id)
 
-    return scenario
+    return await _reload_with_hcp(db, scenario.id)
 
 
 async def get_scenarios(
@@ -177,8 +187,7 @@ async def transition_scenario_status(
         )
     scenario.status = new_status
     await db.flush()
-    await db.refresh(scenario)
-    return scenario
+    return await _reload_with_hcp(db, scenario.id)
 
 
 async def update_scenario(db: AsyncSession, scenario_id: str, data: ScenarioUpdate) -> Scenario:
@@ -212,13 +221,12 @@ async def update_scenario(db: AsyncSession, scenario_id: str, data: ScenarioUpda
         setattr(scenario, field, value)
 
     await db.flush()
-    await db.refresh(scenario)
 
     # Trigger agent re-sync if skill changed
     if skill_changed:
         await _trigger_agent_resync(db, scenario.hcp_profile_id)
 
-    return scenario
+    return await _reload_with_hcp(db, scenario.id)
 
 
 async def delete_scenario(db: AsyncSession, scenario_id: str) -> None:
@@ -249,5 +257,4 @@ async def clone_scenario(db: AsyncSession, scenario_id: str, user_id: str) -> Sc
     )
     db.add(clone)
     await db.flush()
-    await db.refresh(clone)
-    return clone
+    return await _reload_with_hcp(db, clone.id)

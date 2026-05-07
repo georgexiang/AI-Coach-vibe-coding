@@ -1,6 +1,8 @@
 """Scenario CRUD API router: admin management of training scenarios."""
 
 import json
+from datetime import datetime
+from typing import Any
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import Response
@@ -16,6 +18,16 @@ from app.utils.pagination import PaginatedResponse
 router = APIRouter(prefix="/scenarios", tags=["scenarios"])
 
 
+class HcpProfileBrief(BaseModel):
+    """Minimal HCP profile data for scenario list display."""
+
+    id: str
+    name: str
+    avatar_url: str = ""
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class ScenarioOut(BaseModel):
     """Scenario response with JSON list fields parsed to Python lists."""
 
@@ -27,6 +39,7 @@ class ScenarioOut(BaseModel):
     difficulty: str
     status: str
     hcp_profile_id: str
+    hcp_profile: HcpProfileBrief | None = None
     key_messages: list[str]
     skill_id: str
     skill_version_id: str | None = None
@@ -48,9 +61,9 @@ class ScenarioOut(BaseModel):
 
     @field_validator("created_at", "updated_at", mode="before")
     @classmethod
-    def datetime_to_str(cls, v: object) -> str:
+    def datetime_to_str(cls, v: Any) -> str:
         """Convert datetime to ISO string."""
-        if hasattr(v, "isoformat"):
+        if isinstance(v, datetime):
             return v.isoformat()
         return str(v)
 
