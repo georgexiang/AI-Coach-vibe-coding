@@ -38,14 +38,14 @@ export function VoicePanel({
       {voiceConnectionState === "connecting" && (
         <div className="mb-4 flex items-center gap-2 text-white/70">
           <Loader2 className="h-4 w-4 animate-spin" />
-          <span className="text-sm">{t("session.voice.connecting")}</span>
+          <span className="text-sm">{t("voicePanel.connecting")}</span>
         </div>
       )}
 
       {voiceConnectionState === "error" && (
         <div className="mb-4 flex items-center gap-2 text-destructive">
           <WifiOff className="h-4 w-4" />
-          <span className="text-sm">{t("session.voice.connectionError")}</span>
+          <span className="text-sm">{t("voicePanel.error")}</span>
         </div>
       )}
 
@@ -59,9 +59,9 @@ export function VoicePanel({
       {/* Status label */}
       <p className="mt-6 text-sm text-white/60">
         {voiceConnectionState === "connected"
-          ? t("session.voice.ready")
+          ? t("voicePanel.connected")
           : voiceConnectionState === "disconnected"
-            ? t("session.voice.idle")
+            ? t("voicePanel.disconnected")
             : ""}
       </p>
     </div>

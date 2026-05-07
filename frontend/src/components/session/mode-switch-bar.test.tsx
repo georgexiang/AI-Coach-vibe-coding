@@ -26,9 +26,9 @@ describe("ModeSwitchBar", () => {
   it("shows i18n labels for each mode", () => {
     render(<ModeSwitchBar {...defaultProps} />);
 
-    expect(screen.getByText("session.mode.text")).toBeInTheDocument();
-    expect(screen.getByText("session.mode.voice")).toBeInTheDocument();
-    expect(screen.getByText("session.mode.digitalHuman")).toBeInTheDocument();
+    expect(screen.getByText("mode.text")).toBeInTheDocument();
+    expect(screen.getByText("mode.voice")).toBeInTheDocument();
+    expect(screen.getByText("mode.digitalHuman")).toBeInTheDocument();
   });
 
   it("disables current mode button", () => {

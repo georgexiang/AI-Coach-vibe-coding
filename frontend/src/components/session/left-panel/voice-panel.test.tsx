@@ -36,7 +36,7 @@ describe("VoicePanel", () => {
       />,
     );
 
-    expect(screen.getByText("session.voice.connecting")).toBeInTheDocument();
+    expect(screen.getByText("voicePanel.connecting")).toBeInTheDocument();
   });
 
   it("shows error message on connection error", () => {
@@ -49,7 +49,7 @@ describe("VoicePanel", () => {
     );
 
     expect(
-      screen.getByText("session.voice.connectionError"),
+      screen.getByText("voicePanel.error"),
     ).toBeInTheDocument();
   });
 
@@ -62,7 +62,7 @@ describe("VoicePanel", () => {
       />,
     );
 
-    expect(screen.getByText("session.voice.ready")).toBeInTheDocument();
+    expect(screen.getByText("voicePanel.connected")).toBeInTheDocument();
   });
 
   it("shows idle label when disconnected", () => {
@@ -74,7 +74,7 @@ describe("VoicePanel", () => {
       />,
     );
 
-    expect(screen.getByText("session.voice.idle")).toBeInTheDocument();
+    expect(screen.getByText("voicePanel.disconnected")).toBeInTheDocument();
   });
 
   it("applies dark background styling", () => {

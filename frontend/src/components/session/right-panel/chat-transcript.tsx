@@ -92,7 +92,7 @@ export function ChatTranscript({
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={t("session.chat.placeholder")}
+              placeholder={t("chat.placeholder")}
               className="min-h-[40px] max-h-[120px] resize-none"
               rows={1}
               data-testid="chat-input"

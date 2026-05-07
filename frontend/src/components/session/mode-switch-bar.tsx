@@ -16,9 +16,9 @@ const MODE_CONFIG: {
   icon: typeof MessageSquare;
   labelKey: string;
 }[] = [
-  { mode: "text", icon: MessageSquare, labelKey: "session.mode.text" },
-  { mode: "voice", icon: Mic, labelKey: "session.mode.voice" },
-  { mode: "digital_human", icon: User, labelKey: "session.mode.digitalHuman" },
+  { mode: "text", icon: MessageSquare, labelKey: "mode.text" },
+  { mode: "voice", icon: Mic, labelKey: "mode.voice" },
+  { mode: "digital_human", icon: User, labelKey: "mode.digitalHuman" },
 ];
 
 /**

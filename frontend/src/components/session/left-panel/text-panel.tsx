@@ -45,7 +45,7 @@ export function TextPanel({
       {/* Scenario Description */}
       <div>
         <h4 className="mb-2 text-xs font-medium uppercase text-muted-foreground">
-          {t("session.textPanel.scenario")}
+          {t("textPanel.scenario")}
         </h4>
         <p className="text-sm leading-relaxed text-foreground/80">
           {scenarioDescription}
@@ -55,7 +55,7 @@ export function TextPanel({
       {/* Key Messages */}
       <div>
         <h4 className="mb-3 text-xs font-medium uppercase text-muted-foreground">
-          {t("session.textPanel.keyMessages")}
+          {t("textPanel.keyMessages")}
         </h4>
         <KeyMessages messages={keyMessagesStatus} />
       </div>

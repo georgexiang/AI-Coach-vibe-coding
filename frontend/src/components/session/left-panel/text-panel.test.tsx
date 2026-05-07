@@ -55,9 +55,9 @@ describe("TextPanel", () => {
 
   it("uses i18n keys for section headers", () => {
     render(<TextPanel {...defaultProps} />);
-    expect(screen.getByText("session.textPanel.scenario")).toBeInTheDocument();
+    expect(screen.getByText("textPanel.scenario")).toBeInTheDocument();
     expect(
-      screen.getByText("session.textPanel.keyMessages"),
+      screen.getByText("textPanel.keyMessages"),
     ).toBeInTheDocument();
   });
 });

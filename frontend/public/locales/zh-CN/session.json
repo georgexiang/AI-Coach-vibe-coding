@@ -10,7 +10,8 @@
     "startTalking": "点击麦克风按钮开始说话",
     "switchModes": "您可以随时使用上方按钮切换模式",
     "endSession": "完成后点击"结束会话"查看评分报告",
-    "micRequired": "语音模式需要麦克风权限"
+    "micRequired": "语音模式需要麦克风权限",
+    "dismiss": "关闭"
   },
   "textPanel": {
     "hcpInfo": "HCP 信息",
@@ -24,10 +25,12 @@
     "disconnected": "语音已断开",
     "error": "连接错误"
   },
-  "session": {
-    "chat": {
-      "placeholder": "输入您的消息..."
-    }
+  "chat": {
+    "placeholder": "输入您的消息..."
+  },
+  "loading": "正在加载会话...",
+  "error": {
+    "loadFailed": "会话加载失败，请重试。"
   },
   "micDenied": "麦克风权限被拒绝，已切换到文本模式。",
   "micDeniedDetail": "您可以在浏览器设置中启用麦克风权限以使用语音模式。",

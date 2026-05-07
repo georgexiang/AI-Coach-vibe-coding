@@ -10,7 +10,8 @@
     "startTalking": "Click the microphone button to start talking",
     "switchModes": "You can switch between modes anytime using the buttons above",
     "endSession": "Click 'End Session' when you're done to see your score report",
-    "micRequired": "Microphone access is required for voice mode"
+    "micRequired": "Microphone access is required for voice mode",
+    "dismiss": "Dismiss"
   },
   "textPanel": {
     "hcpInfo": "HCP Information",
@@ -24,10 +25,12 @@
     "disconnected": "Voice disconnected",
     "error": "Connection error"
   },
-  "session": {
-    "chat": {
-      "placeholder": "Type your message..."
-    }
+  "chat": {
+    "placeholder": "Type your message..."
+  },
+  "loading": "Loading session...",
+  "error": {
+    "loadFailed": "Failed to load session. Please try again."
   },
   "micDenied": "Microphone permission denied. Switching to text mode.",
   "micDeniedDetail": "You can enable microphone access in your browser settings to use voice mode.",

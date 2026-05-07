@@ -86,7 +86,7 @@ export default function UnifiedSession() {
         <div className="flex flex-col items-center gap-4">
           <AlertTriangle className="h-10 w-10 text-destructive" />
           <p className="text-sm text-muted-foreground">
-            {t("session.error.loadFailed")}
+            {t("error.loadFailed")}
           </p>
           <Button
             variant="outline"
@@ -106,7 +106,7 @@ export default function UnifiedSession() {
         <div className="flex flex-col items-center gap-3">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
           <p className="text-sm text-muted-foreground">
-            {t("session.loading")}
+            {t("loading")}
           </p>
         </div>
       </div>
@@ -121,7 +121,7 @@ export default function UnifiedSession() {
   const header = (
     <header className="flex h-14 shrink-0 items-center justify-between border-b px-4">
       <span className="text-sm font-medium truncate max-w-[200px]">
-        {scenario?.name ?? t("session.title")}
+        {scenario?.name ?? t("title")}
       </span>
       <ModeSwitchBar
         currentMode={mode}
@@ -134,7 +134,7 @@ export default function UnifiedSession() {
         onClick={handleEndSession}
         data-testid="end-session-btn"
       >
-        {t("session.endSession")}
+        {t("endSession")}
       </Button>
     </header>
   );

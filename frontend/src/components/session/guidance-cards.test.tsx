@@ -138,14 +138,14 @@ describe("GuidanceCards", () => {
     ).toBeInTheDocument();
   });
 
-  it("uses session.guidance i18n keys", () => {
+  it("uses guidance i18n keys", () => {
     render(<GuidanceCards {...baseProps} />);
 
     expect(
-      screen.getByText("session.guidance.startTalking"),
+      screen.getByText("guidance.startTalking"),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("session.guidance.switchModes"),
+      screen.getByText("guidance.switchModes"),
     ).toBeInTheDocument();
   });
 });

@@ -20,18 +20,18 @@ interface CardConfig {
 const CARD_CONFIGS: CardConfig[] = [
   {
     id: "start-talking",
-    messageKey: "session.guidance.startTalking",
+    messageKey: "guidance.startTalking",
     show: ({ mode, isConnected }) =>
       (mode === "voice" || mode === "digital_human") && isConnected,
   },
   {
     id: "switch-modes",
-    messageKey: "session.guidance.switchModes",
+    messageKey: "guidance.switchModes",
     show: ({ modeTransitions }) => modeTransitions.length === 0,
   },
   {
     id: "end-session",
-    messageKey: "session.guidance.endSession",
+    messageKey: "guidance.endSession",
     show: ({ modeTransitions }) => modeTransitions.length >= 2,
   },
 ];
@@ -102,7 +102,7 @@ export function GuidanceCards(props: GuidanceCardsProps) {
             type="button"
             onClick={() => dismissCard(card.id)}
             className="ml-auto shrink-0 text-muted-foreground hover:text-foreground"
-            aria-label={t("session.guidance.dismiss")}
+            aria-label={t("guidance.dismiss")}
           >
             <X className="h-4 w-4" />
           </button>
