@@ -64,6 +64,23 @@
   "mode": "模式",
   "date": "日期",
   "scoringInProgress": "评分中...",
+  "voiceScore": {
+    "title": "语音分析",
+    "processing": "语音分析进行中...",
+    "failed": "语音评分未能完成。",
+    "sessionRecording": "会话录音",
+    "audioNotSupported": "您的浏览器不支持音频播放。",
+    "dimensions": {
+      "clarity": "清晰度",
+      "pace": "语速",
+      "confidence": "自信度",
+      "engagement": "互动性",
+      "articulation": "发音"
+    }
+  },
+  "combinedScore": "综合评分",
+  "contentWeight": "内容 (70%)",
+  "voiceWeight": "语音 (30%)",
   "errors": {
     "scoringFailed": "评分未能完成，请尝试重新结束会话。"
   }

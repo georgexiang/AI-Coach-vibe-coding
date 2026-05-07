@@ -11,6 +11,8 @@ import { ReportSection } from "@/components/scoring/report-section";
 import { useSessionScore, useTriggerScoring, useScoreHistory } from "@/hooks/use-scoring";
 import { useSessionReport } from "@/hooks/use-reports";
 import { useSession } from "@/hooks/use-session";
+import { useCombinedScore } from "@/hooks/use-combined-score";
+import { VoiceScoreSection } from "@/components/scoring/voice-score-section";
 
 export default function ScoringFeedback() {
   const { t } = useTranslation("scoring");
@@ -26,6 +28,9 @@ export default function ScoringFeedback() {
 
   // Load full report only when score is available
   const { data: report } = useSessionReport(score ? sessionId : undefined);
+
+  // Load combined score report (includes voice scoring)
+  const { data: combinedReport } = useCombinedScore(score ? sessionId : undefined);
 
   // Load score history for RadarChart overlay
   const { data: history } = useScoreHistory(5);
@@ -146,6 +151,16 @@ export default function ScoringFeedback() {
           </div>
         </ScrollArea>
       </div>
+
+      {/* Voice score section (D-09, D-11) */}
+      {combinedReport && (
+        <VoiceScoreSection
+          dimensions={combinedReport.voice_summary.dimensions}
+          overallVoiceScore={combinedReport.voice_summary.overall_voice_score}
+          voiceScoreStatus={combinedReport.voice_summary.voice_score_status}
+          audioUrl={combinedReport.audio_url}
+        />
+      )}
 
       {/* Report: Improvement priorities and key messages */}
       {report && (

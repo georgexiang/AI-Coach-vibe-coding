@@ -64,6 +64,23 @@
   "mode": "Mode",
   "date": "Date",
   "scoringInProgress": "Scoring in progress...",
+  "voiceScore": {
+    "title": "Voice Analysis",
+    "processing": "Voice analysis in progress...",
+    "failed": "Voice scoring could not be completed.",
+    "sessionRecording": "Session Recording",
+    "audioNotSupported": "Your browser does not support audio playback.",
+    "dimensions": {
+      "clarity": "Clarity",
+      "pace": "Pace",
+      "confidence": "Confidence",
+      "engagement": "Engagement",
+      "articulation": "Articulation"
+    }
+  },
+  "combinedScore": "Combined Score",
+  "contentWeight": "Content (70%)",
+  "voiceWeight": "Voice (30%)",
   "errors": {
     "scoringFailed": "Scoring could not be completed. Try ending the session again."
   }
