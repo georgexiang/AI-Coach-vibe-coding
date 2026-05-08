@@ -213,6 +213,9 @@ describe("ScenarioSelection Filters and Actions", () => {
   it("filters scenarios by search term matching description", async () => {
     scenarioData = twoScenarios;
     renderPage();
+    // Switch to Conference tab to see the conference scenario
+    const confTab = screen.getByText("scenarioSelection.tabConference");
+    await userEvent.setup().click(confTab);
     const input = screen.getByPlaceholderText("scenarioSelection.searchPlaceholder");
     await userEvent.setup().type(input, "Test 2");
     expect(screen.queryByText("F2F Scenario")).not.toBeInTheDocument();
@@ -241,11 +244,11 @@ describe("ScenarioSelection Filters and Actions", () => {
     const confTab = screen.getByText("scenarioSelection.tabConference");
     await userEvent.setup().click(confTab);
 
-    // Click start on a scenario card in Conference tab
+    // Click start on the conference scenario card (sc-2 is mode: "conference")
     const startBtns = screen.getAllByText("Start");
     await userEvent.setup().click(startBtns[0]!);
 
-    expect(mockMutateAsync).toHaveBeenCalledWith({ scenarioId: "sc-1" });
+    expect(mockMutateAsync).toHaveBeenCalledWith({ scenarioId: "sc-2" });
     expect(mockNavigate).toHaveBeenCalledWith("/user/training/conference?id=conf-session-1");
   });
 

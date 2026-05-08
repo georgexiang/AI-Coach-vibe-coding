@@ -125,7 +125,7 @@ export default function ScenarioSelection() {
     </div>
   );
 
-  const renderGrid = (onStart: (scenarioId: string) => void) => {
+  const renderGrid = (mode: "f2f" | "conference", onStart: (scenarioId: string) => void) => {
     if (isLoading) {
       return (
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -143,7 +143,9 @@ export default function ScenarioSelection() {
       );
     }
 
-    if (filteredScenarios.length === 0) {
+    const modeScenarios = filteredScenarios.filter((s) => s.mode === mode);
+
+    if (modeScenarios.length === 0) {
       return (
         <EmptyState
           title={t("scenarioSelection.emptyTitle")}
@@ -154,7 +156,7 @@ export default function ScenarioSelection() {
 
     return (
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {filteredScenarios.map((scenario) => (
+        {modeScenarios.map((scenario) => (
           <ScenarioCard
             key={scenario.id}
             scenario={scenario}
@@ -183,12 +185,12 @@ export default function ScenarioSelection() {
 
         <TabsContent value="f2f" className="mt-6">
           {filterRow}
-          {renderGrid(handleStartTraining)}
+          {renderGrid("f2f", handleStartTraining)}
         </TabsContent>
 
         <TabsContent value="conference" className="mt-6">
           {filterRow}
-          {renderGrid(handleStartConference)}
+          {renderGrid("conference", handleStartConference)}
         </TabsContent>
       </Tabs>
     </div>
