@@ -169,18 +169,22 @@ async def end_session(db: AsyncSession, session_id: str, user_id: str) -> Coachi
             code="FORBIDDEN",
             message="Session does not belong to this user",
         )
-    if session.status != "in_progress":
+    if session.status not in ("created", "in_progress"):
         raise AppException(
             status_code=409,
             code="INVALID_STATUS",
             message=f"Cannot end session with status '{session.status}'. "
-            "Only in_progress sessions can be ended.",
+            "Only created or in_progress sessions can be ended.",
         )
 
     now = datetime.now(UTC)
     session.status = "completed"
     session.completed_at = now
-    if session.started_at:
+    if not session.started_at:
+        # Session was ended directly from "created" (no messages sent)
+        session.started_at = now
+        session.duration_seconds = 0
+    else:
         started = session.started_at
         # Handle timezone-naive datetimes from SQLite
         if started.tzinfo is None:
