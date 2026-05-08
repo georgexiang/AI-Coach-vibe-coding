@@ -225,10 +225,17 @@ export default function UnifiedSession() {
     }
   }, [scenario, keyMessagesStatus.length]);
 
-  // Voice initialization
-  const initVoice = useCallback(async () => {
-    log.info("initVoice: scenarioId=%s", session?.scenario_id);
+  // Ref to track stopVoiceSession for unmount cleanup
+  const stopVoiceSessionRef = useRef(stopVoiceSession);
+  stopVoiceSessionRef.current = stopVoiceSession;
+
+  // Start session handler — directly initiates voice (no useEffect indirection)
+  // Matches the VoiceTestPlayground pattern where startVoiceSession is called
+  // directly in the click handler, avoiding stale closure issues.
+  const handleStartSession = useCallback(async () => {
+    setSessionStarted(true);
     setIsConnecting(true);
+    log.info("handleStartSession: scenarioId=%s hcpProfileId=%s", session?.scenario_id, scenario?.hcp_profile_id);
     try {
       const hcpProfileId = scenario?.hcp_profile_id ?? "";
       const result = await startVoiceSession({
@@ -260,23 +267,14 @@ export default function UnifiedSession() {
     } finally {
       setIsConnecting(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scenario?.hcp_profile_id, startVoiceSession]);
+  }, [scenario?.hcp_profile_id, session?.scenario_id, startVoiceSession, t, tv, log]);
 
-  // Start session handler
-  const handleStartSession = useCallback(() => {
-    setSessionStarted(true);
-  }, []);
-
-  // Connect voice + digital human when session starts
+  // Cleanup on unmount — disconnect voice and avatar
   useEffect(() => {
-    if (!sessionStarted) return;
-    void initVoice();
     return () => {
-      void stopVoiceSession();
+      void stopVoiceSessionRef.current();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionStarted]);
+  }, []);
 
   // End session handler
   const handleEndSession = useCallback(() => {
@@ -295,7 +293,7 @@ export default function UnifiedSession() {
       navigate(`/user/scoring/${sessionId}`);
     } catch {
       toast.error(tv("error.connectionFailed"));
-      navigate("/user/scenarios");
+      navigate("/user/training");
     }
   }, [sessionId, stopVoiceSession, endSessionMutation, navigate, tv]);
 
@@ -338,7 +336,7 @@ export default function UnifiedSession() {
         <div className="flex flex-col items-center gap-4">
           <AlertTriangle className="h-10 w-10 text-destructive" />
           <p className="text-sm text-muted-foreground">{t("error.loadFailed")}</p>
-          <Button variant="outline" onClick={() => navigate("/user/scenarios")}>
+          <Button variant="outline" onClick={() => navigate("/user/training")}>
             {tc("back")}
           </Button>
         </div>

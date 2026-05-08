@@ -272,7 +272,7 @@ export function VoiceSession({
       navigate(`/user/scoring/${sessionId}`);
     } catch {
       toast.error(t("error.connectionFailed"));
-      navigate("/user/scenarios");
+      navigate("/user/training");
     }
   }, [
     sessionId,
