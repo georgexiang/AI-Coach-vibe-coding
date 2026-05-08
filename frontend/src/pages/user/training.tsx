@@ -42,7 +42,7 @@ export default function ScenarioSelection() {
   const scenarios = data ?? [];
 
   const products = useMemo(
-    () => [...new Set(scenarios.map((s) => s.product))],
+    () => [...new Set(scenarios.map((s) => s.product).filter(Boolean))] as string[],
     [scenarios]
   );
   const difficulties = useMemo(

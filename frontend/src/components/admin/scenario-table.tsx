@@ -144,8 +144,8 @@ export function ScenarioTable({
                   <td className="px-4 py-3 font-medium">{scenario.name}</td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-1">
-                      {scenario.tags.length > 0 ? (
-                        scenario.tags.map((tag) => (
+                      {(scenario.tags ?? []).length > 0 ? (
+                        (scenario.tags ?? []).map((tag) => (
                           <Badge key={tag} variant="outline" className="text-xs">
                             {tag.includes(":") ? tag.split(":")[1] : tag}
                           </Badge>

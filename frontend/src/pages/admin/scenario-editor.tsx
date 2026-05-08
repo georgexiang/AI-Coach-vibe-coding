@@ -123,7 +123,7 @@ export default function ScenarioEditorPage() {
         mode: scenario.mode,
         difficulty: scenario.difficulty,
         hcp_profile_id: scenario.hcp_profile_id,
-        skill_id: scenario.skill_id,
+        skill_id: scenario.skill_id ?? "",
         key_messages: scenario.key_messages,
         rubric_id: scenario.rubric_id,
         pass_threshold: scenario.pass_threshold,

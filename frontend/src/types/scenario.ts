@@ -4,14 +4,17 @@ export interface Scenario {
   id: string;
   name: string;
   description: string;
-  tags: string[];
+  tags?: string[];
+  product?: string;
+  therapeutic_area?: string;
+  estimated_duration?: number;
   mode: "f2f" | "conference";
   difficulty: "easy" | "medium" | "hard";
   status: "draft" | "active" | "archived";
   hcp_profile_id: string;
   hcp_profile?: HcpProfile;
   key_messages: string[];
-  skill_id: string;
+  skill_id: string | null;
   skill_version_id: string | null;
   rubric_id: string;
   pass_threshold: number;
@@ -23,8 +26,10 @@ export interface Scenario {
 export interface ScenarioCreate {
   name: string;
   tags?: string[];
+  product?: string;
+  therapeutic_area?: string;
   hcp_profile_id: string;
-  skill_id: string;
+  skill_id?: string;
   rubric_id: string;
   description?: string;
   mode?: Scenario["mode"];
