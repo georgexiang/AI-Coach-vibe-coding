@@ -56,8 +56,7 @@ async def _load_connection_config(
         raise ValueError("Voice Live not configured")
 
     api_key = await config_service.get_effective_key(db, "azure_voice_live")
-    if not api_key:
-        raise ValueError("Voice Live API key not set")
+    # api_key may be None/empty — DefaultAzureCredential will be used as fallback
 
     raw_endpoint = await config_service.get_effective_endpoint(db, "azure_voice_live")
     if not raw_endpoint:
@@ -325,7 +324,25 @@ async def handle_voice_live_websocket(ws: WebSocket, db: AsyncSession) -> None:
             await _send_error(ws, "azure-ai-voicelive SDK not installed")
             return
 
-        credential = AzureKeyCredential(cfg["api_key"])
+        # Authentication priority:
+        #   1. DefaultAzureCredential (az login / Managed Identity) — preferred
+        #      Required for agent mode; API Key often returns 403 for agent endpoints.
+        #   2. API Key fallback — works for model mode
+        credential: Any = None
+        try:
+            from azure.identity.aio import DefaultAzureCredential as AsyncDefaultAzureCredential
+
+            credential = AsyncDefaultAzureCredential()
+            session_log.info("Using DefaultAzureCredential (Entra ID) for Voice Live")
+        except Exception as cred_exc:
+            session_log.debug(
+                "DefaultAzureCredential unavailable (%s), falling back to API Key",
+                cred_exc,
+            )
+            if not cfg.get("api_key"):
+                await _send_error(ws, "No credentials available: DefaultAzureCredential failed and no API key configured")
+                return
+            credential = AzureKeyCredential(cfg["api_key"])
 
         # Build session config -- modalities and audio/voice settings
         modalities = [Modality.TEXT, Modality.AUDIO]
