@@ -50,6 +50,8 @@ async def create_session(
             "Voice Live is not enabled by the administrator.",
         )
     session = await session_service.create_session(db, request.scenario_id, user.id, request.mode)
+    # Eagerly load relationships needed by SessionResponse (scenario_name, message_count)
+    await db.refresh(session, attribute_names=["scenario", "messages"])
     return session
 
 
