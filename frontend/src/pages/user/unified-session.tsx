@@ -290,7 +290,7 @@ export default function UnifiedSession() {
     // Call endSession API
     try {
       await endSessionMutation.mutateAsync(sessionId);
-      navigate(`/user/scoring/${sessionId}`);
+      navigate("/user/history");
     } catch {
       toast.error(tv("error.connectionFailed"));
       navigate("/user/training");

@@ -53,6 +53,7 @@ class SessionResponse(BaseModel):
     id: str
     user_id: str
     scenario_id: str
+    scenario_name: str | None = None
     status: str
     started_at: datetime | None
     completed_at: datetime | None
@@ -63,6 +64,7 @@ class SessionResponse(BaseModel):
     mode: str = "text"
     audio_url: str | None = None
     voice_score_status: str = "none"
+    message_count: int = 0
     created_at: datetime
     updated_at: datetime
 

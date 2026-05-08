@@ -10,6 +10,7 @@ export interface CoachingSession {
   id: string;
   user_id: string;
   scenario_id: string;
+  scenario_name: string | null;
   status: SessionStatus;
   started_at: string | null;
   completed_at: string | null;
@@ -18,6 +19,7 @@ export interface CoachingSession {
   overall_score: number | null;
   passed: boolean | null;
   mode: string;
+  message_count: number;
   created_at: string;
   updated_at: string;
 }

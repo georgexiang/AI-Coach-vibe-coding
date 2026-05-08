@@ -269,7 +269,7 @@ export function VoiceSession({
     // Call endSession API
     try {
       await endSessionMutation.mutateAsync(sessionId);
-      navigate(`/user/scoring/${sessionId}`);
+      navigate("/user/history");
     } catch {
       toast.error(t("error.connectionFailed"));
       navigate("/user/training");

@@ -88,10 +88,11 @@ async def get_user_sessions(
     )
     total = count_result.scalar_one()
 
-    # Fetch page
+    # Fetch page with eagerly loaded scenario + messages for derived properties
     offset = (page - 1) * page_size
     result = await db.execute(
         select(CoachingSession)
+        .options(selectinload(CoachingSession.scenario), selectinload(CoachingSession.messages))
         .where(CoachingSession.user_id == user_id)
         .order_by(CoachingSession.created_at.desc())
         .offset(offset)

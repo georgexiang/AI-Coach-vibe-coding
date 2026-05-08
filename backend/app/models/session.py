@@ -71,3 +71,13 @@ class CoachingSession(Base, TimestampMixin):
     messages = relationship("SessionMessage", back_populates="session")
     score = relationship("SessionScore", back_populates="session", uselist=False)
     skill = relationship("Skill", foreign_keys=[skill_id])
+
+    @property
+    def scenario_name(self) -> str | None:
+        """Derive scenario name from relationship for API response."""
+        return self.scenario.name if self.scenario else None
+
+    @property
+    def message_count(self) -> int:
+        """Count of messages in this session."""
+        return len(self.messages) if self.messages else 0
