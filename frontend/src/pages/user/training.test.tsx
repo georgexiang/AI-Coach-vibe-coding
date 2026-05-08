@@ -9,15 +9,6 @@ const mockMutateAsync = vi.fn();
 let scenarioData: unknown[] | undefined;
 let isLoading = false;
 
-const mockFlags = {
-  avatar_enabled: false,
-  voice_enabled: false,
-  realtime_voice_enabled: false,
-  conference_enabled: false,
-  voice_live_enabled: false,
-  default_voice_mode: "text_only",
-  region: "global",
-};
 
 vi.mock("react-router-dom", async () => {
   const actual =
@@ -54,10 +45,6 @@ vi.mock("@/hooks/use-session", () => ({
   }),
 }));
 
-vi.mock("@/contexts/config-context", () => ({
-  useConfig: () => mockFlags,
-}));
-
 vi.mock("@/components/shared", () => ({
   EmptyState: ({
     title,
@@ -71,10 +58,6 @@ vi.mock("@/components/shared", () => ({
       <span>{body}</span>
     </div>
   ),
-}));
-
-vi.mock("@/components/voice", () => ({
-  ModeSelector: () => <div data-testid="mode-selector" />,
 }));
 
 vi.mock("@/components/coach", () => ({
@@ -111,9 +94,6 @@ beforeEach(async () => {
   vi.clearAllMocks();
   scenarioData = [];
   isLoading = false;
-  // Reset flags to defaults
-  mockFlags.voice_live_enabled = false;
-  mockFlags.avatar_enabled = false;
   const mod = await import("./training");
   ScenarioSelection = mod.default;
 });
@@ -174,48 +154,26 @@ describe("ScenarioSelection (Training) Page", () => {
 
   it("renders search input", () => {
     renderPage();
-    // The placeholder uses t("key", { defaultValue: tc("search") }) which yields "search"
+    // The mock t() returns the key directly
     expect(
-      screen.getByPlaceholderText("search"),
+      screen.getByPlaceholderText("scenarioSelection.searchPlaceholder"),
     ).toBeInTheDocument();
   });
 });
 
-describe("ScenarioSelection Voice Tab", () => {
-  it("does not render Voice tab when voice_live_enabled is false", () => {
-    mockFlags.voice_live_enabled = false;
+describe("ScenarioSelection Tabs", () => {
+  it("does not render Voice tab (voice config is admin-only)", () => {
     renderPage();
     expect(
       screen.queryByText("scenarioSelection.tabVoice"),
     ).not.toBeInTheDocument();
   });
 
-  it("renders Voice tab when voice_live_enabled is true", () => {
-    mockFlags.voice_live_enabled = true;
-    renderPage();
-    expect(
-      screen.getByText("scenarioSelection.tabVoice"),
-    ).toBeInTheDocument();
-  });
-
-  it("renders F2F and Conference tabs regardless of voice flag", () => {
-    mockFlags.voice_live_enabled = false;
+  it("renders only F2F and Conference tabs", () => {
     renderPage();
     expect(screen.getByText("scenarioSelection.tabF2F")).toBeInTheDocument();
     expect(
       screen.getByText("scenarioSelection.tabConference"),
-    ).toBeInTheDocument();
-  });
-
-  it("renders all three tabs when voice_live_enabled is true", () => {
-    mockFlags.voice_live_enabled = true;
-    renderPage();
-    expect(screen.getByText("scenarioSelection.tabF2F")).toBeInTheDocument();
-    expect(
-      screen.getByText("scenarioSelection.tabConference"),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("scenarioSelection.tabVoice"),
     ).toBeInTheDocument();
   });
 });
@@ -246,7 +204,7 @@ describe("ScenarioSelection Filters and Actions", () => {
   it("filters scenarios by search term matching name", async () => {
     scenarioData = twoScenarios;
     renderPage();
-    const input = screen.getByPlaceholderText("search");
+    const input = screen.getByPlaceholderText("scenarioSelection.searchPlaceholder");
     await userEvent.setup().type(input, "F2F");
     expect(screen.getByText("F2F Scenario")).toBeInTheDocument();
     expect(screen.queryByText("Advanced Meeting")).not.toBeInTheDocument();
@@ -255,7 +213,7 @@ describe("ScenarioSelection Filters and Actions", () => {
   it("filters scenarios by search term matching description", async () => {
     scenarioData = twoScenarios;
     renderPage();
-    const input = screen.getByPlaceholderText("search");
+    const input = screen.getByPlaceholderText("scenarioSelection.searchPlaceholder");
     await userEvent.setup().type(input, "Test 2");
     expect(screen.queryByText("F2F Scenario")).not.toBeInTheDocument();
     expect(screen.getByText("Advanced Meeting")).toBeInTheDocument();
@@ -291,43 +249,6 @@ describe("ScenarioSelection Filters and Actions", () => {
     expect(mockNavigate).toHaveBeenCalledWith("/user/training/conference?id=conf-session-1");
   });
 
-  it("creates voice session with default voice_pipeline mode", async () => {
-    scenarioData = twoScenarios;
-    mockFlags.voice_live_enabled = true;
-    mockFlags.avatar_enabled = true;
-    mockMutateAsync.mockResolvedValue({ id: "voice-session-1" });
-    renderPage();
-
-    // Switch to Voice tab
-    const voiceTab = screen.getByText("scenarioSelection.tabVoice");
-    await userEvent.setup().click(voiceTab);
-
-    const startBtns = screen.getAllByText("Start");
-    await userEvent.setup().click(startBtns[0]!);
-
-    // Source uses selectedVoiceMode state (default: "voice_pipeline")
-    expect(mockMutateAsync).toHaveBeenCalledWith({ scenarioId: "sc-1", mode: "voice_pipeline" });
-    expect(mockNavigate).toHaveBeenCalledWith("/user/training/voice?id=voice-session-1&mode=voice_pipeline");
-  });
-
-  it("creates voice session with voice_pipeline mode when avatar is not enabled", async () => {
-    scenarioData = twoScenarios;
-    mockFlags.voice_live_enabled = true;
-    mockFlags.avatar_enabled = false;
-    mockMutateAsync.mockResolvedValue({ id: "voice-session-2" });
-    renderPage();
-
-    const voiceTab = screen.getByText("scenarioSelection.tabVoice");
-    await userEvent.setup().click(voiceTab);
-
-    const startBtns = screen.getAllByText("Start");
-    await userEvent.setup().click(startBtns[0]!);
-
-    // Source uses selectedVoiceMode state (default: "voice_pipeline")
-    expect(mockMutateAsync).toHaveBeenCalledWith({ scenarioId: "sc-1", mode: "voice_pipeline" });
-    expect(mockNavigate).toHaveBeenCalledWith("/user/training/voice?id=voice-session-2&mode=voice_pipeline");
-  });
-
   it("handles createSession failure gracefully for F2F", async () => {
     scenarioData = twoScenarios;
     mockMutateAsync.mockRejectedValue(new Error("API error"));
@@ -354,25 +275,10 @@ describe("ScenarioSelection Filters and Actions", () => {
     expect(mockNavigate).not.toHaveBeenCalled();
   });
 
-  it("handles createSession failure gracefully for voice", async () => {
-    scenarioData = twoScenarios;
-    mockFlags.voice_live_enabled = true;
-    mockMutateAsync.mockRejectedValue(new Error("API error"));
-    renderPage();
-
-    const voiceTab = screen.getByText("scenarioSelection.tabVoice");
-    await userEvent.setup().click(voiceTab);
-
-    const startBtns = screen.getAllByText("Start");
-    await userEvent.setup().click(startBtns[0]!);
-
-    expect(mockNavigate).not.toHaveBeenCalled();
-  });
-
   it("shows empty state when search matches no scenarios", async () => {
     scenarioData = twoScenarios;
     renderPage();
-    const input = screen.getByPlaceholderText("search");
+    const input = screen.getByPlaceholderText("scenarioSelection.searchPlaceholder");
     await userEvent.setup().type(input, "nonexistent");
     expect(screen.getAllByTestId("empty-state").length).toBeGreaterThan(0);
   });

@@ -17,11 +17,8 @@ import {
 } from "@/components/ui";
 import { EmptyState } from "@/components/shared";
 import { ScenarioCard } from "@/components/coach";
-import { ModeSelector } from "@/components/voice";
 import { useActiveScenarios } from "@/hooks/use-scenarios";
 import { useCreateSession } from "@/hooks/use-session";
-import { useConfig } from "@/contexts/config-context";
-import type { SessionMode } from "@/types/voice-live";
 
 const ALL_VALUE = "__all__";
 
@@ -33,11 +30,9 @@ export default function ScenarioSelection() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedProduct, setSelectedProduct] = useState(ALL_VALUE);
   const [selectedDifficulty, setSelectedDifficulty] = useState(ALL_VALUE);
-  const [selectedVoiceMode, setSelectedVoiceMode] = useState<SessionMode>("voice_pipeline");
 
   const { data, isLoading } = useActiveScenarios();
   const createSession = useCreateSession();
-  const config = useConfig();
 
   const scenarios = data ?? [];
 
@@ -65,12 +60,6 @@ export default function ScenarioSelection() {
     });
   }, [scenarios, searchTerm, selectedProduct, selectedDifficulty]);
 
-  // Derive availability from feature flags
-  const pipelineAvailable = config.voice_enabled;
-  const agentAvailable = false; // Agent config not yet discoverable from feature flags; future: check voice status
-  const voiceLiveAvailable = config.voice_live_enabled;
-  const avatarAvailable = config.avatar_enabled;
-
   const handleStartTraining = async (scenarioId: string) => {
     try {
       const session = await createSession.mutateAsync({ scenarioId });
@@ -84,15 +73,6 @@ export default function ScenarioSelection() {
     try {
       const session = await createSession.mutateAsync({ scenarioId });
       navigate(`/user/training/conference?id=${session.id}`);
-    } catch {
-      // Error handled by TanStack Query
-    }
-  };
-
-  const handleStartVoiceSession = async (scenarioId: string) => {
-    try {
-      const session = await createSession.mutateAsync({ scenarioId, mode: selectedVoiceMode });
-      navigate(`/user/training/session?id=${session.id}&mode=${selectedVoiceMode}`);
     } catch {
       // Error handled by TanStack Query
     }
@@ -199,11 +179,6 @@ export default function ScenarioSelection() {
           <TabsTrigger value="conference">
             {t("scenarioSelection.tabConference")}
           </TabsTrigger>
-          {config.voice_live_enabled && (
-            <TabsTrigger value="voice">
-              {t("scenarioSelection.tabVoice")}
-            </TabsTrigger>
-          )}
         </TabsList>
 
         <TabsContent value="f2f" className="mt-6">
@@ -215,23 +190,6 @@ export default function ScenarioSelection() {
           {filterRow}
           {renderGrid(handleStartConference)}
         </TabsContent>
-
-        {config.voice_live_enabled && (
-          <TabsContent value="voice" className="mt-6">
-            <div className="mb-6 flex justify-center">
-              <ModeSelector
-                value={selectedVoiceMode}
-                onChange={setSelectedVoiceMode}
-                voiceLiveAvailable={voiceLiveAvailable}
-                avatarAvailable={avatarAvailable}
-                pipelineAvailable={pipelineAvailable}
-                agentAvailable={agentAvailable}
-              />
-            </div>
-            {filterRow}
-            {renderGrid(handleStartVoiceSession)}
-          </TabsContent>
-        )}
       </Tabs>
     </div>
   );

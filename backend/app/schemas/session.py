@@ -27,6 +27,13 @@ class SendMessageRequest(BaseModel):
     message: str
 
 
+class TranscriptMessageRequest(BaseModel):
+    """Persist a voice transcript message (no LLM response triggered)."""
+
+    message: str
+    role: Literal["user", "assistant"] = "user"
+
+
 class MessageResponse(BaseModel):
     """Individual message response."""
 

@@ -43,11 +43,12 @@ export default function ScoringFeedback() {
   }, [history, sessionId]);
 
   // If session is completed but not scored, trigger scoring
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- triggerScoring.mutate is stable; including the full object causes re-fire loops
   useEffect(() => {
     if (session?.status === "completed" && !score && !scoreLoading) {
       triggerScoring.mutate(sessionId);
     }
-  }, [session?.status, score, scoreLoading, sessionId, triggerScoring]);
+  }, [session?.status, score, scoreLoading, sessionId]);
 
   // Loading state while scoring
   if (scoreLoading || triggerScoring.isPending || !score) {

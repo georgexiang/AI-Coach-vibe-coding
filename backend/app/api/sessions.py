@@ -16,6 +16,7 @@ from app.schemas.session import (
     SendMessageRequest,
     SessionCreate,
     SessionResponse,
+    TranscriptMessageRequest,
 )
 from app.schemas.suggestion import SuggestionResponse
 from app.services import session_service
@@ -217,6 +218,29 @@ async def end_session(
     """End a coaching session (manual end)."""
     session = await session_service.end_session(db, session_id, user.id)
     return session
+
+
+@router.post("/{session_id}/transcript", response_model=MessageResponse, status_code=201)
+async def persist_transcript(
+    session_id: str,
+    request: TranscriptMessageRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Persist a voice transcript message without triggering LLM response.
+
+    Used by voice sessions to save transcribed speech to the database.
+    Handles session status transition (created -> in_progress) on first user message.
+    """
+    session = await session_service.get_session(db, session_id, user.id)
+    if session.status not in ("created", "in_progress"):
+        raise AppException(
+            status_code=409,
+            code="SESSION_CLOSED",
+            message="Session is no longer active",
+        )
+    message = await session_service.save_message(db, session_id, request.role, request.message)
+    return message
 
 
 @router.get(
