@@ -7,6 +7,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.models.hcp_profile import HcpProfile
 from app.models.scenario import Scenario
 from app.models.skill import Skill, SkillVersion
 from app.schemas.scenario import ScenarioCreate, ScenarioUpdate
@@ -77,7 +78,11 @@ async def _reload_with_hcp(db: AsyncSession, scenario_id: str) -> Scenario:
     """Re-load a scenario with eagerly-loaded HCP profile after a mutation."""
     result = await db.execute(
         select(Scenario)
-        .options(selectinload(Scenario.hcp_profile))
+        .options(
+            selectinload(Scenario.hcp_profile).selectinload(
+                HcpProfile.voice_live_instance
+            )
+        )
         .where(Scenario.id == scenario_id)
     )
     return result.scalar_one()
@@ -123,7 +128,9 @@ async def get_scenarios(
     search: str | None = None,
 ) -> tuple[list[Scenario], int]:
     """List scenarios with optional filters and eager-loaded HCP profile."""
-    query = select(Scenario).options(selectinload(Scenario.hcp_profile))
+    query = select(Scenario).options(
+        selectinload(Scenario.hcp_profile).selectinload(HcpProfile.voice_live_instance)
+    )
 
     if status:
         query = query.where(Scenario.status == status)
@@ -165,7 +172,11 @@ async def get_scenario(db: AsyncSession, scenario_id: str) -> Scenario:
     """Get a single scenario with eager-loaded HCP profile. Raises 404 if not found."""
     result = await db.execute(
         select(Scenario)
-        .options(selectinload(Scenario.hcp_profile))
+        .options(
+            selectinload(Scenario.hcp_profile).selectinload(
+                HcpProfile.voice_live_instance
+            )
+        )
         .where(Scenario.id == scenario_id)
     )
     scenario = result.scalar_one_or_none()

@@ -19,7 +19,11 @@ router = APIRouter(prefix="/scenarios", tags=["scenarios"])
 
 
 class HcpProfileBrief(BaseModel):
-    """Minimal HCP profile data for scenario list display."""
+    """Minimal HCP profile data for scenario list display.
+
+    Avatar fields are resolved from VoiceLiveInstance when assigned,
+    falling back to inline HcpProfile fields (deprecated).
+    """
 
     id: str
     name: str
@@ -29,6 +33,24 @@ class HcpProfileBrief(BaseModel):
     avatar_style: str = "casual"
 
     model_config = ConfigDict(from_attributes=True)
+
+    @classmethod
+    def from_hcp_profile(cls, profile: Any) -> "HcpProfileBrief":
+        """Create from ORM HcpProfile, resolving avatar from VL Instance if assigned."""
+        # Prefer VL Instance avatar fields (authoritative source)
+        vl_inst = getattr(profile, "voice_live_instance", None)
+        avatar_character = (
+            vl_inst.avatar_character if vl_inst else profile.avatar_character
+        )
+        avatar_style = vl_inst.avatar_style if vl_inst else profile.avatar_style
+        return cls(
+            id=profile.id,
+            name=profile.name,
+            specialty=profile.specialty or "",
+            avatar_url=getattr(profile, "avatar_url", "") or "",
+            avatar_character=avatar_character or "lori",
+            avatar_style=avatar_style or "casual",
+        )
 
 
 class ScenarioOut(BaseModel):
@@ -53,6 +75,15 @@ class ScenarioOut(BaseModel):
     updated_at: str
 
     model_config = ConfigDict(from_attributes=True)
+
+    @field_validator("hcp_profile", mode="before")
+    @classmethod
+    def resolve_hcp_avatar(cls, v: Any) -> Any:
+        """Resolve avatar from VL Instance if HcpProfile ORM object with relationship."""
+        if v is None or isinstance(v, dict) or isinstance(v, HcpProfileBrief):
+            return v
+        # ORM object — use resolver to prefer VL Instance avatar
+        return HcpProfileBrief.from_hcp_profile(v)
 
     @field_validator("tags", "key_messages", mode="before")
     @classmethod

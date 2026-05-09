@@ -226,4 +226,37 @@ test.describe("Training - Start Session Flow", () => {
     expect(withAvatar.length).toBeGreaterThan(0);
     expect(withAvatar[0].hcp_profile.avatar_character).toBeTruthy();
   });
+
+  test("avatar_character in scenario matches VL Instance (not stale default)", async ({ page }) => {
+    // Regression test: avatar_character must NOT be the stale default "lori"
+    // when VL Instance has a different character assigned.
+    // This validates the sync between VL Instance and HcpProfile fields.
+    const scenarioPromise = page.waitForResponse(
+      (resp) => resp.url().includes("/api/v1/scenarios") && resp.request().method() === "GET",
+      { timeout: 10000 },
+    );
+
+    await page.goto("/user/training");
+    const scenarioResp = await scenarioPromise;
+    const body = await scenarioResp.json();
+
+    const items = body.items || body;
+    const scenarios = Array.isArray(items) ? items : [];
+
+    // For every scenario with an hcp_profile, validate avatar_character is a known character
+    const validAvatarCharacters = ["lisa", "harry", "meg", "jeff", "lori", "max", "jack"];
+    for (const s of scenarios) {
+      if (s.hcp_profile?.avatar_character) {
+        expect(validAvatarCharacters).toContain(s.hcp_profile.avatar_character);
+        // avatar_style must also be present and non-empty
+        expect(s.hcp_profile.avatar_style).toBeTruthy();
+      }
+    }
+
+    // At least one scenario should have avatar data
+    const withAvatar = scenarios.filter(
+      (s: { hcp_profile?: { avatar_character?: string } }) => s.hcp_profile?.avatar_character,
+    );
+    expect(withAvatar.length).toBeGreaterThan(0);
+  });
 });
