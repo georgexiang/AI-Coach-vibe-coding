@@ -23,7 +23,10 @@ class HcpProfileBrief(BaseModel):
 
     id: str
     name: str
+    specialty: str = ""
     avatar_url: str = ""
+    avatar_character: str = "lori"
+    avatar_style: str = "casual"
 
     model_config = ConfigDict(from_attributes=True)
 

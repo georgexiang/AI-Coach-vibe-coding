@@ -38,5 +38,6 @@
   "endSessionConfirm": "Are you sure you want to end this session?",
   "endSessionDescription": "Your conversation will be scored and audio will be analyzed for voice quality.",
   "uploadingAudio": "Uploading session recording...",
-  "audioUploaded": "Session recording uploaded successfully"
+  "audioUploaded": "Session recording uploaded successfully",
+  "endSessionFailed": "Failed to end session. Please try again."
 }

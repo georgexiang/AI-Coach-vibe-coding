@@ -63,6 +63,7 @@ async def get_session(db: AsyncSession, session_id: str, user_id: str) -> Coachi
         select(CoachingSession)
         .options(
             selectinload(CoachingSession.scenario).selectinload(Scenario.hcp_profile),
+            selectinload(CoachingSession.messages),
         )
         .where(CoachingSession.id == session_id)
     )
@@ -108,6 +109,7 @@ async def get_active_session(db: AsyncSession, user_id: str) -> CoachingSession 
         select(CoachingSession)
         .options(
             selectinload(CoachingSession.scenario).selectinload(Scenario.hcp_profile),
+            selectinload(CoachingSession.messages),
         )
         .where(
             CoachingSession.user_id == user_id,
@@ -193,7 +195,9 @@ async def end_session(db: AsyncSession, session_id: str, user_id: str) -> Coachi
         session.duration_seconds = int((now - started).total_seconds())
 
     await db.flush()
+    # Full refresh to reload scalar columns (updated_at, etc.) + relationships
     await db.refresh(session)
+    await db.refresh(session, attribute_names=["scenario", "messages"])
     return session
 
 

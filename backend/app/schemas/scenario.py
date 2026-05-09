@@ -35,6 +35,18 @@ class ScenarioUpdate(BaseModel):
     pass_threshold: int | None = None
 
 
+class HcpProfileSummary(BaseModel):
+    """Lightweight HCP profile embedded in scenario response (avatar metadata)."""
+
+    id: str
+    name: str
+    specialty: str
+    avatar_character: str = "lori"
+    avatar_style: str = "casual"
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class ScenarioResponse(BaseModel):
     """Scenario response with all fields."""
 
@@ -46,6 +58,7 @@ class ScenarioResponse(BaseModel):
     difficulty: str
     status: str
     hcp_profile_id: str
+    hcp_profile: HcpProfileSummary | None = None
     key_messages: str  # JSON string from DB
     skill_id: str
     skill_version_id: str | None = None

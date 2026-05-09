@@ -86,7 +86,7 @@ app.add_middleware(
 app.add_middleware(RequestLoggingMiddleware)
 
 
-# Global exception handler
+# Global exception handlers
 @app.exception_handler(AppException)
 async def app_exception_handler(request: Request, exc: AppException):
     return JSONResponse(
@@ -95,6 +95,25 @@ async def app_exception_handler(request: Request, exc: AppException):
             "code": exc.code,
             "message": exc.message,
             "details": exc.details,
+        },
+    )
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    """Catch-all: logs full traceback so 500 errors are visible in server logs."""
+    logger.exception(
+        "Unhandled exception on %s %s: %s",
+        request.method,
+        request.url.path,
+        exc,
+    )
+    return JSONResponse(
+        status_code=500,
+        content={
+            "code": "INTERNAL_ERROR",
+            "message": "An unexpected error occurred. Please try again later.",
+            "details": None,
         },
     )
 

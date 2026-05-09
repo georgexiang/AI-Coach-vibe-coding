@@ -38,5 +38,6 @@
   "endSessionConfirm": "确定要结束此会话吗？",
   "endSessionDescription": "您的对话将被评分，音频将被分析以评估语音质量。",
   "uploadingAudio": "正在上传会话录音...",
-  "audioUploaded": "会话录音上传成功"
+  "audioUploaded": "会话录音上传成功",
+  "endSessionFailed": "结束会话失败，请重试。"
 }

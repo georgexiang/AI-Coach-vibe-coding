@@ -263,8 +263,12 @@ export function VoiceSession({
     // Flush all pending transcript writes first (D-09)
     await Promise.all(pendingFlushesRef.current);
 
-    // Disconnect voice and avatar via shared lifecycle
-    await stopVoiceSession();
+    // Disconnect voice and avatar via shared lifecycle (ignore errors — may not be connected)
+    try {
+      await stopVoiceSession();
+    } catch {
+      // Voice cleanup failure is non-fatal
+    }
 
     // Call endSession API
     try {

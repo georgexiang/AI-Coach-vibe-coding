@@ -229,13 +229,20 @@ export default function UnifiedSession() {
   const stopVoiceSessionRef = useRef(stopVoiceSession);
   stopVoiceSessionRef.current = stopVoiceSession;
 
-  // Start session handler — directly initiates voice (no useEffect indirection)
-  // Matches the VoiceTestPlayground pattern where startVoiceSession is called
-  // directly in the click handler, avoiding stale closure issues.
+  // Start session handler — initiates voice for voice/avatar modes, skips for text mode
   const handleStartSession = useCallback(async () => {
     setSessionStarted(true);
     setIsConnecting(true);
-    log.info("handleStartSession: scenarioId=%s hcpProfileId=%s", session?.scenario_id, scenario?.hcp_profile_id);
+    log.info("handleStartSession: mode=%s scenarioId=%s", session?.mode, session?.scenario_id);
+
+    // Text mode: skip voice connection entirely
+    if (session?.mode === "text") {
+      setCurrentMode("text");
+      initialModeRef.current = "text";
+      setIsConnecting(false);
+      return;
+    }
+
     try {
       const hcpProfileId = scenario?.hcp_profile_id ?? "";
       const result = await startVoiceSession({
@@ -267,7 +274,16 @@ export default function UnifiedSession() {
     } finally {
       setIsConnecting(false);
     }
-  }, [scenario?.hcp_profile_id, session?.scenario_id, startVoiceSession, t, tv, log]);
+  }, [scenario?.hcp_profile_id, session?.mode, session?.scenario_id, startVoiceSession, t, tv, log]);
+
+  // Auto-start for text mode — no voice connection needed, show avatar immediately
+  useEffect(() => {
+    if (session?.mode === "text" && !sessionStarted) {
+      setSessionStarted(true);
+      setCurrentMode("text");
+      initialModeRef.current = "text";
+    }
+  }, [session?.mode, sessionStarted]);
 
   // Cleanup on unmount — disconnect voice and avatar
   useEffect(() => {
@@ -285,17 +301,21 @@ export default function UnifiedSession() {
     setShowEndDialog(false);
     // Flush all pending transcript writes
     await Promise.all(pendingFlushesRef.current);
-    // Disconnect voice and avatar
-    await stopVoiceSession();
+    // Disconnect voice and avatar (ignore errors — voice may not be connected)
+    try {
+      await stopVoiceSession();
+    } catch {
+      // Voice cleanup failure is non-fatal
+    }
     // Call endSession API
     try {
       await endSessionMutation.mutateAsync(sessionId);
       navigate("/user/history");
     } catch {
-      toast.error(tv("error.connectionFailed"));
+      toast.error(t("endSessionFailed"));
       navigate("/user/training");
     }
-  }, [sessionId, stopVoiceSession, endSessionMutation, navigate, tv]);
+  }, [sessionId, stopVoiceSession, endSessionMutation, navigate, t]);
 
   // Text message handler (keyboard input — sends via SSE for text conversation OR via voice-live)
   const handleSendText = useCallback(
