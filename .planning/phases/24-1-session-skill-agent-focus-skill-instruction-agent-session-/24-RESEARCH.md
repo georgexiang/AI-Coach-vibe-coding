@@ -388,22 +388,25 @@ async def detect_sop_step(
 | A5 | gpt-4o-mini or equivalent fast model available for SOP progress classification | Common Pitfalls | If only gpt-4o available, progress check will be slower/costlier |
 | A6 | Voice Live agent mode supports additional_instructions equivalent | Architecture Patterns | If not, focus injection only works for text-mode sessions through SDK runs |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Voice Live Agent Mode + additional_instructions**
    - What we know: Text-based agent runs support additional_instructions via SDK. Voice Live sessions connect directly from frontend to Azure.
    - What's unclear: Whether the Voice Live WebSocket connection supports passing additional_instructions. The VL SDK may handle this differently.
    - Recommendation: Investigate if `azure-ai-voicelive` SDK has an equivalent parameter. If not, the focus injection for voice sessions may need to be baked into the agent definition at session start (via create_version with temporary instructions).
+   - **RESOLVED:** Text SSE mode uses system prompt prepend via `additional_instructions` (appended to scenario_context). Voice Live agent mode is deferred to runtime investigation -- if VL SDK does not support an equivalent parameter, the system falls back to text mode for focused sessions (per existing fallback pattern in codebase). Plans implement text-mode injection only; VL support is a runtime enhancement, not a blocker.
 
 2. **CU Custom Analyzer for text/JSON content scoring**
    - What we know: CU clearly supports audio (prebuilt-callCenter) and documents (prebuilt-document). Text/JSON transcript is not a standard input type.
    - What's unclear: Whether transcript JSON can be submitted as a "document" (it should be able to since CU accepts various content types).
    - Recommendation: Test submitting a JSON transcript as plain text file input. If unsupported, format as markdown document.
+   - **RESOLVED:** Submit transcript as base64-encoded JSON via `base64Source` input field in the analyze request body. Content type is set to `application/json`. This approach is implemented in Plan 03 (CUEvaluationService) using `base64.b64encode(transcript_json.encode()).decode()` for inline submission without requiring Blob upload.
 
 3. **CU Analyzer ID persistence**
    - What we know: Analyzers are created via PUT request with a user-specified ID.
    - What's unclear: The exact lifecycle management (do analyzers expire? can they be updated in-place?).
    - Recommendation: Store `cu_content_analyzer_id` and `cu_voice_analyzer_id` in ScoringRubric model. Implement create-or-update pattern.
+   - **RESOLVED:** Store `cu_content_analyzer_id` and `cu_voice_analyzer_id` as nullable String columns in the ScoringRubric model (Plan 01 migration). Use PUT for create-or-update pattern -- PUT with the same analyzer_id overwrites the existing definition (idempotent). Analyzer IDs are UUID-based (format: `rubric-{rubric_id}-content` / `rubric-{rubric_id}-voice`). Plan 03 implements the sync logic on Rubric save.
 
 ## Environment Availability
 
