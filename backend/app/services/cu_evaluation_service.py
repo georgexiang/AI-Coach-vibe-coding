@@ -455,7 +455,7 @@ def _calculate_weighted_total(dimensions: list[dict]) -> float:
     return round(weighted_sum / total_weight, 2)
 
 
-async def score_session_with_cu(db: AsyncSession, session_id: str) -> dict:
+async def score_session_with_cu(db: AsyncSession, session_id: str) -> dict | None:
     """Top-level orchestration: score a session using CU evaluation (D-07).
 
     Loads session, determines mode (text vs voice per D-13/D-14), gets rubric +
