@@ -1,19 +1,9 @@
-/**
- * Audio recorder hook using MediaRecorder API (D-06).
- *
- * Records session audio in parallel with the voice input pipeline.
- * Uses stream.clone() to avoid interference with AudioWorklet.
- * Supports pause/resume for mode switches (D-04).
- *
- * Format: audio/webm;codecs=opus (browser-native, small size).
- * Falls back gracefully if MediaRecorder not supported.
- */
 import { useCallback, useRef, useState } from "react";
 
 export interface AudioRecorderState {
   isRecording: boolean;
   isPaused: boolean;
-  duration: number; // seconds
+  duration: number;
   hasData: boolean;
 }
 
@@ -31,14 +21,13 @@ export function useAudioRecorder() {
   const startRecording = useCallback(
     async (existingStream?: MediaStream): Promise<boolean> => {
       try {
-        // Use cloned stream if provided, otherwise request new one
         const stream = existingStream
           ? existingStream.clone()
           : await navigator.mediaDevices.getUserMedia({ audio: true });
         streamRef.current = stream;
 
         const mimeType = MediaRecorder.isTypeSupported(
-          "audio/webm;codecs=opus",
+          "audio/webm;codecs=opus"
         )
           ? "audio/webm;codecs=opus"
           : "audio/webm";
@@ -47,7 +36,7 @@ export function useAudioRecorder() {
         recorder.ondataavailable = (e) => {
           if (e.data.size > 0) chunksRef.current.push(e.data);
         };
-        recorder.start(10000); // 10s chunks for reliability
+        recorder.start(10000);
         mediaRecorderRef.current = recorder;
         setState({
           isRecording: true,
@@ -57,11 +46,10 @@ export function useAudioRecorder() {
         });
         return true;
       } catch {
-        // Mic permission denied or MediaRecorder not supported (D-08)
         return false;
       }
     },
-    [],
+    []
   );
 
   const pauseRecording = useCallback(() => {
@@ -85,7 +73,7 @@ export function useAudioRecorder() {
         resolve(
           chunksRef.current.length > 0
             ? new Blob(chunksRef.current, { type: "audio/webm" })
-            : null,
+            : null
         );
         return;
       }
@@ -94,7 +82,6 @@ export function useAudioRecorder() {
           chunksRef.current.length > 0
             ? new Blob(chunksRef.current, { type: "audio/webm" })
             : null;
-        // Cleanup
         streamRef.current?.getTracks().forEach((t) => t.stop());
         streamRef.current = null;
         mediaRecorderRef.current = null;

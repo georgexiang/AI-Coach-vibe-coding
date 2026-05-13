@@ -1,10 +1,3 @@
-/**
- * Unified session state machine hook (D-01, D-04, D-05, D-08).
- *
- * Manages mode transitions between text/voice/digital_human while preserving
- * conversation history. Voice is the default mode (D-05).
- * Mic permission denial auto-degrades to text mode (D-08).
- */
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
@@ -30,7 +23,7 @@ export interface UnifiedSessionControls {
 }
 
 export function useUnifiedSession(
-  options: UseUnifiedSessionOptions = {},
+  options: UseUnifiedSessionOptions = {}
 ): UnifiedSessionControls {
   const { defaultMode = "voice", onModeChange } = options;
   const { t } = useTranslation("session");
@@ -46,14 +39,14 @@ export function useUnifiedSession(
     (
       from: UnifiedSessionMode,
       to: UnifiedSessionMode,
-      reason: ModeTransition["reason"],
+      reason: ModeTransition["reason"]
     ) => {
       setModeTransitions((prev) => [
         ...prev,
         { from, to, timestamp: Date.now(), reason },
       ]);
     },
-    [],
+    []
   );
 
   const switchMode = useCallback(
@@ -64,7 +57,6 @@ export function useUnifiedSession(
 
       const from = mode;
 
-      // If switching TO voice/digital_human, check mic permission (D-08)
       if (to !== "text") {
         try {
           const stream = await navigator.mediaDevices.getUserMedia({
@@ -72,7 +64,6 @@ export function useUnifiedSession(
           });
           stream.getTracks().forEach((track) => track.stop());
         } catch {
-          // Mic denied — degrade to text
           toast.warning(t("micDenied"));
           setMode("text");
           recordTransition(from, "text", "mic_denied");
@@ -89,7 +80,7 @@ export function useUnifiedSession(
       switchingRef.current = false;
       setIsSwitching(false);
     },
-    [mode, onModeChange, recordTransition, t],
+    [mode, onModeChange, recordTransition, t]
   );
 
   const degradeToText = useCallback(
@@ -99,7 +90,7 @@ export function useUnifiedSession(
       recordTransition(from, "text", "fallback");
       toast.warning(reason);
     },
-    [mode, recordTransition],
+    [mode, recordTransition]
   );
 
   return {
