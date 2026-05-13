@@ -66,12 +66,11 @@ Exceptions: none -- this phase adds only 2 small UI elements within existing lay
 
 | Role | Size | Weight | Line Height |
 |------|------|--------|-------------|
-| Body | 14px | 400 | 1.5 |
-| Label | 14px | 500 | 1.4 |
-| Heading | 20px | 600 | 1.2 |
-| Display | 28px | 700 | 1.2 |
+| Body/Badge | 14px | 400 | 1.5 |
+| Section Heading | 14px | 600 | 1.4 |
 
-Source: Existing project tokens (index.css `--font-weight-medium: 500`, `--font-weight-normal: 400`)
+> Full project type scale (4 weights: 400/500/600/700) defined in index.css.
+> This phase uses only 400 and 600.
 
 ---
 
