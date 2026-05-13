@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
 
 class DimensionConfig(BaseModel):
@@ -24,6 +24,8 @@ class RubricCreate(BaseModel):
     scenario_type: str = "f2f"
     dimensions: list[DimensionConfig]
     is_default: bool = False
+    content_weight: int = 60
+    voice_weight: int = 40
 
     @field_validator("dimensions")
     @classmethod
@@ -33,6 +35,12 @@ class RubricCreate(BaseModel):
             msg = f"Dimension weights must sum to 100, got {total}"
             raise ValueError(msg)
         return v
+
+    @model_validator(mode="after")
+    def validate_category_weights(self) -> "RubricCreate":
+        if self.content_weight + self.voice_weight != 100:
+            raise ValueError("content_weight + voice_weight must equal 100")
+        return self
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -45,6 +53,8 @@ class RubricUpdate(BaseModel):
     scenario_type: str | None = None
     dimensions: list[DimensionConfig] | None = None
     is_default: bool | None = None
+    content_weight: int | None = None
+    voice_weight: int | None = None
 
     @field_validator("dimensions")
     @classmethod
@@ -72,6 +82,10 @@ class RubricResponse(BaseModel):
     dimensions: list[DimensionConfig]
     is_default: bool
     created_by: str
+    content_weight: int = 60
+    voice_weight: int = 40
+    cu_content_analyzer_id: str | None = None
+    cu_voice_analyzer_id: str | None = None
     created_at: datetime
     updated_at: datetime
 
