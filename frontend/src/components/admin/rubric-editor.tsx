@@ -41,7 +41,7 @@ const rubricSchema = z.object({
   scenario_type: z.string().optional(),
   is_default: z.boolean().optional(),
   dimensions: z.array(dimensionSchema).min(1, "At least one dimension required"),
-  content_weight: z.number().min(0).max(100).default(60),
+  content_weight: z.number().min(0).max(100),
 });
 
 type RubricFormValues = z.infer<typeof rubricSchema>;
