@@ -88,6 +88,15 @@
   "combinedScore": "综合评分",
   "contentWeight": "内容 (70%)",
   "voiceWeight": "语音 (30%)",
+  "categoryWeights": "评分类别权重",
+  "contentWeight": "内容评估权重",
+  "voiceWeight": "语音评估权重",
+  "voiceWeightHint": "语音权重仅适用于语音/数字人会话",
+  "contentScore": "内容得分",
+  "voiceScore": "语音得分",
+  "textOnlyNote": "纯文本会话，仅包含内容评估",
+  "cuProcessing": "正在使用 Azure Content Understanding 评估中...",
+  "cuFailed": "评估失败，请稍后重试或联系管理员",
   "errors": {
     "scoringFailed": "评分未能完成，请尝试重新结束会话。"
   }

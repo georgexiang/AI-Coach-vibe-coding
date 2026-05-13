@@ -274,7 +274,11 @@
     "deleteTitle": "Delete Rubric",
     "pageDescription": "Define scoring dimensions, weights, and criteria for training evaluations",
     "actions": "Actions",
-    "default": "Default"
+    "default": "Default",
+    "categoryWeights": "Score Category Weights",
+    "contentWeight": "Content Evaluation Weight",
+    "voiceWeight": "Voice Evaluation Weight",
+    "voiceWeightHint": "Voice weight applies to voice/digital human sessions only"
   },
   "azureConfig": {
     "title": "Azure Service Configuration",

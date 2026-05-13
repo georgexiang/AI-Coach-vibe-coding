@@ -274,7 +274,11 @@
     "deleteTitle": "删除评分标准",
     "pageDescription": "定义评分维度、权重和培训评估标准",
     "actions": "操作",
-    "default": "默认"
+    "default": "默认",
+    "categoryWeights": "评分类别权重",
+    "contentWeight": "内容评估权重",
+    "voiceWeight": "语音评估权重",
+    "voiceWeightHint": "语音权重仅适用于语音/数字人会话"
   },
   "azureConfig": {
     "title": "Azure 服务配置",

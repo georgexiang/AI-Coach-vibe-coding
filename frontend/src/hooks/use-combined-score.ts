@@ -33,6 +33,10 @@ export interface CombinedScoreReport {
   suggestions: string[];
   feedback_summary: string;
   audio_url: string | null;
+  content_total?: number;
+  voice_total?: number | null;
+  content_weight?: number;
+  voice_weight?: number;
 }
 
 async function fetchCombinedReport(

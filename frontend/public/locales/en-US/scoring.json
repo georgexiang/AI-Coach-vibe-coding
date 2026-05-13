@@ -88,6 +88,15 @@
   "combinedScore": "Combined Score",
   "contentWeight": "Content (70%)",
   "voiceWeight": "Voice (30%)",
+  "categoryWeights": "Score Category Weights",
+  "contentWeight": "Content Evaluation Weight",
+  "voiceWeight": "Voice Evaluation Weight",
+  "voiceWeightHint": "Voice weight applies to voice/digital human sessions only",
+  "contentScore": "Content Score",
+  "voiceScore": "Voice Score",
+  "textOnlyNote": "Text-only session, content evaluation only",
+  "cuProcessing": "Evaluating with Azure Content Understanding...",
+  "cuFailed": "Evaluation failed. Please retry later or contact admin.",
   "errors": {
     "scoringFailed": "Scoring could not be completed. Try ending the session again."
   }

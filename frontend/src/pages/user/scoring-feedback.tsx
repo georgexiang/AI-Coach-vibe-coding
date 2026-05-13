@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Button, ScrollArea } from "@/components/ui";
+import { Badge, Button, ScrollArea } from "@/components/ui";
 import { LoadingState } from "@/components/shared";
 import { ScoreSummary } from "@/components/scoring/score-summary";
 import { RadarChart } from "@/components/scoring/radar-chart";
@@ -13,6 +13,13 @@ import { useSessionReport } from "@/hooks/use-reports";
 import { useSession } from "@/hooks/use-session";
 import { useCombinedScore } from "@/hooks/use-combined-score";
 import { VoiceScoreSection } from "@/components/scoring/voice-score-section";
+
+/** Determine badge variant based on score thresholds. */
+function getScoreVariant(score: number): "success" | "secondary" | "destructive" {
+  if (score >= 80) return "success";
+  if (score >= 60) return "secondary";
+  return "destructive";
+}
 
 export default function ScoringFeedback() {
   const { t } = useTranslation("scoring");
@@ -130,6 +137,26 @@ export default function ScoringFeedback() {
           />
         </div>
       </div>
+
+      {/* Category Subtotals (D-11, D-12) */}
+      {combinedReport && (
+        <div className="flex items-center gap-2">
+          <Badge variant={getScoreVariant(combinedReport.content_total ?? score.overall_score)}>
+            {t("contentScore")}: {Math.round(combinedReport.content_total ?? score.overall_score)}/100
+            {combinedReport.content_weight != null && ` (${combinedReport.content_weight}%)`}
+          </Badge>
+          {combinedReport.voice_total != null ? (
+            <Badge variant={getScoreVariant(combinedReport.voice_total)}>
+              {t("voiceScore")}: {Math.round(combinedReport.voice_total)}/100
+              {combinedReport.voice_weight != null && ` (${combinedReport.voice_weight}%)`}
+            </Badge>
+          ) : (
+            <span className="text-xs text-muted-foreground">
+              {t("textOnlyNote")}
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Two-column layout */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
