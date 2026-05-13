@@ -643,7 +643,7 @@ Plans:
 **Goal:** 两大核心改进：(1) 培训 session 中 Agent 通过 thread 级 additional_instructions 动态聚焦当前 Skill SOP 内容（不修改 Agent 定义），包括 SOP 进度跟踪和分级偏题处理；(2) Session 结束后统一使用 Azure Content Understanding 自定义 Analyzer 评估所有维度（替代 LLM scoring_engine），内容评估走 CU transcript，语音评估走 CU audio，分层合并为综合评分。
 **Requirements**: D-01, D-02, D-03, D-04, D-05, D-06, D-07, D-08, D-09, D-10, D-11, D-12, D-13, D-14, D-15, D-16
 **Depends on:** Phase 23
-**Plans:** 5 plans
+**Plans:** 5/5 plans complete
 
 **Success Criteria** (what must be TRUE):
   1. Session 创建时，系统从 Skill SOP 生成 focus_instruction 快照并持久化到 DB (D-03)
@@ -658,10 +658,10 @@ Plans:
   10. 前端评分反馈页显示内容/语音类别分项得分
 
 Plans:
-- [ ] 24-01-PLAN.md -- Backend data foundation: Alembic migration (focus_instruction, sop_current_step, content_weight, voice_weight, cu_analyzer_ids), ORM + schema extensions
-- [ ] 24-02-PLAN.md -- Skill Focus Service: compose_focus_instruction, extract_sop_steps, detect_sop_step (LLM classification)
-- [ ] 24-03-PLAN.md -- CU Evaluation Service: analyzer schema builder, CU scoring (content + voice), layered merge, rubric sync hook
-- [ ] 24-04-PLAN.md -- Session integration: focus_instruction snapshot on create, SOP progress per message, scoring_service uses CU
-- [ ] 24-05-PLAN.md -- Frontend (rubric weight sliders, scoring subtotal badges, i18n) + backend unit tests
+- [x] 24-01-PLAN.md -- Backend data foundation: Alembic migration (focus_instruction, sop_current_step, content_weight, voice_weight, cu_analyzer_ids), ORM + schema extensions
+- [x] 24-02-PLAN.md -- Skill Focus Service: compose_focus_instruction, extract_sop_steps, detect_sop_step (LLM classification)
+- [x] 24-03-PLAN.md -- CU Evaluation Service: analyzer schema builder, CU scoring (content + voice), layered merge, rubric sync hook
+- [x] 24-04-PLAN.md -- Session integration: focus_instruction snapshot on create, SOP progress per message, scoring_service uses CU
+- [x] 24-05-PLAN.md -- Frontend (rubric weight sliders, scoring subtotal badges, i18n) + backend unit tests
 
 **UI hint**: yes
