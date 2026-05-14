@@ -77,6 +77,7 @@ async def _get_auth_headers(api_key: str) -> dict[str, str]:
 
     raise RuntimeError("No CU credentials available: Entra ID failed and no API Key configured")
 
+
 # Default voice dimensions if rubric doesn't specify voice-specific ones
 DEFAULT_VOICE_DIMENSIONS = [
     {"name": "fluency", "weight": 30, "criteria": ["Smooth speech flow"], "max_score": 100},
@@ -212,10 +213,7 @@ async def _put_analyzer(
     analyzer_type: str,
 ) -> None:
     """PUT a CU custom analyzer definition. Creates or updates."""
-    url = (
-        f"{endpoint}/contentunderstanding/analyzers/{analyzer_id}"
-        f"?api-version={CU_API_VERSION}"
-    )
+    url = f"{endpoint}/contentunderstanding/analyzers/{analyzer_id}?api-version={CU_API_VERSION}"
     headers = await _get_auth_headers(api_key)
     base_analyzer = "prebuilt-audio" if analyzer_type == "voice" else "prebuilt-document"
     body = {
@@ -278,9 +276,7 @@ async def score_content_with_cu(
                 response.status_code,
                 response.text[:200],
             )
-            raise RuntimeError(
-                f"CU content scoring submission failed: HTTP {response.status_code}"
-            )
+            raise RuntimeError(f"CU content scoring submission failed: HTTP {response.status_code}")
 
         # Extract Operation-Location for polling
         operation_url = response.headers.get("Operation-Location", "")
@@ -334,9 +330,7 @@ async def score_voice_with_cu(
                 response.status_code,
                 response.text[:200],
             )
-            raise RuntimeError(
-                f"CU voice scoring submission failed: HTTP {response.status_code}"
-            )
+            raise RuntimeError(f"CU voice scoring submission failed: HTTP {response.status_code}")
 
         operation_url = response.headers.get("Operation-Location", "")
         if not operation_url:
@@ -368,9 +362,7 @@ async def _poll_result(
             error_msg = poll_data.get("error", {}).get("message", "Unknown error")
             raise RuntimeError(f"CU analysis {status}: {error_msg}")
 
-    raise RuntimeError(
-        f"CU analysis timed out after {MAX_POLL_ATTEMPTS * POLL_INTERVAL_SECONDS}s"
-    )
+    raise RuntimeError(f"CU analysis timed out after {MAX_POLL_ATTEMPTS * POLL_INTERVAL_SECONDS}s")
 
 
 def merge_scores(
@@ -423,9 +415,7 @@ def merge_scores(
     overall_score = (content_total * content_ratio) + (voice_total * voice_ratio)
 
     # Combine dimension lists
-    all_dimensions = content_dims + [
-        {**d, "category": "voice"} for d in voice_dims
-    ]
+    all_dimensions = content_dims + [{**d, "category": "voice"} for d in voice_dims]
 
     # Combine feedback
     combined_feedback = feedback_summary
@@ -562,9 +552,7 @@ async def _get_session_rubric(db: AsyncSession, scenario: object) -> ScoringRubr
     if not rubric_id:
         return None
 
-    result = await db.execute(
-        select(ScoringRubric).where(ScoringRubric.id == rubric_id)
-    )
+    result = await db.execute(select(ScoringRubric).where(ScoringRubric.id == rubric_id))
     return result.scalar_one_or_none()
 
 
@@ -581,11 +569,13 @@ async def _build_transcript_json(db: AsyncSession, session_id: str) -> str:
 
     transcript_entries = []
     for msg in messages:
-        transcript_entries.append({
-            "role": msg.role,
-            "content": msg.content,
-            "timestamp": str(msg.created_at) if msg.created_at else None,
-        })
+        transcript_entries.append(
+            {
+                "role": msg.role,
+                "content": msg.content,
+                "timestamp": str(msg.created_at) if msg.created_at else None,
+            }
+        )
 
     return json.dumps(transcript_entries, ensure_ascii=False)
 
@@ -609,15 +599,17 @@ def _parse_cu_content_result(cu_fields: dict, rubric_dimensions: list[dict]) -> 
             weaknesses = []
             suggestions = []
 
-        dimensions.append({
-            "name": dim_name,
-            "score": score,
-            "weight": dim.get("weight", 0),
-            "max_score": dim.get("max_score", 100),
-            "strengths": strengths,
-            "weaknesses": weaknesses,
-            "suggestions": suggestions,
-        })
+        dimensions.append(
+            {
+                "name": dim_name,
+                "score": score,
+                "weight": dim.get("weight", 0),
+                "max_score": dim.get("max_score", 100),
+                "strengths": strengths,
+                "weaknesses": weaknesses,
+                "suggestions": suggestions,
+            }
+        )
 
     feedback_summary = cu_fields.get("feedback_summary", "")
     if isinstance(feedback_summary, dict):
@@ -638,12 +630,14 @@ def _parse_cu_voice_result(cu_fields: dict) -> dict:
         if key in excluded_keys:
             continue
         if isinstance(value, dict) and "score" in value:
-            dimensions.append({
-                "name": key.replace("_", " ").title(),
-                "score": value.get("score", 0),
-                "weight": 25,  # Equal weight for voice dimensions
-                "feedback": value.get("feedback", ""),
-            })
+            dimensions.append(
+                {
+                    "name": key.replace("_", " ").title(),
+                    "score": value.get("score", 0),
+                    "weight": 25,  # Equal weight for voice dimensions
+                    "feedback": value.get("feedback", ""),
+                }
+            )
 
     feedback_summary = cu_fields.get("feedback_summary", "")
     if isinstance(feedback_summary, dict):
