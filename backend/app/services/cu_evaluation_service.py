@@ -39,6 +39,44 @@ REQUEST_TIMEOUT = 30.0
 # Service name for config lookup
 CU_SERVICE_NAME = "content_understanding"
 
+# Azure Cognitive Services scope for Entra ID token
+_COGNITIVE_SERVICES_SCOPE = "https://cognitiveservices.azure.com/.default"
+
+
+async def _get_auth_headers(api_key: str) -> dict[str, str]:
+    """Get authentication headers with Entra ID preferred, API Key fallback.
+
+    Priority:
+      1. DefaultAzureCredential (az login locally / Managed Identity on server)
+      2. API Key via Ocp-Apim-Subscription-Key header
+    """
+    # Try Entra ID (DefaultAzureCredential) first
+    try:
+        from azure.identity.aio import DefaultAzureCredential
+
+        credential = DefaultAzureCredential()
+        try:
+            token = await credential.get_token(_COGNITIVE_SERVICES_SCOPE)
+            logger.debug("CU auth: using Entra ID token (DefaultAzureCredential)")
+            return {
+                "Authorization": f"Bearer {token.token}",
+                "Content-Type": "application/json",
+            }
+        finally:
+            await credential.close()
+    except Exception as exc:
+        logger.debug("CU auth: DefaultAzureCredential unavailable (%s), trying API Key", exc)
+
+    # Fallback to API Key
+    if api_key:
+        logger.debug("CU auth: using API Key")
+        return {
+            "Ocp-Apim-Subscription-Key": api_key,
+            "Content-Type": "application/json",
+        }
+
+    raise RuntimeError("No CU credentials available: Entra ID failed and no API Key configured")
+
 # Default voice dimensions if rubric doesn't specify voice-specific ones
 DEFAULT_VOICE_DIMENSIONS = [
     {"name": "fluency", "weight": 30, "criteria": ["Smooth speech flow"], "max_score": 100},
@@ -56,43 +94,22 @@ DEFAULT_VOICE_DIMENSIONS = [
 def build_content_analyzer_schema(rubric_dimensions: list[dict]) -> dict:
     """Convert ScoringRubric dimensions to CU content analyzer fieldSchema.
 
-    Each dimension becomes a 'generate' field with type 'object' containing
-    score (number), strengths (array), weaknesses (array), suggestions (array).
-    Also includes a feedback_summary string field.
+    Each dimension becomes a 'generate' field with type 'string' containing
+    JSON-structured scoring output. Also includes a feedback_summary string field.
     """
     fields: dict[str, dict] = {}
 
     for dim in rubric_dimensions:
         dim_name = dim.get("name", "unknown").lower().replace(" ", "_")
+        criteria_text = ", ".join(dim.get("criteria", []))
         fields[dim_name] = {
-            "type": "object",
+            "type": "string",
             "method": "generate",
             "description": (
-                f"Score for dimension '{dim.get('name', '')}' "
-                f"(weight: {dim.get('weight', 0)}%, max: {dim.get('max_score', 100)}). "
-                f"Criteria: {', '.join(dim.get('criteria', []))}"
+                f"JSON object with score (0-{dim.get('max_score', 100)}), strengths, "
+                f"weaknesses, suggestions for dimension '{dim.get('name', '')}' "
+                f"(weight: {dim.get('weight', 0)}%). Criteria: {criteria_text}"
             ),
-            "properties": {
-                "score": {
-                    "type": "number",
-                    "description": f"Score from 0 to {dim.get('max_score', 100)}",
-                },
-                "strengths": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "List of observed strengths for this dimension",
-                },
-                "weaknesses": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "List of observed weaknesses for this dimension",
-                },
-                "suggestions": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "List of improvement suggestions",
-                },
-            },
         }
 
     fields["feedback_summary"] = {
@@ -101,7 +118,7 @@ def build_content_analyzer_schema(rubric_dimensions: list[dict]) -> dict:
         "description": "Overall feedback summary combining all dimension assessments",
     }
 
-    return {"fields": fields}
+    return {"name": "ContentScoring", "fields": fields}
 
 
 def build_voice_analyzer_schema(rubric_dimensions: list[dict]) -> dict:
@@ -116,22 +133,13 @@ def build_voice_analyzer_schema(rubric_dimensions: list[dict]) -> dict:
     for dim in voice_dims:
         dim_name = dim.get("name", "unknown").lower().replace(" ", "_")
         fields[dim_name] = {
-            "type": "object",
+            "type": "string",
             "method": "generate",
             "description": (
-                f"Voice quality score for '{dim.get('name', '')}' "
+                f"JSON object with score (0-{dim.get('max_score', 100)}) and feedback "
+                f"for voice quality dimension '{dim.get('name', '')}' "
                 f"(weight: {dim.get('weight', 0)}%)"
             ),
-            "properties": {
-                "score": {
-                    "type": "number",
-                    "description": f"Score from 0 to {dim.get('max_score', 100)}",
-                },
-                "feedback": {
-                    "type": "string",
-                    "description": f"Specific feedback for {dim.get('name', '')}",
-                },
-            },
         }
 
     fields["feedback_summary"] = {
@@ -146,7 +154,7 @@ def build_voice_analyzer_schema(rubric_dimensions: list[dict]) -> dict:
         "description": "Re-transcription of the audio content for D-16 compliance",
     }
 
-    return {"fields": fields}
+    return {"name": "VoiceScoring", "fields": fields}
 
 
 async def sync_rubric_analyzers(db: AsyncSession, rubric: ScoringRubric) -> None:
@@ -166,20 +174,20 @@ async def sync_rubric_analyzers(db: AsyncSession, rubric: ScoringRubric) -> None
         return
 
     endpoint = endpoint.rstrip("/")
-    rubric_id_short = rubric.id[:8]
+    rubric_id_short = rubric.id[:8].replace("-", "")
 
     # Parse rubric dimensions
     dimensions = rubric.dimensions
     if isinstance(dimensions, str):
         dimensions = json.loads(dimensions)
 
-    # Content analyzer
-    content_analyzer_id = f"rubric-content-{rubric_id_short}"
+    # Content analyzer (analyzerId cannot contain '-')
+    content_analyzer_id = f"rubricContent{rubric_id_short}"
     content_schema = build_content_analyzer_schema(dimensions)
     await _put_analyzer(endpoint, api_key, content_analyzer_id, content_schema, "content")
 
     # Voice analyzer
-    voice_analyzer_id = f"rubric-voice-{rubric_id_short}"
+    voice_analyzer_id = f"rubricVoice{rubric_id_short}"
     voice_schema = build_voice_analyzer_schema(DEFAULT_VOICE_DIMENSIONS)
     await _put_analyzer(endpoint, api_key, voice_analyzer_id, voice_schema, "voice")
 
@@ -208,12 +216,11 @@ async def _put_analyzer(
         f"{endpoint}/contentunderstanding/analyzers/{analyzer_id}"
         f"?api-version={CU_API_VERSION}"
     )
-    headers = {
-        "Ocp-Apim-Subscription-Key": api_key,
-        "Content-Type": "application/json",
-    }
+    headers = await _get_auth_headers(api_key)
+    base_analyzer = "prebuilt-audio" if analyzer_type == "voice" else "prebuilt-document"
     body = {
         "description": f"Auto-generated {analyzer_type} scoring analyzer",
+        "baseAnalyzerId": base_analyzer,
         "fieldSchema": field_schema,
     }
 
@@ -227,10 +234,10 @@ async def _put_analyzer(
                 "CU analyzer PUT failed for %s: HTTP %d - %s",
                 analyzer_id,
                 response.status_code,
-                response.text[:200],
+                response.text[:500],
             )
             raise RuntimeError(
-                f"CU analyzer creation failed: HTTP {response.status_code}"
+                f"CU analyzer creation failed: HTTP {response.status_code} - {response.text[:500]}"
             )
 
 
@@ -250,10 +257,7 @@ async def score_content_with_cu(
         f"{endpoint}/contentunderstanding/analyzers/{analyzer_id}:analyze"
         f"?api-version={CU_API_VERSION}"
     )
-    headers = {
-        "Ocp-Apim-Subscription-Key": api_key,
-        "Content-Type": "application/json",
-    }
+    headers = await _get_auth_headers(api_key)
 
     # Encode transcript JSON as base64 per CU API spec
     transcript_bytes = transcript_json.encode("utf-8")
@@ -284,7 +288,7 @@ async def score_content_with_cu(
             raise RuntimeError("No Operation-Location header in CU content scoring response")
 
         # Poll until Succeeded (bounded: 60 attempts x 2s = 120s max per D-09)
-        return await _poll_result(client, operation_url, api_key)
+        return await _poll_result(client, operation_url, headers)
 
 
 async def score_voice_with_cu(
@@ -304,10 +308,7 @@ async def score_voice_with_cu(
         f"{endpoint}/contentunderstanding/analyzers/{analyzer_id}:analyze"
         f"?api-version={CU_API_VERSION}"
     )
-    headers = {
-        "Ocp-Apim-Subscription-Key": api_key,
-        "Content-Type": "application/json",
-    }
+    headers = await _get_auth_headers(api_key)
 
     # Determine input format: URL for cloud storage, base64 for local files
     if audio_url.startswith(("http://", "https://")):
@@ -341,12 +342,14 @@ async def score_voice_with_cu(
         if not operation_url:
             raise RuntimeError("No Operation-Location header in CU voice scoring response")
 
-        return await _poll_result(client, operation_url, api_key)
+        return await _poll_result(client, operation_url, headers)
 
 
-async def _poll_result(client: httpx.AsyncClient, operation_url: str, api_key: str) -> dict:
+async def _poll_result(
+    client: httpx.AsyncClient, operation_url: str, auth_headers: dict[str, str]
+) -> dict:
     """Poll CU operation until Succeeded, Failed, or timeout."""
-    poll_headers = {"Ocp-Apim-Subscription-Key": api_key}
+    poll_headers = {k: v for k, v in auth_headers.items() if k != "Content-Type"}
 
     for _attempt in range(MAX_POLL_ATTEMPTS):
         await asyncio.sleep(POLL_INTERVAL_SECONDS)
