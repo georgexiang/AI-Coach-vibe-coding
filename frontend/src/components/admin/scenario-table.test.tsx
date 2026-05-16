@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ScenarioTable } from "./scenario-table";
 import type { Scenario } from "@/types/scenario";
@@ -251,5 +251,20 @@ describe("ScenarioTable", () => {
     await userEvent.click(menuButton);
     await userEvent.click(screen.getByText("Activate"));
     expect(onTransition).toHaveBeenCalledWith("sc-1", "active");
+  });
+
+  it("navigates to scenario editor on double-click", () => {
+    render(<ScenarioTable {...defaultProps} />);
+    const row = screen.getByText("Test Scenario").closest("tr")!;
+    fireEvent.doubleClick(row);
+    expect(mockNavigate).toHaveBeenCalledWith("/admin/scenarios/sc-1");
+  });
+
+  it("does not navigate on double-click for archived scenarios", () => {
+    const archivedScenario = makeScenario({ status: "archived" });
+    render(<ScenarioTable {...defaultProps} scenarios={[archivedScenario]} />);
+    const row = screen.getByText("Test Scenario").closest("tr")!;
+    fireEvent.doubleClick(row);
+    expect(mockNavigate).not.toHaveBeenCalled();
   });
 });

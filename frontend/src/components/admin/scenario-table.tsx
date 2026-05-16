@@ -137,9 +137,14 @@ export function ScenarioTable({
                 <tr
                   key={scenario.id}
                   className={cn(
-                    "border-b hover:bg-muted/50 transition-colors",
+                    "border-b hover:bg-muted/50 transition-colors cursor-pointer",
                     scenario.status === "archived" && "opacity-60",
                   )}
+                  onDoubleClick={() => {
+                    if (scenario.status !== "archived") {
+                      navigate(`/admin/scenarios/${scenario.id}`);
+                    }
+                  }}
                 >
                   <td className="px-4 py-3 font-medium">{scenario.name}</td>
                   <td className="px-4 py-3">

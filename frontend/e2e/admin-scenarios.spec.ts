@@ -375,4 +375,18 @@ test.describe("Admin Scenarios Management", () => {
       }
     }
   });
+
+  test("double-click on scenario row navigates to editor", async ({ page }) => {
+    await page.waitForTimeout(2000);
+
+    const firstRow = page.locator("tbody tr").first();
+    const rowCount = await firstRow.count();
+
+    if (rowCount > 0) {
+      await firstRow.dblclick();
+      await expect(page).toHaveURL(/\/admin\/scenarios\/[a-f0-9-]+/, {
+        timeout: 5000,
+      });
+    }
+  });
 });
