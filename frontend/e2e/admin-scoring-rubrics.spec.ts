@@ -95,4 +95,54 @@ test.describe("Admin Scoring Rubrics Page", () => {
     await expect(page.locator("h1")).toBeVisible();
     await expect(page.locator("body")).toBeVisible();
   });
+
+  test("rubric editor shows CU analyzers section for existing rubric", async ({
+    page,
+  }) => {
+    // Navigate to an existing rubric via double-click
+    const tableRow = page.locator("table tbody tr").first();
+    if ((await tableRow.count()) > 0) {
+      await tableRow.dblclick();
+      await page.waitForURL(/\/admin\/scoring-rubrics\/.+/);
+      await page.waitForLoadState("networkidle");
+
+      // CU analyzers section should be visible (either with data or empty state)
+      const cuSection = page.getByText(/Content Understanding Analyzers|内容理解分析器/i);
+      await expect(cuSection).toBeVisible({ timeout: 5000 });
+    }
+  });
+
+  test("CU analyzers section shows analyzer IDs when configured", async ({
+    page,
+  }) => {
+    const tableRow = page.locator("table tbody tr").first();
+    if ((await tableRow.count()) > 0) {
+      await tableRow.dblclick();
+      await page.waitForURL(/\/admin\/scoring-rubrics\/.+/);
+      await page.waitForLoadState("networkidle");
+
+      // Check for either the analyzers with data or empty state message
+      const cuSection = page.getByText(/Content Understanding Analyzers|内容理解分析器/i);
+      await expect(cuSection).toBeVisible({ timeout: 5000 });
+
+      // If analyzers are configured, portal buttons should exist
+      const portalButtons = page.getByText(/View in Azure Portal|在 Azure 门户中查看/i);
+      const emptyState = page.getByText(/auto-created|自动创建/i);
+      const portalCount = await portalButtons.count();
+      const emptyCount = await emptyState.count();
+      // Either has portal links or shows empty state
+      expect(portalCount + emptyCount).toBeGreaterThan(0);
+    }
+  });
+
+  test("CU analyzers section is NOT shown on new rubric page", async ({
+    page,
+  }) => {
+    await page.goto("/admin/scoring-rubrics/new");
+    await page.waitForLoadState("networkidle");
+
+    // CU section should not appear for new rubrics
+    const cuSection = page.getByText(/Content Understanding Analyzers|内容理解分析器/i);
+    await expect(cuSection).toHaveCount(0);
+  });
 });

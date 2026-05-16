@@ -5,6 +5,7 @@ import {
   createRubric,
   updateRubric,
   deleteRubric,
+  getCuPortalUrl,
 } from "@/api/rubrics";
 import type { RubricCreate, RubricUpdate } from "@/types/rubric";
 
@@ -51,5 +52,13 @@ export function useDeleteRubric() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["rubrics"] });
     },
+  });
+}
+
+export function useCuPortalUrl(rubricId: string | undefined) {
+  return useQuery({
+    queryKey: ["rubrics", rubricId, "cu-portal-url"],
+    queryFn: () => getCuPortalUrl(rubricId!),
+    enabled: !!rubricId,
   });
 }

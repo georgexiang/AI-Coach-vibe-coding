@@ -280,7 +280,13 @@
     "voiceWeight": "Voice Evaluation Weight",
     "voiceWeightHint": "Voice weight applies to voice/digital human sessions only",
     "editTitle": "Edit: {{name}}",
-    "basicInfo": "Basic Information"
+    "basicInfo": "Basic Information",
+    "cuAnalyzers": "Content Understanding Analyzers",
+    "cuNoAnalyzers": "CU analyzers will be auto-created when Azure Content Understanding is configured.",
+    "cuContentAnalyzer": "Content Analyzer",
+    "cuVoiceAnalyzer": "Voice Analyzer",
+    "cuViewInPortal": "View in Azure Portal",
+    "cuEndpoint": "CU Endpoint"
   },
   "azureConfig": {
     "title": "Azure Service Configuration",

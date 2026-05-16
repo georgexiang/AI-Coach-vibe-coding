@@ -280,7 +280,13 @@
     "voiceWeight": "语音评估权重",
     "voiceWeightHint": "语音权重仅适用于语音/数字人会话",
     "editTitle": "编辑: {{name}}",
-    "basicInfo": "基本信息"
+    "basicInfo": "基本信息",
+    "cuAnalyzers": "内容理解分析器",
+    "cuNoAnalyzers": "配置 Azure Content Understanding 后将自动创建 CU 分析器。",
+    "cuContentAnalyzer": "内容分析器",
+    "cuVoiceAnalyzer": "语音分析器",
+    "cuViewInPortal": "在 Azure 门户中查看",
+    "cuEndpoint": "CU 端点"
   },
   "azureConfig": {
     "title": "Azure 服务配置",

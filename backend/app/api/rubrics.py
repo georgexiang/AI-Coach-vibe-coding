@@ -6,7 +6,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies import get_db, require_role
 from app.models.user import User
-from app.schemas.scoring_rubric import RubricCreate, RubricResponse, RubricUpdate
+from app.schemas.scoring_rubric import (
+    CuPortalUrlResponse,
+    RubricCreate,
+    RubricResponse,
+    RubricUpdate,
+)
 from app.services import rubric_service
 
 router = APIRouter(prefix="/rubrics", tags=["rubrics"])
@@ -51,6 +56,43 @@ async def update_rubric(
 ):
     """Update a scoring rubric. Admin only."""
     return await rubric_service.update_rubric(db, rubric_id, request)
+
+
+@router.get("/{rubric_id}/cu-portal-url", response_model=CuPortalUrlResponse)
+async def get_cu_portal_url(
+    rubric_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role("admin")),
+):
+    """Get the Azure Content Understanding portal URLs for this rubric's analyzers."""
+    from app.services import config_service
+    from app.services.cu_evaluation_service import CU_SERVICE_NAME
+
+    rubric = await rubric_service.get_rubric(db, rubric_id)
+    endpoint = await config_service.get_effective_endpoint(db, CU_SERVICE_NAME)
+    endpoint = endpoint.rstrip("/") if endpoint else ""
+
+    content_id = rubric.cu_content_analyzer_id
+    voice_id = rubric.cu_voice_analyzer_id
+
+    content_url = (
+        f"{endpoint}/contentunderstanding/analyzers/{content_id}"
+        if endpoint and content_id
+        else None
+    )
+    voice_url = (
+        f"{endpoint}/contentunderstanding/analyzers/{voice_id}"
+        if endpoint and voice_id
+        else None
+    )
+
+    return CuPortalUrlResponse(
+        cu_content_analyzer_id=content_id,
+        cu_voice_analyzer_id=voice_id,
+        content_analyzer_url=content_url,
+        voice_analyzer_url=voice_url,
+        cu_endpoint=endpoint or None,
+    )
 
 
 @router.delete("/{rubric_id}", status_code=204)

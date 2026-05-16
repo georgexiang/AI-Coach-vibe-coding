@@ -99,3 +99,13 @@ class RubricResponse(BaseModel):
         return v
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class CuPortalUrlResponse(BaseModel):
+    """Response schema for CU analyzer portal URLs."""
+
+    cu_content_analyzer_id: str | None = None
+    cu_voice_analyzer_id: str | None = None
+    content_analyzer_url: str | None = None
+    voice_analyzer_url: str | None = None
+    cu_endpoint: str | None = None

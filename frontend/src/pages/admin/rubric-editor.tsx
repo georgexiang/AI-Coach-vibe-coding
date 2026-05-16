@@ -26,6 +26,7 @@ import {
   useCreateRubric,
   useUpdateRubric,
 } from "@/hooks/use-rubrics";
+import { CuStatusSection } from "@/components/admin/cu-status-section";
 import type { RubricCreate, RubricUpdate } from "@/types/rubric";
 
 const dimensionSchema = z.object({
@@ -390,6 +391,9 @@ export default function RubricEditorPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* CU Analyzers Card (only in edit mode) */}
+      {!isNew && <CuStatusSection rubricId={id} />}
     </div>
   );
 }

@@ -60,6 +60,16 @@ vi.mock("@/hooks/use-rubrics", () => ({
     mutate: mockUpdateMutate,
     isPending: false,
   }),
+  useCuPortalUrl: () => ({
+    data: {
+      cu_content_analyzer_id: "rubric-r1-content",
+      cu_voice_analyzer_id: "rubric-r1-voice",
+      content_analyzer_url: "https://cu.azure.com/contentunderstanding/analyzers/rubric-r1-content",
+      voice_analyzer_url: "https://cu.azure.com/contentunderstanding/analyzers/rubric-r1-voice",
+      cu_endpoint: "https://cu.azure.com",
+    },
+    isLoading: false,
+  }),
 }));
 
 function renderEditor() {
@@ -157,6 +167,31 @@ describe("RubricEditorPage", () => {
       await waitFor(() => {
         expect(screen.getByDisplayValue("accuracy, depth")).toBeInTheDocument();
       });
+    });
+  });
+
+  describe("CU status section", () => {
+    it("does not render CU section in create mode", () => {
+      renderEditor();
+      expect(screen.queryByText("admin:rubrics.cuAnalyzers")).not.toBeInTheDocument();
+    });
+
+    it("renders CU section in edit mode", () => {
+      mockParamsId = "r1";
+      renderEditor();
+      expect(screen.getByText("admin:rubrics.cuAnalyzers")).toBeInTheDocument();
+    });
+
+    it("shows content analyzer ID in edit mode", () => {
+      mockParamsId = "r1";
+      renderEditor();
+      expect(screen.getByText("rubric-r1-content")).toBeInTheDocument();
+    });
+
+    it("shows voice analyzer ID in edit mode", () => {
+      mockParamsId = "r1";
+      renderEditor();
+      expect(screen.getByText("rubric-r1-voice")).toBeInTheDocument();
     });
   });
 
