@@ -31,7 +31,11 @@ from app.services import config_service
 logger = logging.getLogger(__name__)
 
 # CU API configuration
-CU_API_VERSION = "2025-11-01"
+# Using Preview API because GA and Preview have isolated analyzer storage,
+# and Portal (contentunderstanding.ai.azure.com + classic Foundry) only shows Preview analyzers.
+# TODO: Switch to GA API once Microsoft Portal supports GA analyzer visibility.
+# Ticket needed: ask Azure CU team about GA/Preview storage isolation roadmap.
+CU_API_VERSION = "2025-05-01-preview"
 MAX_POLL_ATTEMPTS = 60
 POLL_INTERVAL_SECONDS = 2.0
 REQUEST_TIMEOUT = 30.0
@@ -215,7 +219,9 @@ async def _put_analyzer(
     """PUT a CU custom analyzer definition. Creates or updates."""
     url = f"{endpoint}/contentunderstanding/analyzers/{analyzer_id}?api-version={CU_API_VERSION}"
     headers = await _get_auth_headers(api_key)
-    base_analyzer = "prebuilt-audio" if analyzer_type == "voice" else "prebuilt-document"
+    base_analyzer = (
+        "prebuilt-audioAnalyzer" if analyzer_type == "voice" else "prebuilt-documentAnalyzer"
+    )
     body = {
         "description": f"Auto-generated {analyzer_type} scoring analyzer",
         "baseAnalyzerId": base_analyzer,
@@ -257,13 +263,11 @@ async def score_content_with_cu(
     )
     headers = await _get_auth_headers(api_key)
 
-    # Encode transcript JSON as base64 per CU API spec
+    # Encode transcript JSON as base64 per CU Preview API spec
     transcript_bytes = transcript_json.encode("utf-8")
     b64_content = base64.b64encode(transcript_bytes).decode("utf-8")
 
-    body = {
-        "inputs": [{"base64Source": b64_content}],
-    }
+    body = {"data": b64_content}
 
     logger.info("Submitting content scoring to CU analyzer %s", analyzer_id)
 
@@ -307,15 +311,16 @@ async def score_voice_with_cu(
     headers = await _get_auth_headers(api_key)
 
     # Determine input format: URL for cloud storage, base64 for local files
+    # Preview API uses {"url": "..."} or {"data": "<base64>"}
     if audio_url.startswith(("http://", "https://")):
-        body: dict = {"inputs": [{"url": audio_url}]}
+        body: dict = {"url": audio_url}
     else:
         # Local file: read and base64 encode
         try:
             with open(audio_url, "rb") as f:
                 audio_bytes = f.read()
             b64_audio = base64.b64encode(audio_bytes).decode("utf-8")
-            body = {"inputs": [{"base64Source": b64_audio}]}
+            body = {"data": b64_audio}
         except (FileNotFoundError, OSError) as e:
             raise RuntimeError(f"Failed to read local audio file: {e}") from e
 
@@ -350,15 +355,15 @@ async def _poll_result(
         poll_response = await client.get(operation_url, headers=poll_headers)
         poll_data = poll_response.json()
 
-        status = poll_data.get("status", "")
-        if status == "Succeeded":
+        status = poll_data.get("status", "").lower()
+        if status == "succeeded":
             result = poll_data.get("result", {})
             # Extract fields from CU result
             contents = result.get("contents", [])
             if contents:
                 return contents[0].get("fields", {})
             return result.get("fields", {})
-        if status in ("Failed", "Cancelled"):
+        if status in ("failed", "cancelled"):
             error_msg = poll_data.get("error", {}).get("message", "Unknown error")
             raise RuntimeError(f"CU analysis {status}: {error_msg}")
 

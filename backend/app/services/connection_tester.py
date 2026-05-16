@@ -429,7 +429,7 @@ async def test_azure_content_understanding(
         key=lambda b: 0 if ".services.ai.azure.com" in b else 1,
     )
 
-    path = "/contentunderstanding/analyzers?api-version=2025-11-01"
+    path = "/contentunderstanding/analyzers?api-version=2025-05-01-preview"
     # AzureKeyCredential sends Ocp-Apim-Subscription-Key; also try api-key
     headers_ocp = {"Ocp-Apim-Subscription-Key": api_key}
     headers_apikey = {"api-key": api_key}

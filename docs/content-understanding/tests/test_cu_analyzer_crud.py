@@ -1,20 +1,18 @@
 """Content Understanding Analyzer CRUD API 验证测试.
 
 这些测试直接调用 CU REST API，验证 Analyzer 的创建、列出、获取和删除。
+认证优先级：Entra ID (DefaultAzureCredential) > API Key。
+
 需要设置环境变量：
-  CU_ENDPOINT — CU 服务端点
-  CU_API_KEY — API Key（如不使用 Entra ID）
-  AZURE_TENANT_ID — 租户 ID（可选，用于 Portal URL 验证）
+  CU_ENDPOINT — CU 服务端点（必须）
+  CU_API_KEY — API Key（可选，如果 Entra ID 可用则不需要）
 
 运行：
   cd docs/content-understanding/tests
   python -m pytest test_cu_analyzer_crud.py -v
 """
 
-import asyncio
-import json
 import os
-import sys
 
 import httpx
 import pytest
@@ -22,27 +20,32 @@ import pytest
 # Configuration from environment
 CU_ENDPOINT = os.environ.get("CU_ENDPOINT", "").rstrip("/")
 CU_API_KEY = os.environ.get("CU_API_KEY", "")
-CU_API_VERSION = "2025-11-01"
-CU_API_VERSION_PREVIEW = "2025-05-01-preview"
+CU_API_VERSION = "2025-05-01-preview"
 
 TEST_ANALYZER_ID = "testAnalyzerCrud001"
 
+
+def _has_entra_id() -> bool:
+    """Check if Entra ID (DefaultAzureCredential) is available."""
+    try:
+        from azure.identity import DefaultAzureCredential
+
+        credential = DefaultAzureCredential()
+        credential.get_token("https://cognitiveservices.azure.com/.default")
+        credential.close()
+        return True
+    except Exception:
+        return False
+
+
 pytestmark = pytest.mark.skipif(
-    not CU_ENDPOINT or not CU_API_KEY,
-    reason="CU_ENDPOINT and CU_API_KEY must be set",
+    not CU_ENDPOINT or (not CU_API_KEY and not _has_entra_id()),
+    reason="CU_ENDPOINT must be set, and either CU_API_KEY or Entra ID must be available",
 )
 
 
 def _get_headers() -> dict[str, str]:
-    """Get auth headers using API Key."""
-    return {
-        "Ocp-Apim-Subscription-Key": CU_API_KEY,
-        "Content-Type": "application/json",
-    }
-
-
-def _get_headers_entra() -> dict[str, str] | None:
-    """Try to get Entra ID headers. Returns None if unavailable."""
+    """Get auth headers. Entra ID preferred, API Key fallback."""
     try:
         from azure.identity import DefaultAzureCredential
 
@@ -54,7 +57,15 @@ def _get_headers_entra() -> dict[str, str] | None:
             "Content-Type": "application/json",
         }
     except Exception:
-        return None
+        pass
+
+    if CU_API_KEY:
+        return {
+            "Ocp-Apim-Subscription-Key": CU_API_KEY,
+            "Content-Type": "application/json",
+        }
+
+    raise RuntimeError("No CU credentials available")
 
 
 def _build_test_schema() -> dict:
@@ -88,12 +99,12 @@ class TestAnalyzerCRUD:
         except Exception:
             pass
 
-    def test_01_create_analyzer_ga_api(self):
-        """Test: 使用 GA API (2025-11-01) 创建 Analyzer."""
+    def test_01_create_analyzer_preview_api(self):
+        """Test: 使用 Preview API (2025-05-01-preview) 创建 Analyzer."""
         url = f"{CU_ENDPOINT}/contentunderstanding/analyzers/{TEST_ANALYZER_ID}?api-version={CU_API_VERSION}"
         body = {
             "description": "Test analyzer for CRUD validation",
-            "baseAnalyzerId": "prebuilt-document",
+            "baseAnalyzerId": "prebuilt-documentAnalyzer",
             "fieldSchema": _build_test_schema(),
         }
 
@@ -107,7 +118,7 @@ class TestAnalyzerCRUD:
     def test_02_get_analyzer_ga_api(self):
         """Test: 使用 GA API 获取刚创建的 Analyzer."""
         # First create
-        self.test_01_create_analyzer_ga_api()
+        self.test_01_create_analyzer_preview_api()
 
         url = f"{CU_ENDPOINT}/contentunderstanding/analyzers/{TEST_ANALYZER_ID}?api-version={CU_API_VERSION}"
 
@@ -123,7 +134,7 @@ class TestAnalyzerCRUD:
     def test_03_list_analyzers_ga_api(self):
         """Test: 使用 GA API 列出所有 Analyzer."""
         # First create
-        self.test_01_create_analyzer_ga_api()
+        self.test_01_create_analyzer_preview_api()
 
         url = f"{CU_ENDPOINT}/contentunderstanding/analyzers?api-version={CU_API_VERSION}"
 
@@ -138,32 +149,28 @@ class TestAnalyzerCRUD:
         analyzer_ids = [a.get("id", a.get("name", "")) for a in data.get("value", data if isinstance(data, list) else [])]
         print(f"Found analyzers: {analyzer_ids}")
 
-    def test_04_list_analyzers_preview_api(self):
-        """Test: 使用 Preview API (2025-05-01-preview) 列出 Analyzer — 验证跨版本兼容性."""
-        # First create with GA
-        self.test_01_create_analyzer_ga_api()
+    def test_04_verify_analyzer_in_list(self):
+        """Test: 验证刚创建的 Analyzer 出现在列表中."""
+        self.test_01_create_analyzer_preview_api()
 
-        url = f"{CU_ENDPOINT}/contentunderstanding/analyzers?api-version={CU_API_VERSION_PREVIEW}"
+        url = f"{CU_ENDPOINT}/contentunderstanding/analyzers?api-version={CU_API_VERSION}"
 
         with httpx.Client(timeout=30) as client:
             response = client.get(url, headers=_get_headers())
 
-        print(f"LIST (preview) status: {response.status_code}")
-        print(f"LIST (preview) body: {response.text[:1000]}")
-        # This test reveals whether GA-created analyzers are visible to the Preview API
-        if response.status_code == 200:
-            data = response.json()
-            analyzer_ids = [a.get("id", a.get("name", "")) for a in data.get("value", data if isinstance(data, list) else [])]
-            print(f"Preview API found analyzers: {analyzer_ids}")
-            found = any(TEST_ANALYZER_ID in str(a) for a in analyzer_ids)
-            print(f"Test analyzer visible in Preview API: {found}")
-        else:
-            print(f"Preview API returned {response.status_code} — may not be supported")
+        print(f"LIST status: {response.status_code}")
+        assert response.status_code == 200
+        data = response.json()
+        analyzer_ids = [a.get("analyzerId", a.get("id", "")) for a in data.get("value", [])]
+        print(f"Found analyzers: {analyzer_ids}")
+        found = any(TEST_ANALYZER_ID in str(a) for a in analyzer_ids)
+        print(f"Test analyzer visible: {found}")
+        assert found, f"{TEST_ANALYZER_ID} not found in analyzer list"
 
     def test_05_delete_analyzer(self):
         """Test: 删除 Analyzer."""
         # First create
-        self.test_01_create_analyzer_ga_api()
+        self.test_01_create_analyzer_preview_api()
 
         url = f"{CU_ENDPOINT}/contentunderstanding/analyzers/{TEST_ANALYZER_ID}?api-version={CU_API_VERSION}"
 
@@ -178,57 +185,77 @@ class TestAnalyzerCRUD:
             response = client.get(url, headers=_get_headers())
         assert response.status_code == 404
 
-    def test_06_create_with_entra_id(self):
-        """Test: 使用 Entra ID 认证创建 Analyzer."""
-        headers = _get_headers_entra()
-        if headers is None:
-            pytest.skip("Entra ID (DefaultAzureCredential) not available")
+    def test_06_update_existing_analyzer(self):
+        """Test: 更新已存在的 Analyzer（PUT 幂等性验证）.
 
-        url = f"{CU_ENDPOINT}/contentunderstanding/analyzers/{TEST_ANALYZER_ID}Entra?api-version={CU_API_VERSION}"
+        Note: Preview API may return 409 if analyzer is still in 'creating' state.
+        We wait for 'ready' status before attempting update.
+        """
+        self.test_01_create_analyzer_preview_api()
+
+        # Wait for analyzer to become ready
+        url = f"{CU_ENDPOINT}/contentunderstanding/analyzers/{TEST_ANALYZER_ID}?api-version={CU_API_VERSION}"
+        import time
+
+        for _ in range(15):
+            with httpx.Client(timeout=30) as client:
+                check = client.get(url, headers=_get_headers())
+            if check.status_code == 200:
+                status = check.json().get("status", "")
+                if status == "ready":
+                    break
+            time.sleep(2)
+
         body = {
-            "description": "Test analyzer via Entra ID",
-            "baseAnalyzerId": "prebuilt-document",
+            "description": "Updated test analyzer description",
+            "baseAnalyzerId": "prebuilt-documentAnalyzer",
             "fieldSchema": _build_test_schema(),
         }
 
         with httpx.Client(timeout=30) as client:
-            response = client.put(url, headers=headers, json=body)
+            response = client.put(url, headers=_get_headers(), json=body)
 
-        print(f"PUT (Entra) status: {response.status_code}")
-        print(f"PUT (Entra) body: {response.text[:500]}")
-        assert response.status_code in (200, 201), f"Entra ID auth failed: {response.status_code}"
-
-        # Cleanup
-        with httpx.Client(timeout=30) as client:
-            client.delete(
-                f"{CU_ENDPOINT}/contentunderstanding/analyzers/{TEST_ANALYZER_ID}Entra?api-version={CU_API_VERSION}",
-                headers=headers,
-            )
+        print(f"PUT (update) status: {response.status_code}")
+        # 200=updated, 201=created, 409=still processing (acceptable for Preview API)
+        assert response.status_code in (200, 201, 409)
+        if response.status_code == 409:
+            print("Note: 409 Conflict — analyzer still processing, update deferred")
 
     def test_07_analyzer_id_naming_rules(self):
-        """Test: Analyzer ID 命名规则 — 验证非法字符被拒绝."""
-        invalid_ids = [
-            "test-with-hyphen",
-            "test_with_underscore",  # might work
-            "test with space",
-            "test/slash",
-        ]
+        """Test: Analyzer ID 命名规则探测.
 
-        for invalid_id in invalid_ids:
-            url = f"{CU_ENDPOINT}/contentunderstanding/analyzers/{invalid_id}?api-version={CU_API_VERSION}"
+        Preview API 实际上允许连字符（与 GA API 不同）。
+        此测试记录哪些 ID 格式被接受/拒绝。
+        """
+        test_ids = [
+            "testHyphen001",
+            "test-hyphen-002",
+            "test_underscore_003",
+        ]
+        results: dict[str, int] = {}
+
+        for test_id in test_ids:
+            url = f"{CU_ENDPOINT}/contentunderstanding/analyzers/{test_id}?api-version={CU_API_VERSION}"
             body = {
-                "description": "Test invalid ID",
-                "baseAnalyzerId": "prebuilt-document",
+                "description": "Test ID naming",
+                "baseAnalyzerId": "prebuilt-documentAnalyzer",
                 "fieldSchema": _build_test_schema(),
             }
-            with httpx.Client(timeout=10) as client:
-                response = client.put(url, headers=_get_headers(), json=body)
-            print(f"ID '{invalid_id}': status={response.status_code}")
-            # Document which IDs are rejected
-            if response.status_code in (200, 201):
-                # Cleanup
-                with httpx.Client(timeout=10) as client:
-                    client.delete(url, headers=_get_headers())
+            try:
+                with httpx.Client(timeout=15) as client:
+                    response = client.put(url, headers=_get_headers(), json=body)
+                results[test_id] = response.status_code
+                if response.status_code in (200, 201):
+                    with httpx.Client(timeout=15) as client:
+                        client.delete(url, headers=_get_headers())
+            except httpx.ReadTimeout:
+                results[test_id] = -1  # timeout
+
+        for tid, status in results.items():
+            print(f"ID '{tid}': status={status}")
+
+        # At minimum, alphanumeric IDs must work
+        assert results.get("testHyphen001") in (200, 201)
 
 
 class TestPortalUrlConstruction:

@@ -1,17 +1,18 @@
 """Content Understanding 评分管道端到端验证测试.
 
 验证完整的评分流程：提交 transcript → 轮询 → 解析结果。
+认证优先级：Entra ID (DefaultAzureCredential) > API Key。
+
 需要设置环境变量：
-  CU_ENDPOINT — CU 服务端点
-  CU_API_KEY — API Key
-  CU_ANALYZER_ID — 已创建的 Content Analyzer ID（如 rubricContent5c32107a）
+  CU_ENDPOINT — CU 服务端点（必须）
+  CU_ANALYZER_ID — 已创建的 Content Analyzer ID（必须，如 rubricContent5c32107a）
+  CU_API_KEY — API Key（可选，如果 Entra ID 可用则不需要）
 
 运行：
   cd docs/content-understanding/tests
   python -m pytest test_cu_scoring_pipeline.py -v
 """
 
-import asyncio
 import base64
 import json
 import os
@@ -23,22 +24,53 @@ import pytest
 CU_ENDPOINT = os.environ.get("CU_ENDPOINT", "").rstrip("/")
 CU_API_KEY = os.environ.get("CU_API_KEY", "")
 CU_ANALYZER_ID = os.environ.get("CU_ANALYZER_ID", "")
-CU_API_VERSION = "2025-11-01"
+CU_API_VERSION = "2025-05-01-preview"
 
 MAX_POLL_ATTEMPTS = 60
 POLL_INTERVAL = 2.0
 
+
+def _has_entra_id() -> bool:
+    """Check if Entra ID is available."""
+    try:
+        from azure.identity import DefaultAzureCredential
+
+        credential = DefaultAzureCredential()
+        credential.get_token("https://cognitiveservices.azure.com/.default")
+        credential.close()
+        return True
+    except Exception:
+        return False
+
+
 pytestmark = pytest.mark.skipif(
-    not CU_ENDPOINT or not CU_API_KEY or not CU_ANALYZER_ID,
-    reason="CU_ENDPOINT, CU_API_KEY, and CU_ANALYZER_ID must be set",
+    not CU_ENDPOINT or not CU_ANALYZER_ID or (not CU_API_KEY and not _has_entra_id()),
+    reason="CU_ENDPOINT and CU_ANALYZER_ID must be set, and either CU_API_KEY or Entra ID available",
 )
 
 
 def _get_headers() -> dict[str, str]:
-    return {
-        "Ocp-Apim-Subscription-Key": CU_API_KEY,
-        "Content-Type": "application/json",
-    }
+    """Get auth headers. Entra ID preferred, API Key fallback."""
+    try:
+        from azure.identity import DefaultAzureCredential
+
+        credential = DefaultAzureCredential()
+        token = credential.get_token("https://cognitiveservices.azure.com/.default")
+        credential.close()
+        return {
+            "Authorization": f"Bearer {token.token}",
+            "Content-Type": "application/json",
+        }
+    except Exception:
+        pass
+
+    if CU_API_KEY:
+        return {
+            "Ocp-Apim-Subscription-Key": CU_API_KEY,
+            "Content-Type": "application/json",
+        }
+
+    raise RuntimeError("No CU credentials available")
 
 
 def _build_sample_transcript() -> str:
@@ -90,7 +122,8 @@ class TestContentScoringPipeline:
             f"{CU_ENDPOINT}/contentunderstanding/analyzers/{CU_ANALYZER_ID}:analyze"
             f"?api-version={CU_API_VERSION}"
         )
-        body = {"url": f"data:application/json;base64,{b64_content}"}
+        # Preview API uses {"data": "<base64>"} format
+        body = {"data": b64_content}
 
         with httpx.Client(timeout=30) as client:
             response = client.post(url, headers=_get_headers(), json=body)
@@ -112,7 +145,8 @@ class TestContentScoringPipeline:
             f"{CU_ENDPOINT}/contentunderstanding/analyzers/{CU_ANALYZER_ID}:analyze"
             f"?api-version={CU_API_VERSION}"
         )
-        body = {"url": f"data:application/json;base64,{b64_content}"}
+        # Preview API uses {"data": "<base64>"} format
+        body = {"data": b64_content}
 
         with httpx.Client(timeout=30) as client:
             response = client.post(url, headers=_get_headers(), json=body)
@@ -134,15 +168,15 @@ class TestContentScoringPipeline:
 
             assert poll_response.status_code == 200, f"Poll failed: {poll_response.status_code}"
             poll_data = poll_response.json()
-            status = poll_data.get("status", "")
+            status = poll_data.get("status", "").lower()
             print(f"Poll attempt {attempt + 1}: status={status}")
 
             if status == "succeeded":
                 result = poll_data
                 break
-            elif status == "failed":
+            elif status in ("failed", "cancelled"):
                 pytest.fail(f"Analysis failed: {poll_data}")
-            # else: notStarted / running → continue
+            # else: notstarted / running → continue
 
         assert result is not None, f"Timed out after {MAX_POLL_ATTEMPTS} attempts"
 
@@ -150,10 +184,13 @@ class TestContentScoringPipeline:
         print(f"\n=== RESULT ===")
         print(json.dumps(result, indent=2, ensure_ascii=False)[:2000])
 
-        # Verify structure
+        # Verify structure: Preview API returns result.contents[].fields
         assert "result" in result
         content = result["result"]
-        assert "content" in content or "fields" in content
+        assert "contents" in content, f"Expected 'contents' in result, got keys: {list(content.keys())}"
+        contents = content["contents"]
+        assert len(contents) > 0, "Expected at least one content item"
+        assert "fields" in contents[0], f"Expected 'fields' in content[0], got: {list(contents[0].keys())}"
 
     def test_03_analyzer_not_found(self):
         """Test: 向不存在的 Analyzer 提交分析应返回 404."""
@@ -163,7 +200,7 @@ class TestContentScoringPipeline:
             f"{CU_ENDPOINT}/contentunderstanding/analyzers/nonExistentAnalyzer9999:analyze"
             f"?api-version={CU_API_VERSION}"
         )
-        body = {"url": f"data:application/json;base64,{b64_content}"}
+        body = {"data": b64_content}
 
         with httpx.Client(timeout=30) as client:
             response = client.post(url, headers=_get_headers(), json=body)

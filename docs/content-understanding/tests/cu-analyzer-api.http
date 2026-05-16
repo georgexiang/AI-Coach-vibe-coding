@@ -4,11 +4,11 @@
 ### 使用前设置变量：
 ###   @endpoint = 你的 CU 端点
 ###   @apiKey = 你的 API Key
-###   @apiVersion = 2025-11-01
+###   @apiVersion = 2025-05-01-preview
 
 @endpoint = https://ai-foundary-hu-sweden-central2.services.ai.azure.com
 @apiKey = YOUR_API_KEY_HERE
-@apiVersion = 2025-11-01
+@apiVersion = 2025-05-01-preview
 @analyzerIdContent = rubricContent5c32107a
 @analyzerIdVoice = rubricVoice5c32107a
 @testAnalyzerId = testAnalyzerHttpTest
@@ -51,7 +51,7 @@ Ocp-Apim-Subscription-Key: {{apiKey}}
 
 {
   "description": "Test analyzer for HTTP client validation",
-  "baseAnalyzerId": "prebuilt-document",
+  "baseAnalyzerId": "prebuilt-documentAnalyzer",
   "fieldSchema": {
     "name": "TestScoring",
     "fields": {
@@ -109,7 +109,7 @@ Ocp-Apim-Subscription-Key: {{apiKey}}
 
 {
   "description": "Test invalid ID with hyphens",
-  "baseAnalyzerId": "prebuilt-document",
+  "baseAnalyzerId": "prebuilt-documentAnalyzer",
   "fieldSchema": {
     "name": "Test",
     "fields": {
