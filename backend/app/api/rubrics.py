@@ -65,7 +65,7 @@ async def get_cu_portal_url(
     user: User = Depends(require_role("admin")),
 ):
     """Get the Azure Content Understanding portal URLs for this rubric's analyzers."""
-    from app.services import config_service
+    from app.services import agent_sync_service, config_service
     from app.services.cu_evaluation_service import CU_SERVICE_NAME
 
     rubric = await rubric_service.get_rubric(db, rubric_id)
@@ -75,16 +75,23 @@ async def get_cu_portal_url(
     content_id = rubric.cu_content_analyzer_id
     voice_id = rubric.cu_voice_analyzer_id
 
-    content_url = (
-        f"{endpoint}/contentunderstanding/analyzers/{content_id}"
-        if endpoint and content_id
-        else None
-    )
-    voice_url = (
-        f"{endpoint}/contentunderstanding/analyzers/{voice_id}"
-        if endpoint and voice_id
-        else None
-    )
+    # Build Azure AI Foundry portal URL (same pattern as HCP agent portal)
+    components = await agent_sync_service.get_portal_url_components(db)
+    sub_hash = components.get("subscription_hash", "")
+    rg = components.get("resource_group", "")
+    resource_name = components.get("resource_name", "")
+    project_name = components.get("project_name", "")
+
+    base_portal_url = None
+    if sub_hash and rg and resource_name and project_name:
+        base_portal_url = (
+            f"https://ai.azure.com/nextgen/r/"
+            f"{sub_hash},{rg},,{resource_name},{project_name}"
+            f"/content-understanding"
+        )
+
+    content_url = base_portal_url if content_id and base_portal_url else None
+    voice_url = base_portal_url if voice_id and base_portal_url else None
 
     return CuPortalUrlResponse(
         cu_content_analyzer_id=content_id,
