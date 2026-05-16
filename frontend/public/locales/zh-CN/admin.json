@@ -285,7 +285,7 @@
     "cuNoAnalyzers": "配置 Azure Content Understanding 后将自动创建 CU 分析器。",
     "cuContentAnalyzer": "内容分析器",
     "cuVoiceAnalyzer": "语音分析器",
-    "cuViewInPortal": "在 Azure 门户中查看",
+    "cuViewInPortal": "在 AI Foundry (经典版) 中打开",
     "cuEndpoint": "CU 端点"
   },
   "azureConfig": {

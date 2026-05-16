@@ -285,7 +285,7 @@
     "cuNoAnalyzers": "CU analyzers will be auto-created when Azure Content Understanding is configured.",
     "cuContentAnalyzer": "Content Analyzer",
     "cuVoiceAnalyzer": "Voice Analyzer",
-    "cuViewInPortal": "View in Azure Portal",
+    "cuViewInPortal": "Open in AI Foundry (Classic)",
     "cuEndpoint": "CU Endpoint"
   },
   "azureConfig": {

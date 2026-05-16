@@ -75,19 +75,34 @@ async def get_cu_portal_url(
     content_id = rubric.cu_content_analyzer_id
     voice_id = rubric.cu_voice_analyzer_id
 
-    # Build Azure AI Foundry portal URL (same pattern as HCP agent portal)
+    # Build old-Foundry CU portal URL (CU is only in classic portal, not nextgen)
+    # Format: https://ai.azure.com/resource/contentunderstanding/analyzer-list
+    #   ?wsid=/subscriptions/{sub}/resourceGroups/{rg}/providers/
+    #         Microsoft.CognitiveServices/accounts/{resource}/projects/{project}
+    #   &tid={tenant_id}
+    import os
+    import urllib.parse
+
     components = await agent_sync_service.get_portal_url_components(db)
-    sub_hash = components.get("subscription_hash", "")
+    sub_id = components.get("subscription_id", "")
     rg = components.get("resource_group", "")
     resource_name = components.get("resource_name", "")
     project_name = components.get("project_name", "")
+    tenant_id = os.environ.get("AZURE_TENANT_ID", "")
 
     base_portal_url = None
-    if sub_hash and rg and resource_name and project_name:
+    if sub_id and rg and resource_name and project_name:
+        wsid = (
+            f"/subscriptions/{sub_id}/resourceGroups/{rg}"
+            f"/providers/Microsoft.CognitiveServices"
+            f"/accounts/{resource_name}/projects/{project_name}"
+        )
+        params = {"wsid": wsid}
+        if tenant_id:
+            params["tid"] = tenant_id
         base_portal_url = (
-            f"https://ai.azure.com/nextgen/r/"
-            f"{sub_hash},{rg},,{resource_name},{project_name}"
-            f"/content-understanding"
+            "https://ai.azure.com/resource/contentunderstanding/analyzer-list?"
+            + urllib.parse.urlencode(params)
         )
 
     content_url = base_portal_url if content_id and base_portal_url else None

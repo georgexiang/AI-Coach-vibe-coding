@@ -41,6 +41,8 @@ export function CuStatusSection({ rubricId }: CuStatusSectionProps) {
     );
   }
 
+  const portalUrl = cuInfo?.content_analyzer_url ?? cuInfo?.voice_analyzer_url;
+
   return (
     <Card className="border bg-blue-50 border-blue-200">
       <CardHeader className="pb-3">
@@ -66,23 +68,6 @@ export function CuStatusSection({ rubricId }: CuStatusSectionProps) {
               </TooltipTrigger>
               <TooltipContent>{cuInfo.cu_content_analyzer_id}</TooltipContent>
             </Tooltip>
-            {cuInfo.content_analyzer_url && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-full text-xs"
-                onClick={() =>
-                  window.open(
-                    cuInfo.content_analyzer_url!,
-                    "_blank",
-                    "noopener,noreferrer",
-                  )
-                }
-              >
-                <ExternalLink className="size-3.5 mr-1.5" />
-                {t("admin:rubrics.cuViewInPortal")}
-              </Button>
-            )}
           </div>
         )}
 
@@ -102,23 +87,6 @@ export function CuStatusSection({ rubricId }: CuStatusSectionProps) {
               </TooltipTrigger>
               <TooltipContent>{cuInfo.cu_voice_analyzer_id}</TooltipContent>
             </Tooltip>
-            {cuInfo.voice_analyzer_url && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-full text-xs"
-                onClick={() =>
-                  window.open(
-                    cuInfo.voice_analyzer_url!,
-                    "_blank",
-                    "noopener,noreferrer",
-                  )
-                }
-              >
-                <ExternalLink className="size-3.5 mr-1.5" />
-                {t("admin:rubrics.cuViewInPortal")}
-              </Button>
-            )}
           </div>
         )}
 
@@ -135,6 +103,22 @@ export function CuStatusSection({ rubricId }: CuStatusSectionProps) {
               </TooltipTrigger>
               <TooltipContent>{cuInfo.cu_endpoint}</TooltipContent>
             </Tooltip>
+          </div>
+        )}
+
+        {portalUrl && (
+          <div className="pt-2 border-t">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full text-xs"
+              onClick={() =>
+                window.open(portalUrl, "_blank", "noopener,noreferrer")
+              }
+            >
+              <ExternalLink className="size-3.5 mr-1.5" />
+              {t("admin:rubrics.cuViewInPortal")}
+            </Button>
           </div>
         )}
       </CardContent>

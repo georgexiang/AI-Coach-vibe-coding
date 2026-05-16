@@ -1,0 +1,127 @@
+### Content Understanding REST API 测试
+### VS Code REST Client 格式 — 安装 REST Client 扩展后可直接点击 "Send Request"
+###
+### 使用前设置变量：
+###   @endpoint = 你的 CU 端点
+###   @apiKey = 你的 API Key
+###   @apiVersion = 2025-11-01
+
+@endpoint = https://ai-foundary-hu-sweden-central2.services.ai.azure.com
+@apiKey = YOUR_API_KEY_HERE
+@apiVersion = 2025-11-01
+@analyzerIdContent = rubricContent5c32107a
+@analyzerIdVoice = rubricVoice5c32107a
+@testAnalyzerId = testAnalyzerHttpTest
+
+### ============================================================
+### 1. 列出所有 Analyzers (GA API)
+### ============================================================
+
+GET {{endpoint}}/contentunderstanding/analyzers?api-version={{apiVersion}}
+Ocp-Apim-Subscription-Key: {{apiKey}}
+
+### ============================================================
+### 2. 列出所有 Analyzers (Preview API — 用于对比)
+### ============================================================
+
+GET {{endpoint}}/contentunderstanding/analyzers?api-version=2025-05-01-preview
+Ocp-Apim-Subscription-Key: {{apiKey}}
+
+### ============================================================
+### 3. 获取特定 Content Analyzer
+### ============================================================
+
+GET {{endpoint}}/contentunderstanding/analyzers/{{analyzerIdContent}}?api-version={{apiVersion}}
+Ocp-Apim-Subscription-Key: {{apiKey}}
+
+### ============================================================
+### 4. 获取特定 Voice Analyzer
+### ============================================================
+
+GET {{endpoint}}/contentunderstanding/analyzers/{{analyzerIdVoice}}?api-version={{apiVersion}}
+Ocp-Apim-Subscription-Key: {{apiKey}}
+
+### ============================================================
+### 5. 创建测试 Analyzer (PUT)
+### ============================================================
+
+PUT {{endpoint}}/contentunderstanding/analyzers/{{testAnalyzerId}}?api-version={{apiVersion}}
+Content-Type: application/json
+Ocp-Apim-Subscription-Key: {{apiKey}}
+
+{
+  "description": "Test analyzer for HTTP client validation",
+  "baseAnalyzerId": "prebuilt-document",
+  "fieldSchema": {
+    "name": "TestScoring",
+    "fields": {
+      "test_field": {
+        "type": "string",
+        "method": "generate",
+        "description": "Generate a simple test response. Return: {\"result\": \"ok\"}"
+      }
+    }
+  }
+}
+
+### ============================================================
+### 6. 验证测试 Analyzer 已创建
+### ============================================================
+
+GET {{endpoint}}/contentunderstanding/analyzers/{{testAnalyzerId}}?api-version={{apiVersion}}
+Ocp-Apim-Subscription-Key: {{apiKey}}
+
+### ============================================================
+### 7. 提交内容分析（Content Scoring）
+### 注意：body.url 是 base64 编码的 JSON transcript
+### 下面的 base64 解码为：{"session":"test","conversation":[{"role":"mr","content":"Hello doctor"}]}
+### ============================================================
+
+POST {{endpoint}}/contentunderstanding/analyzers/{{analyzerIdContent}}:analyze?api-version={{apiVersion}}
+Content-Type: application/json
+Ocp-Apim-Subscription-Key: {{apiKey}}
+
+{
+  "url": "data:application/json;base64,eyJzZXNzaW9uIjoidGVzdCIsImNvbnZlcnNhdGlvbiI6W3sicm9sZSI6Im1yIiwiY29udGVudCI6IkhlbGxvIGRvY3RvciJ9XX0="
+}
+
+### ============================================================
+### 8. 轮询结果（替换 URL 为 Operation-Location 返回值）
+### ============================================================
+
+# GET {Operation-Location from step 7 response header}
+# Ocp-Apim-Subscription-Key: {{apiKey}}
+
+### ============================================================
+### 9. 删除测试 Analyzer
+### ============================================================
+
+DELETE {{endpoint}}/contentunderstanding/analyzers/{{testAnalyzerId}}?api-version={{apiVersion}}
+Ocp-Apim-Subscription-Key: {{apiKey}}
+
+### ============================================================
+### 10. 验证 Analyzer ID 命名规则 — 含连字符（应失败）
+### ============================================================
+
+PUT {{endpoint}}/contentunderstanding/analyzers/test-invalid-id?api-version={{apiVersion}}
+Content-Type: application/json
+Ocp-Apim-Subscription-Key: {{apiKey}}
+
+{
+  "description": "Test invalid ID with hyphens",
+  "baseAnalyzerId": "prebuilt-document",
+  "fieldSchema": {
+    "name": "Test",
+    "fields": {
+      "f1": { "type": "string", "method": "generate", "description": "test" }
+    }
+  }
+}
+
+### ============================================================
+### 11. 查看 Portal URL（AI Coach API）
+### 替换 rubricId 为实际值
+### ============================================================
+
+# GET http://localhost:8000/api/v1/rubrics/{rubricId}/cu-portal-url
+# Authorization: Bearer {admin_token}

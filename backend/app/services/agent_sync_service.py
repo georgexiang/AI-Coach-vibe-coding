@@ -855,6 +855,7 @@ async def get_portal_url_components(db: AsyncSession) -> dict:
                 sub_hash = base64.urlsafe_b64encode(sub_uuid.bytes).rstrip(b"=").decode()
 
                 _portal_url_cache = {
+                    "subscription_id": sub_id,
                     "subscription_hash": sub_hash,
                     "resource_group": rg,
                     "resource_name": resource_name,

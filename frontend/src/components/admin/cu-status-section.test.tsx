@@ -7,11 +7,13 @@ import { CuStatusSection } from "./cu-status-section";
 import type { CuPortalUrlResponse } from "@/api/rubrics";
 
 const mockCuPortalData: CuPortalUrlResponse = {
-  cu_content_analyzer_id: "rubric-r1-content",
-  cu_voice_analyzer_id: "rubric-r1-voice",
-  content_analyzer_url: "https://cu.azure.com/contentunderstanding/analyzers/rubric-r1-content",
-  voice_analyzer_url: "https://cu.azure.com/contentunderstanding/analyzers/rubric-r1-voice",
-  cu_endpoint: "https://cu.azure.com",
+  cu_content_analyzer_id: "rubricContent5c32107a",
+  cu_voice_analyzer_id: "rubricVoice5c32107a",
+  content_analyzer_url:
+    "https://ai.azure.com/resource/contentunderstanding/analyzer-list?wsid=%2Fsubscriptions%2F7a03e9b8&tid=16b3c013",
+  voice_analyzer_url:
+    "https://ai.azure.com/resource/contentunderstanding/analyzer-list?wsid=%2Fsubscriptions%2F7a03e9b8&tid=16b3c013",
+  cu_endpoint: "https://ai-foundary-hu-sweden-central2.services.ai.azure.com",
 };
 
 let mockReturnData: CuPortalUrlResponse | null = mockCuPortalData;
@@ -21,10 +23,11 @@ vi.mock("react-i18next", () => ({
     t: (key: string) => {
       const keys: Record<string, string> = {
         "admin:rubrics.cuAnalyzers": "Content Understanding Analyzers",
-        "admin:rubrics.cuNoAnalyzers": "CU analyzers will be auto-created when Azure Content Understanding is configured.",
+        "admin:rubrics.cuNoAnalyzers":
+          "CU analyzers will be auto-created when Azure Content Understanding is configured.",
         "admin:rubrics.cuContentAnalyzer": "Content Analyzer",
         "admin:rubrics.cuVoiceAnalyzer": "Voice Analyzer",
-        "admin:rubrics.cuViewInPortal": "View in Azure Portal",
+        "admin:rubrics.cuViewInPortal": "View in AI Foundry",
         "admin:rubrics.cuEndpoint": "CU Endpoint",
       };
       return keys[key] ?? key;
@@ -64,47 +67,35 @@ describe("CuStatusSection", () => {
 
   it("displays content analyzer ID", () => {
     renderComponent("r1");
-    expect(screen.getByText("rubric-r1-content")).toBeInTheDocument();
+    expect(screen.getByText("rubricContent5c32107a")).toBeInTheDocument();
   });
 
   it("displays voice analyzer ID", () => {
     renderComponent("r1");
-    expect(screen.getByText("rubric-r1-voice")).toBeInTheDocument();
+    expect(screen.getByText("rubricVoice5c32107a")).toBeInTheDocument();
   });
 
   it("shows CU endpoint", () => {
     renderComponent("r1");
-    expect(screen.getByText("https://cu.azure.com")).toBeInTheDocument();
+    expect(
+      screen.getByText("https://ai-foundary-hu-sweden-central2.services.ai.azure.com"),
+    ).toBeInTheDocument();
   });
 
-  it("renders View in Azure Portal buttons", () => {
+  it("renders single View in AI Foundry button", () => {
     renderComponent("r1");
-    const portalButtons = screen.getAllByText("View in Azure Portal");
-    expect(portalButtons).toHaveLength(2);
+    const portalButton = screen.getByText("View in AI Foundry");
+    expect(portalButton).toBeInTheDocument();
   });
 
-  it("opens content analyzer URL on click", async () => {
+  it("opens portal URL on click", async () => {
     const windowOpen = vi.spyOn(window, "open").mockImplementation(() => null);
     renderComponent("r1");
     const user = userEvent.setup();
-    const portalButtons = screen.getAllByText("View in Azure Portal");
-    await user.click(portalButtons[0]!);
+    const portalButton = screen.getByText("View in AI Foundry");
+    await user.click(portalButton);
     expect(windowOpen).toHaveBeenCalledWith(
-      "https://cu.azure.com/contentunderstanding/analyzers/rubric-r1-content",
-      "_blank",
-      "noopener,noreferrer",
-    );
-    windowOpen.mockRestore();
-  });
-
-  it("opens voice analyzer URL on click", async () => {
-    const windowOpen = vi.spyOn(window, "open").mockImplementation(() => null);
-    renderComponent("r1");
-    const user = userEvent.setup();
-    const portalButtons = screen.getAllByText("View in Azure Portal");
-    await user.click(portalButtons[1]!);
-    expect(windowOpen).toHaveBeenCalledWith(
-      "https://cu.azure.com/contentunderstanding/analyzers/rubric-r1-voice",
+      mockCuPortalData.content_analyzer_url,
       "_blank",
       "noopener,noreferrer",
     );
@@ -121,7 +112,9 @@ describe("CuStatusSection", () => {
     };
     renderComponent("r1");
     expect(
-      screen.getByText("CU analyzers will be auto-created when Azure Content Understanding is configured."),
+      screen.getByText(
+        "CU analyzers will be auto-created when Azure Content Understanding is configured.",
+      ),
     ).toBeInTheDocument();
     mockReturnData = mockCuPortalData;
   });
@@ -135,6 +128,19 @@ describe("CuStatusSection", () => {
     renderComponent("r1");
     expect(screen.getByText("Content Analyzer")).toBeInTheDocument();
     expect(screen.queryByText("Voice Analyzer")).not.toBeInTheDocument();
+    mockReturnData = mockCuPortalData;
+  });
+
+  it("does not show portal button when no URLs available", () => {
+    mockReturnData = {
+      cu_content_analyzer_id: "rubricContent5c32107a",
+      cu_voice_analyzer_id: null,
+      content_analyzer_url: null,
+      voice_analyzer_url: null,
+      cu_endpoint: null,
+    };
+    renderComponent("r1");
+    expect(screen.queryByText("View in AI Foundry")).not.toBeInTheDocument();
     mockReturnData = mockCuPortalData;
   });
 });
