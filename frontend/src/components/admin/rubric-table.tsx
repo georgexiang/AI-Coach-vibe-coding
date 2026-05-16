@@ -6,7 +6,7 @@ import type { Rubric } from "@/types/rubric";
 
 interface RubricTableProps {
   rubrics: Rubric[];
-  onEdit: (rubric: Rubric) => void;
+  onEdit: (id: string) => void;
   onDelete: (id: string) => void;
 }
 
@@ -52,7 +52,8 @@ export function RubricTable({ rubrics, onEdit, onDelete }: RubricTableProps) {
           {rubrics.map((rubric) => (
             <tr
               key={rubric.id}
-              className="border-b last:border-b-0 transition-colors duration-150 hover:bg-muted/50"
+              className="border-b last:border-b-0 transition-colors duration-150 hover:bg-muted/50 cursor-pointer"
+              onDoubleClick={() => onEdit(rubric.id)}
             >
               <td className="px-4 py-3 font-medium text-foreground">{rubric.name}</td>
               <td className="px-4 py-3 text-muted-foreground">
@@ -76,7 +77,10 @@ export function RubricTable({ rubrics, onEdit, onDelete }: RubricTableProps) {
                     variant="ghost"
                     size="icon"
                     className="size-8 transition-colors duration-150"
-                    onClick={() => onEdit(rubric)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onEdit(rubric.id);
+                    }}
                   >
                     <Pencil className="size-4" />
                   </Button>
@@ -84,7 +88,10 @@ export function RubricTable({ rubrics, onEdit, onDelete }: RubricTableProps) {
                     variant="ghost"
                     size="icon"
                     className="size-8 text-destructive transition-colors duration-150"
-                    onClick={() => onDelete(rubric.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDelete(rubric.id);
+                    }}
                   >
                     <Trash2 className="size-4" />
                   </Button>

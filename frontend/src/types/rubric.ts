@@ -17,6 +17,8 @@ export interface Rubric {
   updated_at: string;
   content_weight?: number; // 0-100, default 60
   voice_weight?: number; // 0-100, default 40 (derived)
+  cu_content_analyzer_id?: string | null;
+  cu_voice_analyzer_id?: string | null;
 }
 
 export interface RubricCreate {

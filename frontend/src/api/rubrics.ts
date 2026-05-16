@@ -8,6 +8,11 @@ export async function getRubrics(params?: { scenario_type?: string }) {
   return data;
 }
 
+export async function getRubric(id: string) {
+  const { data } = await apiClient.get<Rubric>(`/rubrics/${id}`);
+  return data;
+}
+
 export async function createRubric(payload: RubricCreate) {
   const { data } = await apiClient.post<Rubric>("/rubrics", payload);
   return data;

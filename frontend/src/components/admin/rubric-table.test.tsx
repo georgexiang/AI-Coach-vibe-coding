@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { RubricTable } from "./rubric-table";
 import type { Rubric } from "@/types/rubric";
@@ -133,7 +133,7 @@ describe("RubricTable", () => {
     expect(defaultBadges).toHaveLength(1);
   });
 
-  it("calls onEdit when edit button is clicked", async () => {
+  it("calls onEdit with rubric id when edit button is clicked", async () => {
     render(
       <RubricTable
         rubrics={mockRubrics}
@@ -142,11 +142,22 @@ describe("RubricTable", () => {
       />,
     );
     const user = userEvent.setup();
-    // There should be edit buttons (icon-only buttons)
     const editButtons = screen.getAllByRole("button");
-    // First edit button (Pencil icon) for first rubric
     await user.click(editButtons[0]!);
-    expect(mockOnEdit).toHaveBeenCalledWith(mockRubrics[0]);
+    expect(mockOnEdit).toHaveBeenCalledWith("r1");
+  });
+
+  it("calls onEdit with rubric id on double-click", () => {
+    render(
+      <RubricTable
+        rubrics={mockRubrics}
+        onEdit={mockOnEdit}
+        onDelete={mockOnDelete}
+      />,
+    );
+    const row = screen.getByText("F2F Default").closest("tr")!;
+    fireEvent.doubleClick(row);
+    expect(mockOnEdit).toHaveBeenCalledWith("r1");
   });
 
   it("calls onDelete when delete button is clicked", async () => {

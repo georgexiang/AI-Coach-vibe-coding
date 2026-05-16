@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
@@ -19,69 +20,31 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { RubricTable } from "@/components/admin/rubric-table";
-import { RubricEditor } from "@/components/admin/rubric-editor";
-import {
-  useRubrics,
-  useCreateRubric,
-  useUpdateRubric,
-  useDeleteRubric,
-} from "@/hooks/use-rubrics";
-import type { Rubric, RubricCreate, RubricUpdate } from "@/types/rubric";
+import { useRubrics, useDeleteRubric } from "@/hooks/use-rubrics";
 
 const ALL_TYPE = "__all__";
 
 export default function ScoringRubricsPage() {
   const { t } = useTranslation("admin");
   const { t: tc } = useTranslation("common");
+  const navigate = useNavigate();
   const [filterType, setFilterType] = useState(ALL_TYPE);
-  const [editorOpen, setEditorOpen] = useState(false);
-  const [editingRubric, setEditingRubric] = useState<Rubric | null>(null);
-  const [isNew, setIsNew] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   const queryType = filterType === ALL_TYPE ? undefined : filterType;
   const { data: rubricsData } = useRubrics(
     queryType ? { scenario_type: queryType } : undefined,
   );
-  const createMutation = useCreateRubric();
-  const updateMutation = useUpdateRubric();
   const deleteMutation = useDeleteRubric();
 
   const rubrics = useMemo(() => rubricsData ?? [], [rubricsData]);
 
   const handleCreate = () => {
-    setEditingRubric(null);
-    setIsNew(true);
-    setEditorOpen(true);
+    navigate("/admin/scoring-rubrics/new");
   };
 
-  const handleEdit = (rubric: Rubric) => {
-    setEditingRubric(rubric);
-    setIsNew(false);
-    setEditorOpen(true);
-  };
-
-  const handleSave = (data: RubricCreate) => {
-    if (isNew) {
-      createMutation.mutate(data, {
-        onSuccess: () => {
-          toast.success(t("rubrics.save"));
-          setEditorOpen(false);
-        },
-        onError: () => toast.error(t("errors.rubricSaveFailed")),
-      });
-    } else if (editingRubric) {
-      updateMutation.mutate(
-        { id: editingRubric.id, data: data as RubricUpdate },
-        {
-          onSuccess: () => {
-            toast.success(t("rubrics.save"));
-            setEditorOpen(false);
-          },
-          onError: () => toast.error(t("errors.rubricSaveFailed")),
-        },
-      );
-    }
+  const handleEdit = (rubricId: string) => {
+    navigate(`/admin/scoring-rubrics/${rubricId}`);
   };
 
   const handleDelete = (id: string) => {
@@ -132,14 +95,6 @@ export default function ScoringRubricsPage() {
         rubrics={rubrics}
         onEdit={handleEdit}
         onDelete={handleDelete}
-      />
-
-      <RubricEditor
-        rubric={editingRubric}
-        open={editorOpen}
-        onOpenChange={setEditorOpen}
-        onSave={handleSave}
-        isNew={isNew}
       />
 
       <Dialog

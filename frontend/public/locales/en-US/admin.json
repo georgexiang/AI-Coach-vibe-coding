@@ -278,7 +278,9 @@
     "categoryWeights": "Score Category Weights",
     "contentWeight": "Content Evaluation Weight",
     "voiceWeight": "Voice Evaluation Weight",
-    "voiceWeightHint": "Voice weight applies to voice/digital human sessions only"
+    "voiceWeightHint": "Voice weight applies to voice/digital human sessions only",
+    "editTitle": "Edit: {{name}}",
+    "basicInfo": "Basic Information"
   },
   "azureConfig": {
     "title": "Azure Service Configuration",
