@@ -665,3 +665,23 @@ Plans:
 - [x] 24-05-PLAN.md -- Frontend (rubric weight sliders, scoring subtotal badges, i18n) + backend unit tests
 
 **UI hint**: yes
+
+### Phase 25: Refactor user training pages - fix data display, scoring logic, and dashboard/reports deduplication
+
+**Goal:** Fix remaining data display issues in user training pages (scoring feedback shows raw IDs, hardcoded mode), resolve Dashboard/Reports content duplication, and ensure proper test coverage for all refactored pages.
+**Requirements**: P25-01, P25-02, P25-03, P25-04, P25-05
+**Depends on:** Phase 24
+**Plans:** 2 plans
+
+Plans:
+- [ ] 25-01-PLAN.md -- Fix scoring feedback metadata (scenario_name, mode) + deduplicate Dashboard/Reports stat overlap
+- [ ] 25-02-PLAN.md -- Update test suites for scoring-feedback, reports, and dashboard changes
+
+**Success Criteria** (what must be TRUE):
+  1. Scoring feedback page displays scenario name (not UUID) and localized session mode (not hardcoded "F2F")
+  2. Reports page uses compact summary bar instead of duplicate 4-card stat grid from Dashboard
+  3. Dashboard includes link to Reports page for detailed analysis
+  4. All frontend tests pass with new assertions covering the refactored behavior
+  5. TypeScript compiles and frontend builds without errors
+
+**UI hint**: yes
