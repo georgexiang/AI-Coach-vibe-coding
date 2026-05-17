@@ -65,9 +65,13 @@ async def get_cu_portal_url(
     user: User = Depends(require_role("admin")),
 ):
     """Get the Azure Content Understanding portal URLs for this rubric's analyzers."""
+    import urllib.parse
+
+    from app.config import get_settings
     from app.services import agent_sync_service, config_service
     from app.services.cu_evaluation_service import CU_SERVICE_NAME
 
+    settings = get_settings()
     rubric = await rubric_service.get_rubric(db, rubric_id)
     endpoint = await config_service.get_effective_endpoint(db, CU_SERVICE_NAME)
     endpoint = endpoint.rstrip("/") if endpoint else ""
@@ -75,20 +79,15 @@ async def get_cu_portal_url(
     content_id = rubric.cu_content_analyzer_id
     voice_id = rubric.cu_voice_analyzer_id
 
-    # Build old-Foundry CU portal URL (CU is only in classic portal, not nextgen)
-    # Format: https://ai.azure.com/resource/contentunderstanding/analyzer-list
-    #   ?wsid=/subscriptions/{sub}/resourceGroups/{rg}/providers/
-    #         Microsoft.CognitiveServices/accounts/{resource}/projects/{project}
-    #   &tid={tenant_id}
-    import os
-    import urllib.parse
-
+    # Classic Foundry CU Portal URL (requires project context + correct tenant).
+    # tid MUST be the tenant that owns the resource, NOT the user's login tenant.
+    # Wrong tid causes "Could not load resource" error.
     components = await agent_sync_service.get_portal_url_components(db)
     sub_id = components.get("subscription_id", "")
     rg = components.get("resource_group", "")
     resource_name = components.get("resource_name", "")
     project_name = components.get("project_name", "")
-    tenant_id = os.environ.get("AZURE_TENANT_ID", "")
+    tenant_id = settings.azure_tenant_id
 
     base_portal_url = None
     if sub_id and rg and resource_name and project_name:

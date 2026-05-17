@@ -53,6 +53,9 @@ class Settings(BaseSettings):
     azure_avatar_endpoint: str = ""
     azure_avatar_key: str = ""
 
+    # Azure Tenant (for portal URL generation)
+    azure_tenant_id: str = ""
+
     # Azure Content Understanding (ARCH-05)
     azure_content_endpoint: str = ""
     azure_content_key: str = ""
