@@ -1,7 +1,7 @@
 import apiClient from "./client";
 import type { CoachingSession, SessionMessage } from "@/types/session";
 
-export async function createSession(scenarioId: string, mode: string = "text") {
+export async function createSession(scenarioId: string, mode: string = "digital_human_realtime_model") {
   const { data } = await apiClient.post<CoachingSession>("/sessions", {
     scenario_id: scenarioId,
     mode,
