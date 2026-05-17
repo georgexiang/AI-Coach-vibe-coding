@@ -78,7 +78,8 @@
   "modeStatus": {
     "connected": "Connected",
     "degraded": "Degraded",
-    "disconnected": "Disconnected"
+    "disconnected": "Disconnected",
+    "ready": "Ready"
   },
   "endSession": "End Session",
   "endSessionTitle": "End Voice Session",

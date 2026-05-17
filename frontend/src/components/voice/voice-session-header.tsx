@@ -68,7 +68,7 @@ export function VoiceSessionHeader({
 
       {/* Right: Connection + View toggle + End session */}
       <div className="flex items-center gap-3">
-        <ConnectionStatus state={connectionState} />
+        {currentMode !== "text" && <ConnectionStatus state={connectionState} />}
 
         {onToggleView && (
           <Button

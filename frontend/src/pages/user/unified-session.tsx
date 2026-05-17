@@ -463,6 +463,7 @@ export default function UnifiedSession() {
             onToggleKeyboard={() => setShowKeyboard((prev) => !prev)}
             onEndSession={handleEndSession}
             isFullScreen={false}
+            isTextMode={currentMode === "text"}
           />
         </div>
 
@@ -473,7 +474,9 @@ export default function UnifiedSession() {
             {transcripts.length === 0 ? (
               <div className="flex h-full items-center justify-center">
                 <p className="text-sm text-slate-400">
-                  {sessionStarted ? tv("waitingForResponse") : tv("startPrompt")}
+                  {sessionStarted
+                    ? (currentMode === "text" ? tv("emptyTranscriptText") : tv("waitingForResponse"))
+                    : tv("startPrompt")}
                 </p>
               </div>
             ) : (

@@ -78,7 +78,8 @@
   "modeStatus": {
     "connected": "已连接",
     "degraded": "降级模式",
-    "disconnected": "已断开"
+    "disconnected": "已断开",
+    "ready": "就绪"
   },
   "endSession": "结束对话",
   "endSessionTitle": "结束语音对话",
