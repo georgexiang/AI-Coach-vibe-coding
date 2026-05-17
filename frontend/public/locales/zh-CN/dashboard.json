@@ -18,5 +18,8 @@
   "exportExcel": "导出Excel",
   "exportingExcel": "导出中...",
   "noSessions": "暂无会话记录",
-  "noSessionsBody": "开始培训后即可在此查看您的会话记录。"
+  "noSessionsBody": "开始培训后即可在此查看您的会话记录。",
+  "viewReports": "绩效报告",
+  "viewReportsDesc": "查看趋势、雷达图和详细分析",
+  "goToReports": "查看报告"
 }

@@ -18,5 +18,8 @@
   "exportExcel": "Export Excel",
   "exportingExcel": "Exporting...",
   "noSessions": "No sessions yet",
-  "noSessionsBody": "Start training to see your sessions here."
+  "noSessionsBody": "Start training to see your sessions here.",
+  "viewReports": "Performance Reports",
+  "viewReportsDesc": "View trends, radar charts and detailed analysis",
+  "goToReports": "View Reports"
 }

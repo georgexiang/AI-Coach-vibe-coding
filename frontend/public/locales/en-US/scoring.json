@@ -99,6 +99,15 @@
   "textOnlyNote": "Text-only session, content evaluation only",
   "cuProcessing": "Evaluating with Azure Content Understanding...",
   "cuFailed": "Evaluation failed. Please retry later or contact admin.",
+  "modes": {
+    "text": "Text",
+    "voice_pipeline": "Voice Pipeline",
+    "digital_human_speech_model": "Digital Human (Speech)",
+    "voice_realtime_model": "Voice Realtime",
+    "digital_human_realtime_model": "Digital Human Realtime",
+    "voice_realtime_agent": "Voice Agent",
+    "digital_human_realtime_agent": "Digital Human Agent"
+  },
   "errors": {
     "scoringFailed": "Scoring could not be completed. Try ending the session again."
   }

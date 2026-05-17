@@ -255,12 +255,12 @@ describe("UserDashboard", () => {
     expect(improvementCard?.textContent).toContain("-2");
   });
 
-  it("renders improvement stat as '--' when improvement is null", () => {
+  it("renders improvement stat as noImprovement when improvement is null", () => {
     mockDashStats = { total_sessions: 42, avg_score: 78, this_week: 5, improvement: null };
     renderDashboard();
     const statCards = screen.getAllByTestId("stat-card");
     const improvementCard = statCards[3];
-    expect(improvementCard?.textContent).toContain("--");
+    expect(improvementCard?.textContent).toContain("noImprovement");
   });
 
   it("renders recommended scenario reason when available", () => {
@@ -340,5 +340,19 @@ describe("UserDashboard", () => {
     const statCards = screen.getAllByTestId("stat-card");
     const improvementCard = statCards[3];
     expect(improvementCard?.textContent).toContain("0");
+  });
+
+  it("renders link to reports page", () => {
+    renderDashboard();
+    expect(screen.getByText("viewReports")).toBeInTheDocument();
+    expect(screen.getByText("goToReports")).toBeInTheDocument();
+  });
+
+  it("navigates to reports page when goToReports is clicked", async () => {
+    const user = userEvent.setup();
+    renderDashboard();
+    const reportsBtn = screen.getByText("goToReports");
+    await user.click(reportsBtn);
+    expect(mockNavigate).toHaveBeenCalledWith("/user/reports");
   });
 });

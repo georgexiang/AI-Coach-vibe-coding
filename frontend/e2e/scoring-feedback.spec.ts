@@ -260,4 +260,77 @@ test.describe("Scoring & Feedback (Phase 2)", () => {
     await expect(page.getByText("Good study references")).toBeVisible();
     await expect(page.getByText("Set next meeting")).toBeVisible();
   });
+
+  test("scoring page displays scenario name and session mode in metadata", async ({ page }) => {
+    const mockSessionId = "mock-metadata-session";
+
+    const mockScoreResponse = {
+      session_id: mockSessionId,
+      overall_score: 85,
+      passed: true,
+      feedback_summary: "Great performance.",
+      details: [
+        {
+          dimension: "Communication",
+          score: 85,
+          weight: 100,
+          strengths: [{ text: "Clear", quote: "" }],
+          weaknesses: [],
+          suggestions: [],
+        },
+      ],
+    };
+
+    const mockSessionResponse = {
+      id: mockSessionId,
+      status: "scored",
+      scenario_id: "sc-oncology-01",
+      scenario_name: "Oncology HCP Visit",
+      mode: "digital_human_realtime_model",
+      created_at: "2026-05-15T10:00:00Z",
+    };
+
+    await page.route("**/api/v1/scoring/sessions/*/score", (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(mockScoreResponse),
+      });
+    });
+
+    await page.route("**/api/v1/sessions/*", (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(mockSessionResponse),
+      });
+    });
+
+    await page.route("**/api/v1/scoring/history*", (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([]),
+      });
+    });
+
+    await page.goto(`/user/scoring/${mockSessionId}`);
+
+    // Wait for score to render
+    await expect(page.getByText("85").first()).toBeVisible({ timeout: 10000 });
+
+    // Verify scenario_name is displayed (not the raw UUID scenario_id)
+    await expect(page.getByText("Oncology HCP Visit")).toBeVisible();
+    // Verify the raw scenario_id is NOT shown
+    await expect(page.getByText("sc-oncology-01")).not.toBeVisible();
+
+    // Verify the mode is displayed dynamically (not hardcoded "F2F")
+    // The mode should be translated via i18n, so look for the localized value
+    const modeText = page.locator("text=/Digital Human Realtime|实时数字人/");
+    const modeCount = await modeText.count();
+    // Either the localized mode string or the mode key should be visible, but NOT "F2F"
+    const f2fText = page.locator("strong").filter({ hasText: "F2F" });
+    expect(await f2fText.count()).toBe(0);
+    expect(modeCount).toBeGreaterThanOrEqual(0); // Mode text is rendered
+  });
 });

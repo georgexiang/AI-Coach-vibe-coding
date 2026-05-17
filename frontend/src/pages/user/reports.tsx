@@ -104,61 +104,31 @@ export default function UserReportsPage() {
         </div>
       </div>
 
-      {/* Summary stat cards */}
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="bg-card">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              {t("totalSessions")}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-medium text-primary">
-              {dashStats?.total_sessions ?? 0}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-card">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              {t("avgScore")}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-medium text-primary">
-              {dashStats?.avg_score ?? 0}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-card">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              {t("sessionsThisWeek")}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-medium text-green-600 dark:text-green-400">
-              {dashStats?.this_week ?? 0}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-card">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              {t("improvement")}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-medium text-foreground">
-              {dashStats?.improvement != null
-                ? `${dashStats.improvement > 0 ? "+" : ""}${dashStats.improvement}`
-                : t("noImprovement")}
-            </p>
-          </CardContent>
-        </Card>
+      {/* Compact summary bar */}
+      <div className="flex flex-wrap items-center gap-6 rounded-lg border border-border bg-card px-6 py-4">
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">{t("totalSessions")}:</span>
+          <span className="text-lg font-semibold text-foreground">{dashStats?.total_sessions ?? 0}</span>
+        </div>
+        <div className="h-4 w-px bg-border" />
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">{t("avgScore")}:</span>
+          <span className="text-lg font-semibold text-foreground">{dashStats?.avg_score ?? 0}</span>
+        </div>
+        <div className="h-4 w-px bg-border" />
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">{t("sessionsThisWeek")}:</span>
+          <span className="text-lg font-semibold text-foreground">{dashStats?.this_week ?? 0}</span>
+        </div>
+        <div className="h-4 w-px bg-border" />
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">{t("improvement")}:</span>
+          <span className="text-lg font-semibold text-foreground">
+            {dashStats?.improvement != null
+              ? `${dashStats.improvement > 0 ? "+" : ""}${dashStats.improvement}`
+              : t("noImprovement")}
+          </span>
+        </div>
       </div>
 
       {/* Charts grid */}

@@ -279,6 +279,20 @@ export default function UserDashboard() {
               </CardContent>
             </Card>
           )}
+
+          {/* View Reports link */}
+          <Card className="bg-card">
+            <CardContent className="flex items-center justify-between py-4">
+              <div>
+                <p className="text-sm font-medium text-foreground">{t("viewReports")}</p>
+                <p className="text-xs text-muted-foreground">{t("viewReportsDesc")}</p>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => navigate("/user/reports")}>
+                <TrendingUp className="mr-1.5 size-4" />
+                {t("goToReports")}
+              </Button>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>

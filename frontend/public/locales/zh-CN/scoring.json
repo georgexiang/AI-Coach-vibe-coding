@@ -99,6 +99,15 @@
   "textOnlyNote": "纯文本会话，仅包含内容评估",
   "cuProcessing": "正在使用 Azure Content Understanding 评估中...",
   "cuFailed": "评估失败，请稍后重试或联系管理员",
+  "modes": {
+    "text": "文本",
+    "voice_pipeline": "语音管道",
+    "digital_human_speech_model": "数字人（语音）",
+    "voice_realtime_model": "实时语音",
+    "digital_human_realtime_model": "实时数字人",
+    "voice_realtime_agent": "语音代理",
+    "digital_human_realtime_agent": "数字人代理"
+  },
   "errors": {
     "scoringFailed": "评分未能完成，请尝试重新结束会话。"
   }

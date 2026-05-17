@@ -69,4 +69,19 @@ test.describe("User Dashboard", () => {
     }
     await expect(page).toHaveURL(/\/user\/training/);
   });
+
+  test("shows View Reports link card and navigates to reports", async ({ page }) => {
+    // The dashboard should have a "View Reports" card linking to /user/reports
+    const viewReportsBtn = page.getByRole("button", { name: /view reports|reports/i });
+    const count = await viewReportsBtn.count();
+    if (count > 0) {
+      await expect(viewReportsBtn.first()).toBeVisible();
+      await viewReportsBtn.first().click();
+      await expect(page).toHaveURL(/\/user\/reports/, { timeout: 5000 });
+    } else {
+      // Fallback: check for text-based link
+      const reportsLink = page.getByText(/Performance Reports|View Reports/i);
+      await expect(reportsLink.first()).toBeVisible();
+    }
+  });
 });

@@ -48,7 +48,7 @@ const mockScore = {
   ],
 };
 
-let sessionData: unknown = { status: "scored", scenario_id: "sc-1", created_at: "2026-03-20T10:00:00Z" };
+let sessionData: unknown = { status: "scored", scenario_id: "sc-1", scenario_name: "Oncology HCP Visit", mode: "text", created_at: "2026-03-20T10:00:00Z" };
 let scoreData: unknown = mockScore;
 let scoreLoading = false;
 let reportData: unknown = undefined;
@@ -107,7 +107,7 @@ function renderPage() {
 describe("ScoringFeedback", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    sessionData = { status: "scored", scenario_id: "sc-1", created_at: "2026-03-20T10:00:00Z" };
+    sessionData = { status: "scored", scenario_id: "sc-1", scenario_name: "Oncology HCP Visit", mode: "text", created_at: "2026-03-20T10:00:00Z" };
     scoreData = mockScore;
     scoreLoading = false;
     reportData = undefined;
@@ -189,10 +189,36 @@ describe("ScoringFeedback", () => {
     expect(mockMutate).not.toHaveBeenCalled();
   });
 
-  it("renders session metadata when session data is available", () => {
+  it("renders session metadata with scenario name and mode", () => {
     renderPage();
-    expect(screen.getByText(/scenario/i)).toBeInTheDocument();
+    expect(screen.getByText(/Oncology HCP Visit/)).toBeInTheDocument();
+    expect(screen.getByText(/modes\.text/)).toBeInTheDocument();
+  });
+
+  it("falls back to scenario_id when scenario_name is null", () => {
+    sessionData = {
+      status: "scored",
+      scenario_id: "sc-1",
+      scenario_name: null,
+      mode: "voice_realtime_model",
+      created_at: "2026-03-20T10:00:00Z",
+    };
+    renderPage();
     expect(screen.getByText(/sc-1/)).toBeInTheDocument();
+    expect(screen.getByText(/modes\.voice_realtime_model/)).toBeInTheDocument();
+  });
+
+  it("displays digital human mode correctly", () => {
+    sessionData = {
+      status: "scored",
+      scenario_id: "sc-2",
+      scenario_name: "Cardiology Discussion",
+      mode: "digital_human_realtime_agent",
+      created_at: "2026-03-20T10:00:00Z",
+    };
+    renderPage();
+    expect(screen.getByText(/Cardiology Discussion/)).toBeInTheDocument();
+    expect(screen.getByText(/modes\.digital_human_realtime_agent/)).toBeInTheDocument();
   });
 
   it("renders circular progress ring with overall score", () => {
