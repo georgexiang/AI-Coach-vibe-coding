@@ -27,14 +27,14 @@ from app.schemas.analytics import (
 
 async def get_user_dashboard_stats(db: AsyncSession, user_id: str) -> UserDashboardStats:
     """Compute the four stat card values for user dashboard."""
-    # Total scored sessions
+    # Total completed + scored sessions (both represent finished training)
     total_result = await db.execute(
         select(func.count())
         .select_from(CoachingSession)
         .where(
             and_(
                 CoachingSession.user_id == user_id,
-                CoachingSession.status == "scored",
+                CoachingSession.status.in_(["completed", "scored"]),
             )
         )
     )

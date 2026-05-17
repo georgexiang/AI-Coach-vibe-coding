@@ -105,6 +105,8 @@ vi.mock("@/components/ui", () => ({
         onChange={(e) => onValueChange?.(e.target.value)}
       >
         <option value="__all__">All</option>
+        <option value="created">Created</option>
+        <option value="in_progress">In Progress</option>
         <option value="completed">Completed</option>
         <option value="scoring">Scoring</option>
         <option value="scored">Scored</option>
@@ -192,6 +194,42 @@ const mockScoredSession: CoachingSession = {
   message_count: 20,
   created_at: "2026-03-20T09:00:00Z",
   updated_at: "2026-03-20T10:00:00Z",
+};
+
+const mockCreatedSession: CoachingSession = {
+  id: "s4",
+  user_id: "u1",
+  scenario_id: "sc3",
+  scenario_name: "Dr. New Session",
+  status: "created",
+  started_at: null,
+  completed_at: null,
+  duration_seconds: null,
+  key_messages_status: [],
+  overall_score: null,
+  passed: null,
+  mode: "text",
+  message_count: 0,
+  created_at: "2026-03-22T08:00:00Z",
+  updated_at: "2026-03-22T08:00:00Z",
+};
+
+const mockInProgressSession: CoachingSession = {
+  id: "s5",
+  user_id: "u1",
+  scenario_id: "sc4",
+  scenario_name: "Dr. Active Practice",
+  status: "in_progress",
+  started_at: "2026-03-22T09:00:00Z",
+  completed_at: null,
+  duration_seconds: null,
+  key_messages_status: [],
+  overall_score: null,
+  passed: null,
+  mode: "voice_pipeline",
+  message_count: 5,
+  created_at: "2026-03-22T09:00:00Z",
+  updated_at: "2026-03-22T09:15:00Z",
 };
 
 let mockScoreHistoryReturn: {
@@ -538,6 +576,112 @@ describe("SessionHistory", () => {
     };
     renderSessionHistory();
     expect(screen.queryByTestId("line-chart")).not.toBeInTheDocument();
+  });
+
+  it("renders created and in_progress sessions", () => {
+    mockSessionsReturn = {
+      data: {
+        items: [mockCreatedSession, mockInProgressSession, mockCompletedSession, mockScoredSession],
+        total: 4,
+        page: 1,
+        page_size: 100,
+        total_pages: 1,
+      },
+      isLoading: false,
+    };
+    renderSessionHistory();
+    // Should show: 2 scored (from history) + 1 completed + 1 created + 1 in_progress = 5 rows
+    const rows = document.querySelectorAll("tbody tr");
+    expect(rows.length).toBe(5);
+    // Check status badges
+    expect(screen.getAllByText("history.statusCreated").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("history.statusInProgress").length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("renders statusCreated badge for created sessions", () => {
+    mockSessionsReturn = {
+      data: {
+        items: [mockCreatedSession],
+        total: 1,
+        page: 1,
+        page_size: 100,
+        total_pages: 1,
+      },
+      isLoading: false,
+    };
+    renderSessionHistory();
+    expect(screen.getAllByText("history.statusCreated").length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("renders statusInProgress badge for in_progress sessions", () => {
+    mockSessionsReturn = {
+      data: {
+        items: [mockInProgressSession],
+        total: 1,
+        page: 1,
+        page_size: 100,
+        total_pages: 1,
+      },
+      isLoading: false,
+    };
+    renderSessionHistory();
+    expect(screen.getAllByText("history.statusInProgress").length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("does not show submit scoring button for created/in_progress sessions", () => {
+    mockScoreHistoryReturn = { data: [], isLoading: false };
+    mockSessionsReturn = {
+      data: {
+        items: [mockCreatedSession, mockInProgressSession],
+        total: 2,
+        page: 1,
+        page_size: 100,
+        total_pages: 1,
+      },
+      isLoading: false,
+    };
+    renderSessionHistory();
+    expect(screen.queryByText("history.submitScoring")).not.toBeInTheDocument();
+  });
+
+  it("filters by status (created only)", async () => {
+    mockSessionsReturn = {
+      data: {
+        items: [mockCreatedSession, mockInProgressSession, mockCompletedSession, mockScoredSession],
+        total: 4,
+        page: 1,
+        page_size: 100,
+        total_pages: 1,
+      },
+      isLoading: false,
+    };
+    renderSessionHistory();
+    const selects = screen.getAllByTestId("hidden-select");
+    const statusSelect = selects[0]!;
+    await userEvent.setup().selectOptions(statusSelect, "created");
+    expect(screen.getAllByText("Dr. New Session").length).toBeGreaterThanOrEqual(1);
+    expect(screen.queryByText("Dr. Active Practice")).not.toBeInTheDocument();
+    expect(screen.queryByText("Dr. Pending Review")).not.toBeInTheDocument();
+  });
+
+  it("filters by status (in_progress only)", async () => {
+    mockSessionsReturn = {
+      data: {
+        items: [mockCreatedSession, mockInProgressSession, mockCompletedSession, mockScoredSession],
+        total: 4,
+        page: 1,
+        page_size: 100,
+        total_pages: 1,
+      },
+      isLoading: false,
+    };
+    renderSessionHistory();
+    const selects = screen.getAllByTestId("hidden-select");
+    const statusSelect = selects[0]!;
+    await userEvent.setup().selectOptions(statusSelect, "in_progress");
+    expect(screen.getAllByText("Dr. Active Practice").length).toBeGreaterThanOrEqual(1);
+    expect(screen.queryByText("Dr. New Session")).not.toBeInTheDocument();
+    expect(screen.queryByText("Dr. Pending Review")).not.toBeInTheDocument();
   });
 
   it("renders completed_at date in table rows", () => {

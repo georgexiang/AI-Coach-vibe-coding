@@ -61,6 +61,8 @@
     "failed": "未通过",
     "submitScoring": "提交打分",
     "scoringInProgress": "打分中...",
+    "statusCreated": "已创建",
+    "statusInProgress": "进行中",
     "statusPending": "待评价",
     "statusScored": "已完成",
     "statusScoring": "打分中",

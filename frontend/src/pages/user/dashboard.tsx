@@ -23,6 +23,7 @@ import {
 import { PerformanceRadar } from "@/components/analytics";
 import { useAuthStore } from "@/stores/auth-store";
 import { useScoreHistory } from "@/hooks/use-scoring";
+import { useUserSessions } from "@/hooks/use-session";
 import {
   useDashboardStats,
   useRecommendedScenarios,
@@ -45,10 +46,61 @@ export default function UserDashboard() {
   const { t: tc } = useTranslation("common");
   const navigate = useNavigate();
   const { user } = useAuthStore();
-  const { data: recentSessions, isLoading: sessionsLoading } = useScoreHistory(5);
+  const { data: scoredSessions, isLoading: scoredLoading } = useScoreHistory(5);
+  const { data: sessionsData, isLoading: userSessionsLoading } = useUserSessions({ page: 1, page_size: 5 });
   const { data: dashStats } = useDashboardStats();
   const { data: recommended } = useRecommendedScenarios(1);
   const exportExcel = useExportSessionsExcel();
+
+  const sessionsLoading = scoredLoading || userSessionsLoading;
+
+  // Merge scored sessions and completed (unscored) sessions for the recent list
+  const recentSessions = (() => {
+    const items: Array<{
+      session_id: string;
+      scenario_name: string;
+      overall_score: number | null;
+      completed_at: string | null;
+    }> = [];
+    const seenIds = new Set<string>();
+
+    // Add scored sessions first (they have scores)
+    if (scoredSessions) {
+      for (const s of scoredSessions) {
+        seenIds.add(s.session_id);
+        items.push({
+          session_id: s.session_id,
+          scenario_name: s.scenario_name,
+          overall_score: s.overall_score,
+          completed_at: s.completed_at,
+        });
+      }
+    }
+
+    // Add completed (unscored) sessions
+    if (sessionsData?.items) {
+      for (const s of sessionsData.items) {
+        if (!seenIds.has(s.id) && (s.status === "completed" || s.status === "scored")) {
+          seenIds.add(s.id);
+          items.push({
+            session_id: s.id,
+            scenario_name: s.scenario_name || s.scenario_id,
+            overall_score: null,
+            completed_at: s.completed_at,
+          });
+        }
+      }
+    }
+
+    // Sort by completed_at descending, limit to 5
+    items.sort((a, b) => {
+      const dateA = new Date(a.completed_at || "").getTime() || 0;
+      const dateB = new Date(b.completed_at || "").getTime() || 0;
+      return dateB - dateA;
+    });
+
+    return items.slice(0, 5);
+  })();
 
   const userName = user?.full_name ?? user?.username ?? tc("user");
 
@@ -87,9 +139,9 @@ export default function UserDashboard() {
     },
   ];
 
-  // Latest session dimensions for radar chart
-  const latestSession = recentSessions?.[0];
-  const radarScores = latestSession?.dimensions.map((d) => ({
+  // Latest scored session dimensions for radar chart (from score history)
+  const latestScoredSession = scoredSessions?.[0];
+  const radarScores = latestScoredSession?.dimensions.map((d) => ({
     dimension: d.dimension,
     score: d.score,
   }));
@@ -156,7 +208,7 @@ export default function UserDashboard() {
                   specialty=""
                   mode="F2F"
                   score={session.overall_score}
-                  timeAgo={new Date(session.completed_at).toLocaleDateString()}
+                  timeAgo={session.completed_at ? new Date(session.completed_at).toLocaleDateString() : "-"}
                   onClick={() => navigate(`/user/scoring/${session.session_id}`)}
                 />
               ))

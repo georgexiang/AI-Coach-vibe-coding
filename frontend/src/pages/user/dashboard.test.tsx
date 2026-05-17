@@ -58,6 +58,16 @@ vi.mock("@/hooks/use-scoring", () => ({
   }),
 }));
 
+let mockUserSessions: { items: unknown[] } | undefined = { items: [] };
+let mockUserSessionsLoading = false;
+
+vi.mock("@/hooks/use-session", () => ({
+  useUserSessions: () => ({
+    data: mockUserSessions,
+    isLoading: mockUserSessionsLoading,
+  }),
+}));
+
 let mockDashStats: unknown = { total_sessions: 42, avg_score: 78, this_week: 5, improvement: 3 };
 let mockRecommended: unknown[] | undefined = [
   { scenario_name: "Dr. Amanda Hayes", difficulty: "Intermediate", reason: "Focus area" },
@@ -136,6 +146,8 @@ describe("UserDashboard", () => {
     mockDashStats = { total_sessions: 42, avg_score: 78, this_week: 5, improvement: 3 };
     mockRecommended = [{ scenario_name: "Dr. Amanda Hayes", difficulty: "Intermediate", reason: "Focus area" }];
     mockExportPending = false;
+    mockUserSessions = { items: [] };
+    mockUserSessionsLoading = false;
   });
 
   it("renders the welcome message with user name", () => {

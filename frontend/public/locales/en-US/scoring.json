@@ -61,6 +61,8 @@
     "failed": "Failed",
     "submitScoring": "Submit for Scoring",
     "scoringInProgress": "Scoring...",
+    "statusCreated": "Created",
+    "statusInProgress": "In Progress",
     "statusPending": "Pending Review",
     "statusScored": "Scored",
     "statusScoring": "Scoring",

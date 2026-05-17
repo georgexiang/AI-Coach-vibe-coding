@@ -120,33 +120,39 @@ async def score_session(db: AsyncSession, session_id: str) -> SessionScore:
                 scenario, messages, key_messages_status, rubric_dimensions
             )
 
+    # Derive 'passed' if not present (CU results omit it; LLM/mock include it)
+    overall_score = scores["overall_score"]
+    passed = scores.get("passed", overall_score >= scenario.pass_threshold)
+
     # Create SessionScore
     session_score = SessionScore(
         session_id=session_id,
-        overall_score=scores["overall_score"],
-        passed=scores["passed"],
+        overall_score=overall_score,
+        passed=passed,
         feedback_summary=scores["feedback_summary"],
     )
     db.add(session_score)
     await db.flush()
 
     # Create ScoreDetail records
+    # CU results use "name" key, LLM/mock results use "dimension" key
     for dim_data in scores["dimensions"]:
+        dimension_name = dim_data.get("dimension") or dim_data.get("name", "unknown")
         detail = ScoreDetail(
             score_id=session_score.id,
-            dimension=dim_data["dimension"],
+            dimension=dimension_name,
             score=dim_data["score"],
             weight=dim_data["weight"],
-            strengths=json.dumps(dim_data["strengths"]),
-            weaknesses=json.dumps(dim_data["weaknesses"]),
-            suggestions=json.dumps(dim_data["suggestions"]),
+            strengths=json.dumps(dim_data.get("strengths", [])),
+            weaknesses=json.dumps(dim_data.get("weaknesses", [])),
+            suggestions=json.dumps(dim_data.get("suggestions", [])),
         )
         db.add(detail)
 
     # Update session status
     session.status = "scored"
-    session.overall_score = scores["overall_score"]
-    session.passed = scores["passed"]
+    session.overall_score = overall_score
+    session.passed = passed
 
     await db.flush()
 

@@ -1,17 +1,7 @@
 import { useState, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { TrendingUp, TrendingDown, Search, Loader2 } from "lucide-react";
-import {
-  ResponsiveContainer,
-  LineChart,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Line,
-  Legend,
-} from "recharts";
+import { Search, Loader2, TrendingUp, TrendingDown } from "lucide-react";
 import {
   Badge,
   Button,
@@ -26,7 +16,6 @@ import { LoadingState, EmptyState } from "@/components/shared";
 import { cn } from "@/lib/utils";
 import { useScoreHistory, useTriggerScoring } from "@/hooks/use-scoring";
 import { useUserSessions } from "@/hooks/use-session";
-import { PerformanceRadar } from "@/components/analytics";
 import type { CoachingSession } from "@/types/session";
 
 const ALL_VALUE = "__all__";
@@ -36,8 +25,9 @@ const PAGE_SIZE = 10;
 interface UnifiedHistoryRow {
   session_id: string;
   scenario_name: string;
-  status: "completed" | "scoring" | "scored";
+  status: "created" | "in_progress" | "completed" | "scoring" | "scored";
   completed_at: string | null;
+  created_at: string | null;
   duration_seconds: number | null;
   message_count: number;
   // Only for scored sessions
@@ -83,6 +73,7 @@ export default function SessionHistory() {
           scenario_name: item.scenario_name,
           status: "scored",
           completed_at: item.completed_at,
+          created_at: item.completed_at,
           duration_seconds: null,
           message_count: 0,
           overall_score: item.overall_score,
@@ -92,15 +83,26 @@ export default function SessionHistory() {
       }
     }
 
-    // Add completed (not yet scored) sessions
+    // Add all non-scored sessions (created, in_progress, completed)
     if (sessionsData?.items) {
       for (const session of sessionsData.items) {
-        if (session.status === "completed" && !scoredSessionIds.has(session.id)) {
+        if (!scoredSessionIds.has(session.id)) {
+          let rowStatus: UnifiedHistoryRow["status"];
+          if (scoringSessionIds.has(session.id)) {
+            rowStatus = "scoring";
+          } else if (session.status === "completed") {
+            rowStatus = "completed";
+          } else if (session.status === "in_progress") {
+            rowStatus = "in_progress";
+          } else {
+            rowStatus = "created";
+          }
           rows.push({
             session_id: session.id,
             scenario_name: session.scenario_name || session.scenario_id,
-            status: scoringSessionIds.has(session.id) ? "scoring" : "completed",
+            status: rowStatus,
             completed_at: session.completed_at,
+            created_at: session.created_at,
             duration_seconds: session.duration_seconds,
             message_count: session.message_count,
             overall_score: null,
@@ -111,10 +113,10 @@ export default function SessionHistory() {
       }
     }
 
-    // Sort by completed_at descending (most recent first)
+    // Sort by completed_at (or created_at as fallback) descending (most recent first)
     rows.sort((a, b) => {
-      const dateA = a.completed_at ? new Date(a.completed_at).getTime() : 0;
-      const dateB = b.completed_at ? new Date(b.completed_at).getTime() : 0;
+      const dateA = new Date(a.completed_at || a.created_at || "").getTime() || 0;
+      const dateB = new Date(b.completed_at || b.created_at || "").getTime() || 0;
       return dateB - dateA;
     });
 
@@ -149,6 +151,8 @@ export default function SessionHistory() {
         item.scenario_name.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesStatus =
         statusFilter === ALL_VALUE ||
+        (statusFilter === "created" && item.status === "created") ||
+        (statusFilter === "in_progress" && item.status === "in_progress") ||
         (statusFilter === "completed" && item.status === "completed") ||
         (statusFilter === "scoring" && item.status === "scoring") ||
         (statusFilter === "scored" && item.status === "scored");
@@ -209,33 +213,22 @@ export default function SessionHistory() {
     return `${mins}:${String(secs).padStart(2, "0")}`;
   };
 
-  // Prepare trend chart data (scored sessions only)
-  const chartData = useMemo(() => {
-    if (!history) return [];
-    return [...history].reverse().map((item) => {
-      const point: Record<string, string | number> = {
-        date: item.completed_at
-          ? new Date(item.completed_at).toLocaleDateString()
-          : "",
-        overall: item.overall_score,
-      };
-      for (const dim of item.dimensions) {
-        point[dim.dimension] = dim.score;
-      }
-      return point;
-    });
-  }, [history]);
-
-  const dimensionNames = useMemo(() => {
-    if (!history || history.length === 0) return [];
-    const first = history[0];
-    if (!first) return [];
-    return first.dimensions.map((d) => d.dimension);
-  }, [history]);
 
   // Status badge renderer
   const renderStatusBadge = (item: UnifiedHistoryRow) => {
     switch (item.status) {
+      case "created":
+        return (
+          <Badge className="bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400">
+            {t("history.statusCreated")}
+          </Badge>
+        );
+      case "in_progress":
+        return (
+          <Badge className="bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
+            {t("history.statusInProgress")}
+          </Badge>
+        );
       case "completed":
         return (
           <Badge className="bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">
@@ -260,6 +253,9 @@ export default function SessionHistory() {
 
   // Score cell renderer
   const renderScoreCell = (item: UnifiedHistoryRow) => {
+    if (item.status === "created" || item.status === "in_progress") {
+      return <span className="text-sm text-muted-foreground">--</span>;
+    }
     if (item.status === "completed") {
       return (
         <Button
@@ -336,80 +332,9 @@ export default function SessionHistory() {
     );
   }
 
-  // Extract scored-only items for radar/chart
-  const scoredItems = history ?? [];
-  const latestSession = scoredItems[0];
-  const latestRadarScores = latestSession
-    ? latestSession.dimensions.map((d) => ({ dimension: d.dimension, score: d.score }))
-    : [];
-  const previousSession = scoredItems[1];
-  const previousRadarScores = previousSession
-    ? previousSession.dimensions.map((d) => ({ dimension: d.dimension, score: d.score }))
-    : undefined;
-
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-medium text-foreground">{t("history.title")}</h1>
-
-      {/* Skill overview radar */}
-      {latestRadarScores.length > 0 && (
-        <div className="rounded-lg border border-border bg-card p-4">
-          <h2 className="mb-4 text-lg font-medium text-foreground">
-            {t("history.skillOverview")}
-          </h2>
-          <PerformanceRadar
-            currentScores={latestRadarScores}
-            previousScores={previousRadarScores}
-            height={280}
-          />
-        </div>
-      )}
-
-      {/* Trend chart */}
-      {chartData.length > 1 && (
-        <div className="rounded-lg border border-border bg-card p-4">
-          <h2 className="mb-4 text-lg font-medium text-foreground">{t("history.trend")}</h2>
-          <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                <XAxis dataKey="date" tick={{ fontSize: 12 }} className="fill-muted-foreground" />
-                <YAxis domain={[0, 100]} tick={{ fontSize: 12 }} className="fill-muted-foreground" />
-                <Tooltip />
-                <Legend />
-                <Line
-                  type="monotone"
-                  dataKey="overall"
-                  name={t("history.overall")}
-                  stroke="var(--primary)"
-                  strokeWidth={2}
-                  dot={{ r: 4 }}
-                />
-                {dimensionNames.map((dim, idx) => {
-                  const colors = [
-                    "var(--chart-1)",
-                    "var(--chart-2)",
-                    "var(--chart-3)",
-                    "var(--chart-4)",
-                    "var(--chart-5)",
-                  ];
-                  return (
-                    <Line
-                      key={dim}
-                      type="monotone"
-                      dataKey={dim}
-                      name={dim}
-                      stroke={colors[idx % colors.length]}
-                      strokeDasharray="5 5"
-                      dot={{ r: 3 }}
-                    />
-                  );
-                })}
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      )}
 
       {/* Filter bar */}
       <div className="flex flex-wrap items-center gap-3">
@@ -433,6 +358,8 @@ export default function SessionHistory() {
             <SelectItem value={ALL_VALUE}>
               {t("history.allStatuses")}
             </SelectItem>
+            <SelectItem value="created">{t("history.statusCreated")}</SelectItem>
+            <SelectItem value="in_progress">{t("history.statusInProgress")}</SelectItem>
             <SelectItem value="completed">{t("history.statusPending")}</SelectItem>
             <SelectItem value="scoring">{t("history.statusScoring")}</SelectItem>
             <SelectItem value="scored">{t("history.statusScored")}</SelectItem>

@@ -481,8 +481,8 @@ async def score_session_with_cu(db: AsyncSession, session_id: str) -> dict | Non
     # Get rubric and analyzer IDs
     rubric = await _get_session_rubric(db, scenario)
     if rubric is None:
-        logger.warning("No rubric found for session %s, returning mock scores", session_id)
-        return _mock_scores()
+        logger.warning("No rubric found for session %s, CU scoring unavailable", session_id)
+        return None
 
     # Parse dimensions
     dimensions = rubric.dimensions
@@ -495,10 +495,10 @@ async def score_session_with_cu(db: AsyncSession, session_id: str) -> dict | Non
 
     if not endpoint or not api_key:
         logger.warning(
-            "CU endpoint/key not configured, returning mock scores for session %s",
+            "CU endpoint/key not configured for session %s, falling back to LLM/mock",
             session_id,
         )
-        return _mock_scores()
+        return None
 
     # Get content weight/voice weight from rubric (Plan 01 fields)
     content_weight = getattr(rubric, "content_weight", 60) or 60
@@ -516,11 +516,11 @@ async def score_session_with_cu(db: AsyncSession, session_id: str) -> dict | Non
             voice_analyzer_id = getattr(rubric, "cu_voice_analyzer_id", None)
         except Exception as e:
             logger.warning("Failed to sync analyzers on-demand: %s", e)
-            return _mock_scores()
+            return None
 
     if not content_analyzer_id:
         logger.warning("No content analyzer ID after sync for rubric %s", rubric.id)
-        return _mock_scores()
+        return None
 
     # Build transcript from session messages
     transcript_json = await _build_transcript_json(db, session_id)
@@ -533,7 +533,7 @@ async def score_session_with_cu(db: AsyncSession, session_id: str) -> dict | Non
         content_scores = _parse_cu_content_result(content_result, dimensions)
     except Exception as e:
         logger.error("CU content scoring failed for session %s: %s", session_id, e)
-        return _mock_scores()
+        return None
 
     # D-13/D-14: Score voice only if audio_url exists
     voice_scores = None
@@ -586,18 +586,37 @@ async def _build_transcript_json(db: AsyncSession, session_id: str) -> str:
 
 
 def _parse_cu_content_result(cu_fields: dict, rubric_dimensions: list[dict]) -> dict:
-    """Parse CU content analyzer result into standardized scoring format."""
+    """Parse CU content analyzer result into standardized scoring format.
+
+    CU returns fields as {"type": "string", "valueString": "<JSON string>"}.
+    We need to extract valueString and parse it as JSON to get the actual scores.
+    """
     dimensions = []
     for dim in rubric_dimensions:
         dim_name = dim.get("name", "unknown")
         dim_key = dim_name.lower().replace(" ", "_")
-        cu_dim = cu_fields.get(dim_key, {})
+        cu_dim_raw = cu_fields.get(dim_key, {})
+
+        # Extract the actual dimension data from CU field format
+        cu_dim = _extract_cu_field_value(cu_dim_raw)
 
         if isinstance(cu_dim, dict):
-            score = cu_dim.get("score", 0)
+            raw_score = cu_dim.get("score", 0)
+            # CU may return score as empty string or non-numeric; coerce to float
+            try:
+                score = float(raw_score) if raw_score != "" else 0
+            except (TypeError, ValueError):
+                score = 0
             strengths = cu_dim.get("strengths", [])
             weaknesses = cu_dim.get("weaknesses", [])
             suggestions = cu_dim.get("suggestions", [])
+            # Normalize: if strengths/weaknesses are strings, wrap in list
+            if isinstance(strengths, str):
+                strengths = [{"text": strengths, "quote": None}] if strengths else []
+            if isinstance(weaknesses, str):
+                weaknesses = [{"text": weaknesses, "quote": None}] if weaknesses else []
+            if isinstance(suggestions, str):
+                suggestions = [suggestions] if suggestions else []
         else:
             score = 0
             strengths = []
@@ -616,14 +635,43 @@ def _parse_cu_content_result(cu_fields: dict, rubric_dimensions: list[dict]) -> 
             }
         )
 
-    feedback_summary = cu_fields.get("feedback_summary", "")
+    feedback_raw = cu_fields.get("feedback_summary", "")
+    feedback_summary = _extract_cu_field_value(feedback_raw)
     if isinstance(feedback_summary, dict):
         feedback_summary = feedback_summary.get("value", "")
 
     return {
         "dimensions": dimensions,
-        "feedback_summary": str(feedback_summary),
+        "feedback_summary": str(feedback_summary) if feedback_summary else "",
     }
+
+
+def _extract_cu_field_value(field: object) -> object:
+    """Extract the actual value from a CU field response.
+
+    CU fields come back as {"type": "string", "valueString": "..."}.
+    The valueString may itself be JSON that needs parsing.
+    """
+    if not isinstance(field, dict):
+        return field
+
+    # CU field format: {"type": "string", "valueString": "..."}
+    value_string = field.get("valueString")
+    if value_string is not None:
+        # Try to parse as JSON (dimension scores are JSON strings)
+        if isinstance(value_string, str):
+            try:
+                return json.loads(value_string)
+            except (json.JSONDecodeError, ValueError):
+                # Not JSON, return as plain string
+                return value_string
+        return value_string
+
+    # Fallback: might already be a parsed dict with score directly
+    if "score" in field:
+        return field
+
+    return field
 
 
 def _parse_cu_voice_result(cu_fields: dict) -> dict:
