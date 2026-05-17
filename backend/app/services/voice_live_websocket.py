@@ -91,6 +91,7 @@ async def _load_connection_config(
         "use_agent_mode": False,
         "agent_name": "",
         "project_name": "",
+        "recognition_language": "zh,en",
     }
 
     # Check avatar availability
@@ -408,6 +409,7 @@ async def handle_voice_live_websocket(ws: WebSocket, db: AsyncSession) -> None:
             "input_audio_echo_cancellation": AudioEchoCancellation(type="server_echo_cancellation"),
             "input_audio_transcription": AudioInputTranscriptionOptions(
                 model="azure-speech",
+                language=cfg.get("recognition_language", "zh,en"),
             ),
             "voice": AzureStandardVoice(name=cfg["voice_name"], type=cfg["voice_type"]),
         }
