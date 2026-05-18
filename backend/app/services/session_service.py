@@ -10,7 +10,6 @@ from sqlalchemy.orm import selectinload
 from app.models.message import SessionMessage
 from app.models.scenario import Scenario
 from app.models.session import CoachingSession
-from app.services.prompt_builder import build_key_message_detection_prompt
 from app.utils.exceptions import AppException, NotFoundException
 
 
@@ -153,9 +152,8 @@ async def get_user_sessions(
     has_messages = exists().where(SessionMessage.session_id == CoachingSession.id)
 
     # Filter: exclude "created" sessions with no messages (abandoned)
-    active_filter = (
-        (CoachingSession.user_id == user_id)
-        & ((CoachingSession.status != "created") | has_messages)
+    active_filter = (CoachingSession.user_id == user_id) & (
+        (CoachingSession.status != "created") | has_messages
     )
 
     # Count total (excluding abandoned)
@@ -232,6 +230,49 @@ async def save_message(
     return message
 
 
+async def _calculate_active_duration(
+    db: AsyncSession, session_id: str, started_at: datetime, ended_at: datetime
+) -> int:
+    """Calculate active interaction duration, excluding idle gaps > 5 minutes."""
+    MAX_GAP_SECONDS = 300  # 5 minutes - gaps longer than this are excluded
+
+    msg_result = await db.execute(
+        select(SessionMessage.created_at)
+        .where(SessionMessage.session_id == session_id)
+        .order_by(SessionMessage.created_at.asc())
+    )
+    timestamps = [row[0] for row in msg_result.fetchall()]
+
+    if not timestamps:
+        return 0
+
+    # Normalize timezone
+    def ensure_utc(dt: datetime) -> datetime:
+        return dt.replace(tzinfo=UTC) if dt.tzinfo is None else dt
+
+    timestamps = [ensure_utc(ts) for ts in timestamps]
+    started_at = ensure_utc(started_at)
+
+    # Sum up active segments: gaps between consecutive messages that are <= MAX_GAP
+    active_seconds = 0
+    prev = started_at
+    for ts in timestamps:
+        gap = (ts - prev).total_seconds()
+        if gap <= MAX_GAP_SECONDS:
+            active_seconds += gap
+        else:
+            # Count a small buffer for the user returning (reading context)
+            active_seconds += 30
+        prev = ts
+
+    # Add time from last message to end (capped at MAX_GAP)
+    ended_at = ensure_utc(ended_at)
+    final_gap = (ended_at - prev).total_seconds()
+    active_seconds += min(final_gap, MAX_GAP_SECONDS)
+
+    return max(int(active_seconds), 0)
+
+
 async def end_session(db: AsyncSession, session_id: str, user_id: str) -> CoachingSession:
     """End a coaching session, transitioning from in_progress to completed.
 
@@ -259,15 +300,12 @@ async def end_session(db: AsyncSession, session_id: str, user_id: str) -> Coachi
     session.status = "completed"
     session.completed_at = now
     if not session.started_at:
-        # Session was ended directly from "created" (no messages sent)
         session.started_at = now
         session.duration_seconds = 0
     else:
-        started = session.started_at
-        # Handle timezone-naive datetimes from SQLite
-        if started.tzinfo is None:
-            started = started.replace(tzinfo=UTC)
-        session.duration_seconds = int((now - started).total_seconds())
+        session.duration_seconds = await _calculate_active_duration(
+            db, session_id, session.started_at, now
+        )
 
     await db.flush()
     # Full refresh to reload scalar columns (updated_at, etc.) + relationships
@@ -320,15 +358,13 @@ async def detect_key_messages(
 
 
 def _mock_key_message_detection(
-    key_messages: list[str], mr_message: str, conversation_history: list[dict]
+    key_messages: list[str], mr_message: str, _conversation_history: list[dict]
 ) -> list[str]:
     """Simple keyword-based detection for mock/fallback key message matching.
 
     Checks if significant keywords from each key message appear in the MR's
     message or recent conversation.
     """
-    # Build detection prompt for reference (used when real LLM is available)
-    _prompt = build_key_message_detection_prompt(key_messages, mr_message, conversation_history)
 
     detected = []
     mr_lower = mr_message.lower()
