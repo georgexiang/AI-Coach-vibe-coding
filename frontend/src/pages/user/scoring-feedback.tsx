@@ -152,7 +152,9 @@ export default function ScoringFeedback() {
             </Badge>
           ) : (
             <span className="text-xs text-muted-foreground">
-              {t("textOnlyNote")}
+              {session?.mode && session.mode !== "text"
+                ? t("voiceScoringPending")
+                : t("textOnlyNote")}
             </span>
           )}
         </div>

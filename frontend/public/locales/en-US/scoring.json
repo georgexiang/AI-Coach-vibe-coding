@@ -97,6 +97,7 @@
   "contentScore": "Content Score",
   "voiceScore": "Voice Score",
   "textOnlyNote": "Text-only session, content evaluation only",
+  "voiceScoringPending": "Voice scoring pending",
   "cuProcessing": "Evaluating with Azure Content Understanding...",
   "cuFailed": "Evaluation failed. Please retry later or contact admin.",
   "modes": {

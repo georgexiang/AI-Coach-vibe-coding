@@ -97,6 +97,7 @@
   "contentScore": "内容得分",
   "voiceScore": "语音得分",
   "textOnlyNote": "纯文本会话，仅包含内容评估",
+  "voiceScoringPending": "语音评分处理中",
   "cuProcessing": "正在使用 Azure Content Understanding 评估中...",
   "cuFailed": "评估失败，请稍后重试或联系管理员",
   "modes": {

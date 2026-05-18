@@ -73,6 +73,15 @@ async def score_session(db: AsyncSession, session_id: str) -> SessionScore:
     )
     messages = list(msg_result.scalars().all())
 
+    # Guard: cannot score a session with no conversation messages
+    if not messages:
+        raise AppException(
+            status_code=409,
+            code="NO_MESSAGES",
+            message="Cannot score a session with no conversation messages. "
+            "The session must have at least one message exchange.",
+        )
+
     # Get scenario and key messages status
     scenario = session.scenario
     key_messages_status = json.loads(session.key_messages_status)
@@ -185,6 +194,11 @@ async def get_score_history(db: AsyncSession, user_id: str, limit: int = 10) -> 
     with the previous (older) session's scores.
     """
     # Load scored sessions with score + details in a single query (fix N+1)
+    # Exclude sessions with no messages (prematurely ended/scored without conversation)
+    from sqlalchemy import exists, func
+
+    has_messages = exists().where(SessionMessage.session_id == CoachingSession.id)
+
     result = await db.execute(
         select(CoachingSession)
         .options(
@@ -194,6 +208,7 @@ async def get_score_history(db: AsyncSession, user_id: str, limit: int = 10) -> 
         .where(
             CoachingSession.user_id == user_id,
             CoachingSession.status == "scored",
+            has_messages,
         )
         .order_by(CoachingSession.completed_at.desc())
         .limit(limit)
@@ -301,6 +316,8 @@ async def get_combined_score_report(
         else []
     )
 
+    has_voice = bool(voice_dims)
+
     return {
         "session_id": session_id,
         "overall_score": content_score,
@@ -318,6 +335,10 @@ async def get_combined_score_report(
         "suggestions": [],
         "feedback_summary": score.feedback_summary,
         "audio_url": session.audio_url,
+        "content_total": round(content_score, 1),
+        "voice_total": round(voice_score, 1) if has_voice else None,
+        "content_weight": 70 if has_voice else 100,
+        "voice_weight": 30 if has_voice else None,
     }
 
 

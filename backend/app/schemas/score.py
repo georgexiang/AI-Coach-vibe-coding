@@ -58,3 +58,7 @@ class CombinedScoreReport(BaseModel):
     suggestions: list[str] = []
     feedback_summary: str = ""
     audio_url: str | None = None
+    content_total: float | None = None
+    voice_total: float | None = None
+    content_weight: int | None = None
+    voice_weight: int | None = None

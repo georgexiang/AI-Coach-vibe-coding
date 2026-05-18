@@ -221,6 +221,86 @@ class TestGetCombinedScoreReport:
         assert len(report["voice_dimensions"]) == 0
         assert report["voice_summary"]["voice_score_status"] == "completed"
 
+    async def test_content_only_report_totals(self, db_session, session_with_audio):
+        """Content-only report returns content_total and voice_total=None."""
+        session = session_with_audio
+
+        score = SessionScore(
+            session_id=session.id,
+            overall_score=80.0,
+            passed=True,
+            feedback_summary="Good performance",
+        )
+        db_session.add(score)
+        await db_session.flush()
+
+        db_session.add(ScoreDetail(
+            score_id=score.id,
+            dimension="key_messages",
+            score=80.0,
+            weight=100,
+            strengths="[]",
+            weaknesses="[]",
+            suggestions="[]",
+            category="content",
+        ))
+        await db_session.commit()
+
+        report = await get_combined_score_report(
+            db_session, session.id, "test-user-1"
+        )
+        assert report["content_total"] == 80.0
+        assert report["voice_total"] is None
+        assert report["content_weight"] == 100
+        assert report["voice_weight"] is None
+
+    async def test_combined_report_totals_with_voice(
+        self, db_session, session_with_audio, mock_voice_scores
+    ):
+        """Report with voice dims returns both content_total and voice_total."""
+        session = session_with_audio
+
+        score = SessionScore(
+            session_id=session.id,
+            overall_score=80.0,
+            passed=True,
+            feedback_summary="Good",
+        )
+        db_session.add(score)
+        await db_session.flush()
+
+        db_session.add(ScoreDetail(
+            score_id=score.id,
+            dimension="key_messages",
+            score=80.0,
+            weight=100,
+            strengths="[]",
+            weaknesses="[]",
+            suggestions="[]",
+            category="content",
+        ))
+        for dim in mock_voice_scores["dimensions"]:
+            db_session.add(ScoreDetail(
+                score_id=score.id,
+                dimension=dim["name"],
+                score=dim["score"],
+                weight=dim["weight"],
+                strengths="[]",
+                weaknesses="[]",
+                suggestions="[]",
+                category="voice",
+            ))
+        await db_session.commit()
+
+        report = await get_combined_score_report(
+            db_session, session.id, "test-user-1"
+        )
+        assert report["content_total"] == 80.0
+        # (85*25 + 78*25 + 90*25 + 72*25) / 100 = 81.25
+        assert report["voice_total"] == 81.2
+        assert report["content_weight"] == 70
+        assert report["voice_weight"] == 30
+
     async def test_combined_score_with_voice(
         self, db_session, session_with_audio, mock_voice_scores
     ):
