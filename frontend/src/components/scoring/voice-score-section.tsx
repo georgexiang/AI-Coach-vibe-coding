@@ -1,13 +1,16 @@
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Mic, TrendingUp } from "lucide-react";
+import { Mic, TrendingUp, RefreshCw } from "lucide-react";
 import { AudioEvidencePlayer } from "./audio-evidence-player";
 import type { ScoreDimension } from "@/hooks/use-combined-score";
+import apiClient from "@/api/client";
 
 interface VoiceScoreSectionProps {
   dimensions: ScoreDimension[];
   overallVoiceScore: number;
   voiceScoreStatus: string;
   audioUrl: string | null;
+  sessionId?: string;
 }
 
 /**
@@ -19,8 +22,24 @@ export function VoiceScoreSection({
   overallVoiceScore,
   voiceScoreStatus,
   audioUrl,
+  sessionId,
 }: VoiceScoreSectionProps) {
   const { t } = useTranslation("scoring");
+  const [retrying, setRetrying] = useState(false);
+  const [retryError, setRetryError] = useState<string | null>(null);
+
+  const handleRetry = async () => {
+    if (!sessionId) return;
+    setRetrying(true);
+    setRetryError(null);
+    try {
+      await apiClient.post(`/api/v1/sessions/${sessionId}/voice-score/retry`);
+      window.location.reload();
+    } catch {
+      setRetryError(t("voiceScore.retryFailed"));
+      setRetrying(false);
+    }
+  };
 
   if (voiceScoreStatus === "none") return null;
 
@@ -34,6 +53,18 @@ export function VoiceScoreSection({
         <p className="animate-pulse text-sm text-muted-foreground">
           {t("voiceScore.processing")}
         </p>
+        {voiceScoreStatus === "pending" && sessionId && (
+          <button
+            onClick={handleRetry}
+            disabled={retrying}
+            className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-white hover:bg-primary/90 disabled:opacity-50"
+            data-testid="retry-voice-scoring"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${retrying ? "animate-spin" : ""}`} />
+            {retrying ? t("voiceScore.retrying") : t("voiceScore.retry")}
+          </button>
+        )}
+        {retryError && <p className="mt-2 text-xs text-destructive">{retryError}</p>}
       </div>
     );
   }
@@ -46,6 +77,18 @@ export function VoiceScoreSection({
           <h3 className="text-lg font-semibold">{t("voiceScore.title")}</h3>
         </div>
         <p className="text-sm text-destructive">{t("voiceScore.failed")}</p>
+        {sessionId && (
+          <button
+            onClick={handleRetry}
+            disabled={retrying}
+            className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-white hover:bg-primary/90 disabled:opacity-50"
+            data-testid="retry-voice-scoring"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${retrying ? "animate-spin" : ""}`} />
+            {retrying ? t("voiceScore.retrying") : t("voiceScore.retry")}
+          </button>
+        )}
+        {retryError && <p className="mt-2 text-xs text-destructive">{retryError}</p>}
       </div>
     );
   }

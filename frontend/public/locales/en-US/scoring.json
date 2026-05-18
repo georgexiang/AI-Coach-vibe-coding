@@ -67,7 +67,8 @@
     "statusScored": "Scored",
     "statusScoring": "Scoring",
     "messages": "messages",
-    "allStatuses": "All Statuses"
+    "allStatuses": "All Statuses",
+    "resume": "Resume"
   },
   "scenario": "Scenario",
   "mode": "Mode",
@@ -77,6 +78,9 @@
     "title": "Voice Analysis",
     "processing": "Voice analysis in progress...",
     "failed": "Voice scoring could not be completed.",
+    "retry": "Retry Scoring",
+    "retrying": "Retrying...",
+    "retryFailed": "Retry failed. Please try again later.",
     "sessionRecording": "Session Recording",
     "audioNotSupported": "Your browser does not support audio playback.",
     "dimensions": {
@@ -108,6 +112,12 @@
     "digital_human_realtime_model": "Digital Human Realtime",
     "voice_realtime_agent": "Voice Agent",
     "digital_human_realtime_agent": "Digital Human Agent"
+  },
+  "transcript": {
+    "title": "Conversation History",
+    "messageCount": "messages",
+    "mrLabel": "You (MR)",
+    "hcpLabel": "HCP"
   },
   "errors": {
     "scoringFailed": "Scoring could not be completed. Try ending the session again."

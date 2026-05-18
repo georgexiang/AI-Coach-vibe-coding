@@ -101,6 +101,10 @@
     "transcript": "对话记录",
     "config": "配置"
   },
+  "recording": {
+    "uploading": "正在上传会话录音...",
+    "uploadFailed": "录音保存失败，但会话已正常结束。"
+  },
   "config": {
     "title": "配置",
     "speechInput": "语音输入",

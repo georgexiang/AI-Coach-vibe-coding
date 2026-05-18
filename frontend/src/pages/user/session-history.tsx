@@ -27,6 +27,7 @@ interface UnifiedHistoryRow {
   scenario_name: string;
   status: "created" | "in_progress" | "completed" | "scoring" | "scored";
   completed_at: string | null;
+  started_at: string | null;
   created_at: string | null;
   duration_seconds: number | null;
   message_count: number;
@@ -73,6 +74,7 @@ export default function SessionHistory() {
           scenario_name: item.scenario_name,
           status: "scored",
           completed_at: item.completed_at,
+          started_at: null,
           created_at: item.completed_at,
           duration_seconds: null,
           message_count: 0,
@@ -102,6 +104,7 @@ export default function SessionHistory() {
             scenario_name: session.scenario_name || session.scenario_id,
             status: rowStatus,
             completed_at: session.completed_at,
+            started_at: session.started_at,
             created_at: session.created_at,
             duration_seconds: session.duration_seconds,
             message_count: session.message_count,
@@ -113,10 +116,10 @@ export default function SessionHistory() {
       }
     }
 
-    // Sort by completed_at (or created_at as fallback) descending (most recent first)
+    // Sort by best available date descending (most recent first)
     rows.sort((a, b) => {
-      const dateA = new Date(a.completed_at || a.created_at || "").getTime() || 0;
-      const dateB = new Date(b.completed_at || b.created_at || "").getTime() || 0;
+      const dateA = new Date(a.completed_at || a.started_at || a.created_at || "").getTime() || 0;
+      const dateB = new Date(b.completed_at || b.started_at || b.created_at || "").getTime() || 0;
       return dateB - dateA;
     });
 
@@ -279,8 +282,9 @@ export default function SessionHistory() {
         </span>
       );
     }
-    // scored
-    if (item.overall_score != null) {
+    // scored — but skip displaying score for sessions with 0 score and no messages
+    // (these are prematurely ended sessions that got scored without any conversation)
+    if (item.overall_score != null && !(item.overall_score === 0 && item.message_count === 0)) {
       return (
         <div className="flex items-center gap-2">
           <span
@@ -435,8 +439,8 @@ export default function SessionHistory() {
                 }}
               >
                 <td className="px-4 py-3 text-sm text-muted-foreground">
-                  {item.completed_at
-                    ? new Date(item.completed_at).toLocaleDateString()
+                  {(item.completed_at || item.started_at || item.created_at)
+                    ? new Date((item.completed_at || item.started_at || item.created_at)!).toLocaleDateString()
                     : "-"}
                 </td>
                 <td className="px-4 py-3 text-sm font-medium text-foreground">
@@ -503,6 +507,18 @@ export default function SessionHistory() {
                     <span className="text-sm text-primary transition-colors duration-150 hover:underline">
                       {t("history.viewDetails")}
                     </span>
+                  ) : item.status === "in_progress" || item.status === "created" ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-xs"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/user/training/session?id=${item.session_id}`);
+                      }}
+                    >
+                      {t("history.resume")}
+                    </Button>
                   ) : (
                     <span className="text-sm text-muted-foreground">--</span>
                   )}
@@ -561,8 +577,8 @@ export default function SessionHistory() {
             </div>
             <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
               <span>
-                {item.completed_at
-                  ? new Date(item.completed_at).toLocaleDateString()
+                {(item.completed_at || item.started_at || item.created_at)
+                  ? new Date((item.completed_at || item.started_at || item.created_at)!).toLocaleDateString()
                   : "-"}
               </span>
               <span>{formatDuration(item.duration_seconds)}</span>
@@ -570,8 +586,21 @@ export default function SessionHistory() {
                 <span>{item.message_count} {t("history.messages")}</span>
               )}
             </div>
-            <div className="mt-3">
+            <div className="mt-3 flex items-center justify-between">
               {renderScoreCell(item)}
+              {(item.status === "in_progress" || item.status === "created") && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-xs"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(`/user/training/session?id=${item.session_id}`);
+                  }}
+                >
+                  {t("history.resume")}
+                </Button>
+              )}
             </div>
           </div>
         ))}

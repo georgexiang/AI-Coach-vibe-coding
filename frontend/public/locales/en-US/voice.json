@@ -101,6 +101,10 @@
     "transcript": "Transcript",
     "config": "Configuration"
   },
+  "recording": {
+    "uploading": "Uploading session recording...",
+    "uploadFailed": "Failed to save recording, but session was completed."
+  },
   "config": {
     "title": "Configuration",
     "speechInput": "Speech input",

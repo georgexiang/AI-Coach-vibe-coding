@@ -738,4 +738,97 @@ describe("SessionHistory", () => {
     const msgElements = screen.getAllByText(/12 history\.messages/);
     expect(msgElements.length).toBeGreaterThanOrEqual(1);
   });
+
+  it("renders Resume button for in_progress sessions", () => {
+    mockScoreHistoryReturn = { data: [], isLoading: false };
+    mockSessionsReturn = {
+      data: {
+        items: [mockInProgressSession],
+        total: 1,
+        page: 1,
+        page_size: 100,
+        total_pages: 1,
+      },
+      isLoading: false,
+    };
+    renderSessionHistory();
+    const resumeButtons = screen.getAllByText("history.resume");
+    expect(resumeButtons.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("renders Resume button for created sessions", () => {
+    mockScoreHistoryReturn = { data: [], isLoading: false };
+    mockSessionsReturn = {
+      data: {
+        items: [mockCreatedSession],
+        total: 1,
+        page: 1,
+        page_size: 100,
+        total_pages: 1,
+      },
+      isLoading: false,
+    };
+    renderSessionHistory();
+    const resumeButtons = screen.getAllByText("history.resume");
+    expect(resumeButtons.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("navigates to training session page when Resume is clicked", async () => {
+    const user = userEvent.setup();
+    mockScoreHistoryReturn = { data: [], isLoading: false };
+    mockSessionsReturn = {
+      data: {
+        items: [mockInProgressSession],
+        total: 1,
+        page: 1,
+        page_size: 100,
+        total_pages: 1,
+      },
+      isLoading: false,
+    };
+    renderSessionHistory();
+    const resumeButtons = screen.getAllByText("history.resume");
+    await user.click(resumeButtons[0]!);
+    expect(mockNavigate).toHaveBeenCalledWith("/user/training/session?id=s5");
+  });
+
+  it("shows started_at date for in_progress sessions without completed_at", () => {
+    mockScoreHistoryReturn = { data: [], isLoading: false };
+    mockSessionsReturn = {
+      data: {
+        items: [mockInProgressSession],
+        total: 1,
+        page: 1,
+        page_size: 100,
+        total_pages: 1,
+      },
+      isLoading: false,
+    };
+    renderSessionHistory();
+    // mockInProgressSession has started_at: "2026-03-22T09:00:00Z", completed_at: null
+    // Should show the date from started_at, not "-"
+    const dateStr = new Date("2026-03-22T09:00:00Z").toLocaleDateString();
+    const dateElements = screen.getAllByText(dateStr);
+    expect(dateElements.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("shows created_at date for created sessions without started_at or completed_at", () => {
+    mockScoreHistoryReturn = { data: [], isLoading: false };
+    mockSessionsReturn = {
+      data: {
+        items: [mockCreatedSession],
+        total: 1,
+        page: 1,
+        page_size: 100,
+        total_pages: 1,
+      },
+      isLoading: false,
+    };
+    renderSessionHistory();
+    // mockCreatedSession has started_at: null, completed_at: null, created_at: "2026-03-22T08:00:00Z"
+    // Should show the date from created_at, not "-"
+    const dateStr = new Date("2026-03-22T08:00:00Z").toLocaleDateString();
+    const dateElements = screen.getAllByText(dateStr);
+    expect(dateElements.length).toBeGreaterThanOrEqual(1);
+  });
 });

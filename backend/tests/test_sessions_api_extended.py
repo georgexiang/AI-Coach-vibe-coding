@@ -254,7 +254,8 @@ class TestListSessionsExtended:
     """Additional tests for GET /api/v1/sessions/."""
 
     async def test_list_sessions_pagination_shape(self, client: AsyncClient):
-        _, _, token, _ = await _setup_session()
+        # Use in_progress status so the session has messages and won't be filtered
+        _, _, token, _ = await _setup_session(status="in_progress")
 
         response = await client.get(
             "/api/v1/sessions",

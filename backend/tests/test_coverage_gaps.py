@@ -321,16 +321,26 @@ class TestSessionsApiCoverage:
         assert resp.json()["status"] == "created"
 
     async def test_list_sessions_paginated(self, client):
-        """Cover line 54."""
+        """Cover line 54. Sessions with messages appear; abandoned (no messages) are filtered."""
         admin_id, admin_token = await _user(role="admin", username="sl_admin")
         scenario_id = await _admin_scenario(client, admin_id, admin_token)
         _, utoken = await _user(role="user", username="sl_user")
 
-        await client.post(
+        # Create a session and send a message so it won't be filtered as abandoned
+        create_resp = await client.post(
             "/api/v1/sessions",
             json={"scenario_id": scenario_id},
             headers={"Authorization": f"Bearer {utoken}"},
         )
+        session_id = create_resp.json()["id"]
+
+        # Persist a transcript message so the session has at least one message
+        await client.post(
+            f"/api/v1/sessions/{session_id}/transcript",
+            json={"role": "user", "message": "Hello doctor"},
+            headers={"Authorization": f"Bearer {utoken}"},
+        )
+
         resp = await client.get(
             "/api/v1/sessions?page=1&page_size=10",
             headers={"Authorization": f"Bearer {utoken}"},

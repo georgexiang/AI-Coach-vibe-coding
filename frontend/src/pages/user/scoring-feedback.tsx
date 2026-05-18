@@ -1,8 +1,10 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { MessageSquare, ChevronDown, ChevronUp } from "lucide-react";
 import { Badge, Button, ScrollArea } from "@/components/ui";
 import { LoadingState } from "@/components/shared";
+import { ChatBubble } from "@/components/shared/chat-bubble";
 import { ScoreSummary } from "@/components/scoring/score-summary";
 import { RadarChart } from "@/components/scoring/radar-chart";
 import { DimensionBars } from "@/components/scoring/dimension-bars";
@@ -10,7 +12,7 @@ import { FeedbackCard } from "@/components/scoring/feedback-card";
 import { ReportSection } from "@/components/scoring/report-section";
 import { useSessionScore, useTriggerScoring, useScoreHistory } from "@/hooks/use-scoring";
 import { useSessionReport } from "@/hooks/use-reports";
-import { useSession } from "@/hooks/use-session";
+import { useSession, useSessionMessages } from "@/hooks/use-session";
 import { useCombinedScore } from "@/hooks/use-combined-score";
 import { VoiceScoreSection } from "@/components/scoring/voice-score-section";
 
@@ -28,10 +30,12 @@ export default function ScoringFeedback() {
   const sessionId = params.sessionId ?? "";
 
   const { data: session } = useSession(sessionId || undefined);
+  const { data: messages } = useSessionMessages(sessionId || undefined);
   const { data: score, isLoading: scoreLoading } = useSessionScore(
     sessionId || undefined
   );
   const triggerScoring = useTriggerScoring();
+  const [showTranscript, setShowTranscript] = useState(true);
 
   // Load full report only when score is available
   const { data: report } = useSessionReport(score ? sessionId : undefined);
@@ -189,6 +193,7 @@ export default function ScoringFeedback() {
           overallVoiceScore={combinedReport.voice_summary.overall_voice_score}
           voiceScoreStatus={combinedReport.voice_summary.voice_score_status}
           audioUrl={combinedReport.audio_url}
+          sessionId={sessionId}
         />
       )}
 
@@ -201,6 +206,49 @@ export default function ScoringFeedback() {
             keyMessagesDelivered={report.key_messages_delivered}
             keyMessagesTotal={report.key_messages_total}
           />
+        </div>
+      )}
+
+      {/* Conversation History */}
+      {messages && messages.length > 0 && (
+        <div className="rounded-lg border border-border bg-card p-6">
+          <button
+            type="button"
+            className="flex w-full items-center justify-between"
+            onClick={() => setShowTranscript((v) => !v)}
+          >
+            <h2 className="flex items-center gap-2 text-xl font-medium text-foreground">
+              <MessageSquare className="size-5" />
+              {t("transcript.title")}
+              <span className="text-sm font-normal text-muted-foreground">
+                ({messages.length} {t("transcript.messageCount")})
+              </span>
+            </h2>
+            {showTranscript ? (
+              <ChevronUp className="size-5 text-muted-foreground" />
+            ) : (
+              <ChevronDown className="size-5 text-muted-foreground" />
+            )}
+          </button>
+          {showTranscript && (
+            <ScrollArea className="mt-4 max-h-[500px]">
+              <div className="space-y-3">
+                {messages.map((msg) => (
+                  <ChatBubble
+                    key={msg.id}
+                    sender={msg.role === "user" ? "mr" : "hcp"}
+                    text={msg.content}
+                    timestamp={new Date(msg.created_at)}
+                    speakerName={
+                      msg.role === "user"
+                        ? t("transcript.mrLabel")
+                        : t("transcript.hcpLabel")
+                    }
+                  />
+                ))}
+              </div>
+            </ScrollArea>
+          )}
         </div>
       )}
 

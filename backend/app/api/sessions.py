@@ -334,9 +334,9 @@ async def upload_session_audio_endpoint(
     audio_url = await upload_session_audio(session_id, content, file.filename or "recording.webm")
     session.audio_url = audio_url
     session.voice_score_status = "pending"
-    await db.flush()
+    await db.commit()
 
-    # Trigger async voice scoring
+    # Trigger async voice scoring after commit so background task can see the data
     asyncio.create_task(trigger_voice_scoring(session_id))
 
     return {"audio_url": audio_url, "voice_score_status": "pending"}
@@ -358,3 +358,33 @@ async def get_voice_score_status(
         "voice_score_status": session.voice_score_status,
         "audio_url": session.audio_url,
     }
+
+
+@router.post("/{session_id}/voice-score/retry", status_code=202)
+async def retry_voice_scoring(
+    session_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Retry voice scoring for a session stuck in pending/failed status."""
+    from app.services.voice_scoring_service import trigger_voice_scoring
+
+    session = await session_service.get_session(db, session_id, user.id)
+    if session.user_id != user.id:
+        raise HTTPException(status_code=403, detail="Not your session")
+
+    if session.voice_score_status not in ("pending", "failed"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot retry: status is '{session.voice_score_status}'"
+        )
+
+    if not session.audio_url:
+        raise HTTPException(status_code=400, detail="No audio file to score")
+
+    session.voice_score_status = "pending"
+    await db.commit()
+
+    asyncio.create_task(trigger_voice_scoring(session_id))
+
+    return {"session_id": session_id, "voice_score_status": "pending"}

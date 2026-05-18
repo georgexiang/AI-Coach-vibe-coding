@@ -142,10 +142,25 @@ async def get_session(db: AsyncSession, session_id: str, user_id: str) -> Coachi
 async def get_user_sessions(
     db: AsyncSession, user_id: str, page: int = 1, page_size: int = 20
 ) -> tuple[list[CoachingSession], int]:
-    """List a user's sessions with pagination, ordered by created_at desc."""
-    # Count total
+    """List a user's sessions with pagination, ordered by created_at desc.
+
+    Excludes abandoned sessions: those with status 'created' that have no messages
+    (i.e., sessions that were created but never actually started by the user).
+    """
+    from sqlalchemy import exists
+
+    # Subquery: session has at least one message
+    has_messages = exists().where(SessionMessage.session_id == CoachingSession.id)
+
+    # Filter: exclude "created" sessions with no messages (abandoned)
+    active_filter = (
+        (CoachingSession.user_id == user_id)
+        & ((CoachingSession.status != "created") | has_messages)
+    )
+
+    # Count total (excluding abandoned)
     count_result = await db.execute(
-        select(func.count()).select_from(CoachingSession).where(CoachingSession.user_id == user_id)
+        select(func.count()).select_from(CoachingSession).where(active_filter)
     )
     total = count_result.scalar_one()
 
@@ -154,7 +169,7 @@ async def get_user_sessions(
     result = await db.execute(
         select(CoachingSession)
         .options(selectinload(CoachingSession.scenario), selectinload(CoachingSession.messages))
-        .where(CoachingSession.user_id == user_id)
+        .where(active_filter)
         .order_by(CoachingSession.created_at.desc())
         .offset(offset)
         .limit(page_size)

@@ -264,15 +264,29 @@ class TestListSessionsEndpoint:
         scenario_id = await _create_active_scenario(client, admin_id, admin_token)
         user_id, user_token = await _create_user_and_token()
 
-        # Create two sessions
-        await client.post(
+        # Create two sessions and send messages so they are not filtered as abandoned
+        resp1 = await client.post(
             "/api/v1/sessions",
             json={"scenario_id": scenario_id},
             headers={"Authorization": f"Bearer {user_token}"},
         )
-        await client.post(
+        resp2 = await client.post(
             "/api/v1/sessions",
             json={"scenario_id": scenario_id},
+            headers={"Authorization": f"Bearer {user_token}"},
+        )
+
+        # Add a message to each session so they won't be filtered out
+        sid1 = resp1.json()["id"]
+        sid2 = resp2.json()["id"]
+        await client.post(
+            f"/api/v1/sessions/{sid1}/transcript",
+            json={"role": "user", "message": "Hello"},
+            headers={"Authorization": f"Bearer {user_token}"},
+        )
+        await client.post(
+            f"/api/v1/sessions/{sid2}/transcript",
+            json={"role": "user", "message": "Hi"},
             headers={"Authorization": f"Bearer {user_token}"},
         )
 

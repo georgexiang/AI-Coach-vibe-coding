@@ -67,7 +67,8 @@
     "statusScored": "已完成",
     "statusScoring": "打分中",
     "messages": "条消息",
-    "allStatuses": "所有状态"
+    "allStatuses": "所有状态",
+    "resume": "继续训练"
   },
   "scenario": "场景",
   "mode": "模式",
@@ -77,6 +78,9 @@
     "title": "语音分析",
     "processing": "语音分析进行中...",
     "failed": "语音评分未能完成。",
+    "retry": "重新评分",
+    "retrying": "正在重试...",
+    "retryFailed": "重试失败，请稍后再试。",
     "sessionRecording": "会话录音",
     "audioNotSupported": "您的浏览器不支持音频播放。",
     "dimensions": {
@@ -108,6 +112,12 @@
     "digital_human_realtime_model": "实时数字人",
     "voice_realtime_agent": "语音代理",
     "digital_human_realtime_agent": "数字人代理"
+  },
+  "transcript": {
+    "title": "对话记录",
+    "messageCount": "条消息",
+    "mrLabel": "你 (MR)",
+    "hcpLabel": "HCP"
   },
   "errors": {
     "scoringFailed": "评分未能完成，请尝试重新结束会话。"

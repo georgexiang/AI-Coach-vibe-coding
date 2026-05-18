@@ -60,8 +60,11 @@ vi.mock("@/hooks/use-scoring", () => ({
   useScoreHistory: () => ({ data: historyData, isLoading: false }),
 }));
 
+let messagesData: unknown = undefined;
+
 vi.mock("@/hooks/use-session", () => ({
   useSession: () => ({ data: sessionData }),
+  useSessionMessages: () => ({ data: messagesData, isLoading: false }),
 }));
 
 vi.mock("@/hooks/use-reports", () => ({
@@ -94,6 +97,14 @@ vi.mock("@/components/scoring/report-section", () => ({
     </div>
   ),
 }));
+vi.mock("@/components/shared/chat-bubble", () => ({
+  ChatBubble: (props: { sender: string; text: string; speakerName?: string }) => (
+    <div data-testid="chat-bubble" data-sender={props.sender}>
+      <span data-testid="chat-speaker">{props.speakerName}</span>
+      <span data-testid="chat-text">{props.text}</span>
+    </div>
+  ),
+}));
 
 function renderPage() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -112,6 +123,7 @@ describe("ScoringFeedback", () => {
     scoreLoading = false;
     reportData = undefined;
     historyData = undefined;
+    messagesData = undefined;
     // Mock window.print
     Object.defineProperty(window, "print", { value: mockPrint, writable: true });
   });
@@ -298,5 +310,58 @@ describe("ScoringFeedback", () => {
     renderPage();
     const shareBtn = screen.getByText("shareWithManager");
     expect(shareBtn.closest("button")).toBeDisabled();
+  });
+
+  // Conversation history tests
+  it("renders conversation history when messages are available", () => {
+    messagesData = [
+      { id: "msg-1", session_id: "session-1", role: "user", content: "Hello doctor", message_index: 0, created_at: "2026-03-20T10:01:00Z" },
+      { id: "msg-2", session_id: "session-1", role: "assistant", content: "Hello, how can I help?", message_index: 1, created_at: "2026-03-20T10:01:30Z" },
+    ];
+    renderPage();
+    expect(screen.getByText("transcript.title")).toBeInTheDocument();
+    expect(screen.getByText("(2 transcript.messageCount)")).toBeInTheDocument();
+    const bubbles = screen.getAllByTestId("chat-bubble");
+    expect(bubbles).toHaveLength(2);
+    expect(bubbles[0]).toHaveAttribute("data-sender", "mr");
+    expect(bubbles[1]).toHaveAttribute("data-sender", "hcp");
+  });
+
+  it("does not render conversation history section when messages are empty", () => {
+    messagesData = [];
+    renderPage();
+    expect(screen.queryByText("transcript.title")).not.toBeInTheDocument();
+  });
+
+  it("does not render conversation history section when messages are undefined", () => {
+    messagesData = undefined;
+    renderPage();
+    expect(screen.queryByText("transcript.title")).not.toBeInTheDocument();
+  });
+
+  it("displays correct speaker labels in chat bubbles", () => {
+    messagesData = [
+      { id: "msg-1", session_id: "session-1", role: "user", content: "Test message", message_index: 0, created_at: "2026-03-20T10:01:00Z" },
+      { id: "msg-2", session_id: "session-1", role: "assistant", content: "Response", message_index: 1, created_at: "2026-03-20T10:01:30Z" },
+    ];
+    renderPage();
+    const speakers = screen.getAllByTestId("chat-speaker");
+    expect(speakers[0]).toHaveTextContent("transcript.mrLabel");
+    expect(speakers[1]).toHaveTextContent("transcript.hcpLabel");
+  });
+
+  it("toggles conversation history visibility when header is clicked", async () => {
+    messagesData = [
+      { id: "msg-1", session_id: "session-1", role: "user", content: "Hello", message_index: 0, created_at: "2026-03-20T10:01:00Z" },
+    ];
+    renderPage();
+    // Initially visible
+    expect(screen.getByTestId("chat-bubble")).toBeInTheDocument();
+    // Click to collapse
+    await userEvent.setup().click(screen.getByText("transcript.title"));
+    expect(screen.queryByTestId("chat-bubble")).not.toBeInTheDocument();
+    // Click to expand again
+    await userEvent.setup().click(screen.getByText("transcript.title"));
+    expect(screen.getByTestId("chat-bubble")).toBeInTheDocument();
   });
 });
