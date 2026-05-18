@@ -22,6 +22,8 @@
     "voice": "Voice",
     "digital_human": "Digital Human"
   },
+  "switchMode": "Switch Mode",
+  "switchModeConfirm": "Switch to {{mode}}?",
   "modeSelector": "Session Mode",
   "engineSelector": "Engine",
   "connect": "Connect",

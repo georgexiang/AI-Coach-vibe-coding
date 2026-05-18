@@ -1,11 +1,15 @@
+import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
+import { MessageSquareText, Mic, User } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage, Badge } from "@/components/ui";
 import { cn } from "@/lib/utils";
 import type { Scenario } from "@/types/scenario";
 
 interface ScenarioCardProps {
   scenario: Scenario;
-  onStart: (scenarioId: string) => void;
+  onStart: (scenarioId: string, mode: string) => void;
+  /** Modes the user is allowed to select (filtered by feature flags). Defaults to all modes. */
+  availableModes?: string[];
 }
 
 const difficultyStyles = {
@@ -14,8 +18,35 @@ const difficultyStyles = {
   hard: "bg-red-100 text-red-700",
 } as const;
 
-export function ScenarioCard({ scenario, onStart }: ScenarioCardProps) {
+const TRAINING_MODES = [
+  { value: "text", icon: MessageSquareText, labelKey: "scenarioSelection.modeText" },
+  { value: "voice_realtime_model", icon: Mic, labelKey: "scenarioSelection.modeVoice" },
+  { value: "digital_human_realtime_model", icon: User, labelKey: "scenarioSelection.modeDigitalHuman" },
+] as const;
+
+const DEFAULT_MODE = "digital_human_realtime_model";
+
+export function ScenarioCard({ scenario, onStart, availableModes }: ScenarioCardProps) {
   const { t } = useTranslation("coach");
+
+  // Filter modes based on availability
+  const filteredModes = availableModes
+    ? TRAINING_MODES.filter((m) => availableModes.includes(m.value))
+    : TRAINING_MODES;
+
+  // Default to DEFAULT_MODE if available, otherwise first available mode
+  const defaultMode = (!availableModes || availableModes.includes(DEFAULT_MODE))
+    ? DEFAULT_MODE
+    : (filteredModes[0]?.value ?? "text");
+
+  const [selectedMode, setSelectedMode] = useState(defaultMode);
+
+  // If selected mode becomes unavailable (e.g., feature flags changed), auto-select first available
+  useEffect(() => {
+    if (availableModes && !availableModes.includes(selectedMode)) {
+      setSelectedMode(filteredModes[0]?.value ?? "text");
+    }
+  }, [availableModes, selectedMode, filteredModes]);
 
   const hcpInitials = scenario.hcp_profile?.name
     .split(" ")
@@ -73,9 +104,40 @@ export function ScenarioCard({ scenario, onStart }: ScenarioCardProps) {
         {scenario.description}
       </p>
 
+      {/* Mode selector — only show if more than one mode available */}
+      {filteredModes.length > 1 && (
+        <div className="mt-4">
+          <p className="mb-1.5 text-center text-xs font-medium text-muted-foreground">
+            {t("scenarioSelection.modeLabel")}
+          </p>
+          <div className="flex items-center gap-1 rounded-lg border border-border bg-muted/50 p-1">
+            {filteredModes.map((mode) => {
+              const Icon = mode.icon;
+              const isSelected = selectedMode === mode.value;
+              return (
+                <button
+                  key={mode.value}
+                  type="button"
+                  onClick={() => setSelectedMode(mode.value)}
+                  className={cn(
+                    "flex flex-1 items-center justify-center gap-1 rounded-md px-2 py-1.5 text-xs font-medium transition-colors",
+                    isSelected
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">{t(mode.labelKey)}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Full-width Start button */}
       <button
-        onClick={() => onStart(scenario.id)}
+        onClick={() => onStart(scenario.id, selectedMode)}
         className="mt-4 w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary/90"
       >
         {t("scenarioSelection.startButton")}

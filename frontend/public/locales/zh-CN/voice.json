@@ -22,6 +22,8 @@
     "voice": "语音",
     "digital_human": "数字人"
   },
+  "switchMode": "切换模式",
+  "switchModeConfirm": "切换到{{mode}}？",
   "modeSelector": "对话模式",
   "engineSelector": "引擎",
   "connect": "连接",

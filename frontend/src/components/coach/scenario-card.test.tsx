@@ -94,11 +94,37 @@ describe("ScenarioCard", () => {
     expect(badges.length).toBeGreaterThan(0);
   });
 
-  it("calls onStart with scenario id when start button is clicked", async () => {
+  it("calls onStart with scenario id and default mode when start button is clicked", async () => {
     const onStart = vi.fn();
     render(<ScenarioCard scenario={mockScenario} onStart={onStart} />);
     await userEvent.click(screen.getByText("scenarioSelection.startButton"));
-    expect(onStart).toHaveBeenCalledWith("sc-1");
+    expect(onStart).toHaveBeenCalledWith("sc-1", "digital_human_realtime_model");
+  });
+
+  it("calls onStart with first available mode when default is unavailable", async () => {
+    const onStart = vi.fn();
+    render(
+      <ScenarioCard
+        scenario={mockScenario}
+        onStart={onStart}
+        availableModes={["text", "voice_realtime_model"]}
+      />,
+    );
+    await userEvent.click(screen.getByText("scenarioSelection.startButton"));
+    // digital_human_realtime_model is not available, so falls back to first available: text
+    expect(onStart).toHaveBeenCalledWith("sc-1", "text");
+  });
+
+  it("hides mode selector when only one mode is available", () => {
+    render(
+      <ScenarioCard
+        scenario={mockScenario}
+        onStart={vi.fn()}
+        availableModes={["text"]}
+      />,
+    );
+    // Mode selector label should not render
+    expect(screen.queryByText("scenarioSelection.modeLabel")).not.toBeInTheDocument();
   });
 
   it("renders product badge", () => {

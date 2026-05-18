@@ -10,7 +10,12 @@
     "tabF2F": "F2F Training",
     "tabConference": "Conference Training",
     "tabVoice": "Voice",
-    "searchPlaceholder": "Search scenarios..."
+    "searchPlaceholder": "Search scenarios...",
+    "modeLabel": "Training Mode",
+    "modeText": "Text",
+    "modeVoice": "Voice",
+    "modeDigitalHuman": "Digital Human",
+    "modeUnavailable": "Not available"
   },
   "session": {
     "trainingPanel": "Training Panel",

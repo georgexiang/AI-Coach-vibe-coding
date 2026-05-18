@@ -156,7 +156,7 @@ export default function ScoringFeedback() {
             </Badge>
           ) : (
             <span className="text-xs text-muted-foreground">
-              {session?.mode && session.mode !== "text"
+              {combinedReport.audio_url
                 ? t("voiceScoringPending")
                 : t("textOnlyNote")}
             </span>

@@ -20,6 +20,7 @@ import { useAudioHandler } from "@/hooks/use-audio-handler";
 import { useAudioPlayer } from "@/hooks/use-audio-player";
 import { useVoiceSessionLifecycle } from "@/hooks/use-voice-session-lifecycle";
 import { useSSEStream } from "@/hooks/use-sse";
+import { useFeatureFlags } from "@/hooks/use-config";
 import { persistTranscriptMessage } from "@/api/voice-live";
 import { VoiceSessionHeader } from "@/components/voice/voice-session-header";
 import { AvatarView } from "@/components/voice/avatar-view";
@@ -93,6 +94,19 @@ export default function UnifiedSession() {
       : 0;
     return { duration, wordCount, messageCount: transcripts.filter((t) => t.isFinal).length };
   }, [transcripts, sessionStarted, startedAt]);
+
+  // Feature flags for mode availability
+  const { data: config } = useFeatureFlags(true);
+  const availableModes = useMemo((): SessionMode[] => {
+    const modes: SessionMode[] = ["text"];
+    if (config?.features.voice_live_enabled) {
+      modes.push("voice_realtime_model");
+      if (config.features.avatar_enabled) {
+        modes.push("digital_human_realtime_model");
+      }
+    }
+    return modes;
+  }, [config]);
 
   // Hooks
   const endSessionMutation = useEndSession();
@@ -292,6 +306,66 @@ export default function UnifiedSession() {
     };
   }, []);
 
+  // In-session mode switch handler
+  const handleModeSwitch = useCallback(
+    async (newMode: SessionMode) => {
+      if (newMode === currentMode) return;
+      log.info("handleModeSwitch: %s -> %s", currentMode, newMode);
+
+      const isCurrentVoice = currentMode !== "text";
+      const isNewVoice = newMode !== "text";
+
+      // Switching TO text from voice/avatar: disconnect voice
+      if (isCurrentVoice && !isNewVoice) {
+        try {
+          await stopVoiceSession();
+        } catch {
+          // Non-fatal: voice may already be disconnected
+        }
+        setCurrentMode("text");
+        return;
+      }
+
+      // Switching FROM text TO voice/avatar: start voice connection
+      if (!isCurrentVoice && isNewVoice) {
+        setIsConnecting(true);
+        try {
+          const hcpProfileId = scenario?.hcp_profile_id ?? "";
+          const result = await startVoiceSession({
+            hcpProfileId,
+            systemPrompt: "",
+            onMicDenied: () => toast.error(t("micDenied")),
+            onAudioWorkletFailed: () => toast.error(tv("error.audioWorkletFailed")),
+            onAvatarFailed: () => {
+              log.error("Avatar WebRTC failed during mode switch");
+              toast.error(tv("error.avatarFailed"));
+              // Fall back to voice-only
+              setCurrentMode("voice_realtime_model");
+            },
+            onConnectionFailed: (error) => {
+              log.error("Connection failed during mode switch: %o", error);
+              toast.error(tv("error.connectionFailed"));
+              // Stay in text mode
+              setCurrentMode("text");
+            },
+          });
+          if (result) {
+            setCurrentMode(newMode);
+          }
+        } finally {
+          setIsConnecting(false);
+        }
+        return;
+      }
+
+      // Switching between voice and digital human (both are voice-connected)
+      // voice -> digital_human: avatar will be handled by the connection
+      // digital_human -> voice: just update mode (avatar stream remains but is cosmetic)
+      setCurrentMode(newMode);
+    },
+    [currentMode, scenario?.hcp_profile_id, startVoiceSession, stopVoiceSession, t, tv, log],
+  );
+
   // End session handler
   const handleEndSession = useCallback(() => {
     setShowEndDialog(true);
@@ -399,7 +473,7 @@ export default function UnifiedSession() {
 
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-slate-100">
-      {/* Header — reuses VoiceSessionHeader */}
+      {/* Header — reuses VoiceSessionHeader with mode switching */}
       <VoiceSessionHeader
         scenarioTitle={currentScenario.name}
         currentMode={currentMode}
@@ -408,6 +482,8 @@ export default function UnifiedSession() {
         onEndSession={handleEndSession}
         startedAt={startedAt}
         isFullScreen={false}
+        onModeChange={handleModeSwitch}
+        availableModes={availableModes}
       />
 
       {/* 3-panel layout: ScenarioPanel | Avatar+Controls | Transcript+Hints */}

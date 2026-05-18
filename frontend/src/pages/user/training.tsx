@@ -19,6 +19,7 @@ import { EmptyState } from "@/components/shared";
 import { ScenarioCard } from "@/components/coach";
 import { useActiveScenarios } from "@/hooks/use-scenarios";
 import { useCreateSession } from "@/hooks/use-session";
+import { useFeatureFlags } from "@/hooks/use-config";
 
 const ALL_VALUE = "__all__";
 
@@ -33,6 +34,19 @@ export default function ScenarioSelection() {
 
   const { data, isLoading } = useActiveScenarios();
   const createSession = useCreateSession();
+  const { data: config } = useFeatureFlags(true);
+
+  // Compute available training modes from feature flags
+  const availableModes = useMemo(() => {
+    const modes: string[] = ["text"]; // text is always available
+    if (config?.features.voice_live_enabled) {
+      modes.push("voice_realtime_model");
+      if (config.features.avatar_enabled) {
+        modes.push("digital_human_realtime_model");
+      }
+    }
+    return modes;
+  }, [config]);
 
   const scenarios = data ?? [];
 
@@ -60,18 +74,18 @@ export default function ScenarioSelection() {
     });
   }, [scenarios, searchTerm, selectedProduct, selectedDifficulty]);
 
-  const handleStartTraining = async (scenarioId: string) => {
+  const handleStartTraining = async (scenarioId: string, mode: string) => {
     try {
-      const session = await createSession.mutateAsync({ scenarioId });
+      const session = await createSession.mutateAsync({ scenarioId, mode });
       navigate(`/user/training/session?id=${session.id}`);
     } catch {
       // Error handled by TanStack Query
     }
   };
 
-  const handleStartConference = async (scenarioId: string) => {
+  const handleStartConference = async (scenarioId: string, mode: string) => {
     try {
-      const session = await createSession.mutateAsync({ scenarioId });
+      const session = await createSession.mutateAsync({ scenarioId, mode });
       navigate(`/user/training/conference?id=${session.id}`);
     } catch {
       // Error handled by TanStack Query
@@ -125,7 +139,7 @@ export default function ScenarioSelection() {
     </div>
   );
 
-  const renderGrid = (mode: "f2f" | "conference", onStart: (scenarioId: string) => void) => {
+  const renderGrid = (mode: "f2f" | "conference", onStart: (scenarioId: string, trainingMode: string) => void) => {
     if (isLoading) {
       return (
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -161,6 +175,7 @@ export default function ScenarioSelection() {
             key={scenario.id}
             scenario={scenario}
             onStart={onStart}
+            availableModes={availableModes}
           />
         ))}
       </div>
