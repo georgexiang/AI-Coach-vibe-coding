@@ -54,16 +54,19 @@ class TestLoadConnectionConfig:
             with pytest.raises(ValueError, match="Voice Live not configured"):
                 await _load_connection_config(db_session)
 
-    async def test_raises_when_no_api_key(self, db_session):
+    async def test_allows_none_api_key_for_credential_fallback(self, db_session):
         from app.services.voice_live_websocket import _load_connection_config
 
         mock_config = MagicMock()
         mock_config.is_active = True
+        mock_config.model_or_deployment = "gpt-4o"
         with patch("app.services.voice_live_websocket.config_service") as mock_cs:
             mock_cs.get_config = AsyncMock(return_value=mock_config)
             mock_cs.get_effective_key = AsyncMock(return_value=None)
-            with pytest.raises(ValueError, match="API key not set"):
-                await _load_connection_config(db_session)
+            mock_cs.get_effective_endpoint = AsyncMock(return_value="https://test.endpoint.com")
+            result = await _load_connection_config(db_session)
+            assert result["api_key"] is None
+            assert result["endpoint"] == "https://test.endpoint.com"
 
     async def test_raises_when_no_endpoint(self, db_session):
         from app.services.voice_live_websocket import _load_connection_config
@@ -2322,6 +2325,7 @@ class TestScoringEngineImportError:
         import builtins
 
         from app.services.scoring_engine import score_with_llm
+        from app.utils.exceptions import ScoringUnavailableException
 
         mock_db = AsyncMock()
         real_import = builtins.__import__
@@ -2339,14 +2343,14 @@ class TestScoringEngineImportError:
             mock_cs.get_effective_key = AsyncMock(return_value="key")
             mock_cs.get_config = AsyncMock(return_value=MagicMock(model_or_deployment="gpt-4o"))
 
-            result = await score_with_llm(
-                mock_db,
-                {"hcp_profile": {"name": "Dr. X"}, "product": "Drug"},
-                [{"role": "user", "content": "Hi"}],
-                [],
-                {"key_message": 100},
-            )
-            assert result is None
+            with pytest.raises(ScoringUnavailableException):
+                await score_with_llm(
+                    mock_db,
+                    {"hcp_profile": {"name": "Dr. X"}, "product": "Drug"},
+                    [{"role": "user", "content": "Hi"}],
+                    [],
+                    {"key_message": 100},
+                )
 
 
 # ===========================================================================

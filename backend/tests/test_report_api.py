@@ -1,6 +1,9 @@
 """Tests for session report endpoint."""
 
 import json
+from unittest.mock import AsyncMock, patch
+
+import pytest
 
 from app.models.hcp_profile import HcpProfile
 from app.models.message import SessionMessage
@@ -11,6 +14,37 @@ from app.models.user import User
 from app.services.auth import create_access_token, get_password_hash
 from app.services.scoring_service import score_session
 from tests.conftest import TestSessionLocal
+
+_MOCK_LLM_RESULT = {
+    "overall_score": 75.0,
+    "passed": True,
+    "feedback_summary": "Good performance overall.",
+    "dimensions": [
+        {"dimension": "key_message", "score": 80, "weight": 30, "category": "content",
+         "strengths": [{"text": "Good delivery", "quote": None}],
+         "weaknesses": [{"text": "Could improve", "quote": None}],
+         "suggestions": ["Try harder"]},
+        {"dimension": "objection_handling", "score": 70, "weight": 25, "category": "content",
+         "strengths": [], "weaknesses": [], "suggestions": []},
+        {"dimension": "communication", "score": 75, "weight": 20, "category": "content",
+         "strengths": [], "weaknesses": [], "suggestions": []},
+        {"dimension": "product_knowledge", "score": 72, "weight": 15, "category": "content",
+         "strengths": [], "weaknesses": [], "suggestions": []},
+        {"dimension": "scientific_info", "score": 68, "weight": 10, "category": "content",
+         "strengths": [], "weaknesses": [], "suggestions": []},
+    ],
+}
+
+
+@pytest.fixture(autouse=True)
+def mock_llm_scoring():
+    """Mock LLM scoring for all tests (no Azure OpenAI in test env)."""
+    with patch(
+        "app.services.scoring_service.score_with_llm",
+        new_callable=AsyncMock,
+        return_value=_MOCK_LLM_RESULT,
+    ):
+        yield
 
 
 async def _seed_scored_session_and_token() -> tuple[str, str, str]:

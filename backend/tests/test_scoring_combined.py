@@ -1,11 +1,15 @@
-"""Unit tests for combined scoring (Plan 04): voice score persistence + combined report."""
+"""Unit tests for combined scoring: voice score persistence + combined report."""
 
+import json
 import uuid
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from sqlalchemy import select
 
+from app.models.scenario import Scenario
 from app.models.score import ScoreDetail, SessionScore
+from app.models.scoring_rubric import ScoringRubric
 from app.models.session import CoachingSession
 from app.services.scoring_service import get_combined_score_report
 from app.services.voice_scoring_service import save_voice_score_details
@@ -13,12 +17,45 @@ from app.utils.exceptions import AppException, NotFoundException
 
 
 @pytest.fixture
-async def session_with_audio(db_session):
+async def rubric_and_scenario(db_session):
+    """Create a rubric and scenario for combined score tests."""
+    rubric = ScoringRubric(
+        name="Test Rubric",
+        scenario_type="f2f",
+        dimensions=json.dumps([
+            {"name": "key_messages", "weight": 100, "criteria": [], "max_score": 100}
+        ]),
+        is_default=True,
+        created_by="test-user-1",
+        content_weight=60,
+        voice_weight=40,
+        cu_voice_analyzer_id="testVoiceAnalyzer",
+    )
+    db_session.add(rubric)
+    await db_session.flush()
+
+    scenario = Scenario(
+        name="Test Scenario",
+        hcp_profile_id="fake-hcp",
+        key_messages="[]",
+        rubric_id=rubric.id,
+        status="active",
+        created_by="test-user-1",
+        skill_id="fake-skill",
+    )
+    db_session.add(scenario)
+    await db_session.flush()
+    return rubric, scenario
+
+
+@pytest.fixture
+async def session_with_audio(db_session, rubric_and_scenario):
     """Create a session with audio_url for testing."""
+    _, scenario = rubric_and_scenario
     session = CoachingSession(
         id=str(uuid.uuid4()),
         user_id="test-user-1",
-        scenario_id="fake-scenario-id",
+        scenario_id=scenario.id,
         status="completed",
         audio_url="audio/sessions/test/recording.webm",
         voice_score_status="completed",
@@ -30,7 +67,7 @@ async def session_with_audio(db_session):
 
 @pytest.fixture
 def mock_voice_scores():
-    """Mock voice scoring result from backend.analyze()."""
+    """Mock voice scoring result."""
     return {
         "dimensions": [
             {"name": "fluency", "score": 85.0, "weight": 25, "max_score": 100},
@@ -48,7 +85,6 @@ class TestSaveVoiceScoreDetails:
     async def test_creates_session_score_when_none_exists(
         self, db_session, session_with_audio, mock_voice_scores
     ):
-        """Creates preliminary SessionScore when no content score exists."""
         session = session_with_audio
         await save_voice_score_details(db_session, session.id, mock_voice_scores)
         await db_session.commit()
@@ -63,7 +99,6 @@ class TestSaveVoiceScoreDetails:
     async def test_creates_four_voice_score_details(
         self, db_session, session_with_audio, mock_voice_scores
     ):
-        """Creates 4 ScoreDetail records with category='voice'."""
         session = session_with_audio
         await save_voice_score_details(db_session, session.id, mock_voice_scores)
         await db_session.commit()
@@ -79,7 +114,6 @@ class TestSaveVoiceScoreDetails:
     async def test_voice_details_have_correct_scores(
         self, db_session, session_with_audio, mock_voice_scores
     ):
-        """ScoreDetail records have correct scores from backend."""
         session = session_with_audio
         await save_voice_score_details(db_session, session.id, mock_voice_scores)
         await db_session.commit()
@@ -99,10 +133,8 @@ class TestSaveVoiceScoreDetails:
     async def test_appends_to_existing_session_score(
         self, db_session, session_with_audio, mock_voice_scores
     ):
-        """Appends voice details to existing SessionScore (content scored first)."""
         session = session_with_audio
 
-        # Create existing content SessionScore
         existing_score = SessionScore(
             session_id=session.id,
             overall_score=75.0,
@@ -112,7 +144,6 @@ class TestSaveVoiceScoreDetails:
         db_session.add(existing_score)
         await db_session.flush()
 
-        # Add a content detail
         content_detail = ScoreDetail(
             score_id=existing_score.id,
             dimension="key_messages",
@@ -126,18 +157,15 @@ class TestSaveVoiceScoreDetails:
         db_session.add(content_detail)
         await db_session.commit()
 
-        # Now save voice scores — should append to existing
         await save_voice_score_details(db_session, session.id, mock_voice_scores)
         await db_session.commit()
 
-        # Should still be only 1 SessionScore
         result = await db_session.execute(
             select(SessionScore).where(SessionScore.session_id == session.id)
         )
         scores = list(result.scalars().all())
         assert len(scores) == 1
 
-        # Should have 5 details total (1 content + 4 voice)
         detail_result = await db_session.execute(
             select(ScoreDetail).where(ScoreDetail.score_id == existing_score.id)
         )
@@ -147,7 +175,6 @@ class TestSaveVoiceScoreDetails:
     async def test_voice_details_weight_stored(
         self, db_session, session_with_audio, mock_voice_scores
     ):
-        """ScoreDetail weight values match dimension weights."""
         session = session_with_audio
         await save_voice_score_details(db_session, session.id, mock_voice_scores)
         await db_session.commit()
@@ -164,14 +191,12 @@ class TestGetCombinedScoreReport:
     """Tests for get_combined_score_report."""
 
     async def test_raises_not_found_for_missing_session(self, db_session):
-        """Raises NotFoundException for nonexistent session."""
         with pytest.raises(NotFoundException):
             await get_combined_score_report(db_session, "nonexistent", "user-1")
 
     async def test_raises_forbidden_for_wrong_user(
         self, db_session, session_with_audio
     ):
-        """Raises 403 when user_id doesn't match session owner."""
         session = session_with_audio
         with pytest.raises(AppException) as exc_info:
             await get_combined_score_report(db_session, session.id, "wrong-user")
@@ -180,13 +205,11 @@ class TestGetCombinedScoreReport:
     async def test_raises_not_found_when_no_score(
         self, db_session, session_with_audio
     ):
-        """Raises NotFoundException when session has no score yet."""
         session = session_with_audio
         with pytest.raises(NotFoundException):
             await get_combined_score_report(db_session, session.id, "test-user-1")
 
     async def test_content_only_report(self, db_session, session_with_audio):
-        """Report with only content dimensions (no voice)."""
         session = session_with_audio
 
         score = SessionScore(
@@ -215,14 +238,12 @@ class TestGetCombinedScoreReport:
             db_session, session.id, "test-user-1"
         )
         assert report["overall_score"] == 80.0
-        # No voice dims → combined == content score
         assert report["overall_combined_score"] == 80.0
         assert len(report["content_dimensions"]) == 1
         assert len(report["voice_dimensions"]) == 0
         assert report["voice_summary"]["voice_score_status"] == "completed"
 
     async def test_content_only_report_totals(self, db_session, session_with_audio):
-        """Content-only report returns content_total and voice_total=None."""
         session = session_with_audio
 
         score = SessionScore(
@@ -257,7 +278,7 @@ class TestGetCombinedScoreReport:
     async def test_combined_report_totals_with_voice(
         self, db_session, session_with_audio, mock_voice_scores
     ):
-        """Report with voice dims returns both content_total and voice_total."""
+        """Report with voice dims returns content_total, voice_total, rubric weights."""
         session = session_with_audio
 
         score = SessionScore(
@@ -296,15 +317,16 @@ class TestGetCombinedScoreReport:
             db_session, session.id, "test-user-1"
         )
         assert report["content_total"] == 80.0
-        # (85*25 + 78*25 + 90*25 + 72*25) / 100 = 81.25
+        # voice: (85+78+90+72)*25/100 = 81.25
         assert report["voice_total"] == 81.2
-        assert report["content_weight"] == 70
-        assert report["voice_weight"] == 30
+        # Rubric has content_weight=60, voice_weight=40
+        assert report["content_weight"] == 60
+        assert report["voice_weight"] == 40
 
     async def test_combined_score_with_voice(
         self, db_session, session_with_audio, mock_voice_scores
     ):
-        """Combined score weights content 70% + voice 30%."""
+        """Combined score uses rubric weights (60% content + 40% voice)."""
         session = session_with_audio
 
         score = SessionScore(
@@ -316,7 +338,6 @@ class TestGetCombinedScoreReport:
         db_session.add(score)
         await db_session.flush()
 
-        # Add content detail
         content_detail = ScoreDetail(
             score_id=score.id,
             dimension="key_messages",
@@ -329,7 +350,6 @@ class TestGetCombinedScoreReport:
         )
         db_session.add(content_detail)
 
-        # Add voice details
         for dim in mock_voice_scores["dimensions"]:
             voice_detail = ScoreDetail(
                 score_id=score.id,
@@ -349,16 +369,15 @@ class TestGetCombinedScoreReport:
         )
 
         # Voice score = (85*25 + 78*25 + 90*25 + 72*25) / 100 = 81.25
-        # Combined = 80*0.7 + 81.25*0.3 = 56 + 24.375 = 80.375 ≈ 80.4
+        # Combined = (80*60 + 81.25*40) / 100 = 4800/100 + 3250/100 = 80.5
         assert report["overall_score"] == 80.0
-        assert report["overall_combined_score"] == 80.4
+        assert report["overall_combined_score"] == 80.5
         assert len(report["content_dimensions"]) == 1
         assert len(report["voice_dimensions"]) == 4
 
     async def test_report_includes_audio_url(
         self, db_session, session_with_audio
     ):
-        """Report includes audio_url from session."""
         session = session_with_audio
 
         score = SessionScore(
@@ -379,7 +398,6 @@ class TestGetCombinedScoreReport:
     async def test_report_voice_summary_structure(
         self, db_session, session_with_audio, mock_voice_scores
     ):
-        """Voice summary contains correct structure."""
         session = session_with_audio
 
         score = SessionScore(
@@ -412,14 +430,14 @@ class TestGetCombinedScoreReport:
         assert "voice_score_status" in vs
         assert "dimensions" in vs
         assert vs["voice_score_status"] == "completed"
-        assert vs["overall_voice_score"] == 81.2  # (85+78+90+72)*25/100
+        assert vs["overall_voice_score"] == 81.2
 
 
 class TestTriggerVoiceScoringWithPersistence:
-    """Tests that trigger_voice_scoring now persists ScoreDetail records."""
+    """Tests that trigger_voice_scoring persists ScoreDetail records."""
 
     async def test_creates_voice_score_details_on_completion(
-        self, db_session, monkeypatch
+        self, db_session, monkeypatch, rubric_and_scenario
     ):
         """trigger_voice_scoring saves ScoreDetail records with category=voice."""
         from tests.conftest import TestSessionLocal
@@ -429,11 +447,12 @@ class TestTriggerVoiceScoringWithPersistence:
             TestSessionLocal,
         )
 
+        _, scenario = rubric_and_scenario
         session_id = str(uuid.uuid4())
         session = CoachingSession(
             id=session_id,
             user_id="test-user-1",
-            scenario_id="fake-scenario-id",
+            scenario_id=scenario.id,
             status="completed",
             audio_url="audio/test/rec.webm",
             voice_score_status="pending",
@@ -441,11 +460,32 @@ class TestTriggerVoiceScoringWithPersistence:
         db_session.add(session)
         await db_session.commit()
 
+        mock_cu_fields = {
+            "fluency": {"valueString": '{"score": 85, "feedback": "Good"}'},
+            "tone": {"valueString": '{"score": 78, "feedback": "OK"}'},
+            "pace": {"valueString": '{"score": 90, "feedback": "Good"}'},
+            "pronunciation": {"valueString": '{"score": 72, "feedback": "OK"}'},
+            "feedback_summary": {"valueString": "Overall good"},
+            "transcript": {"valueString": "Hello"},
+        }
+
         from app.services.voice_scoring_service import trigger_voice_scoring
 
-        await trigger_voice_scoring(session_id)
+        with patch(
+            "app.services.voice_scoring_service.config_service.get_effective_endpoint",
+            new_callable=AsyncMock,
+            return_value="https://cu.cognitiveservices.azure.com",
+        ), patch(
+            "app.services.voice_scoring_service.config_service.get_effective_key",
+            new_callable=AsyncMock,
+            return_value="test-key",
+        ), patch(
+            "app.services.voice_scoring_service.score_voice_with_cu",
+            new_callable=AsyncMock,
+            return_value=mock_cu_fields,
+        ):
+            await trigger_voice_scoring(session_id)
 
-        # Verify ScoreDetail records were created
         async with TestSessionLocal() as verify_session:
             result = await verify_session.execute(
                 select(ScoreDetail).where(ScoreDetail.category == "voice")

@@ -1,8 +1,11 @@
-"""Post-session scoring service: multi-dimensional analysis and feedback."""
+"""Post-session scoring service: multi-dimensional analysis and feedback.
+
+Orchestrates LLM content scoring (primary) + CU voice scoring (if audio exists).
+No mock fallback — failures raise ScoringUnavailableException (HTTP 503).
+"""
 
 import json
 import logging
-import random
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,7 +16,6 @@ from app.models.scenario import Scenario
 from app.models.score import ScoreDetail, SessionScore
 from app.models.session import CoachingSession
 from app.models.skill import Skill
-from app.services.cu_evaluation_service import score_session_with_cu
 from app.services.rubric_service import get_rubric
 from app.services.scoring_engine import score_with_llm
 from app.utils.exceptions import AppException, NotFoundException
@@ -108,28 +110,12 @@ async def score_session(db: AsyncSession, session_id: str) -> SessionScore:
     # Extract Skill-specific assessment criteria if a Skill is assigned
     skill_criteria = _extract_skill_criteria(scenario.skill)
 
-    # Phase 24 (D-07): Try CU evaluation first, then LLM fallback, then mock
-    cu_result = await score_session_with_cu(db, session_id)
+    # LLM content scoring (primary, raises ScoringUnavailableException on failure)
+    scores = await score_with_llm(
+        db, scenario_data, message_dicts, key_messages_status,
+        rubric_dimensions, scenario.pass_threshold, skill_criteria=skill_criteria,
+    )
 
-    if cu_result:
-        # CU scoring succeeded — use structured results
-        logger.info("CU scoring succeeded for session %s", session_id)
-        scores = cu_result
-    else:
-        # CU unavailable — fall back to LLM scoring engine
-        scores = await score_with_llm(
-            db, scenario_data, message_dicts, key_messages_status,
-            rubric_dimensions, scenario.pass_threshold, skill_criteria=skill_criteria,
-        )
-        if scores is None:
-            logger.info(
-                "LLM scoring unavailable for session %s, using mock fallback", session_id
-            )
-            scores = _generate_mock_scores(
-                scenario, messages, key_messages_status, rubric_dimensions
-            )
-
-    # Derive 'passed' if not present (CU results omit it; LLM/mock include it)
     overall_score = scores["overall_score"]
     passed = scores.get("passed", overall_score >= scenario.pass_threshold)
 
@@ -144,7 +130,6 @@ async def score_session(db: AsyncSession, session_id: str) -> SessionScore:
     await db.flush()
 
     # Create ScoreDetail records
-    # CU results use "name" key, LLM/mock results use "dimension" key
     for dim_data in scores["dimensions"]:
         dimension_name = dim_data.get("dimension") or dim_data.get("name", "unknown")
         detail = ScoreDetail(
@@ -155,6 +140,7 @@ async def score_session(db: AsyncSession, session_id: str) -> SessionScore:
             strengths=json.dumps(dim_data.get("strengths", [])),
             weaknesses=json.dumps(dim_data.get("weaknesses", [])),
             suggestions=json.dumps(dim_data.get("suggestions", [])),
+            category=dim_data.get("category", "content"),
         )
         db.add(detail)
 
@@ -195,7 +181,7 @@ async def get_score_history(db: AsyncSession, user_id: str, limit: int = 10) -> 
     """
     # Load scored sessions with score + details in a single query (fix N+1)
     # Exclude sessions with no messages (prematurely ended/scored without conversation)
-    from sqlalchemy import exists, func
+    from sqlalchemy import exists
 
     has_messages = exists().where(SessionMessage.session_id == CoachingSession.id)
 
@@ -272,13 +258,14 @@ async def get_combined_score_report(
 ) -> dict:
     """Get combined content + voice scoring report for a session (D-09, D-11).
 
-    Separates ScoreDetail records by category and computes combined overall score.
-    Content weighted 70%, voice weighted 30% when voice scores exist.
+    Separates ScoreDetail records by category and computes combined overall score
+    using rubric's content_weight/voice_weight (not hardcoded).
     """
     result = await db.execute(
         select(CoachingSession)
         .options(
             selectinload(CoachingSession.score).selectinload(SessionScore.details),
+            selectinload(CoachingSession.scenario),
         )
         .where(CoachingSession.id == session_id)
     )
@@ -294,29 +281,35 @@ async def get_combined_score_report(
     if not score:
         raise NotFoundException("Score not found for session")
 
+    # Load rubric weights
+    rubric = await get_rubric(db, session.scenario.rubric_id)
+    content_weight = rubric.content_weight
+    voice_weight = rubric.voice_weight
+
     content_dims = [d for d in score.details if d.category == "content"]
     voice_dims = [d for d in score.details if d.category == "voice"]
 
     content_score = score.overall_score or 0
     voice_score = 0.0
     if voice_dims:
-        total_weight = sum(d.weight for d in voice_dims)
-        if total_weight > 0:
-            voice_score = sum(d.score * d.weight for d in voice_dims) / total_weight
+        total_w = sum(d.weight for d in voice_dims)
+        if total_w > 0:
+            voice_score = sum(d.score * d.weight for d in voice_dims) / total_w
 
-    combined_score = (
-        content_score
-        if not voice_dims
-        else (content_score * 0.7 + voice_score * 0.3)
-    )
+    has_voice = bool(voice_dims)
+    if has_voice:
+        total_weight = content_weight + voice_weight
+        combined_score = (
+            content_score * content_weight + voice_score * voice_weight
+        ) / total_weight
+    else:
+        combined_score = content_score
 
     strengths = (
         json.loads(score.feedback_summary)
-        if score.feedback_summary.startswith("[")
+        if score.feedback_summary and score.feedback_summary.startswith("[")
         else []
     )
-
-    has_voice = bool(voice_dims)
 
     return {
         "session_id": session_id,
@@ -337,8 +330,8 @@ async def get_combined_score_report(
         "audio_url": session.audio_url,
         "content_total": round(content_score, 1),
         "voice_total": round(voice_score, 1) if has_voice else None,
-        "content_weight": 70 if has_voice else 100,
-        "voice_weight": 30 if has_voice else None,
+        "content_weight": content_weight if has_voice else 100,
+        "voice_weight": voice_weight if has_voice else None,
     }
 
 
@@ -375,107 +368,3 @@ def _extract_skill_criteria(skill: Skill | None) -> str:
     return ""
 
 
-def _generate_mock_scores(
-    scenario: Scenario,
-    messages: list[SessionMessage],
-    key_messages_status: list[dict],
-    rubric_dimensions: list[dict],
-) -> dict:
-    """Generate realistic-looking mock scores for development/testing.
-
-    Loops over rubric_dimensions (arbitrary count) instead of hardcoded 5 blocks.
-    Produces scores between 60-95 with personality-appropriate feedback,
-    strengths with transcript quotes, weaknesses referencing missed key messages,
-    and actionable suggestions per dimension.
-    """
-    key_messages = json.loads(scenario.key_messages)
-
-    # Determine delivered/missed key messages
-    delivered = [km for km in key_messages_status if km.get("delivered")]
-    missed = [km for km in key_messages_status if not km.get("delivered")]
-    delivery_ratio = len(delivered) / max(len(key_messages_status), 1)
-
-    # Collect MR quotes for referencing in strengths
-    mr_quotes = [msg.content for msg in messages if msg.role == "user"]
-    sample_quote = mr_quotes[0] if mr_quotes else "Thank you for your time."
-
-    # Generate dimension scores (slightly randomized but realistic)
-    base_score = 65 + int(delivery_ratio * 25)  # 65-90 range based on delivery
-    dimensions = []
-
-    for dim_config in rubric_dimensions:
-        dim_name = dim_config["name"]
-        dim_weight = dim_config["weight"]
-        score = min(95, max(60, base_score + random.randint(-8, 10)))
-
-        # Generic strengths/weaknesses based on dimension name
-        strengths = [
-            {
-                "text": f"Demonstrated competence in {dim_name}",
-                "quote": sample_quote[:80] if mr_quotes else None,
-            }
-        ]
-        weaknesses = [{"text": f"Room for improvement in {dim_name}", "quote": None}]
-        suggestions = [
-            f"Focus on strengthening {dim_name} skills",
-            f"Review best practices for {dim_name}",
-        ]
-
-        # Special handling for key_message dimension (if present)
-        if "key_message" in dim_name.lower() or "message" in dim_name.lower():
-            if delivered:
-                strengths = [
-                    {
-                        "text": (
-                            f"Successfully delivered {len(delivered)} "
-                            f"of {len(key_messages)} key messages"
-                        ),
-                        "quote": sample_quote[:100] if sample_quote else None,
-                    }
-                ]
-            if missed:
-                weaknesses = [
-                    {"text": f"Missed key message: {m['message']}", "quote": None}
-                    for m in missed[:2]
-                ]
-            suggestions = [
-                "Prepare a structured approach to ensure all key messages are covered"
-            ]
-
-        dimensions.append(
-            {
-                "dimension": dim_name,
-                "score": score,
-                "weight": dim_weight,
-                "strengths": strengths,
-                "weaknesses": weaknesses,
-                "suggestions": suggestions,
-            }
-        )
-
-    # Calculate weighted overall score
-    overall_score = sum(dim["score"] * dim["weight"] / 100 for dim in dimensions)
-    overall_score = round(overall_score, 1)
-    passed = overall_score >= scenario.pass_threshold
-
-    # Generate feedback summary
-    if passed:
-        feedback_summary = (
-            f"Good performance with an overall score of {overall_score}. "
-            f"Successfully delivered {len(delivered)} of {len(key_messages)} key messages. "
-            "Focus on strengthening weaker dimensions for continued improvement."
-        )
-    else:
-        feedback_summary = (
-            f"Score of {overall_score} is below the passing threshold of "
-            f"{scenario.pass_threshold}. "
-            f"Delivered {len(delivered)} of {len(key_messages)} key messages. "
-            "Review key message coverage and practice across all dimensions."
-        )
-
-    return {
-        "overall_score": overall_score,
-        "passed": passed,
-        "feedback_summary": feedback_summary,
-        "dimensions": dimensions,
-    }

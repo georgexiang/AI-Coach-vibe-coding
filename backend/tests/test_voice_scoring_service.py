@@ -1,11 +1,13 @@
-"""Unit tests for voice scoring service."""
+"""Unit tests for voice scoring service (CU-only, no mock)."""
 
-import pytest
+import uuid
+from unittest.mock import AsyncMock, patch
 
+from sqlalchemy import select
+
+from app.models.session import CoachingSession
 from app.services.voice_scoring_service import (
     VOICE_DIMENSIONS,
-    MockVoiceScoringBackend,
-    get_voice_scoring_backend,
     trigger_voice_scoring,
 )
 
@@ -14,21 +16,17 @@ class TestVoiceDimensions:
     """Tests for VOICE_DIMENSIONS configuration."""
 
     def test_has_four_dimensions(self):
-        """VOICE_DIMENSIONS contains exactly 4 dimensions."""
         assert len(VOICE_DIMENSIONS) == 4
 
     def test_dimension_names(self):
-        """VOICE_DIMENSIONS contains expected dimension names."""
         names = {d["name"] for d in VOICE_DIMENSIONS}
         assert names == {"fluency", "tone", "pace", "pronunciation"}
 
     def test_weights_sum_to_100(self):
-        """Dimension weights sum to 100."""
         total = sum(d["weight"] for d in VOICE_DIMENSIONS)
         assert total == 100
 
     def test_all_dimensions_have_required_fields(self):
-        """Each dimension has name, weight, max_score, description."""
         for dim in VOICE_DIMENSIONS:
             assert "name" in dim
             assert "weight" in dim
@@ -37,79 +35,19 @@ class TestVoiceDimensions:
             assert dim["max_score"] == 100
 
 
-class TestMockVoiceScoringBackend:
-    """Tests for MockVoiceScoringBackend."""
-
-    async def test_analyze_returns_dimensions(self):
-        """analyze() returns dict with dimensions list."""
-        backend = MockVoiceScoringBackend()
-        result = await backend.analyze("audio/test.webm", "zh-CN")
-        assert "dimensions" in result
-        assert len(result["dimensions"]) == 4
-
-    async def test_analyze_returns_overall_score(self):
-        """analyze() returns overall_voice_score."""
-        backend = MockVoiceScoringBackend()
-        result = await backend.analyze("audio/test.webm", "en-US")
-        assert "overall_voice_score" in result
-        assert 0 <= result["overall_voice_score"] <= 100
-
-    async def test_dimension_scores_in_range(self):
-        """Each dimension score is between 55 and 95."""
-        backend = MockVoiceScoringBackend()
-        result = await backend.analyze("audio/test.webm", "zh-CN")
-        for dim in result["dimensions"]:
-            assert 55 <= dim["score"] <= 95
-
-    async def test_dimension_has_feedback(self):
-        """Each dimension includes feedback string."""
-        backend = MockVoiceScoringBackend()
-        result = await backend.analyze("audio/test.webm", "zh-CN")
-        for dim in result["dimensions"]:
-            assert "feedback" in dim
-            assert isinstance(dim["feedback"], str)
-            assert len(dim["feedback"]) > 0
-
-    async def test_dimension_names_match_config(self):
-        """Returned dimension names match VOICE_DIMENSIONS config."""
-        backend = MockVoiceScoringBackend()
-        result = await backend.analyze("audio/test.webm", "zh-CN")
-        names = {d["name"] for d in result["dimensions"]}
-        expected = {d["name"] for d in VOICE_DIMENSIONS}
-        assert names == expected
-
-
-class TestGetVoiceScoringBackend:
-    """Tests for get_voice_scoring_backend factory."""
-
-    def test_returns_mock_backend(self):
-        """Factory returns MockVoiceScoringBackend by default."""
-        backend = get_voice_scoring_backend()
-        assert isinstance(backend, MockVoiceScoringBackend)
-
-
 class TestTriggerVoiceScoring:
     """Tests for trigger_voice_scoring background task."""
 
     async def test_skips_when_no_session(self, db_session, monkeypatch):
-        """trigger_voice_scoring skips gracefully for nonexistent session."""
-        # Patch AsyncSessionLocal to use test session
         from tests.conftest import TestSessionLocal
 
         monkeypatch.setattr(
             "app.services.voice_scoring_service.AsyncSessionLocal",
             TestSessionLocal,
         )
-        # Should not raise
         await trigger_voice_scoring("nonexistent-session-id")
 
     async def test_skips_when_no_audio_url(self, db_session, monkeypatch):
-        """trigger_voice_scoring skips when session has no audio_url."""
-        import uuid
-
-        from sqlalchemy import select
-
-        from app.models.session import CoachingSession
         from tests.conftest import TestSessionLocal
 
         monkeypatch.setattr(
@@ -117,7 +55,6 @@ class TestTriggerVoiceScoring:
             TestSessionLocal,
         )
 
-        # SQLite doesn't enforce FKs by default — insert with fake IDs
         session = CoachingSession(
             id=str(uuid.uuid4()),
             user_id="fake-user-id",
@@ -128,23 +65,16 @@ class TestTriggerVoiceScoring:
         db_session.add(session)
         await db_session.commit()
 
-        # Should not raise, just skip
         await trigger_voice_scoring(session.id)
 
-        # Verify status unchanged
         result = await db_session.execute(
             select(CoachingSession).where(CoachingSession.id == session.id)
         )
         s = result.scalar_one()
         assert s.voice_score_status == "none"
 
-    async def test_processes_when_audio_exists(self, db_session, monkeypatch):
-        """trigger_voice_scoring processes and completes when audio exists."""
-        import uuid
-
-        from sqlalchemy import select
-
-        from app.models.session import CoachingSession
+    async def test_sets_failed_when_cu_not_configured(self, db_session, monkeypatch):
+        """When CU endpoint not configured, voice scoring sets status to failed."""
         from tests.conftest import TestSessionLocal
 
         monkeypatch.setattr(
@@ -152,7 +82,6 @@ class TestTriggerVoiceScoring:
             TestSessionLocal,
         )
 
-        # SQLite doesn't enforce FKs by default — insert with fake IDs
         session_id = str(uuid.uuid4())
         session = CoachingSession(
             id=session_id,
@@ -165,10 +94,98 @@ class TestTriggerVoiceScoring:
         db_session.add(session)
         await db_session.commit()
 
-        # Run scoring (uses its own session via TestSessionLocal)
-        await trigger_voice_scoring(session_id)
+        # Mock config_service to return None (not configured)
+        with patch(
+            "app.services.voice_scoring_service.config_service.get_effective_endpoint",
+            new_callable=AsyncMock,
+            return_value=None,
+        ), patch(
+            "app.services.voice_scoring_service.config_service.get_effective_key",
+            new_callable=AsyncMock,
+            return_value=None,
+        ):
+            await trigger_voice_scoring(session_id)
 
-        # Verify status is completed — use fresh session to avoid cache
+        async with TestSessionLocal() as verify_session:
+            result = await verify_session.execute(
+                select(CoachingSession).where(CoachingSession.id == session_id)
+            )
+            s = result.scalar_one()
+            assert s.voice_score_status == "failed"
+
+    async def test_completes_when_cu_succeeds(self, db_session, monkeypatch):
+        """When CU voice scoring succeeds, sets status to completed."""
+        from tests.conftest import TestSessionLocal
+
+        monkeypatch.setattr(
+            "app.services.voice_scoring_service.AsyncSessionLocal",
+            TestSessionLocal,
+        )
+
+        # Create scenario and rubric for the session
+        from app.models.scenario import Scenario
+        from app.models.scoring_rubric import ScoringRubric
+
+        rubric = ScoringRubric(
+            name="VR",
+            scenario_type="f2f",
+            dimensions="[]",
+            is_default=True,
+            created_by="fake-user-id",
+            cu_voice_analyzer_id="testVoiceAnalyzer",
+        )
+        db_session.add(rubric)
+        await db_session.flush()
+
+        scenario = Scenario(
+            name="S",
+            hcp_profile_id="fake-hcp",
+            key_messages="[]",
+            rubric_id=rubric.id,
+            status="active",
+            created_by="fake-user-id",
+            skill_id="fake-skill",
+        )
+        db_session.add(scenario)
+        await db_session.flush()
+
+        session_id = str(uuid.uuid4())
+        session = CoachingSession(
+            id=session_id,
+            user_id="fake-user-id",
+            scenario_id=scenario.id,
+            status="completed",
+            audio_url="https://blob.core.windows.net/audio/test.webm",
+            voice_score_status="pending",
+        )
+        db_session.add(session)
+        await db_session.commit()
+
+        # Mock CU calls
+        mock_cu_fields = {
+            "fluency": {"valueString": '{"score": 85, "feedback": "Good flow"}'},
+            "tone": {"valueString": '{"score": 80, "feedback": "Professional"}'},
+            "pace": {"valueString": '{"score": 75, "feedback": "Adequate"}'},
+            "pronunciation": {"valueString": '{"score": 90, "feedback": "Clear"}'},
+            "feedback_summary": {"valueString": "Overall good voice quality"},
+            "transcript": {"valueString": "Hello doctor"},
+        }
+
+        with patch(
+            "app.services.voice_scoring_service.config_service.get_effective_endpoint",
+            new_callable=AsyncMock,
+            return_value="https://cu.cognitiveservices.azure.com",
+        ), patch(
+            "app.services.voice_scoring_service.config_service.get_effective_key",
+            new_callable=AsyncMock,
+            return_value="test-key",
+        ), patch(
+            "app.services.voice_scoring_service.score_voice_with_cu",
+            new_callable=AsyncMock,
+            return_value=mock_cu_fields,
+        ):
+            await trigger_voice_scoring(session_id)
+
         async with TestSessionLocal() as verify_session:
             result = await verify_session.execute(
                 select(CoachingSession).where(CoachingSession.id == session_id)

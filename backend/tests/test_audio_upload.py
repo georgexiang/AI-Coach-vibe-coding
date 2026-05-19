@@ -11,11 +11,7 @@ from app.models.session import CoachingSession
 from app.models.user import User
 from app.services.audio_storage_service import get_audio_url, upload_session_audio
 from app.services.auth import create_access_token, get_password_hash
-from app.services.voice_scoring_service import (
-    VOICE_DIMENSIONS,
-    MockVoiceScoringBackend,
-    get_voice_scoring_backend,
-)
+from app.services.voice_scoring_service import VOICE_DIMENSIONS
 from tests.conftest import TestSessionLocal
 
 
@@ -202,30 +198,11 @@ class TestGetVoiceScoreStatus:
 
 
 class TestVoiceScoringServiceUnit:
-    """Unit tests for voice scoring service functions."""
-
-    async def test_mock_backend_returns_all_dimensions(self):
-        """MockVoiceScoringBackend returns 4 voice dimensions with valid scores."""
-        backend = MockVoiceScoringBackend()
-        result = await backend.analyze("test/audio.webm", "zh-CN")
-        assert len(result["dimensions"]) == 4
-        assert all(0 <= d["score"] <= 100 for d in result["dimensions"])
-
-    async def test_overall_score_is_weighted_average(self):
-        """Overall score is correctly computed as weighted average."""
-        backend = MockVoiceScoringBackend()
-        result = await backend.analyze("test/audio.webm", "zh-CN")
-        expected = round(sum(d["score"] * d["weight"] for d in result["dimensions"]) / 100, 1)
-        assert result["overall_voice_score"] == expected
+    """Unit tests for voice scoring service configuration."""
 
     def test_dimensions_weights_sum_to_100(self):
         """Voice dimension weights sum to 100."""
         assert sum(d["weight"] for d in VOICE_DIMENSIONS) == 100
-
-    def test_factory_returns_mock_backend(self):
-        """Factory returns MockVoiceScoringBackend by default."""
-        backend = get_voice_scoring_backend()
-        assert isinstance(backend, MockVoiceScoringBackend)
 
 
 class TestAudioStorageServiceUnit:

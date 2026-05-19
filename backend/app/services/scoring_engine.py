@@ -1,16 +1,10 @@
-# DEPRECATED (Phase 24, D-07): This module is replaced by cu_evaluation_service.py
-# Kept as reference and fallback for environments without Azure CU configured.
-# All new scoring flows use Azure Content Understanding via cu_evaluation_service.
-"""LLM-based scoring engine for multi-dimensional coaching evaluation.
+"""LLM-based content scoring engine for multi-dimensional coaching evaluation.
 
-DEPRECATED: Primary scoring now uses cu_evaluation_service.py (Azure Content Understanding).
-This module is retained as fallback when CU is not configured.
+Primary content scoring engine using Azure OpenAI (GPT-4o) with structured JSON output.
+Produces real scoring based on conversation transcript, HCP profile, scenario objectives,
+key message delivery status, and skill-specific criteria.
 
-Calls Azure OpenAI (or compatible endpoint) with structured JSON output
-to produce real scoring based on conversation transcript, HCP profile,
-scenario objectives, and key message delivery status.
-
-Falls back to mock scoring when no LLM is configured.
+Voice scoring is handled separately by cu_evaluation_service.score_voice_with_cu().
 """
 
 import json
@@ -19,12 +13,21 @@ import logging
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.services import config_service
+from app.utils.exceptions import ScoringUnavailableException
 
 logger = logging.getLogger(__name__)
 
-SCORING_PROMPT_TEMPLATE = """You are an expert pharmaceutical sales training evaluator.
+SCORING_PROMPT_TEMPLATE = """You are an expert pharmaceutical sales training evaluator for BeiGene.
+You evaluate ONLY the Medical Representative (MR, role="user") performance.
+DO NOT evaluate the HCP (role="assistant") performance.
 
-Analyze the following Medical Representative (MR) conversation with a
+Key rules:
+- If key messages are NOT DELIVERED, key_message score MUST be below 30.
+- If MR's messages are unrelated to the product/therapeutic area, ALL scores MUST be below 50.
+- Reference actual MR quotes in strengths/weaknesses.
+- Be strict: vague or off-topic responses deserve low scores.
+
+Analyze the following MR conversation with a
 Healthcare Professional (HCP) and provide a detailed multi-dimensional scoring.
 
 ## HCP Profile
@@ -156,18 +159,21 @@ async def score_with_llm(
     rubric_dimensions: list[dict],
     pass_threshold: int = 70,
     skill_criteria: str = "",
-) -> dict | None:
-    """Score a session using LLM. Returns None if LLM is unavailable.
+) -> dict:
+    """Score a session using LLM (primary content scoring engine).
 
     Uses the Azure OpenAI endpoint configured in the admin panel (service_name="azure_openai")
     or falls back to the master AI Foundry endpoint.
+
+    Raises ScoringUnavailableException if LLM is not configured or call fails.
     """
     endpoint = await config_service.get_effective_endpoint(db, "azure_openai")
     api_key = await config_service.get_effective_key(db, "azure_openai")
 
     if not endpoint or not api_key:
-        logger.info("LLM scoring unavailable: no Azure OpenAI endpoint/key configured")
-        return None
+        raise ScoringUnavailableException(
+            "Content scoring unavailable: no Azure OpenAI endpoint/key configured"
+        )
 
     # Get deployment/model name
     config = await config_service.get_config(db, "azure_openai")
@@ -188,8 +194,9 @@ async def score_with_llm(
             api_version="2024-06-01",
         )
     except ImportError:
-        logger.warning("openai package not installed, cannot use LLM scoring")
-        return None
+        raise ScoringUnavailableException(
+            "Content scoring unavailable: openai package not installed"
+        )
 
     # Build weights lookup from rubric dimensions for post-validation
     weights = {dim["name"]: dim["weight"] for dim in rubric_dimensions}
@@ -205,38 +212,40 @@ async def score_with_llm(
                 {
                     "role": "system",
                     "content": (
-                        "You are a pharmaceutical sales training evaluator. "
+                        "You are a pharmaceutical sales training evaluator for BeiGene. "
+                        "You evaluate ONLY the MR (role=user) performance, NOT the HCP. "
                         "Return ONLY valid JSON, no markdown fences."
                     ),
                 },
                 {"role": "user", "content": prompt},
             ],
-            temperature=0.3,
+            temperature=0.1,
             max_completion_tokens=2048,
             response_format={"type": "json_object"},
         )
 
         content = response.choices[0].message.content
         if not content:
-            logger.error("LLM scoring returned empty content")
-            return None
+            raise ScoringUnavailableException("LLM scoring returned empty content")
 
         result = json.loads(content)
+    except ScoringUnavailableException:
+        raise
     except Exception as e:
         logger.error("LLM scoring failed: %s", e, exc_info=True)
-        return None
+        raise ScoringUnavailableException(f"Content scoring failed: {e}") from e
 
     # Validate and compute overall score
     dimensions = result.get("dimensions", [])
     if not dimensions:
-        logger.error("LLM scoring returned no dimensions")
-        return None
+        raise ScoringUnavailableException("LLM scoring returned no dimensions")
 
-    # Ensure weights match what we provided
+    # Ensure weights match what we provided and tag category
     for dim in dimensions:
         expected_weight = weights.get(dim.get("dimension", ""), 0)
         if expected_weight:
             dim["weight"] = expected_weight
+        dim["category"] = "content"
 
     overall_score = sum(dim["score"] * dim["weight"] / 100 for dim in dimensions)
     overall_score = round(overall_score, 1)

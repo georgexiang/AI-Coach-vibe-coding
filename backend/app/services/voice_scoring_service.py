@@ -1,14 +1,12 @@
-"""Voice quality scoring service using pluggable backend.
+"""Voice quality scoring service using Azure Content Understanding.
 
-Calls Azure Content Understanding (or mock) to analyze recorded audio
-for voice-specific dimensions: fluency, tone, pace, pronunciation clarity.
+Calls CU audioAnalyzer to analyze recorded audio for voice-specific dimensions:
+fluency, tone, pace, pronunciation clarity.
+No mock fallback — failures set voice_score_status = "failed".
 Uses durable background task pattern (own DB session) per project convention.
 """
 
-import asyncio
 import logging
-import random
-from typing import Protocol
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,6 +14,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import AsyncSessionLocal
 from app.models.score import ScoreDetail, SessionScore
 from app.models.session import CoachingSession
+from app.services import config_service
+from app.services.cu_evaluation_service import (
+    CU_SERVICE_NAME,
+    _parse_cu_voice_result,
+    score_voice_with_cu,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -46,42 +50,6 @@ VOICE_DIMENSIONS = [
         "description": "Pronunciation clarity",
     },
 ]
-
-
-class VoiceScoringBackend(Protocol):
-    """Protocol for voice quality scoring backends."""
-
-    async def analyze(self, audio_url: str, language: str) -> dict:
-        """Analyze audio and return dimension scores.
-
-        Returns dict with "dimensions" list and "overall_voice_score".
-        """
-        ...
-
-
-class MockVoiceScoringBackend:
-    """Mock implementation for development/testing."""
-
-    async def analyze(self, audio_url: str, language: str) -> dict:
-        dimensions = []
-        for dim in VOICE_DIMENSIONS:
-            score = random.uniform(55, 95)
-            dimensions.append(
-                {
-                    "name": dim["name"],
-                    "score": round(score, 1),
-                    "weight": dim["weight"],
-                    "max_score": dim["max_score"],
-                    "feedback": f"Mock feedback for {dim['name']}",
-                }
-            )
-        overall = round(sum(d["score"] * d["weight"] for d in dimensions) / 100, 1)
-        return {"dimensions": dimensions, "overall_voice_score": overall}
-
-
-def get_voice_scoring_backend() -> VoiceScoringBackend:
-    """Factory: returns mock for now, Azure CU adapter when configured."""
-    return MockVoiceScoringBackend()
 
 
 async def save_voice_score_details(
@@ -123,14 +91,11 @@ async def save_voice_score_details(
 
 
 async def trigger_voice_scoring(session_id: str, language: str = "zh-CN") -> None:
-    """Durable background task: score voice quality for a session.
+    """Durable background task: score voice quality for a session via CU.
 
     Uses own DB session (not request-scoped) per durable task pattern.
-    Updates session.voice_score_status through lifecycle: pending -> processing -> completed/failed.
-    Language follows scenario config (D-12).
-
-    Phase 24 (D-07): Tries Azure Content Understanding first for voice scoring,
-    falls back to MockVoiceScoringBackend when CU is not configured.
+    Updates session.voice_score_status: pending -> processing -> completed/failed.
+    No mock fallback — failures set status to "failed".
     """
     try:
         async with AsyncSessionLocal() as db:
@@ -140,64 +105,76 @@ async def trigger_voice_scoring(session_id: str, language: str = "zh-CN") -> Non
             session = result.scalar_one_or_none()
             if not session or not session.audio_url:
                 logger.warning(
-                    f"Voice scoring skipped for session {session_id}: no audio"
+                    "Voice scoring skipped for session %s: no audio", session_id
                 )
                 return
-
-            # Phase 24 (D-07): Use CU for voice scoring (replaces mock backend as primary)
-            from app.services.cu_evaluation_service import score_session_with_cu
 
             session.voice_score_status = "processing"
             await db.commit()
 
-            # Try CU evaluation first — it handles both content + voice in one call
-            try:
-                cu_result = await score_session_with_cu(db, session_id)
-                if cu_result and cu_result.get("voice_total") is not None:
-                    # CU voice scoring succeeded — save voice dimensions
-                    voice_dims = [
-                        d for d in cu_result.get("dimensions", [])
-                        if d.get("category") == "voice"
-                    ]
-                    if voice_dims:
-                        voice_scores = {
-                            "dimensions": voice_dims,
-                            "overall_voice_score": cu_result["voice_total"],
-                        }
-                        await save_voice_score_details(db, session_id, voice_scores)
-                        session.voice_score_status = "completed"
-                        await db.commit()
-                        logger.info(
-                            "CU voice scoring completed for session %s: overall=%s",
-                            session_id,
-                            cu_result["voice_total"],
-                        )
-                        return
-            except Exception as e:
-                logger.warning(
-                    "CU voice scoring failed for session %s, falling back to mock: %s",
-                    session_id,
-                    e,
+            # Get CU endpoint and key
+            endpoint = await config_service.get_effective_endpoint(db, CU_SERVICE_NAME)
+            api_key = await config_service.get_effective_key(db, CU_SERVICE_NAME)
+
+            if not endpoint or not api_key:
+                raise RuntimeError("CU endpoint/key not configured for voice scoring")
+
+            # Get voice analyzer ID from rubric
+            from app.models.scenario import Scenario
+            from app.models.scoring_rubric import ScoringRubric
+
+            scenario_result = await db.execute(
+                select(Scenario).where(Scenario.id == session.scenario_id)
+            )
+            scenario = scenario_result.scalar_one_or_none()
+            analyzer_id = None
+            if scenario and scenario.rubric_id:
+                rubric_result = await db.execute(
+                    select(ScoringRubric).where(ScoringRubric.id == scenario.rubric_id)
+                )
+                rubric = rubric_result.scalar_one_or_none()
+                if rubric:
+                    analyzer_id = rubric.cu_voice_analyzer_id
+
+            if not analyzer_id:
+                raise RuntimeError(
+                    f"No CU voice analyzer configured for session {session_id}"
                 )
 
-            # Fallback: use mock voice scoring backend
-            await asyncio.sleep(0.1)
+            # Call CU voice scoring
+            cu_fields = await score_voice_with_cu(
+                endpoint, api_key, analyzer_id, session.audio_url
+            )
+            voice_result = _parse_cu_voice_result(cu_fields)
 
-            backend = get_voice_scoring_backend()
-            scores = await backend.analyze(session.audio_url, language)
+            # Calculate overall voice score
+            dims = voice_result.get("dimensions", [])
+            if dims:
+                total_w = sum(d.get("weight", 0) for d in dims)
+                overall = (
+                    sum(d.get("score", 0) * d.get("weight", 0) for d in dims) / total_w
+                    if total_w > 0
+                    else 0
+                )
+            else:
+                overall = 0
 
-            # Save results as ScoreDetail records with category="voice"
-            await save_voice_score_details(db, session_id, scores)
+            voice_scores = {
+                "dimensions": dims,
+                "overall_voice_score": round(overall, 1),
+            }
 
+            await save_voice_score_details(db, session_id, voice_scores)
             session.voice_score_status = "completed"
             await db.commit()
 
             logger.info(
-                f"Voice scoring completed for session {session_id}: "
-                f"overall={scores['overall_voice_score']}"
+                "Voice scoring completed for session %s: overall=%s",
+                session_id,
+                voice_scores["overall_voice_score"],
             )
     except Exception as e:
-        logger.error(f"Voice scoring failed for session {session_id}: {e}")
+        logger.error("Voice scoring failed for session %s: %s", session_id, e)
         try:
             async with AsyncSessionLocal() as db:
                 result = await db.execute(
