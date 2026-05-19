@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: Phase 23 Complete
-stopped_at: Phase 23 verified complete
-last_updated: "2026-05-14T01:00:00.000Z"
-last_activity: 2026-05-14
+status: Phase 26 Complete
+stopped_at: Phase 26 done
+last_updated: "2026-05-19T12:00:00.000Z"
+last_activity: 2026-05-19
 progress:
-  total_phases: 25
-  completed_phases: 23
-  total_plans: 131
-  completed_plans: 118
+  total_phases: 26
+  completed_phases: 24
+  total_plans: 132
+  completed_plans: 119
   percent: 90
 ---
 
@@ -21,13 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-24)
 
 **Core value:** MRs can practice realistic conversations with AI-powered digital HCPs and receive immediate, multi-dimensional feedback to improve their communication skills -- anytime, without needing a real HCP or trainer.
-**Current focus:** Phase 23+24 Complete — unified session + skill focus + CU evaluation
+**Current focus:** Phase 25 — Refactor user training pages (remaining)
 
 ## Current Position
 
 Phase: 23 (Complete training session with digital human) — COMPLETE (6/6 plans)
 Phase: 24 (Skill Focus + CU Evaluation) — COMPLETE (5/5 plans)
-All Phase 23 and 24 plans executed, tests passing, pushed to GitHub.
+Phase: 25 (Refactor user training pages) — IN PROGRESS
+Phase: 26 (Scoring Architecture: LLM Content + CU Voice) — COMPLETE (1/1 plan)
 
 ## Performance Metrics
 
@@ -269,6 +270,11 @@ Recent decisions affecting current work:
 - [Phase 20]: Used chat.completions.create for dry run simulation (not Responses API) for model flexibility
 - [Phase 20]: Used lazy() import for DryRunComparisonChart to handle parallel executor
 - [Phase 20]: Patched run_dry_run_simulation as noop coroutine for clean test isolation
+- [Phase 26]: LLM (GPT-4o) promoted to primary content scoring engine; CU demoted to voice-only (audioAnalyzer)
+- [Phase 26]: No mock fallback — ScoringUnavailableException (HTTP 503) on LLM/CU failure
+- [Phase 26]: Content dims (5: key_message, objection_handling, communication, product_knowledge, scientific_info) → LLM; Voice dims (4: fluency, tone, pace, pronunciation) → CU
+- [Phase 26]: merge_scores() uses rubric content_weight/voice_weight (default 60/40) instead of hardcoded 70/30
+- [Phase 26]: Removed _generate_mock_scores(), MockVoiceScoringBackend, score_content_with_cu(), build_content_analyzer_schema()
 
 ### Pending Todos
 
@@ -287,6 +293,7 @@ None yet.
 - Phase 23 added: Complete training session with digital human — full implementation and refactoring (多语言、UI、数字人、引导、评分完整实现)
 - Phase 24 added: 用户评估模块重构 — session中agent按skill instruction聚焦、session结束后Azure Content Understanding评估打分
 - Phase 25 added: Refactor user training pages — fix data display, scoring logic, and dashboard/reports deduplication
+- Phase 26 added: Scoring Architecture Refactor — LLM primary for content (5 dimensions), CU for voice only (4 dimensions), remove mock fallback
 
 ### Quick Tasks Completed
 
@@ -296,7 +303,7 @@ None yet.
 
 ## Session Continuity
 
-Last activity: 2026-05-13
-Last session: 2026-05-13T06:55:44.329Z
-Stopped at: Phase 24 context gathered
-Resume file: .planning/phases/24-1-session-skill-agent-focus-skill-instruction-agent-session-/24-CONTEXT.md
+Last activity: 2026-05-19
+Last session: 2026-05-19T12:00:00.000Z
+Stopped at: Phase 26 complete
+Resume file: N/A (Phase 26 fully delivered, commit 50a0dd7)
