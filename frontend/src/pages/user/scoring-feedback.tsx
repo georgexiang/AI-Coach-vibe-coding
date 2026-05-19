@@ -231,7 +231,7 @@ export default function ScoringFeedback() {
             )}
           </button>
           {showTranscript && (
-            <ScrollArea className="mt-4 max-h-[500px]">
+            <div className="mt-4 max-h-[500px] overflow-y-auto">
               <div className="space-y-3">
                 {messages.map((msg) => (
                   <ChatBubble
@@ -247,7 +247,7 @@ export default function ScoringFeedback() {
                   />
                 ))}
               </div>
-            </ScrollArea>
+            </div>
           )}
         </div>
       )}

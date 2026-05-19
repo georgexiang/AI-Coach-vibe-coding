@@ -286,6 +286,7 @@ None yet.
 - Phase 19 added: AI Coach Skill Module — Skill 生命周期管理、材料转 Skill、Skill Hub、HCP Agent Skill 分配与 SOP 驱动培训
 - Phase 23 added: Complete training session with digital human — full implementation and refactoring (多语言、UI、数字人、引导、评分完整实现)
 - Phase 24 added: 用户评估模块重构 — session中agent按skill instruction聚焦、session结束后Azure Content Understanding评估打分
+- Phase 25 added: Refactor user training pages — fix data display, scoring logic, and dashboard/reports deduplication
 
 ### Quick Tasks Completed
 

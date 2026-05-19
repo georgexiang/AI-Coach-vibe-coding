@@ -1,7 +1,7 @@
 {
-  "tool_name": "Bash",
-  "tool_input_preview": "{\"command\":\"cd /Users/huqianghui/Downloads/1.github/AI-Coach-vibe-coding/backend && .venv/bin/ruff check app/services/cu_evaluation_service.py app/services/connection_tester.py 2>&1\",\"description\":\"Ru...",
-  "error": "Exit code 1\nE501 Line too long (105 > 100)\n   --> app/services/cu_evaluation_service.py:222:101\n    |\n220 |     url = f\"{endpoint}/contentunderstanding/analyzers/{analyzer_id}?api-version={CU_API_VERSION}\"\n221 |     headers = await _get_auth_headers(api_key)\n222 |     base_analyzer = \"prebuilt-audioAnalyzer\" if analyzer_type == \"voice\" else \"prebuilt-documentAnalyzer\"\n    |                                                                                                     ^^^^^\n223 |     body = ...",
-  "timestamp": "2026-05-16T13:58:58.955Z",
-  "retry_count": 1
+  "tool_name": "Read",
+  "tool_input_preview": "{\"file_path\":\"/Users/huqianghui/Downloads/1.github/AI-Coach-vibe-coding/backend/app/services/storage\"}",
+  "error": "EISDIR: illegal operation on a directory, read '/Users/huqianghui/Downloads/1.github/AI-Coach-vibe-coding/backend/app/services/storage'",
+  "timestamp": "2026-05-18T08:59:21.444Z",
+  "retry_count": 2
 }
