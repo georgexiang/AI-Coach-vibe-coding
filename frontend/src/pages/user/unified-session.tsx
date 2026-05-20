@@ -19,6 +19,7 @@ import { useAvatarStream } from "@/hooks/use-avatar-stream";
 import { useAudioHandler } from "@/hooks/use-audio-handler";
 import { useAudioPlayer } from "@/hooks/use-audio-player";
 import { useVoiceSessionLifecycle } from "@/hooks/use-voice-session-lifecycle";
+import { useSessionRecorder } from "@/hooks/use-session-recorder";
 import { useSSEStream } from "@/hooks/use-sse";
 import { useFeatureFlags } from "@/hooks/use-config";
 import { persistTranscriptMessage } from "@/api/voice-live";
@@ -154,6 +155,7 @@ export default function UnifiedSession() {
   const avatarStream = useAvatarStream(videoRef);
   const audioHandler = useAudioHandler();
   const audioPlayer = useAudioPlayer();
+  const sessionRecorder = useSessionRecorder();
 
   const voiceLive = useVoiceLive({
     language: "zh-CN",
@@ -284,11 +286,22 @@ export default function UnifiedSession() {
           : (isAgent ? "voice_realtime_agent" : "voice_realtime_model");
         setCurrentMode(resolvedMode);
         initialModeRef.current = resolvedMode;
+
+        // Start session recording for voice scoring via CU
+        const micStream = audioHandler.streamRef.current;
+        if (micStream) {
+          const started = await sessionRecorder.startRecording(micStream);
+          if (started) {
+            log.info("Session recorder started");
+          } else {
+            log.warn("Session recorder failed to start");
+          }
+        }
       }
     } finally {
       setIsConnecting(false);
     }
-  }, [scenario?.hcp_profile_id, session?.mode, session?.scenario_id, startVoiceSession, t, tv, log]);
+  }, [scenario?.hcp_profile_id, session?.mode, session?.scenario_id, startVoiceSession, sessionRecorder, audioHandler, t, tv, log]);
 
   // Auto-start for text mode — no voice connection needed, show avatar immediately
   useEffect(() => {
@@ -375,6 +388,19 @@ export default function UnifiedSession() {
     setShowEndDialog(false);
     // Flush all pending transcript writes
     await Promise.all(pendingFlushesRef.current);
+
+    // Stop recording and upload audio for voice scoring via CU
+    if (sessionRecorder.isRecording) {
+      toast.info(tv("recording.uploading"));
+      const uploadResult = await sessionRecorder.stopAndUpload(sessionId);
+      if (uploadResult.success) {
+        log.info("Session audio uploaded successfully");
+      } else {
+        log.warn("Session audio upload failed: %s", uploadResult.error);
+        toast.warning(tv("recording.uploadFailed"));
+      }
+    }
+
     // Disconnect voice and avatar (ignore errors — voice may not be connected)
     try {
       await stopVoiceSession();
@@ -389,7 +415,7 @@ export default function UnifiedSession() {
       toast.error(t("endSessionFailed"));
       navigate("/user/training");
     }
-  }, [sessionId, stopVoiceSession, endSessionMutation, navigate, t]);
+  }, [sessionId, sessionRecorder, stopVoiceSession, endSessionMutation, navigate, t, tv, log]);
 
   // Text message handler (keyboard input — sends via SSE for text conversation OR via voice-live)
   const handleSendText = useCallback(
