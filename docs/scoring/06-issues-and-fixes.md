@@ -9,12 +9,12 @@
 | # | 问题 | 性质 | 严重度 | 状态 |
 |---|------|------|--------|------|
 | S-01 | CU 评分缺乏 scenario 上下文，打分严重失准 | 架构设计缺陷 | 🔴 Critical | Open |
-| S-02 | CU 无法区分 MR/HCP 表现，把 HCP 回复算入 MR 评分 | 架构设计缺陷 | 🔴 Critical | Open |
-| S-03 | 降级链 CU→LLM→Mock，应改为 CU 必须成功否则报错 | Bug | 🟠 High | Open |
-| S-04 | Mock 评分基线过高 (base=65)，几乎任何情况都合格 | Bug | 🟠 High | Open |
-| S-05 | Key Message 全 NOT DELIVERED 不作为硬性约束 | 缺失功能 | 🟠 High | Open |
+| S-02 | CU 无法区分 MR/HCP 表现，把 HCP 回复算入 MR 评分 | 架构设计缺陷 | 🔴 Critical | ✅ Fixed (2026-05-20, LLM prompt 角色强化) |
+| S-03 | 降级链 CU→LLM→Mock，应改为 CU 必须成功否则报错 | Bug | 🟠 High | ✅ Fixed (Phase 26, Mock 已移除) |
+| S-04 | Mock 评分基线过高 (base=65)，几乎任何情况都合格 | Bug | 🟠 High | ✅ Fixed (Phase 26, Mock 已移除) |
+| S-05 | Key Message 全 NOT DELIVERED 不作为硬性约束 | 缺失功能 | 🟠 High | ✅ Fixed (2026-05-20, 后置校验 cap 30) |
 | S-06 | CU 中间结果无记录、无 debug 界面 | 缺失功能 | 🟡 Medium | Open |
-| S-07 | 无"内容相关性"校验，MR 说无关话题仍可得分 | 缺失功能 | 🟡 Medium | Open |
+| S-07 | 无"内容相关性"校验，MR 说无关话题仍可得分 | 缺失功能 | 🟡 Medium | ✅ Fixed (2026-05-20, 后置校验 cap 50) |
 | S-08 | Key Message 检测仅用关键词匹配，准确度有限 | 已知限制 | 🟡 Medium | Accepted |
 
 ---

@@ -5,7 +5,7 @@ milestone_name: milestone
 status: Phase 26 Complete
 stopped_at: All phases complete
 last_updated: "2026-05-19T17:30:00.000Z"
-last_activity: 2026-05-19
+last_activity: 2026-05-20
 progress:
   total_phases: 26
   completed_phases: 26
@@ -300,6 +300,7 @@ None yet.
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 260325-9wy | Add comprehensive tests for Phase 3: backend pytest 95%+ coverage, frontend logic tests with vitest, E2E Playwright tests for rubric CRUD, scoring flow, session history | 2026-03-24 | dccf83a | [260325-9wy-add-comprehensive-tests-for-phase-3-back](./quick/260325-9wy-add-comprehensive-tests-for-phase-3-back/) |
+| 260520-njr | Fix scoring engine LLM role confusion and add post-validation rule enforcement | 2026-05-20 | d00ca2a | [260520-njr-fix-scoring-engine-llm-role-confusion-an](./quick/260520-njr-fix-scoring-engine-llm-role-confusion-an/) |
 
 ## Session Continuity
 
