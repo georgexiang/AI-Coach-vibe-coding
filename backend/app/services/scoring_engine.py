@@ -20,12 +20,7 @@ logger = logging.getLogger(__name__)
 SCORING_PROMPT_TEMPLATE = """You are an expert pharmaceutical sales training evaluator for BeiGene.
 You evaluate ONLY the Medical Representative (MR, role="user") performance.
 DO NOT evaluate the HCP (role="assistant") performance.
-
-Key rules:
-- If key messages are NOT DELIVERED, key_message score MUST be below 30.
-- If MR's messages are unrelated to the product/therapeutic area, ALL scores MUST be below 50.
-- Reference actual MR quotes in strengths/weaknesses.
-- Be strict: vague or off-topic responses deserve low scores.
+Be strict: vague or off-topic responses deserve low scores.
 
 Analyze the following MR conversation with a
 Healthcare Professional (HCP) and provide a detailed multi-dimensional scoring.
@@ -53,12 +48,23 @@ Healthcare Professional (HCP) and provide a detailed multi-dimensional scoring.
 ## Scoring Dimensions and Weights
 {dimensions_config}
 
+## CRITICAL SCORING RULES (MUST FOLLOW)
+
+These rules are MANDATORY and override any other scoring judgment:
+1. If key messages are NOT DELIVERED, key_message score MUST be below 30.
+2. If MR's messages are unrelated to the product/therapeutic area, ALL scores MUST be below 50.
+3. Reference actual MR quotes (from lines marked ">>> MR") in strengths/weaknesses.
+4. NEVER reference or evaluate HCP responses. Only evaluate MR performance.
+
 ## Instructions
 
 Score each dimension from 0-100 based on the actual conversation content. Be specific:
 - Reference actual quotes from the MR's responses in strengths/weaknesses
 - Use the dimension criteria provided above as your scoring guide for each dimension
 - Evaluate how well the MR addressed the HCP's concerns and delivered the required information
+
+REMINDER: Scores MUST reflect MR (role=user) performance ONLY.
+Every quote must come from MR messages marked with '>>> MR' above.
 
 Return a JSON object with this exact structure:
 {{
@@ -74,6 +80,61 @@ Return a JSON object with this exact structure:
   ],
   "feedback_summary": "<2-3 sentence overall assessment>"
 }}"""
+
+
+def _enforce_scoring_rules(
+    dimensions: list[dict],
+    key_messages_status: list[dict],
+    messages: list[dict],
+) -> list[dict]:
+    """Post-validation: programmatically enforce critical scoring rules as a safety net.
+
+    Rules enforced:
+    1. If ALL key_messages have delivered=false, cap key_message dimension to max 30.
+    2. If ALL undelivered AND total MR message content < 100 chars, cap ALL dims to max 50.
+
+    Returns the (possibly mutated) dimensions list.
+    """
+    # If no key messages to evaluate, skip all rules
+    if not key_messages_status:
+        return dimensions
+
+    # Check if ALL key messages are undelivered
+    all_undelivered = all(not km.get("delivered") for km in key_messages_status)
+
+    if not all_undelivered:
+        return dimensions
+
+    # Rule 1: Cap key_message dimension to 30
+    for dim in dimensions:
+        if dim.get("dimension") == "key_message" and dim.get("score", 0) > 30:
+            logger.warning(
+                "Post-validation: capping key_message from %d to 30 (all key messages undelivered)",
+                dim["score"],
+            )
+            dim["score"] = 30
+
+    # Rule 2: Check MR message total length for relevance signal
+    mr_total_chars = sum(
+        len(msg.get("content", "")) for msg in messages if msg.get("role") == "user"
+    )
+
+    if mr_total_chars < 100:
+        # Very short/irrelevant MR content -> cap ALL dimensions to 50
+        for dim in dimensions:
+            if dim.get("dimension") == "key_message":
+                # Already capped to 30 by Rule 1
+                continue
+            if dim.get("score", 0) > 50:
+                logger.warning(
+                    "Post-validation: capping %s from %d to 50 "
+                    "(all undelivered + short MR content)",
+                    dim.get("dimension"),
+                    dim["score"],
+                )
+                dim["score"] = 50
+
+    return dimensions
 
 
 def build_dimensions_instructions(rubric_dimensions: list[dict]) -> str:
@@ -98,10 +159,13 @@ def build_scoring_prompt(
     skill_criteria: str = "",
 ) -> str:
     """Build the scoring prompt from session data."""
-    # Format transcript
+    # Format transcript with strong role labels to prevent LLM role confusion
     transcript_lines = []
     for msg in messages:
-        role_label = "MR" if msg["role"] == "user" else "HCP"
+        if msg["role"] == "user":
+            role_label = ">>> MR (EVALUATE THIS PERSON) <<<"
+        else:
+            role_label = ">>> HCP (DO NOT EVALUATE) <<<"
         transcript_lines.append(f"{role_label}: {msg['content']}")
     transcript = "\n".join(transcript_lines)
 
@@ -248,6 +312,9 @@ async def score_with_llm(
         if expected_weight:
             dim["weight"] = expected_weight
         dim["category"] = "content"
+
+    # Post-validation: enforce critical scoring rules programmatically
+    dimensions = _enforce_scoring_rules(dimensions, key_messages_status, messages)
 
     overall_score = sum(dim["score"] * dim["weight"] / 100 for dim in dimensions)
     overall_score = round(overall_score, 1)
