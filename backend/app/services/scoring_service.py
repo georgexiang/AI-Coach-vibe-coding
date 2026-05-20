@@ -112,8 +112,13 @@ async def score_session(db: AsyncSession, session_id: str) -> SessionScore:
 
     # LLM content scoring (primary, raises ScoringUnavailableException on failure)
     scores = await score_with_llm(
-        db, scenario_data, message_dicts, key_messages_status,
-        rubric_dimensions, scenario.pass_threshold, skill_criteria=skill_criteria,
+        db,
+        scenario_data,
+        message_dicts,
+        key_messages_status,
+        rubric_dimensions,
+        scenario.pass_threshold,
+        skill_criteria=skill_criteria,
     )
 
     overall_score = scores["overall_score"]
@@ -158,6 +163,59 @@ async def score_session(db: AsyncSession, session_id: str) -> SessionScore:
         .where(SessionScore.id == session_score.id)
     )
     return score_result.scalar_one()
+
+
+async def rescore_session(db: AsyncSession, session_id: str) -> SessionScore:
+    """Re-score an already-scored session with current rubric dimensions.
+
+    Deletes existing scores (SessionScore + ScoreDetails), resets session status
+    to 'completed', then runs the full scoring pipeline with current criteria.
+    This enables re-evaluation when scoring rubrics or modes have changed.
+    """
+    # Load session with scenario and HCP profile
+    result = await db.execute(
+        select(CoachingSession)
+        .options(
+            selectinload(CoachingSession.scenario).selectinload(Scenario.hcp_profile),
+            selectinload(CoachingSession.scenario).selectinload(Scenario.skill),
+        )
+        .where(CoachingSession.id == session_id)
+    )
+    session = result.scalar_one_or_none()
+    if session is None:
+        raise NotFoundException("Session not found")
+
+    if session.status != "scored":
+        raise AppException(
+            status_code=409,
+            code="NOT_SCORED",
+            message=f"Cannot rescore session with status '{session.status}'. "
+            "Session must have been scored previously.",
+        )
+
+    # Delete existing score details first (child FK), then the session score
+    existing_score = await db.execute(
+        select(SessionScore).where(SessionScore.session_id == session_id)
+    )
+    score_record = existing_score.scalar_one_or_none()
+    if score_record:
+        # Delete all score details for this score
+        detail_result = await db.execute(
+            select(ScoreDetail).where(ScoreDetail.score_id == score_record.id)
+        )
+        for detail in detail_result.scalars().all():
+            await db.delete(detail)
+        await db.delete(score_record)
+        await db.flush()
+
+    # Reset session status to completed so score_session can process it
+    session.status = "completed"
+    session.overall_score = None
+    session.passed = None
+    await db.flush()
+
+    # Run normal scoring pipeline (reuses current rubric dimensions)
+    return await score_session(db, session_id)
 
 
 async def get_session_score(db: AsyncSession, session_id: str) -> SessionScore | None:
@@ -253,9 +311,7 @@ async def get_score_history(db: AsyncSession, user_id: str, limit: int = 10) -> 
     return history
 
 
-async def get_combined_score_report(
-    db: AsyncSession, session_id: str, user_id: str
-) -> dict:
+async def get_combined_score_report(db: AsyncSession, session_id: str, user_id: str) -> dict:
     """Get combined content + voice scoring report for a session (D-09, D-11).
 
     Separates ScoreDetail records by category and computes combined overall score
@@ -273,9 +329,7 @@ async def get_combined_score_report(
     if not session:
         raise NotFoundException("Session not found")
     if session.user_id != user_id:
-        raise AppException(
-            status_code=403, code="FORBIDDEN", message="Not your session"
-        )
+        raise AppException(status_code=403, code="FORBIDDEN", message="Not your session")
 
     score = session.score
     if not score:
@@ -366,5 +420,3 @@ def _extract_skill_criteria(skill: Skill | None) -> str:
         return match.group(0).strip()
 
     return ""
-
-

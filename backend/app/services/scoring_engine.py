@@ -170,9 +170,9 @@ async def score_with_llm(
     endpoint = await config_service.get_effective_endpoint(db, "azure_openai")
     api_key = await config_service.get_effective_key(db, "azure_openai")
 
-    if not endpoint or not api_key:
+    if not endpoint:
         raise ScoringUnavailableException(
-            "Content scoring unavailable: no Azure OpenAI endpoint/key configured"
+            "Content scoring unavailable: no Azure OpenAI endpoint configured"
         )
 
     # Get deployment/model name
@@ -186,10 +186,10 @@ async def score_with_llm(
     )
 
     try:
-        from openai import AsyncAzureOpenAI
+        from app.services.azure_auth import get_azure_openai_client
 
-        client = AsyncAzureOpenAI(
-            azure_endpoint=endpoint,
+        client = await get_azure_openai_client(
+            endpoint=endpoint,
             api_key=api_key,
             api_version="2024-06-01",
         )
@@ -197,6 +197,8 @@ async def score_with_llm(
         raise ScoringUnavailableException(
             "Content scoring unavailable: openai package not installed"
         )
+    except RuntimeError as exc:
+        raise ScoringUnavailableException(f"Content scoring unavailable: {exc}")
 
     # Build weights lookup from rubric dimensions for post-validation
     weights = {dim["name"]: dim["weight"] for dim in rubric_dimensions}

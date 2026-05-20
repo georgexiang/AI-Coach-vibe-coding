@@ -186,8 +186,8 @@ async def _get_openai_client(db: AsyncSession) -> tuple:
     endpoint = await config_service.get_effective_endpoint(db, "azure_openai")
     api_key = await config_service.get_effective_key(db, "azure_openai")
 
-    if not endpoint or not api_key:
-        raise ValueError("Azure OpenAI not configured: no endpoint or API key found")
+    if not endpoint:
+        raise ValueError("Azure OpenAI not configured: no endpoint found")
 
     config = await config_service.get_config(db, "azure_openai")
     from app.config import get_settings
@@ -199,10 +199,10 @@ async def _get_openai_client(db: AsyncSession) -> tuple:
         else settings.default_chat_model
     )
 
-    from openai import AsyncAzureOpenAI
+    from app.services.azure_auth import get_azure_openai_client
 
-    client = AsyncAzureOpenAI(
-        azure_endpoint=endpoint,
+    client = await get_azure_openai_client(
+        endpoint=endpoint,
         api_key=api_key,
         api_version=settings.skill_ai_api_version,
     )

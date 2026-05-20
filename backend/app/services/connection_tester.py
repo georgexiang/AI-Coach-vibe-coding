@@ -181,15 +181,18 @@ async def test_ai_foundry_endpoint(
 
 
 async def test_azure_openai(endpoint: str, api_key: str, deployment: str) -> tuple[bool, str]:
-    """Test Azure OpenAI connection by making a minimal chat completion call."""
+    """Test Azure OpenAI connection by making a minimal chat completion call.
+
+    Uses centralized azure_auth (AAD token first, API key fallback).
+    """
     valid, msg = validate_endpoint_url(endpoint)
     if not valid:
         return (False, msg)
     try:
-        from openai import AsyncAzureOpenAI
+        from app.services.azure_auth import get_azure_openai_client
 
-        client = AsyncAzureOpenAI(
-            azure_endpoint=endpoint,
+        client = await get_azure_openai_client(
+            endpoint=endpoint,
             api_key=api_key,
             api_version="2024-06-01",
             timeout=10.0,

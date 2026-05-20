@@ -83,3 +83,11 @@ known-first-party = ["app"]
 
 [tool.ruff.format]
 quote-style = "double"
+
+[tool.pyright]
+pythonVersion = "3.11"
+pythonPlatform = "All"
+venvPath = "."
+venv = ".venv"
+include = ["app", "tests", "scripts"]
+typeCheckingMode = "basic"

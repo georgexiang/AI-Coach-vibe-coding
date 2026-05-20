@@ -1,7 +1,7 @@
 {
-  "tool_name": "Read",
-  "tool_input_preview": "{\"file_path\":\"/Users/huqianghui/Downloads/1.github/AI-Coach-vibe-coding/backend/app/services/storage\"}",
-  "error": "EISDIR: illegal operation on a directory, read '/Users/huqianghui/Downloads/1.github/AI-Coach-vibe-coding/backend/app/services/storage'",
-  "timestamp": "2026-05-18T08:59:21.444Z",
-  "retry_count": 2
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"cd /Users/huqianghui/Downloads/1.github/AI-Coach-vibe-coding/backend && source .venv/bin/activate && ruff format --check app/services/scoring_service.py app/api/scoring.py\",\"description\":\"...",
+  "error": "Exit code 1\nWould reformat: app/api/scoring.py\nWould reformat: app/services/scoring_service.py\n2 files would be reformatted",
+  "timestamp": "2026-05-20T04:11:49.995Z",
+  "retry_count": 1
 }

@@ -80,9 +80,7 @@ class PackageManifest:
 # ---------------------------------------------------------------------------
 
 
-async def _collect_material_texts(
-    db: AsyncSession, skill_id: str
-) -> list[tuple[str, str]]:
+async def _collect_material_texts(db: AsyncSession, skill_id: str) -> list[tuple[str, str]]:
     """Collect (filename, text) pairs from skill reference resources.
 
     First tries already-extracted text_content. If empty, reads the file
@@ -207,27 +205,20 @@ async def _call_direct_openai(
     from app.services import config_service
 
     try:
-        from openai import AsyncAzureOpenAI
-    except ImportError:
-        return CreationResult(
-            status="error",
-            model_used=model,
-            error_detail="openai package not installed",
-        )
-
-    try:
         endpoint = await config_service.get_effective_endpoint(db, "azure_openai")
         api_key = await config_service.get_effective_key(db, "azure_openai")
 
-        if not endpoint or not api_key:
+        if not endpoint:
             return CreationResult(
                 status="error",
                 model_used=model,
                 error_detail="Azure OpenAI not configured",
             )
 
-        client = AsyncAzureOpenAI(
-            azure_endpoint=endpoint,
+        from app.services.azure_auth import get_azure_openai_client
+
+        client = await get_azure_openai_client(
+            endpoint=endpoint,
             api_key=api_key,
             api_version="2024-12-01-preview",
         )
@@ -290,7 +281,11 @@ async def create_skill_via_agent(
 
     # Truncate if needed
     if len(materials_text) > MAX_MATERIAL_LENGTH:
-        logger.warning("Materials text truncated from %d to %d chars", len(materials_text), MAX_MATERIAL_LENGTH)
+        logger.warning(
+            "Materials text truncated from %d to %d chars",
+            len(materials_text),
+            MAX_MATERIAL_LENGTH,
+        )
         materials_text = materials_text[:MAX_MATERIAL_LENGTH]
 
     # Step 2: Get creator config
@@ -308,9 +303,7 @@ async def create_skill_via_agent(
             db, materials_text, meta.agent_id, meta.agent_version, meta.model
         )
     else:
-        result = await _call_direct_openai(
-            db, materials_text, meta.template_content, meta.model
-        )
+        result = await _call_direct_openai(db, materials_text, meta.template_content, meta.model)
 
     result.skill_id = skill_id
 
@@ -545,8 +538,7 @@ async def _create_resources_from_manifest(
             db.add(resource)
 
     logger.info(
-        "Created resources from manifest for skill %s: "
-        "%d references, %d scripts, %d assets",
+        "Created resources from manifest for skill %s: %d references, %d scripts, %d assets",
         skill_id,
         len(manifest.references),
         len(manifest.scripts),

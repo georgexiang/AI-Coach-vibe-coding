@@ -1,6 +1,6 @@
 """Tests for AzureOpenAIAdapter: streaming, error handling, conversation history, availability."""
 
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 from app.services.agents.adapters.azure_openai import AzureOpenAIAdapter
 from app.services.agents.base import CoachEventType, CoachRequest
@@ -70,6 +70,12 @@ def _make_mock_client(chunks: list | None = None, error: Exception | None = None
     return mock_client
 
 
+def _set_mock_client(adapter: AzureOpenAIAdapter, mock_client) -> None:
+    """Set a mock client on adapter, bypassing lazy init."""
+    adapter._client = mock_client
+    adapter._client_initialized = True
+
+
 class TestAzureOpenAIAdapterStreaming:
     """Tests for AzureOpenAIAdapter.execute streaming."""
 
@@ -82,7 +88,7 @@ class TestAzureOpenAIAdapterStreaming:
         ]
 
         adapter = _make_adapter()
-        adapter._client = _make_mock_client(chunks)
+        _set_mock_client(adapter, _make_mock_client(chunks))
 
         request = CoachRequest(session_id="test-1", message="Hello doctor")
         events = []
@@ -104,7 +110,7 @@ class TestAzureOpenAIAdapterStreaming:
 
         adapter = _make_adapter()
         mock_client = _make_mock_client(chunks)
-        adapter._client = mock_client
+        _set_mock_client(adapter, mock_client)
 
         history = [
             {"role": "user", "content": "prior msg"},
@@ -145,7 +151,7 @@ class TestAzureOpenAIAdapterStreaming:
 
         adapter = _make_adapter()
         mock_client = _make_mock_client(chunks)
-        adapter._client = mock_client
+        _set_mock_client(adapter, mock_client)
 
         request = CoachRequest(
             session_id="test-5",
@@ -167,7 +173,7 @@ class TestAzureOpenAIAdapterStreaming:
     async def test_execute_error_handling(self):
         """Execute yields ERROR then DONE when API raises exception."""
         adapter = _make_adapter()
-        adapter._client = _make_mock_client(error=Exception("API down"))
+        _set_mock_client(adapter, _make_mock_client(error=Exception("API down")))
 
         request = CoachRequest(session_id="test-3", message="hello")
         events = []
@@ -181,9 +187,11 @@ class TestAzureOpenAIAdapterStreaming:
         assert events[1].type == CoachEventType.DONE
 
     async def test_execute_without_openai_client(self):
-        """Execute yields ERROR when client is None (openai package not installed)."""
+        """Execute yields ERROR when client is None (init failed)."""
         adapter = _make_adapter()
+        # Simulate failed initialization (no client available)
         adapter._client = None
+        adapter._client_initialized = True
 
         request = CoachRequest(session_id="test-4", message="hello")
         events = []
@@ -192,7 +200,7 @@ class TestAzureOpenAIAdapterStreaming:
 
         assert len(events) == 2
         assert events[0].type == CoachEventType.ERROR
-        assert "not installed" in events[0].content
+        assert "not installed" in events[0].content or "credentials" in events[0].content
         assert events[1].type == CoachEventType.DONE
 
     async def test_execute_streaming_params(self):
@@ -201,7 +209,7 @@ class TestAzureOpenAIAdapterStreaming:
 
         adapter = _make_adapter()
         mock_client = _make_mock_client(chunks)
-        adapter._client = mock_client
+        _set_mock_client(adapter, mock_client)
 
         request = CoachRequest(session_id="test-6", message="test")
         async for _ in adapter.execute(request):
@@ -223,7 +231,7 @@ class TestAzureOpenAIAdapterAvailability:
     """Tests for AzureOpenAIAdapter.is_available."""
 
     async def test_is_available_true(self):
-        """Adapter with all fields set returns True."""
+        """Adapter with endpoint, api_key, and deployment returns True."""
         adapter = _make_adapter()
         assert await adapter.is_available() is True
 
@@ -233,9 +241,14 @@ class TestAzureOpenAIAdapterAvailability:
         assert await adapter.is_available() is False
 
     async def test_is_available_false_missing_key(self):
-        """Adapter with empty api_key returns False."""
+        """Adapter with empty api_key and no AAD credential returns False."""
         adapter = _make_adapter(api_key="")
-        assert await adapter.is_available() is False
+        with patch(
+            "app.services.azure_auth.get_bearer_token",
+            new_callable=AsyncMock,
+            return_value=None,
+        ):
+            assert await adapter.is_available() is False
 
     async def test_is_available_false_missing_deployment(self):
         """Adapter with empty deployment returns False."""
@@ -243,10 +256,24 @@ class TestAzureOpenAIAdapterAvailability:
         assert await adapter.is_available() is False
 
     async def test_is_available_false_no_client(self):
-        """Adapter with no client (import failed) returns False."""
-        adapter = _make_adapter()
-        adapter._client = None
-        assert await adapter.is_available() is False
+        """Adapter with no api_key and no AAD credential returns False."""
+        adapter = _make_adapter(api_key="")
+        with patch(
+            "app.services.azure_auth.get_bearer_token",
+            new_callable=AsyncMock,
+            return_value=None,
+        ):
+            assert await adapter.is_available() is False
+
+    async def test_is_available_true_with_aad_only(self):
+        """Adapter with no api_key but valid AAD credential returns True."""
+        adapter = _make_adapter(api_key="")
+        with patch(
+            "app.services.azure_auth.get_bearer_token",
+            new_callable=AsyncMock,
+            return_value="fake-token",
+        ):
+            assert await adapter.is_available() is True
 
 
 class TestAzureOpenAIAdapterVersion:

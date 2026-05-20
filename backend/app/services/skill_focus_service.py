@@ -166,10 +166,10 @@ async def detect_sop_step(
     )
 
     try:
-        from openai import AsyncAzureOpenAI
+        from app.services.azure_auth import get_azure_openai_client
 
-        client = AsyncAzureOpenAI(
-            azure_endpoint=endpoint,
+        client = await get_azure_openai_client(
+            endpoint=endpoint,
             api_key=api_key,
             api_version="2024-06-01",
         )

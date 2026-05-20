@@ -34,36 +34,15 @@ REQUEST_TIMEOUT = 30.0
 # Service name for config lookup
 CU_SERVICE_NAME = "content_understanding"
 
-# Azure Cognitive Services scope for Entra ID token
-_COGNITIVE_SERVICES_SCOPE = "https://cognitiveservices.azure.com/.default"
-
 
 async def _get_auth_headers(api_key: str) -> dict[str, str]:
-    """Get authentication headers with Entra ID preferred, API Key fallback."""
-    try:
-        from azure.identity.aio import DefaultAzureCredential
+    """Get authentication headers with Entra ID preferred, API Key fallback.
 
-        credential = DefaultAzureCredential()
-        try:
-            token = await credential.get_token(_COGNITIVE_SERVICES_SCOPE)
-            logger.debug("CU auth: using Entra ID token (DefaultAzureCredential)")
-            return {
-                "Authorization": f"Bearer {token.token}",
-                "Content-Type": "application/json",
-            }
-        finally:
-            await credential.close()
-    except Exception as exc:
-        logger.debug("CU auth: DefaultAzureCredential unavailable (%s), trying API Key", exc)
+    Delegates to centralized azure_auth module.
+    """
+    from app.services.azure_auth import get_auth_headers
 
-    if api_key:
-        logger.debug("CU auth: using API Key")
-        return {
-            "Ocp-Apim-Subscription-Key": api_key,
-            "Content-Type": "application/json",
-        }
-
-    raise RuntimeError("No CU credentials available: Entra ID failed and no API Key configured")
+    return await get_auth_headers(api_key=api_key)
 
 
 # Default voice dimensions if rubric doesn't specify voice-specific ones
