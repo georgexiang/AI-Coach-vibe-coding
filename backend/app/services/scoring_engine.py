@@ -62,7 +62,7 @@ Score each dimension from 0-100 based on the actual conversation content. Be spe
 - Reference actual quotes from the MR's responses in strengths/weaknesses
 - Use the dimension criteria provided above as your scoring guide for each dimension
 - Evaluate how well the MR addressed the HCP's concerns and delivered the required information
-- "strengths" MUST contain genuinely positive observations ONLY. If the score is below 20 and there are no real strengths, use an empty array []. NEVER put negative observations in the strengths field.
+- "strengths" MUST be genuinely positive observations about the MR's performance. If there are no real strengths to report, use an empty array []. NEVER put negative, neutral, or absence-of-action observations in the strengths field. Similarly, "weaknesses" MUST be genuinely negative observations — never put positive observations there.
 
 REMINDER: Scores MUST reflect MR (role=user) performance ONLY.
 Every quote must come from MR messages marked with '>>> MR' above.
