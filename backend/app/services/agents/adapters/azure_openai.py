@@ -16,6 +16,8 @@ class AzureOpenAIAdapter(BaseCoachingAdapter):
     Uses the openai SDK with Azure configuration to provide real AI-powered
     coaching conversations. Supports multi-turn dialogue via conversation_history
     and streams responses as TEXT events.
+
+    Authentication: Uses centralized azure_auth module (AAD token first, API key fallback).
     """
 
     name = "azure_openai"
@@ -32,22 +34,35 @@ class AzureOpenAIAdapter(BaseCoachingAdapter):
         self._deployment = deployment
         self._api_version = api_version
         self._client = None
+        self._client_initialized = False
         # Tracks which token limit param this deployment accepts.
         # None = not yet probed; True = max_completion_tokens; False = max_tokens
         self._use_max_completion_tokens: bool | None = None
 
-        # Conditional import inside constructor to avoid ImportError
-        # when openai is not installed (follows project convention from stt/azure.py)
-        try:
-            from openai import AsyncAzureOpenAI
+    async def _ensure_client(self) -> bool:
+        """Lazily initialize the AsyncAzureOpenAI client using centralized auth.
 
-            self._client = AsyncAzureOpenAI(
-                azure_endpoint=endpoint,
-                api_key=api_key,
-                api_version=api_version,
+        Returns True if client is ready, False otherwise.
+        """
+        if self._client_initialized:
+            return self._client is not None
+
+        self._client_initialized = True
+        try:
+            from app.services.azure_auth import get_azure_openai_client
+
+            self._client = await get_azure_openai_client(
+                endpoint=self._endpoint,
+                api_key=self._api_key,
+                api_version=self._api_version,
             )
+            return True
         except ImportError:
-            pass  # is_available() will return False
+            self._client = None
+            return False
+        except RuntimeError:
+            self._client = None
+            return False
 
     def _token_limit_kwargs(self, limit: int) -> dict:
         """Return the correct token limit kwarg for the current deployment.
@@ -61,10 +76,10 @@ class AzureOpenAIAdapter(BaseCoachingAdapter):
 
     async def execute(self, request: CoachRequest) -> AsyncIterator[CoachEvent]:
         """Execute a coaching interaction via Azure OpenAI streaming chat completion."""
-        if self._client is None:
+        if not await self._ensure_client():
             yield CoachEvent(
                 type=CoachEventType.ERROR,
-                content="Azure OpenAI error: openai package not installed",
+                content="Azure OpenAI error: openai not installed or no credentials",
             )
             yield CoachEvent(type=CoachEventType.DONE, content="")
             return
@@ -132,7 +147,19 @@ class AzureOpenAIAdapter(BaseCoachingAdapter):
 
     async def is_available(self) -> bool:
         """Check if Azure OpenAI endpoint, key, and deployment are configured."""
-        return bool(self._endpoint and self._api_key and self._deployment and self._client)
+        if not (self._endpoint and self._deployment):
+            return False
+        # Need either api_key or the ability to get AAD token
+        if self._api_key:
+            return True
+        # Try to check if AAD credential is available
+        try:
+            from app.services.azure_auth import get_bearer_token
+
+            token = await get_bearer_token()
+            return token is not None
+        except Exception:
+            return False
 
     async def get_version(self) -> str | None:
         """Get adapter version info."""

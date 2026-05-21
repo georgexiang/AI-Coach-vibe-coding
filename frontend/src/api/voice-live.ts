@@ -36,10 +36,9 @@ export async function persistTranscriptMessage(
   role: "user" | "assistant",
   content: string,
 ): Promise<void> {
-  await apiClient.post(`/sessions/${sessionId}/messages`, {
+  await apiClient.post(`/sessions/${sessionId}/transcript`, {
     message: content,
     role,
-    source: "voice_transcript",
   });
 }
 

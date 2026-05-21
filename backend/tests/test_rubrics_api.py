@@ -224,3 +224,44 @@ class TestDeleteRubricEndpoint:
             headers={"Authorization": f"Bearer {token}"},
         )
         assert response.status_code == 404
+
+
+class TestCuPortalUrlEndpoint:
+    """Tests for GET /api/v1/rubrics/{id}/cu-portal-url."""
+
+    async def test_returns_cu_portal_info(self, client):
+        _, token = await _create_admin_and_token()
+        create_resp = await client.post(
+            "/api/v1/rubrics",
+            json=_make_rubric_payload(),
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        rubric_id = create_resp.json()["id"]
+
+        response = await client.get(
+            f"/api/v1/rubrics/{rubric_id}/cu-portal-url",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "cu_content_analyzer_id" in data
+        assert "cu_voice_analyzer_id" in data
+        assert "content_analyzer_url" in data
+        assert "voice_analyzer_url" in data
+        assert "cu_endpoint" in data
+
+    async def test_nonexistent_rubric_returns_404(self, client):
+        _, token = await _create_admin_and_token()
+        response = await client.get(
+            "/api/v1/rubrics/nonexistent-id/cu-portal-url",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 404
+
+    async def test_non_admin_gets_403(self, client):
+        _, token = await _create_user_and_token()
+        response = await client.get(
+            "/api/v1/rubrics/some-id/cu-portal-url",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 403

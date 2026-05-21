@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 from app.models.hcp_profile import HcpProfile
 from app.models.scenario import Scenario
 from app.models.score import ScoreDetail, SessionScore
+from app.models.scoring_rubric import ScoringRubric
 from app.models.session import CoachingSession
 from app.models.user import User
 from app.services.auth import create_access_token, get_password_hash
@@ -283,11 +284,23 @@ async def _create_user_with_data_and_token() -> tuple[str, str]:
         session.add(hcp)
         await session.flush()
 
+        rubric = ScoringRubric(
+            name="Test Rubric",
+            scenario_type="f2f",
+            dimensions="[]",
+            is_default=True,
+            created_by=admin.id,
+        )
+        session.add(rubric)
+        await session.flush()
+
         scenario = Scenario(
             name="Edge Scenario",
-            product="Drug",
+            tags="[]",
             status="active",
             hcp_profile_id=hcp.id,
+            rubric_id=rubric.id,
+            skill_id="test-skill-id",
             created_by=admin.id,
         )
         session.add(scenario)

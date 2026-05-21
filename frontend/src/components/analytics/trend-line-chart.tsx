@@ -57,7 +57,7 @@ export function TrendLineChart({ data, height = 300 }: TrendLineChartProps) {
           <Line
             type="monotone"
             dataKey="overall"
-            name={t("avgScore", { defaultValue: "Overall" })}
+            name={t("avgScore")}
             stroke="#0F172A"
             strokeWidth={2}
             dot={{ r: 4 }}

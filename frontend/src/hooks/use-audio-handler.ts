@@ -115,5 +115,6 @@ export function useAudioHandler() {
     cleanup,
     isRecording,
     analyserRef,
+    streamRef,
   };
 }

@@ -7,6 +7,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.models.hcp_profile import HcpProfile
 from app.models.scenario import Scenario
 from app.models.skill import Skill, SkillVersion
 from app.schemas.scenario import ScenarioCreate, ScenarioUpdate
@@ -14,6 +15,12 @@ from app.services import hcp_profile_service
 from app.utils.exceptions import bad_request, not_found
 
 logger = logging.getLogger(__name__)
+
+VALID_TRANSITIONS: dict[str, set[str]] = {
+    "draft": {"active"},
+    "active": {"archived"},
+    # archived: no outgoing transitions (clone creates a new draft instead)
+}
 
 
 async def _validate_and_pin_skill(
@@ -67,6 +74,20 @@ async def _trigger_agent_resync(db: AsyncSession, hcp_profile_id: str) -> None:
         logger.warning("Agent re-sync after skill assignment failed: %s", e)
 
 
+async def _reload_with_hcp(db: AsyncSession, scenario_id: str) -> Scenario:
+    """Re-load a scenario with eagerly-loaded HCP profile after a mutation."""
+    result = await db.execute(
+        select(Scenario)
+        .options(
+            selectinload(Scenario.hcp_profile).selectinload(
+                HcpProfile.voice_live_instance
+            )
+        )
+        .where(Scenario.id == scenario_id)
+    )
+    return result.scalar_one()
+
+
 async def create_scenario(db: AsyncSession, data: ScenarioCreate, user_id: str) -> Scenario:
     """Create a new scenario. Verifies the referenced HCP profile exists."""
     # Verify HCP profile exists
@@ -75,9 +96,11 @@ async def create_scenario(db: AsyncSession, data: ScenarioCreate, user_id: str) 
     scenario_data = data.model_dump()
     scenario_data["created_by"] = user_id
 
-    # Serialize key_messages list to JSON string
+    # Serialize list fields to JSON strings
     if isinstance(scenario_data.get("key_messages"), list):
         scenario_data["key_messages"] = json.dumps(scenario_data["key_messages"])
+    if isinstance(scenario_data.get("tags"), list):
+        scenario_data["tags"] = json.dumps(scenario_data["tags"])
 
     # Validate and pin skill version
     skill_id, skill_version_id = await _validate_and_pin_skill(db, scenario_data.get("skill_id"))
@@ -93,7 +116,7 @@ async def create_scenario(db: AsyncSession, data: ScenarioCreate, user_id: str) 
     if skill_id:
         await _trigger_agent_resync(db, scenario.hcp_profile_id)
 
-    return scenario
+    return await _reload_with_hcp(db, scenario.id)
 
 
 async def get_scenarios(
@@ -105,7 +128,9 @@ async def get_scenarios(
     search: str | None = None,
 ) -> tuple[list[Scenario], int]:
     """List scenarios with optional filters and eager-loaded HCP profile."""
-    query = select(Scenario).options(selectinload(Scenario.hcp_profile))
+    query = select(Scenario).options(
+        selectinload(Scenario.hcp_profile).selectinload(HcpProfile.voice_live_instance)
+    )
 
     if status:
         query = query.where(Scenario.status == status)
@@ -147,7 +172,11 @@ async def get_scenario(db: AsyncSession, scenario_id: str) -> Scenario:
     """Get a single scenario with eager-loaded HCP profile. Raises 404 if not found."""
     result = await db.execute(
         select(Scenario)
-        .options(selectinload(Scenario.hcp_profile))
+        .options(
+            selectinload(Scenario.hcp_profile).selectinload(
+                HcpProfile.voice_live_instance
+            )
+        )
         .where(Scenario.id == scenario_id)
     )
     scenario = result.scalar_one_or_none()
@@ -156,14 +185,45 @@ async def get_scenario(db: AsyncSession, scenario_id: str) -> Scenario:
     return scenario
 
 
+async def transition_scenario_status(
+    db: AsyncSession, scenario_id: str, new_status: str
+) -> Scenario:
+    """Transition scenario to a new status. Validates against allowed transitions."""
+    scenario = await get_scenario(db, scenario_id)
+    allowed = VALID_TRANSITIONS.get(scenario.status, set())
+    if new_status not in allowed:
+        bad_request(
+            f"Cannot transition from '{scenario.status}' to '{new_status}'. "
+            f"Allowed: {allowed or 'none (terminal state)'}"
+        )
+    scenario.status = new_status
+    await db.flush()
+    return await _reload_with_hcp(db, scenario.id)
+
+
 async def update_scenario(db: AsyncSession, scenario_id: str, data: ScenarioUpdate) -> Scenario:
     """Update an existing scenario with partial data."""
     scenario = await get_scenario(db, scenario_id)
+    if scenario.status == "archived":
+        bad_request("Cannot edit an archived scenario. Clone it to create a new draft.")
     update_data = data.model_dump(exclude_unset=True)
 
-    # Serialize key_messages list to JSON string
+    # Active scenarios: block changes to critical fields (HCP, Skill, Rubric, key_messages)
+    # These affect live training sessions. To change them, archive → clone → edit draft.
+    if scenario.status == "active":
+        protected_fields = {"hcp_profile_id", "skill_id", "rubric_id", "key_messages"}
+        attempted = protected_fields & set(update_data.keys())
+        if attempted:
+            bad_request(
+                f"Cannot change {', '.join(sorted(attempted))} on an active scenario. "
+                "Archive it first, then clone to create a new draft."
+            )
+
+    # Serialize list fields to JSON strings
     if "key_messages" in update_data and isinstance(update_data["key_messages"], list):
         update_data["key_messages"] = json.dumps(update_data["key_messages"])
+    if "tags" in update_data and isinstance(update_data["tags"], list):
+        update_data["tags"] = json.dumps(update_data["tags"])
 
     # If HCP profile ID is being changed, verify the new one exists
     if "hcp_profile_id" in update_data:
@@ -183,13 +243,12 @@ async def update_scenario(db: AsyncSession, scenario_id: str, data: ScenarioUpda
         setattr(scenario, field, value)
 
     await db.flush()
-    await db.refresh(scenario)
 
     # Trigger agent re-sync if skill changed
     if skill_changed:
         await _trigger_agent_resync(db, scenario.hcp_profile_id)
 
-    return scenario
+    return await _reload_with_hcp(db, scenario.id)
 
 
 async def delete_scenario(db: AsyncSession, scenario_id: str) -> None:
@@ -206,8 +265,7 @@ async def clone_scenario(db: AsyncSession, scenario_id: str, user_id: str) -> Sc
     clone = Scenario(
         name=f"{original.name} (Copy)",
         description=original.description,
-        product=original.product,
-        therapeutic_area=original.therapeutic_area,
+        tags=original.tags,
         mode=original.mode,
         difficulty=original.difficulty,
         status="draft",
@@ -215,15 +273,10 @@ async def clone_scenario(db: AsyncSession, scenario_id: str, user_id: str) -> Sc
         key_messages=original.key_messages,
         skill_id=original.skill_id,
         skill_version_id=original.skill_version_id,
-        weight_key_message=original.weight_key_message,
-        weight_objection_handling=original.weight_objection_handling,
-        weight_communication=original.weight_communication,
-        weight_product_knowledge=original.weight_product_knowledge,
-        weight_scientific_info=original.weight_scientific_info,
+        rubric_id=original.rubric_id,
         pass_threshold=original.pass_threshold,
         created_by=user_id,
     )
     db.add(clone)
     await db.flush()
-    await db.refresh(clone)
-    return clone
+    return await _reload_with_hcp(db, clone.id)

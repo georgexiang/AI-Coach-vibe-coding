@@ -304,11 +304,7 @@ SEED_SCENARIOS = [
                 "Patient support program (百济患者关爱计划) available for cost management",
             ]
         ),
-        "weight_key_message": 30,
-        "weight_objection_handling": 25,
-        "weight_communication": 20,
-        "weight_product_knowledge": 15,
-        "weight_scientific_info": 10,
+        # rubric_id resolved at seed time from default rubric
         "pass_threshold": 70,
     },
     {
@@ -332,11 +328,7 @@ SEED_SCENARIOS = [
                 "Approved for esophageal squamous cell carcinoma and NSCLC indications",
             ]
         ),
-        "weight_key_message": 30,
-        "weight_objection_handling": 25,
-        "weight_communication": 20,
-        "weight_product_knowledge": 15,
-        "weight_scientific_info": 10,
+        # rubric_id resolved at seed time from default rubric
         "pass_threshold": 70,
     },
     {
@@ -360,11 +352,7 @@ SEED_SCENARIOS = [
                 "SEQUOIA trial: 85% 24-month PFS in first-line CLL/SLL, superior to BR regimen",
             ]
         ),
-        "weight_key_message": 25,
-        "weight_objection_handling": 20,
-        "weight_communication": 25,
-        "weight_product_knowledge": 15,
-        "weight_scientific_info": 15,
+        # rubric_id resolved at seed time — uses conference rubric if available
         "pass_threshold": 70,
     },
     {
@@ -389,12 +377,74 @@ SEED_SCENARIOS = [
                 "Active combination studies with BRUKINSA® in B-cell malignancies",
             ]
         ),
-        "weight_key_message": 25,
-        "weight_objection_handling": 15,
-        "weight_communication": 25,
-        "weight_product_knowledge": 20,
-        "weight_scientific_info": 15,
+        # rubric_id resolved at seed time — uses conference rubric if available
         "pass_threshold": 70,
+    },
+    {
+        "name": "Conference: BTK Inhibitor Symposium (会议: BTK抑制剂专题研讨)",
+        "description": (
+            "Lead a roundtable discussion on next-generation BTK inhibitors at an "
+            "international hematology symposium. Present real-world BRUKINSA® data and "
+            "compare with first-generation agents. Panel format with audience Q&A."
+        ),
+        "tags": json.dumps(["product:Zanubrutinib", "area:Hematology"]),
+        "mode": "conference",
+        "difficulty": "hard",
+        "status": "active",
+        "hcp_name": "Dr. Zhang Wei (张维)",
+        "key_messages": json.dumps(
+            [
+                "Next-gen BTK inhibitor with higher selectivity for BTK over TEC kinases",
+                "Real-world data confirms lower AF rate (2.5%) vs ibrutinib (10.1%)",
+                "Consistent PFS benefit across CLL, MCL, WM, and MZL subtypes",
+                "Ongoing global Phase III trials expanding evidence base",
+            ]
+        ),
+        "pass_threshold": 75,
+    },
+    {
+        "name": "Conference: Anti-PD-1 Safety Forum (会议: 抗PD-1安全性论坛)",
+        "description": (
+            "Present tislelizumab safety and tolerability data at a hospital grand rounds. "
+            "Address immune-related adverse event management strategies and "
+            "compare with other anti-PD-1 agents in clinical practice."
+        ),
+        "tags": json.dumps(["product:Tislelizumab", "area:Immuno-Oncology"]),
+        "mode": "conference",
+        "difficulty": "medium",
+        "status": "active",
+        "hcp_name": "Dr. Li Mei (李梅)",
+        "key_messages": json.dumps(
+            [
+                "Low myocarditis incidence (<1%) across all tislelizumab trials",
+                "Fc-engineering reduces off-target immune activation",
+                "irAE management protocol: early detection and steroid guidelines",
+                "Favorable benefit-risk ratio supports long-term treatment continuation",
+            ]
+        ),
+        "pass_threshold": 70,
+    },
+    {
+        "name": "Conference: NSCLC Treatment Landscape (会议: NSCLC治疗格局报告)",
+        "description": (
+            "Deliver a plenary talk on the evolving NSCLC treatment landscape, "
+            "positioning tislelizumab combination therapy within current guidelines. "
+            "Audience includes senior oncologists, fellows, and industry representatives."
+        ),
+        "tags": json.dumps(["product:Tislelizumab", "area:Thoracic Oncology"]),
+        "mode": "conference",
+        "difficulty": "easy",
+        "status": "active",
+        "hcp_name": "Dr. Chen Jun (陈军)",
+        "key_messages": json.dumps(
+            [
+                "RATIONALE-306: tislelizumab + chemo significantly improves PFS in 1L sq NSCLC",
+                "Consistent OS benefit across PD-L1 expression subgroups",
+                "Manageable safety profile enables combination with multiple chemo backbones",
+                "NMPA-approved for 1L NSCLC, ESCC, and classical Hodgkin lymphoma",
+            ]
+        ),
+        "pass_threshold": 65,
     },
 ]
 
@@ -438,6 +488,31 @@ async def seed_phase2() -> None:
             hcp_map[name] = profile.id
             print(f"  [created] HCP profile '{name}' ({profile_data['specialty']})")
 
+        # Resolve default rubric for scenario creation
+        from app.models.scoring_rubric import ScoringRubric
+
+        rubric_result = await session.execute(
+            select(ScoringRubric).where(
+                ScoringRubric.is_default == True,  # noqa: E712
+                ScoringRubric.scenario_type == "f2f",
+            )
+        )
+        default_rubric = rubric_result.scalar_one_or_none()
+        if default_rubric is None:
+            print("  [warn] No default rubric found; scenarios will not be seeded")
+        default_rubric_id = default_rubric.id if default_rubric else None
+
+        # Resolve a published skill for scenario creation
+        from app.models.skill import Skill
+
+        skill_result = await session.execute(
+            select(Skill).where(Skill.status == "published").limit(1)
+        )
+        default_skill = skill_result.scalar_one_or_none()
+        default_skill_id = default_skill.id if default_skill else None
+        if default_skill_id is None:
+            print("  [warn] No published skill found; scenarios may fail to seed")
+
         # Seed scenarios
         print("Seeding scenarios...")
         for scenario_data in SEED_SCENARIOS:
@@ -447,20 +522,38 @@ async def seed_phase2() -> None:
                 print(f"  [skip] Scenario '{name}' already exists")
                 continue
 
+            if default_rubric_id is None:
+                print(f"  [skip] No rubric available for scenario '{name}'")
+                continue
+
             # Resolve HCP profile ID from name
-            hcp_name = scenario_data.pop("hcp_name")
+            data = dict(scenario_data)  # copy to avoid mutating constant
+            hcp_name = data.pop("hcp_name")
+            # Convert product/therapeutic_area to tags if present (legacy format)
+            product = data.pop("product", "")
+            therapeutic_area = data.pop("therapeutic_area", "")
+            if "tags" not in data and (product or therapeutic_area):
+                tag_list = []
+                if product:
+                    tag_list.append(f"product:{product}")
+                if therapeutic_area:
+                    tag_list.append(f"area:{therapeutic_area}")
+                data["tags"] = json.dumps(tag_list)
+
             hcp_id = hcp_map.get(hcp_name)
             if hcp_id is None:
-                print(f"  [error] HCP profile '{hcp_name}' not found, skipping scenario '{name}'")
+                print(f"  [error] HCP '{hcp_name}' not found, skipping '{name}'")
                 continue
 
             scenario = Scenario(
-                **scenario_data,
+                **data,
                 hcp_profile_id=hcp_id,
+                rubric_id=default_rubric_id,
+                skill_id=default_skill_id,
                 created_by=admin_id,
             )
             session.add(scenario)
-            print(f"  [created] Scenario '{name}' (product={scenario_data['product']})")
+            print(f"  [created] Scenario '{name}' (mode={data.get('mode', 'f2f')})")
 
         await session.commit()
 

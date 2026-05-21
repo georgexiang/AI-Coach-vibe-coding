@@ -30,6 +30,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 16: Voice Live Refactor — Modularize, Agent Mode, Sync** - 前端 Voice Live 模块化复用，后端 WebSocket 双模式（Model+Agent），SDK 升级 1.2.0b5，HCP voice 配置同步到 AI Foundry Agent (completed 2026-04-10)
 - [x] **Phase 17: Agent Knowledge Base — Foundry IQ Integration** - HCP Agent 知识库管理：连接 Azure AI Search / Foundry IQ，上传训练材料自动创建知识库索引，知识库配置同步到 AI Foundry Agent (completed 2026-04-10)
 - [x] **Phase 18: Training Material Download & Preview** - 培训材料文件下载和在线预览：后端添加文件下载 API，前端 PDF 在线预览、DOCX/XLSX 下载，修复 storage_url 信息泄露 (completed 2026-04-10)
+- [x] **Phase 21: Scoring Criteria Refactor** - 评分标准模块重构，消除硬编码维度，ScoringRubric 升级为评分唯一权威来源，支持动态自定义维度 (completed 2026-04-28)
 
 ## Phase Details
 
@@ -223,7 +224,7 @@ Phases execute in numeric order: 01 -> 01.1 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07 
 | 17. Agent Knowledge Base — Foundry IQ Integration | 3/3 | Complete   | 2026-04-10 |
 | 18. Training Material Download & Preview | 3/3 | Complete | 2026-04-10 |
 | 19. AI Coach Skill Module | 6/8 | In Progress|  |
-| 20. Skill Dry Run Simulation | 0/? | Not Started | - |
+| 20. Skill Dry Run Simulation | 5/5 | Complete   | 2026-04-26 |
 
 ### Phase 16: Voice Live Refactor — Modularize, Agent Mode, Sync
 
@@ -537,9 +538,150 @@ Plans:
 - 多轮 Dry Run 历史对比
 - Skill 编辑器中集成 Dry Run 入口
 
-**Requirements**: TBD
+**Requirements**: DR-01, DR-02, DR-03, DR-04, DR-05, DR-06, DR-07, DR-08
 **Depends on:** Phase 19
+**Plans:** 5/5 plans complete
+
+**Success Criteria** (what must be TRUE):
+  1. Admin can trigger a Dry Run from the Skill Editor; system simulates a complete MR-HCP conversation using AI agents
+  2. SOP steps are extracted from Skill content and tracked for coverage during simulation
+  3. Dry Run report shows executability score, SOP coverage percentage, and identified issues
+  4. Report page provides 3 sub-tabs: Conversation transcript, SOP Coverage map, Issues list
+  5. Quality tab in Skill Editor shows Dry Run history with comparison chart across multiple runs
+  6. All dry run data persists to database (DryRun + DryRunMessage tables)
+  7. Backend tests cover engine helpers and API endpoints
+  8. i18n complete in both en-US and zh-CN
+
+Plans:
+- [x] 20-01-PLAN.md -- Backend data foundation: DryRun/DryRunMessage ORM models, Alembic migration, Pydantic schemas, CRUD service, REST API
+- [x] 20-02-PLAN.md -- Dry Run simulation engine: AI MR+HCP orchestration, SOP extraction, coverage tracking, background task
+- [x] 20-03-PLAN.md -- Frontend data layer: TypeScript types, API client, TanStack Query hooks, i18n translations
+- [x] 20-04-PLAN.md -- Dry Run Report page: 6 shared components, report page with 3 sub-tabs, route registration
+- [x] 20-05-PLAN.md -- Skill Editor integration: DryRunButton, DryRunProgress, DryRunHistoryList, backend tests
+
+**UI hint**: yes
+
+### Phase 21: Scoring Criteria Refactor — 评分标准模块重构，动态维度驱动
+
+**Goal:** 重构评分标准模块，消除5个评分维度在 Scenario 模型、Scoring Engine Prompt、Mock Score Generator、前端 ScoringWeights 组件中的硬编码。将 ScoringRubric 升级为评分的唯一权威来源（Single Source of Truth），支持管理员自定义评分维度名称/数量/权重/评分标准，所有评分流程（LLM评分、Mock评分、前端展示）统一从 Rubric 动态读取。
+
+**Key deliverables:**
+- 将 Scenario 模型中5个固定权重列迁移为 rubric_id 外键引用
+- Scoring Engine Prompt 模板改为从 Rubric 动态生成维度指令
+- Mock Score Generator 支持任意维度数量
+- 前端 ScoringWeights 组件改为从 Rubric 动态渲染
+- 评分反馈页面（RadarChart、DimensionBars、FeedbackCard）支持动态维度
+- 确保 Skill Assessment Criteria 与新 Rubric 系统兼容
+- 数据迁移：将现有 Scenario 权重数据迁移到 Rubric 记录
+
+**Requirements**: SCORE-01, SCORE-02, SCORE-03, SCORE-04, SCORE-05
+**Depends on:** Phase 03
+**Plans:** 3 plans
+
+Plans:
+- [ ] 21-01-PLAN.md -- Backend: Scenario model rubric_id FK, scoring engine dynamic prompt, mock scorer, analytics fix, seed data
+- [ ] 21-02-PLAN.md -- Frontend: TypeScript types, dimension display utility, ScenarioEditor rubric selector, i18n keys
+- [ ] 21-03-PLAN.md -- Integration: Alembic migration push, backend test fixes, frontend build verification
+
+**Success Criteria** (what must be TRUE):
+  1. Admin 可以创建含任意数量自定义维度的 Rubric，每个维度有名称、权重、评分标准、满分值
+  2. Scenario 通过 rubric_id 引用 Rubric，不再有硬编码的 weight_* 列
+  3. LLM 评分引擎从 Rubric 动态构建 prompt，维度名称和评分标准来自 Rubric 配置
+  4. Mock 评分生成器支持任意维度数量，不依赖硬编码维度名
+  5. 前端评分反馈页面（RadarChart、DimensionBars、FeedbackCard）根据 Rubric 维度动态渲染
+  6. 前端 ScoringWeights 组件从 Rubric 维度动态生成滑块，不再硬编码5个维度
+  7. Alembic 数据迁移将现有 Scenario 权重数据转换为 Rubric 记录
+  8. 所有现有评分测试通过，新增动态维度场景的测试覆盖
+
+**UI hint**: yes
+
+
+### Phase 22: 对Scenarios 模块进行二次重构
+
+**Goal:** Scenarios module second refactor: Editor full-page route-based, I18N complete, metadata to tags system, state machine (draft/active/archived), skill_id NOT NULL, global hardcoded enum elimination via DB config table.
+**Requirements**: D-01, D-02, D-03, D-04, D-05, D-06, D-07
+**Depends on:** Phase 21
+**Plans:** 12 plans (6 original + 6 gap closure)
+
+Plans:
+- [x] 22-01-PLAN.md -- Backend model prep and full-page editor scaffolding
+- [x] 22-02-PLAN.md -- Backend state machine and tags foundation
+- [x] 22-03-PLAN.md -- Backend system enums and skill NOT NULL
+- [x] 22-04-PLAN.md -- Frontend types, hooks, and editor page
+- [x] 22-05-PLAN.md -- Frontend table, list page, and wiring
+- [x] 22-06-PLAN.md -- I18N global audit (non-scenario pages)
+- [ ] 22-07-PLAN.md -- [Gap closure] Backend model + schema + migration chain fix (tags, skill_id, archived)
+- [ ] 22-08-PLAN.md -- [Gap closure] Backend service + API (state machine transitions, tags serialization)
+- [ ] 22-09-PLAN.md -- [Gap closure] System Enums full stack (model, service, API, frontend page)
+- [ ] 22-10-PLAN.md -- [Gap closure] Frontend types + API + hooks update (tags, archived, transitions)
+- [ ] 22-11-PLAN.md -- [Gap closure] Frontend list page + table wiring (navigate, tags display, transitions)
+- [ ] 22-12-PLAN.md -- [Gap closure] I18N for scenario module (locale keys, remove defaultValue)
+
+**Success Criteria** (what must be TRUE):
+  1. State machine enforces draft -> active -> archived transitions via dedicated POST /transition endpoint
+  2. System enums table replaces all hardcoded frontend constants (products, specialties, difficulties) with DB-driven values
+  3. Scenario model uses tags JSON array instead of product/therapeutic_area columns
+  4. skill_id is NOT NULL on Scenario model with RESTRICT on delete
+  5. Full-page route-based scenario editor replaces Dialog editor (old editor deleted)
+  6. I18N audit eliminates all hardcoded text and defaultValue fallbacks from scenario module
+
+**UI hint**: yes
+
+### Phase 23: Complete training session with digital human - full implementation and refactoring
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 22
 **Plans:** 0 plans
 
 Plans:
-- [ ] TBD (run /gsd-plan-phase 20 to break down)
+- [ ] TBD (run /gsd-plan-phase 23 to break down)
+
+
+### Phase 24: Session Skill Focus + Azure CU Evaluation — 评估模块重构
+
+**Goal:** 两大核心改进：(1) 培训 session 中 Agent 通过 thread 级 additional_instructions 动态聚焦当前 Skill SOP 内容（不修改 Agent 定义），包括 SOP 进度跟踪和分级偏题处理；(2) Session 结束后统一使用 Azure Content Understanding 自定义 Analyzer 评估所有维度（替代 LLM scoring_engine），内容评估走 CU transcript，语音评估走 CU audio，分层合并为综合评分。
+**Requirements**: D-01, D-02, D-03, D-04, D-05, D-06, D-07, D-08, D-09, D-10, D-11, D-12, D-13, D-14, D-15, D-16
+**Depends on:** Phase 23
+**Plans:** 5/5 plans complete
+
+**Success Criteria** (what must be TRUE):
+  1. Session 创建时，系统从 Skill SOP 生成 focus_instruction 快照并持久化到 DB (D-03)
+  2. 每次用户发消息后，LLM 判断当前 SOP 步骤，更新 additional_instructions 中的进度提示 (D-05, D-06)
+  3. Agent 严格围绕 SOP 内容讨论，轻微偏离温和引导，完全无关话题硬性阻断 (D-04)
+  4. Agent 定义完全不修改，Skill Focus 仅通过 run 级 additional_instructions 注入 (D-01)
+  5. Rubric 保存时自动创建/更新对应的 CU Custom Analyzer (D-09)
+  6. Session 结束后，内容评估提交 transcript JSON 给 CU，语音评估提交音频给 CU (D-10)
+  7. 评分分层合并：内容总分 * content_weight + 语音总分 * voice_weight (D-11, D-12)
+  8. 纯文本 session 仅做内容评估 (D-13)；语音 session 做双维度评估 (D-14)
+  9. 前端 Rubric 编辑器新增 content_weight/voice_weight 滑块 (D-12)
+  10. 前端评分反馈页显示内容/语音类别分项得分
+
+Plans:
+- [x] 24-01-PLAN.md -- Backend data foundation: Alembic migration (focus_instruction, sop_current_step, content_weight, voice_weight, cu_analyzer_ids), ORM + schema extensions
+- [x] 24-02-PLAN.md -- Skill Focus Service: compose_focus_instruction, extract_sop_steps, detect_sop_step (LLM classification)
+- [x] 24-03-PLAN.md -- CU Evaluation Service: analyzer schema builder, CU scoring (content + voice), layered merge, rubric sync hook
+- [x] 24-04-PLAN.md -- Session integration: focus_instruction snapshot on create, SOP progress per message, scoring_service uses CU
+- [x] 24-05-PLAN.md -- Frontend (rubric weight sliders, scoring subtotal badges, i18n) + backend unit tests
+
+**UI hint**: yes
+
+### Phase 25: Refactor user training pages - fix data display, scoring logic, and dashboard/reports deduplication
+
+**Goal:** Fix remaining data display issues in user training pages (scoring feedback shows raw IDs, hardcoded mode), resolve Dashboard/Reports content duplication, and ensure proper test coverage for all refactored pages.
+**Requirements**: P25-01, P25-02, P25-03, P25-04, P25-05
+**Depends on:** Phase 24
+**Plans:** 2 plans
+
+Plans:
+- [ ] 25-01-PLAN.md -- Fix scoring feedback metadata (scenario_name, mode) + deduplicate Dashboard/Reports stat overlap
+- [ ] 25-02-PLAN.md -- Update test suites for scoring-feedback, reports, and dashboard changes
+
+**Success Criteria** (what must be TRUE):
+  1. Scoring feedback page displays scenario name (not UUID) and localized session mode (not hardcoded "F2F")
+  2. Reports page uses compact summary bar instead of duplicate 4-card stat grid from Dashboard
+  3. Dashboard includes link to Reports page for detailed analysis
+  4. All frontend tests pass with new assertions covering the refactored behavior
+  5. TypeScript compiles and frontend builds without errors
+
+**UI hint**: yes

@@ -51,27 +51,19 @@ async def _create_scenario(
     created_by: str,
     name: str = "Test Scenario",
     status: str = "active",
-    product: str = "TestDrug",
     difficulty: str = "medium",
-    weight_key_message: int = 30,
-    weight_objection_handling: int = 25,
-    weight_communication: int = 20,
-    weight_product_knowledge: int = 15,
-    weight_scientific_info: int = 10,
+    rubric_id: str = "test-rubric-id",
 ) -> Scenario:
     """Helper to create a scenario."""
     scenario = Scenario(
         name=name,
-        product=product,
+        tags="[]",
         difficulty=difficulty,
         status=status,
         hcp_profile_id=hcp_id,
         created_by=created_by,
-        weight_key_message=weight_key_message,
-        weight_objection_handling=weight_objection_handling,
-        weight_communication=weight_communication,
-        weight_product_knowledge=weight_product_knowledge,
-        weight_scientific_info=weight_scientific_info,
+        rubric_id=rubric_id,
+        skill_id="test-skill-id",
     )
     session.add(scenario)
     await session.flush()
@@ -581,7 +573,6 @@ class TestGetRecommendedScenarios:
             created_by=user.id,
             name="High ObjH Scenario",
             status="active",
-            weight_objection_handling=40,
         )
         # Create another active scenario
         await _create_scenario(
@@ -626,7 +617,6 @@ class TestGetRecommendedScenarios:
             created_by=user.id,
             name="Only Scenario",
             status="active",
-            weight_key_message=50,
         )
         # User just completed this scenario (within recent 5)
         cs = await _create_scored_session(
@@ -724,7 +714,6 @@ class TestGetRecommendedScenarios:
                 created_by=user.id,
                 name=f"Scenario {i}",
                 status="active",
-                weight_key_message=30 + i,
             )
 
         # Create an old scored session with key_message as weakest

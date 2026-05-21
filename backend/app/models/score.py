@@ -37,6 +37,9 @@ class ScoreDetail(Base, TimestampMixin):
     strengths: Mapped[str] = mapped_column(Text, default="[]")  # JSON array of {text, quote}
     weaknesses: Mapped[str] = mapped_column(Text, default="[]")  # JSON array of {text, quote}
     suggestions: Mapped[str] = mapped_column(Text, default="[]")  # JSON array of strings
+    category: Mapped[str] = mapped_column(
+        String(20), server_default="content"
+    )  # "content" or "voice"
 
     # Relationships
     session_score = relationship("SessionScore", back_populates="details")

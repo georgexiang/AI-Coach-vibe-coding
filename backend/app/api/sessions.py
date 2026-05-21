@@ -1,8 +1,9 @@
 """Session lifecycle API: create, message with SSE streaming, end, list."""
 
+import asyncio
 import json
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 from sse_starlette.sse import EventSourceResponse
 
@@ -15,6 +16,7 @@ from app.schemas.session import (
     SendMessageRequest,
     SessionCreate,
     SessionResponse,
+    TranscriptMessageRequest,
 )
 from app.schemas.suggestion import SuggestionResponse
 from app.services import session_service
@@ -22,6 +24,7 @@ from app.services.agents.base import CoachEventType, CoachRequest
 from app.services.agents.registry import registry
 from app.services.prompt_builder import build_hcp_system_prompt
 from app.services.report_service import generate_report
+from app.services.scoring_service import resolve_rubric_dimensions
 from app.services.suggestion_service import generate_suggestions, parse_key_messages_status
 from app.utils.exceptions import AppException
 from app.utils.pagination import PaginatedResponse
@@ -47,6 +50,8 @@ async def create_session(
             "Voice Live is not enabled by the administrator.",
         )
     session = await session_service.create_session(db, request.scenario_id, user.id, request.mode)
+    # Eagerly load relationships needed by SessionResponse (scenario_name, message_count)
+    await db.refresh(session, attribute_names=["scenario", "messages"])
     return session
 
 
@@ -133,17 +138,34 @@ async def send_message(
         history_messages = await session_service.get_session_messages(db, session_id)
         conversation_history = [{"role": m.role, "content": m.content} for m in history_messages]
 
+        # Phase 24: Update SOP progress and get focus instruction for this run (D-01, D-05, D-06)
+        msg_dicts_for_sop = [{"role": m.role, "content": m.content} for m in history_messages]
+        focus_instruction = await session_service.update_sop_progress(
+            db, session, msg_dicts_for_sop
+        )
+
+        # Phase 24: Prepend focus_instruction to scenario context for text-mode SSE (D-01)
+        scenario_context = hcp_prompt
+        if focus_instruction:
+            scenario_context = focus_instruction + "\n\n" + scenario_context
+        # Note: For agent-mode sessions (Azure Foundry SDK), focus_instruction should be
+        # passed as the `additional_instructions` parameter on the agent run.
+
         # Build coach request
         hcp_dict = None
         if session.scenario.hcp_profile:
             hcp_dict = session.scenario.hcp_profile.to_prompt_dict()
 
+        # Build scoring weights from rubric dimensions (D-05)
+        rubric_dims = await resolve_rubric_dimensions(db, session.scenario)
+        scoring_weights = {d["name"]: d["weight"] for d in rubric_dims}
+
         coach_request = CoachRequest(
             session_id=session_id,
             message=request.message,
-            scenario_context=hcp_prompt,
+            scenario_context=scenario_context,
             hcp_profile=hcp_dict,
-            scoring_criteria=(session.scenario.get_scoring_weights()),
+            scoring_criteria=scoring_weights,
             conversation_history=conversation_history,
         )
 
@@ -181,7 +203,7 @@ async def send_message(
                 suggestions = await generate_suggestions(
                     messages=msg_dicts,
                     key_messages_status=km_status_list,
-                    scoring_weights=session.scenario.get_scoring_weights(),
+                    scoring_weights=scoring_weights,
                 )
                 for suggestion in suggestions:
                     yield {
@@ -211,6 +233,29 @@ async def end_session(
     """End a coaching session (manual end)."""
     session = await session_service.end_session(db, session_id, user.id)
     return session
+
+
+@router.post("/{session_id}/transcript", response_model=MessageResponse, status_code=201)
+async def persist_transcript(
+    session_id: str,
+    request: TranscriptMessageRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Persist a voice transcript message without triggering LLM response.
+
+    Used by voice sessions to save transcribed speech to the database.
+    Handles session status transition (created -> in_progress) on first user message.
+    """
+    session = await session_service.get_session(db, session_id, user.id)
+    if session.status not in ("created", "in_progress"):
+        raise AppException(
+            status_code=409,
+            code="SESSION_CLOSED",
+            message="Session is no longer active",
+        )
+    message = await session_service.save_message(db, session_id, request.role, request.message)
+    return message
 
 
 @router.get(
@@ -253,9 +298,93 @@ async def get_session_suggestions(
     messages = await session_service.get_session_messages(db, session_id)
     msg_dicts = [{"role": m.role, "content": m.content} for m in messages]
     km_status_list = parse_key_messages_status(session.key_messages_status)
+    # Build scoring weights from rubric dimensions (D-05)
+    rubric_dims = await resolve_rubric_dimensions(db, session.scenario)
+    scoring_weights = {d["name"]: d["weight"] for d in rubric_dims}
     suggestions = await generate_suggestions(
         messages=msg_dicts,
         key_messages_status=km_status_list,
-        scoring_weights=session.scenario.get_scoring_weights(),
+        scoring_weights=scoring_weights,
     )
     return suggestions
+
+
+@router.post("/{session_id}/audio", status_code=201)
+async def upload_session_audio_endpoint(
+    session_id: str,
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Upload recorded audio for a session. Triggers async voice scoring."""
+    from app.services.audio_storage_service import upload_session_audio
+    from app.services.voice_scoring_service import trigger_voice_scoring
+
+    # Validate session ownership
+    session = await session_service.get_session(db, session_id, user.id)
+    if session.user_id != user.id:
+        raise HTTPException(status_code=403, detail="Not your session")
+
+    # Validate file size (50MB max)
+    content = await file.read()
+    if len(content) > 50 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Audio file too large (max 50MB)")
+
+    # Upload to storage
+    audio_url = await upload_session_audio(session_id, content, file.filename or "recording.webm")
+    session.audio_url = audio_url
+    session.voice_score_status = "pending"
+    await db.commit()
+
+    # Trigger async voice scoring after commit so background task can see the data
+    asyncio.create_task(trigger_voice_scoring(session_id))
+
+    return {"audio_url": audio_url, "voice_score_status": "pending"}
+
+
+@router.get("/{session_id}/voice-score")
+async def get_voice_score_status(
+    session_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Poll voice scoring status for a session."""
+    session = await session_service.get_session(db, session_id, user.id)
+    if session.user_id != user.id:
+        raise HTTPException(status_code=403, detail="Not your session")
+
+    return {
+        "session_id": session_id,
+        "voice_score_status": session.voice_score_status,
+        "audio_url": session.audio_url,
+    }
+
+
+@router.post("/{session_id}/voice-score/retry", status_code=202)
+async def retry_voice_scoring(
+    session_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Retry voice scoring for a session stuck in pending/failed status."""
+    from app.services.voice_scoring_service import trigger_voice_scoring
+
+    session = await session_service.get_session(db, session_id, user.id)
+    if session.user_id != user.id:
+        raise HTTPException(status_code=403, detail="Not your session")
+
+    if session.voice_score_status not in ("pending", "failed"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot retry: status is '{session.voice_score_status}'"
+        )
+
+    if not session.audio_url:
+        raise HTTPException(status_code=400, detail="No audio file to score")
+
+    session.voice_score_status = "pending"
+    await db.commit()
+
+    asyncio.create_task(trigger_voice_scoring(session_id))
+
+    return {"session_id": session_id, "voice_score_status": "pending"}

@@ -72,11 +72,12 @@ async def _setup_session(
 
         scenario = Scenario(
             name="Extended Scenario",
-            product="Brukinsa",
             hcp_profile_id=hcp.id,
             key_messages=json.dumps(["Superior PFS", "Better safety"]),
+            skill_id="test-skill-id",
             status="active",
             created_by=admin.id,
+            rubric_id="test-rubric-id",
         )
         session.add(scenario)
         await session.flush()
@@ -253,7 +254,8 @@ class TestListSessionsExtended:
     """Additional tests for GET /api/v1/sessions/."""
 
     async def test_list_sessions_pagination_shape(self, client: AsyncClient):
-        _, _, token, _ = await _setup_session()
+        # Use in_progress status so the session has messages and won't be filtered
+        _, _, token, _ = await _setup_session(status="in_progress")
 
         response = await client.get(
             "/api/v1/sessions",

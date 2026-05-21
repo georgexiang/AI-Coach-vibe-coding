@@ -23,6 +23,7 @@ import {
 import { PerformanceRadar } from "@/components/analytics";
 import { useAuthStore } from "@/stores/auth-store";
 import { useScoreHistory } from "@/hooks/use-scoring";
+import { useUserSessions } from "@/hooks/use-session";
 import {
   useDashboardStats,
   useRecommendedScenarios,
@@ -45,10 +46,61 @@ export default function UserDashboard() {
   const { t: tc } = useTranslation("common");
   const navigate = useNavigate();
   const { user } = useAuthStore();
-  const { data: recentSessions, isLoading: sessionsLoading } = useScoreHistory(5);
+  const { data: scoredSessions, isLoading: scoredLoading } = useScoreHistory(5);
+  const { data: sessionsData, isLoading: userSessionsLoading } = useUserSessions({ page: 1, page_size: 5 });
   const { data: dashStats } = useDashboardStats();
   const { data: recommended } = useRecommendedScenarios(1);
   const exportExcel = useExportSessionsExcel();
+
+  const sessionsLoading = scoredLoading || userSessionsLoading;
+
+  // Merge scored sessions and completed (unscored) sessions for the recent list
+  const recentSessions = (() => {
+    const items: Array<{
+      session_id: string;
+      scenario_name: string;
+      overall_score: number | null;
+      completed_at: string | null;
+    }> = [];
+    const seenIds = new Set<string>();
+
+    // Add scored sessions first (they have scores)
+    if (scoredSessions) {
+      for (const s of scoredSessions) {
+        seenIds.add(s.session_id);
+        items.push({
+          session_id: s.session_id,
+          scenario_name: s.scenario_name,
+          overall_score: s.overall_score,
+          completed_at: s.completed_at,
+        });
+      }
+    }
+
+    // Add completed (unscored) sessions
+    if (sessionsData?.items) {
+      for (const s of sessionsData.items) {
+        if (!seenIds.has(s.id) && (s.status === "completed" || s.status === "scored")) {
+          seenIds.add(s.id);
+          items.push({
+            session_id: s.id,
+            scenario_name: s.scenario_name || s.scenario_id,
+            overall_score: null,
+            completed_at: s.completed_at,
+          });
+        }
+      }
+    }
+
+    // Sort by completed_at descending, limit to 5
+    items.sort((a, b) => {
+      const dateA = new Date(a.completed_at || "").getTime() || 0;
+      const dateB = new Date(b.completed_at || "").getTime() || 0;
+      return dateB - dateA;
+    });
+
+    return items.slice(0, 5);
+  })();
 
   const userName = user?.full_name ?? user?.username ?? tc("user");
 
@@ -79,7 +131,7 @@ export default function UserDashboard() {
       colorClass: "bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400",
       value: dashStats?.improvement != null
         ? `${dashStats.improvement > 0 ? "+" : ""}${dashStats.improvement}`
-        : ta("noImprovement", { defaultValue: "--" }),
+        : ta("noImprovement"),
       icon: TrendingUp,
       trend: dashStats?.improvement != null
         ? { value: `${dashStats.improvement > 0 ? "+" : ""}${dashStats.improvement}`, direction: dashStats.improvement >= 0 ? "up" as const : "down" as const }
@@ -87,9 +139,9 @@ export default function UserDashboard() {
     },
   ];
 
-  // Latest session dimensions for radar chart
-  const latestSession = recentSessions?.[0];
-  const radarScores = latestSession?.dimensions.map((d) => ({
+  // Latest scored session dimensions for radar chart (from score history)
+  const latestScoredSession = scoredSessions?.[0];
+  const radarScores = latestScoredSession?.dimensions.map((d) => ({
     dimension: d.dimension,
     score: d.score,
   }));
@@ -156,14 +208,14 @@ export default function UserDashboard() {
                   specialty=""
                   mode="F2F"
                   score={session.overall_score}
-                  timeAgo={new Date(session.completed_at).toLocaleDateString()}
+                  timeAgo={session.completed_at ? new Date(session.completed_at).toLocaleDateString() : "-"}
                   onClick={() => navigate(`/user/scoring/${session.session_id}`)}
                 />
               ))
             ) : (
               <EmptyState
-                title={t("noSessions", { defaultValue: "No sessions yet" })}
-                body={t("noSessionsBody", { defaultValue: "Start training to see your sessions here." })}
+                title={t("noSessions")}
+                body={t("noSessionsBody")}
               />
             )}
           </CardContent>
@@ -173,7 +225,7 @@ export default function UserDashboard() {
         <div className="flex flex-col gap-6 lg:col-span-2">
           <Card className="bg-card">
             <CardHeader>
-              <CardTitle className="text-base font-medium">{t("startTraining", { defaultValue: "Start Training" })}</CardTitle>
+              <CardTitle className="text-base font-medium">{t("startTraining")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <ActionCard
@@ -227,6 +279,20 @@ export default function UserDashboard() {
               </CardContent>
             </Card>
           )}
+
+          {/* View Reports link */}
+          <Card className="bg-card">
+            <CardContent className="flex items-center justify-between py-4">
+              <div>
+                <p className="text-sm font-medium text-foreground">{t("viewReports")}</p>
+                <p className="text-xs text-muted-foreground">{t("viewReportsDesc")}</p>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => navigate("/user/reports")}>
+                <TrendingUp className="mr-1.5 size-4" />
+                {t("goToReports")}
+              </Button>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>

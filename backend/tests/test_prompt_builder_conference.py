@@ -13,19 +13,15 @@ def _make_scenario(**overrides) -> Scenario:
     """Create a minimal Scenario ORM instance for conference prompt tests."""
     defaults = {
         "name": "Conference Scenario",
-        "product": "Brukinsa",
-        "therapeutic_area": "Hematology",
+        "tags": json.dumps(["product:Brukinsa", "area:Hematology"]),
         "hcp_profile_id": "profile-1",
         "key_messages": json.dumps(["Superior PFS vs ibrutinib", "Better safety profile"]),
-        "weight_key_message": 30,
-        "weight_objection_handling": 25,
-        "weight_communication": 20,
-        "weight_product_knowledge": 15,
-        "weight_scientific_info": 10,
+        "rubric_id": "test-rubric-id",
         "pass_threshold": 70,
         "created_by": "user-1",
         "mode": "conference",
         "status": "active",
+        "skill_id": "test-skill-id",
     }
     defaults.update(overrides)
     return Scenario(**defaults)
@@ -119,7 +115,7 @@ class TestBuildConferenceAudiencePrompt:
         }
         prompt = build_conference_audience_prompt(
             hcp_config=hcp_config,
-            scenario=_make_scenario(product="Tislelizumab"),
+            scenario=_make_scenario(tags=json.dumps(["product:Tislelizumab"])),
             presentation_topic="",
             conversation_history=[],
             other_hcp_questions=[],
@@ -137,7 +133,7 @@ class TestBuildConferenceAudiencePrompt:
         }
         prompt = build_conference_audience_prompt(
             hcp_config=hcp_config,
-            scenario=_make_scenario(therapeutic_area="Hematology"),
+            scenario=_make_scenario(),
             presentation_topic="",
             conversation_history=[],
             other_hcp_questions=[],
@@ -275,19 +271,23 @@ class TestBuildConferenceScoringPrompt:
         scenario = _make_scenario()
         prompt = build_conference_scoring_prompt(scenario, [], [])
 
-        assert "Presentation Completeness" in prompt
-        assert "Q&A Handling" in prompt
-        assert "Presentation Delivery" in prompt
-        assert "Product Knowledge" in prompt
-        assert "Scientific Rigor" in prompt
+        assert "key_message" in prompt
+        assert "objection_handling" in prompt
+        assert "communication" in prompt
+        assert "product_knowledge" in prompt
+        assert "scientific_info" in prompt
 
-    def test_includes_weights_from_scenario(self):
-        """Prompt includes scoring weights from the scenario."""
-        scenario = _make_scenario(
-            weight_key_message=35,
-            weight_objection_handling=25,
-        )
-        prompt = build_conference_scoring_prompt(scenario, [], [])
+    def test_includes_weights_from_rubric_dimensions(self):
+        """Prompt includes scoring weights from rubric dimensions."""
+        scenario = _make_scenario()
+        rubric_dims = [
+            {"name": "key_message", "weight": 35, "criteria": []},
+            {"name": "objection_handling", "weight": 25, "criteria": []},
+            {"name": "communication", "weight": 20, "criteria": []},
+            {"name": "product_knowledge", "weight": 10, "criteria": []},
+            {"name": "scientific_info", "weight": 10, "criteria": []},
+        ]
+        prompt = build_conference_scoring_prompt(scenario, [], [], rubric_dimensions=rubric_dims)
 
         assert "weight: 35" in prompt
         assert "weight: 25" in prompt

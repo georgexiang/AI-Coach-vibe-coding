@@ -222,8 +222,8 @@ export function VoiceTestPlayground({
               )}
             >
               {activeMode === "agent"
-                ? t("admin:hcp.agentMode", { defaultValue: "Agent Mode" })
-                : t("admin:hcp.modelMode", { defaultValue: "Model Mode" })}
+                ? t("admin:hcp.agentMode")
+                : t("admin:hcp.modelMode")}
             </span>
           )}
         </div>
@@ -267,8 +267,8 @@ export function VoiceTestPlayground({
               >
                 <span className="text-muted-foreground mr-1.5">
                   {seg.role === "user"
-                    ? t("admin:hcp.transcriptUser", { defaultValue: "You:" })
-                    : t("admin:hcp.transcriptAgent", { defaultValue: "AI:" })}
+                    ? t("admin:hcp.transcriptUser")
+                    : t("admin:hcp.transcriptAgent")}
                 </span>
                 {seg.content}
                 {!seg.isFinal && (

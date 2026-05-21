@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: Phase 19 In Progress
-stopped_at: Completed 19-07-PLAN.md
-last_updated: "2026-04-11T08:08:00.000Z"
-last_activity: 2026-04-11
+status: Phase 26 Complete
+stopped_at: All phases complete
+last_updated: "2026-05-19T17:30:00.000Z"
+last_activity: 2026-05-20
 progress:
-  total_phases: 21
-  completed_phases: 15
-  total_plans: 94
-  completed_plans: 82
-  percent: 87
+  total_phases: 26
+  completed_phases: 26
+  total_plans: 132
+  completed_plans: 132
+  percent: 100
 ---
 
 # Project State
@@ -21,12 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-24)
 
 **Core value:** MRs can practice realistic conversations with AI-powered digital HCPs and receive immediate, multi-dimensional feedback to improve their communication skills -- anytime, without needing a real HCP or trainer.
-**Current focus:** Phase 19 — AI Coach Skill Module (Skill 生命周期管理)
+**Current focus:** All phases complete
 
 ## Current Position
 
-Phase: 19 (ai-coach-skill-module) — IN PROGRESS
-Plans 01-07 of 8 complete (Wave 1 + Wave 2 + Wave 3 + Wave 4 partial done).
+Phase: 23 (Complete training session with digital human) — COMPLETE (6/6 plans)
+Phase: 24 (Skill Focus + CU Evaluation) — COMPLETE (5/5 plans)
+Phase: 25 (Refactor user training pages) — COMPLETE (2/2 plans)
+Phase: 26 (Scoring Architecture: LLM Content + CU Voice) — COMPLETE (1/1 plan)
 
 ## Performance Metrics
 
@@ -112,6 +114,14 @@ Plans 01-07 of 8 complete (Wave 1 + Wave 2 + Wave 3 + Wave 4 partial done).
 | Phase 19 P05 | 6min | 2 tasks | 7 files |
 | Phase 19 P06 | 9min | 2 tasks | 9 files |
 | Phase 19 P07 | 11min | 2 tasks | 11 files |
+| Phase 20 P03 | 2min | 2 tasks | 5 files |
+| Phase 20 P01 | 5min | 2 tasks | 8 files |
+| Phase 20 P02 | 5min | 2 tasks | 2 files |
+| Phase 20 P04 | 4min | 2 tasks | 8 files |
+| Phase 20 P05 | 8min | 2 tasks | 5 files |
+| Phase 21 P01 | 9min | 2 tasks | 10 files |
+| Phase 21 P02 | 6min | 2 tasks | 5 files |
+| Phase 21 P03 | 30min | 2 tasks | 20 files |
 
 ## Accumulated Context
 
@@ -255,6 +265,16 @@ Recent decisions affecting current work:
 - [Phase 19]: SkillManager.compose_instructions() follows reference repo pattern with version tag in header for audit trail
 - [Phase 19]: Sandboxed script runner: shell=False, restricted cwd/env, timeout=30s, temp file execution
 - [Phase 19]: Agent sync backward-compatible: scenario_id optional parameter for skill-augmented instructions
+- [Phase 20]: dryRunKeys factory nests under skillKeys.detail(id) for automatic cache invalidation when parent skill changes
+- [Phase 20]: useDryRunStatus uses refetchInterval: 3000 for real-time polling per UI-SPEC requirement
+- [Phase 20]: Used chat.completions.create for dry run simulation (not Responses API) for model flexibility
+- [Phase 20]: Used lazy() import for DryRunComparisonChart to handle parallel executor
+- [Phase 20]: Patched run_dry_run_simulation as noop coroutine for clean test isolation
+- [Phase 26]: LLM (GPT-4o) promoted to primary content scoring engine; CU demoted to voice-only (audioAnalyzer)
+- [Phase 26]: No mock fallback — ScoringUnavailableException (HTTP 503) on LLM/CU failure
+- [Phase 26]: Content dims (5: key_message, objection_handling, communication, product_knowledge, scientific_info) → LLM; Voice dims (4: fluency, tone, pace, pronunciation) → CU
+- [Phase 26]: merge_scores() uses rubric content_weight/voice_weight (default 60/40) instead of hardcoded 70/30
+- [Phase 26]: Removed _generate_mock_scores(), MockVoiceScoringBackend, score_content_with_cu(), build_content_analyzer_schema()
 
 ### Pending Todos
 
@@ -270,16 +290,21 @@ None yet.
 - Phase 14 added: HCP Agent Refactor — VL Instance Read-Only Reference + Knowledge/Tools Config
 - Phase 17 added: Agent Knowledge Base — Foundry IQ Integration (HCP Agent 知识库管理，Azure AI Search / Foundry IQ 连接，材料自动索引)
 - Phase 19 added: AI Coach Skill Module — Skill 生命周期管理、材料转 Skill、Skill Hub、HCP Agent Skill 分配与 SOP 驱动培训
+- Phase 23 added: Complete training session with digital human — full implementation and refactoring (多语言、UI、数字人、引导、评分完整实现)
+- Phase 24 added: 用户评估模块重构 — session中agent按skill instruction聚焦、session结束后Azure Content Understanding评估打分
+- Phase 25 added: Refactor user training pages — fix data display, scoring logic, and dashboard/reports deduplication
+- Phase 26 added: Scoring Architecture Refactor — LLM primary for content (5 dimensions), CU for voice only (4 dimensions), remove mock fallback
 
 ### Quick Tasks Completed
 
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 260325-9wy | Add comprehensive tests for Phase 3: backend pytest 95%+ coverage, frontend logic tests with vitest, E2E Playwright tests for rubric CRUD, scoring flow, session history | 2026-03-24 | dccf83a | [260325-9wy-add-comprehensive-tests-for-phase-3-back](./quick/260325-9wy-add-comprehensive-tests-for-phase-3-back/) |
+| 260520-njr | Fix scoring engine LLM role confusion and add post-validation rule enforcement | 2026-05-20 | d00ca2a | [260520-njr-fix-scoring-engine-llm-role-confusion-an](./quick/260520-njr-fix-scoring-engine-llm-role-confusion-an/) |
 
 ## Session Continuity
 
-Last activity: 2026-04-11
-Last session: 2026-04-11T08:08:00Z
-Stopped at: Completed 19-07-PLAN.md
-Resume file: None
+Last activity: 2026-05-19
+Last session: 2026-05-19T12:00:00.000Z
+Stopped at: Phase 26 complete
+Resume file: N/A (Phase 26 fully delivered, commit 50a0dd7)

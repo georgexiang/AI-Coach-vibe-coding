@@ -138,7 +138,7 @@ async def get_voice_live_token(
     noise_suppression = False
     echo_cancellation = False
     eou_detection = False
-    recognition_language = "auto"
+    recognition_language = "zh-CN"
 
     # If hcp_profile_id provided, source ALL settings from HCP profile (D-08, D-12, D-14)
     # Config resolution: VoiceLiveInstance > deprecated inline HcpProfile fields
@@ -171,7 +171,7 @@ async def get_voice_live_token(
             noise_suppression = vc["noise_suppression"]
             echo_cancellation = vc["echo_cancellation"]
             eou_detection = vc["eou_detection"]
-            recognition_language = vc["recognition_language"] or "auto"
+            recognition_language = vc["recognition_language"] or "zh-CN"
             voice_live_model = vc["voice_live_model"] or _default_model
         except Exception:
             logger.warning(

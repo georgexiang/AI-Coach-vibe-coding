@@ -11,7 +11,10 @@
     "returnDashboard": "Return to Dashboard"
   },
   "loading": "Loading...",
-  "lang": { "zhCN": "Chinese", "enUS": "English" },
+  "lang": {
+    "zhCN": "Chinese",
+    "enUS": "English"
+  },
   "logout": "Sign Out",
   "profile": "Profile",
   "startTraining": "Start Training",
@@ -53,5 +56,10 @@
   "error.server": "Something went wrong. Please try again later.",
   "error.notFound": "Page not found. Return to dashboard.",
   "generate": "Generate",
-  "regenerate": "Regenerate"
+  "regenerate": "Regenerate",
+  "active": "Active",
+  "draft": "Draft",
+  "back": "Back",
+  "user": "User",
+  "archived": "Archived"
 }

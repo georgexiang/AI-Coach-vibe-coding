@@ -192,18 +192,20 @@ class TestResetToDefault:
 
 
 class TestEnsureDefaults:
-    async def test_seeds_both_types(self, db_session):
+    async def test_seeds_all_types(self, db_session):
         await meta_skill_service.ensure_defaults(db_session)
         all_skills = await meta_skill_service.get_all_meta_skills(db_session)
         types = {m.skill_type for m in all_skills}
         assert "creator" in types
         assert "evaluator" in types
+        assert "dry-run-mr" in types
+        assert "dry-run-hcp" in types
 
     async def test_does_not_duplicate_on_rerun(self, db_session):
         await meta_skill_service.ensure_defaults(db_session)
         await meta_skill_service.ensure_defaults(db_session)  # second call
         all_skills = await meta_skill_service.get_all_meta_skills(db_session)
-        assert len(all_skills) == 2
+        assert len(all_skills) == 4
 
     async def test_seeded_creator_has_template(self, db_session):
         await meta_skill_service.ensure_defaults(db_session)

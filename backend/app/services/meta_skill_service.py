@@ -28,6 +28,8 @@ _TEMPLATE_DIR = Path(__file__).parent / "meta_skill_templates"
 _SKILL_DIR_MAP: dict[str, str] = {
     "creator": "skill-creator",
     "evaluator": "skill-evaluator",
+    "dry-run-mr": "skill-dry-run-mr",
+    "dry-run-hcp": "skill-dry-run-hcp",
 }
 
 # Legacy flat-file templates (fallback)
@@ -391,8 +393,13 @@ async def sync_meta_skill_agent(db: AsyncSession, skill_type: str) -> MetaSkill 
 
     Reuses agent_sync_service.create_agent / update_agent — the same functions
     used for HCP profile agents.
+
+    If the local DB has no agent_id but the agent already exists in Foundry
+    (e.g. pre-created via Portal), auto-detects and switches to update path.
     """
     from app.services.agent_sync_service import (
+        _get_project_client,
+        _sanitize_agent_name,
         create_agent,
         get_project_endpoint,
         update_agent,
@@ -408,6 +415,24 @@ async def sync_meta_skill_agent(db: AsyncSession, skill_type: str) -> MetaSkill 
         return None
 
     endpoint, api_key = await get_project_endpoint(db)
+
+    # Auto-detect: if no local agent_id, check if agent exists in Foundry
+    if not meta.agent_id:
+        import asyncio
+
+        agent_name = _sanitize_agent_name(meta.name)
+        try:
+            client = _get_project_client(endpoint, api_key)
+            existing = await asyncio.to_thread(client.agents.get, agent_name=agent_name)
+            if existing:
+                meta.agent_id = agent_name
+                logger.info(
+                    "sync_meta_skill_agent: auto-detected '%s' in Foundry, "
+                    "setting agent_id for update path",
+                    agent_name,
+                )
+        except Exception:
+            pass  # Agent doesn't exist in Foundry yet
 
     try:
         if meta.agent_id:
@@ -464,6 +489,20 @@ _DEFAULT_CONFIGS = [
         "name": "skill-evaluator",
         "display_name": "Skill Evaluator",
         "skill_type": "evaluator",
+        "model": "gpt-4o",
+        "template_language": "en",
+    },
+    {
+        "name": "skill-dry-run-mr",
+        "display_name": "Dry Run MR Agent",
+        "skill_type": "dry-run-mr",
+        "model": "gpt-4o",
+        "template_language": "en",
+    },
+    {
+        "name": "skill-dry-run-hcp",
+        "display_name": "Dry Run HCP Agent",
+        "skill_type": "dry-run-hcp",
         "model": "gpt-4o",
         "template_language": "en",
     },

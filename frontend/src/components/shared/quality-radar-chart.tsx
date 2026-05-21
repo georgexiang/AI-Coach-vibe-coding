@@ -51,10 +51,10 @@ export function QualityRadarChart({
 
   const verdictLabel =
     overallVerdict === "PASS"
-      ? t("quality.verdictPass", { defaultValue: "Pass" })
+      ? t("quality.verdictPass")
       : overallVerdict === "NEEDS_REVIEW"
-        ? t("quality.verdictNeedsReview", { defaultValue: "Needs Review" })
-        : t("quality.verdictFail", { defaultValue: "Fail" });
+        ? t("quality.verdictNeedsReview")
+        : t("quality.verdictFail");
 
   return (
     <div

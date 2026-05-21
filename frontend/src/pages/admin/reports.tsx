@@ -113,12 +113,10 @@ export default function AdminReportsPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-medium text-foreground">
-            {t("orgAnalytics", { defaultValue: "Organization Analytics" })}
+            {t("orgAnalytics")}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {t("orgAnalyticsDesc", {
-              defaultValue: "Comprehensive performance overview across all business units",
-            })}
+            {t("orgAnalyticsDesc")}
           </p>
         </div>
 
@@ -134,7 +132,7 @@ export default function AdminReportsPage() {
             ) : (
               <Download className="size-4" />
             )}
-            {t("exportSessions", { defaultValue: "Export Sessions" })}
+            {t("exportSessions")}
           </Button>
           <Button
             size="sm"
@@ -146,7 +144,7 @@ export default function AdminReportsPage() {
             ) : (
               <Download className="size-4" />
             )}
-            {t("exportFullReport", { defaultValue: "Export Full Report" })}
+            {t("exportFullReport")}
           </Button>
         </div>
       </div>
@@ -158,51 +156,51 @@ export default function AdminReportsPage() {
 
           <Select value={buFilter} onValueChange={setBuFilter}>
             <SelectTrigger className="w-full sm:w-[180px]">
-              <SelectValue placeholder={t("filterBU", { defaultValue: "Business Unit" })} />
+              <SelectValue placeholder={t("filterBU")} />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">
-                {t("allBUs", { defaultValue: "All BUs" })}
+                {t("allBUs")}
               </SelectItem>
               <SelectItem value="oncology">
-                {t("oncology", { defaultValue: "Oncology" })}
+                {t("oncology")}
               </SelectItem>
               <SelectItem value="hematology">
-                {t("hematology", { defaultValue: "Hematology" })}
+                {t("hematology")}
               </SelectItem>
               <SelectItem value="immunology">
-                {t("immunology", { defaultValue: "Immunology" })}
+                {t("immunology")}
               </SelectItem>
             </SelectContent>
           </Select>
 
           <Select value={regionFilter} onValueChange={setRegionFilter}>
             <SelectTrigger className="w-full sm:w-[180px]">
-              <SelectValue placeholder={t("filterRegion", { defaultValue: "Region" })} />
+              <SelectValue placeholder={t("filterRegion")} />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">
-                {t("allRegions", { defaultValue: "All Regions" })}
+                {t("allRegions")}
               </SelectItem>
               <SelectItem value="north-china">
-                {t("northChina", { defaultValue: "North China" })}
+                {t("northChina")}
               </SelectItem>
               <SelectItem value="south-china">
-                {t("southChina", { defaultValue: "South China" })}
+                {t("southChina")}
               </SelectItem>
               <SelectItem value="east-china">
-                {t("eastChina", { defaultValue: "East China" })}
+                {t("eastChina")}
               </SelectItem>
             </SelectContent>
           </Select>
 
           <Select value={productFilter} onValueChange={setProductFilter}>
             <SelectTrigger className="w-full sm:w-[180px]">
-              <SelectValue placeholder={t("filterProduct", { defaultValue: "Product" })} />
+              <SelectValue placeholder={t("filterProduct")} />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">
-                {t("allProducts", { defaultValue: "All Products" })}
+                {t("allProducts")}
               </SelectItem>
               <SelectItem value="zanubrutinib">Zanubrutinib</SelectItem>
               <SelectItem value="tislelizumab">Tislelizumab</SelectItem>
@@ -215,19 +213,19 @@ export default function AdminReportsPage() {
       {/* ---- Summary stat cards (live from useOrgAnalytics) ---- */}
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
-          label={t("totalSessions", { defaultValue: "Total Sessions" })}
+          label={t("totalSessions")}
           value={orgData?.total_sessions ?? 0}
         />
         <StatCard
-          label={t("avgOrgScore", { defaultValue: "Avg Score" })}
+          label={t("avgOrgScore")}
           value={orgData?.avg_org_score ?? 0}
         />
         <StatCard
-          label={t("completionRate", { defaultValue: "Completion Rate" })}
+          label={t("completionRate")}
           value={`${orgData?.completion_rate ?? 0}%`}
         />
         <StatCard
-          label={t("activeUsers", { defaultValue: "Active Users" })}
+          label={t("activeUsers")}
           value={orgData?.active_users ?? 0}
         />
       </div>
@@ -238,7 +236,7 @@ export default function AdminReportsPage() {
         <Card className="bg-card rounded-lg border border-border shadow-sm">
           <CardHeader className="p-4">
             <CardTitle className="text-base font-medium">
-              {t("groupPerformance", { defaultValue: "Group Performance" })}
+              {t("groupPerformance")}
             </CardTitle>
           </CardHeader>
           <CardContent className="p-4 pt-0">
@@ -251,7 +249,7 @@ export default function AdminReportsPage() {
                 <Legend />
                 <Bar
                   dataKey="score"
-                  name={t("avgScore", { defaultValue: "Avg Score" })}
+                  name={t("avgScore")}
                   radius={[4, 4, 0, 0]}
                 >
                   {groupPerformanceData.map((entry, index) => (
@@ -267,7 +265,7 @@ export default function AdminReportsPage() {
         <Card className="bg-card rounded-lg border border-border shadow-sm">
           <CardHeader className="p-4">
             <CardTitle className="text-base font-medium">
-              {t("scoreTrends", { defaultValue: "Score Trends" })}
+              {t("scoreTrends")}
             </CardTitle>
           </CardHeader>
           <CardContent className="p-4 pt-0">
@@ -281,7 +279,7 @@ export default function AdminReportsPage() {
                 <Line
                   type="monotone"
                   dataKey="overall"
-                  name={t("overallScore", { defaultValue: "Overall Score" })}
+                  name={t("overallScore")}
                   stroke="var(--color-primary)"
                   strokeWidth={2}
                   dot={{ r: 4 }}
@@ -290,7 +288,7 @@ export default function AdminReportsPage() {
                 <Line
                   type="monotone"
                   dataKey="benchmark"
-                  name={t("benchmark", { defaultValue: "Benchmark (75)" })}
+                  name={t("benchmark")}
                   stroke="var(--color-weakness)"
                   strokeWidth={2}
                   strokeDasharray="6 3"
@@ -305,7 +303,7 @@ export default function AdminReportsPage() {
         <Card className="bg-card rounded-lg border border-border shadow-sm">
           <CardHeader className="p-4">
             <CardTitle className="text-base font-medium">
-              {t("completionRates", { defaultValue: "Completion Rates" })}
+              {t("completionRates")}
             </CardTitle>
           </CardHeader>
           <CardContent className="p-4 pt-0">
@@ -318,7 +316,7 @@ export default function AdminReportsPage() {
                 <Legend />
                 <Bar
                   dataKey="completion"
-                  name={t("completionPct", { defaultValue: "Completion %" })}
+                  name={t("completionPct")}
                   fill="var(--color-chart-2, #8b5cf6)"
                   radius={[0, 4, 4, 0]}
                 >
@@ -335,7 +333,7 @@ export default function AdminReportsPage() {
         <Card className="bg-card rounded-lg border border-border shadow-sm">
           <CardHeader className="p-4">
             <CardTitle className="text-base font-medium">
-              {t("skillGapAnalysis", { defaultValue: "Skill Gap Analysis" })}
+              {t("skillGapAnalysis")}
             </CardTitle>
           </CardHeader>
           <CardContent className="overflow-x-auto p-4 pt-0">
@@ -344,7 +342,7 @@ export default function AdminReportsPage() {
                 <thead>
                   <tr className="border-b text-left">
                     <th className="pb-2 pr-4 text-sm font-medium text-muted-foreground">
-                      {t("buColumn", { defaultValue: "BU" })}
+                      {t("buColumn")}
                     </th>
                     {skillDimensions.map((dim) => (
                       <th key={dim} className="pb-2 pr-4 text-sm font-medium text-muted-foreground capitalize">
@@ -377,7 +375,7 @@ export default function AdminReportsPage() {
               </table>
             ) : (
               <p className="py-8 text-center text-sm text-muted-foreground">
-                {t("noData", { defaultValue: "No data available" })}
+                {t("noData")}
               </p>
             )}
           </CardContent>

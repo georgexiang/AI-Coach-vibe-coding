@@ -36,7 +36,7 @@ class CoachingSession(Base, TimestampMixin):
     passed: Mapped[bool | None] = mapped_column(nullable=True)
 
     # Interaction mode: 7 modes per D-06
-    mode: Mapped[str] = mapped_column(String(40), default="text")
+    mode: Mapped[str] = mapped_column(String(40), default="digital_human_realtime_model")
 
     # Conference fields
     session_type: Mapped[str] = mapped_column(String(20), default="f2f")  # f2f / conference
@@ -48,13 +48,26 @@ class CoachingSession(Base, TimestampMixin):
         Text, nullable=True, default=None
     )  # JSON string
 
+    # Phase 23: Audio storage for voice scoring
+    audio_url: Mapped[str | None] = mapped_column(Text, nullable=True, default=None)
+    voice_score_status: Mapped[str] = mapped_column(
+        String(20), server_default="none"
+    )  # none / pending / processing / completed / failed
+
     # Skill audit trail — snapshot of which Skill was active when session started
     skill_id: Mapped[str | None] = mapped_column(
         String(36), ForeignKey("skills.id", ondelete="SET NULL"), nullable=True, default=None
     )
     skill_version_id: Mapped[str | None] = mapped_column(
-        String(36), ForeignKey("skill_versions.id", ondelete="SET NULL"), nullable=True, default=None
+        String(36),
+        ForeignKey("skill_versions.id", ondelete="SET NULL"),
+        nullable=True,
+        default=None,
     )
+
+    # Phase 24: Skill Focus instruction snapshot (D-03)
+    focus_instruction: Mapped[str | None] = mapped_column(Text, nullable=True, default=None)
+    sop_current_step: Mapped[int | None] = mapped_column(nullable=True, default=0)
 
     # Relationships
     scenario = relationship("Scenario")
@@ -62,3 +75,13 @@ class CoachingSession(Base, TimestampMixin):
     messages = relationship("SessionMessage", back_populates="session")
     score = relationship("SessionScore", back_populates="session", uselist=False)
     skill = relationship("Skill", foreign_keys=[skill_id])
+
+    @property
+    def scenario_name(self) -> str | None:
+        """Derive scenario name from relationship for API response."""
+        return self.scenario.name if self.scenario else None
+
+    @property
+    def message_count(self) -> int:
+        """Count of messages in this session."""
+        return len(self.messages) if self.messages else 0

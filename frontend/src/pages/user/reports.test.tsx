@@ -6,10 +6,7 @@ import UserReportsPage from "./reports";
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
-    t: (key: string, opts?: Record<string, string>) => {
-      if (opts?.defaultValue) return opts.defaultValue;
-      return key;
-    },
+    t: (key: string) => key,
     i18n: { changeLanguage: vi.fn(), language: "en" },
   }),
 }));
@@ -169,30 +166,49 @@ beforeEach(() => {
 describe("UserReportsPage", () => {
   it("renders the page title", () => {
     renderReportsPage();
-    expect(screen.getByText("Analytics & Reports")).toBeInTheDocument();
+    expect(screen.getByText("pageTitle")).toBeInTheDocument();
   });
 
   it("renders export buttons", () => {
     renderReportsPage();
-    expect(screen.getByText("Print Report")).toBeInTheDocument();
-    expect(screen.getByText("Export Excel")).toBeInTheDocument();
+    expect(screen.getByText("exportPdf")).toBeInTheDocument();
+    expect(screen.getByText("exportExcel")).toBeInTheDocument();
   });
 
-  it("renders summary stat cards", () => {
+  it("renders compact summary bar instead of stat cards", () => {
     renderReportsPage();
-    expect(screen.getByText("Total Sessions")).toBeInTheDocument();
+    // Should find inline stat labels from the compact summary
+    expect(screen.getByText("totalSessions:")).toBeInTheDocument();
     expect(screen.getByText("24")).toBeInTheDocument();
-    expect(screen.getByText("Avg Score")).toBeInTheDocument();
+    expect(screen.getByText("avgScore:")).toBeInTheDocument();
     expect(screen.getByText("76.5")).toBeInTheDocument();
+    expect(screen.getByText("sessionsThisWeek:")).toBeInTheDocument();
+    expect(screen.getByText("3")).toBeInTheDocument();
+    expect(screen.getByText("improvement:")).toBeInTheDocument();
+    expect(screen.getByText("+4.2")).toBeInTheDocument();
+  });
+
+  it("does not render individual stat card headings", () => {
+    renderReportsPage();
+    // The old 4-card grid used CardTitle (h3) for each stat
+    // Now with compact summary, stat labels are in spans, not headings
+    const headings = screen.getAllByRole("heading");
+    const statHeadings = headings.filter(
+      (h) =>
+        h.textContent === "totalSessions" ||
+        h.textContent === "avgScore" ||
+        h.textContent === "sessionsThisWeek",
+    );
+    expect(statHeadings).toHaveLength(0);
   });
 
   it("renders chart sections", () => {
     renderReportsPage();
-    expect(screen.getByText("Performance Trend")).toBeInTheDocument();
-    expect(screen.getByText("Skill Radar")).toBeInTheDocument();
+    expect(screen.getByText("performanceTrend")).toBeInTheDocument();
+    expect(screen.getByText("skillGapHeatmap")).toBeInTheDocument();
   });
 
-  it("renders dimension data", () => {
+  it("renders performance trend and skill radar charts", () => {
     renderReportsPage();
     expect(screen.getByTestId("performance-radar")).toBeInTheDocument();
     expect(screen.getByTestId("trend-line-chart")).toBeInTheDocument();
@@ -200,20 +216,13 @@ describe("UserReportsPage", () => {
 
   it("renders recommendations section", () => {
     renderReportsPage();
-    expect(screen.getByText("Recommended Scenarios")).toBeInTheDocument();
+    expect(screen.getByText("recommendations")).toBeInTheDocument();
     expect(screen.getByText("Product Launch")).toBeInTheDocument();
   });
 
-  it("renders improvement stat", () => {
+  it("renders improvement stat with positive prefix", () => {
     renderReportsPage();
-    expect(screen.getByText("Improvement")).toBeInTheDocument();
     expect(screen.getByText("+4.2")).toBeInTheDocument();
-  });
-
-  it("renders This Week stat", () => {
-    renderReportsPage();
-    expect(screen.getByText("This Week")).toBeInTheDocument();
-    expect(screen.getByText("3")).toBeInTheDocument();
   });
 });
 
@@ -235,9 +244,7 @@ describe("UserReportsPage - empty state", () => {
       improvement: null,
     };
     renderReportsPage();
-    expect(
-      screen.getByText("Complete your first training session to see reports."),
-    ).toBeInTheDocument();
+    expect(screen.getByText("noDataBody")).toBeInTheDocument();
   });
 });
 
@@ -261,9 +268,9 @@ describe("UserReportsPage - no trends / no radar data", () => {
     mockRecommendations.data = [];
 
     renderReportsPage();
-    const noDataMsgs = screen.getAllByText("Not enough data yet");
+    const noDataMsgs = screen.getAllByText("noData");
     expect(noDataMsgs.length).toBeGreaterThanOrEqual(2);
-    expect(screen.getByText("N/A")).toBeInTheDocument();
+    expect(screen.getByText("noImprovement")).toBeInTheDocument();
   });
 });
 

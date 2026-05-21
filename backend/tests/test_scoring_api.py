@@ -1,14 +1,55 @@
 """Tests for Scoring API endpoints: trigger scoring and retrieve scores."""
 
 import json
+from unittest.mock import AsyncMock, patch
+
+import pytest
 
 from app.models.hcp_profile import HcpProfile
 from app.models.message import SessionMessage
 from app.models.scenario import Scenario
+from app.models.scoring_rubric import ScoringRubric
 from app.models.session import CoachingSession
 from app.models.user import User
 from app.services.auth import create_access_token, get_password_hash
 from tests.conftest import TestSessionLocal
+
+_MOCK_LLM_RESULT = {
+    "overall_score": 75.0,
+    "passed": True,
+    "feedback_summary": "Good performance overall.",
+    "dimensions": [
+        {"dimension": "key_message", "score": 80, "weight": 30, "category": "content",
+         "strengths": [], "weaknesses": [], "suggestions": []},
+        {"dimension": "objection_handling", "score": 70, "weight": 25, "category": "content",
+         "strengths": [], "weaknesses": [], "suggestions": []},
+        {"dimension": "communication", "score": 75, "weight": 20, "category": "content",
+         "strengths": [], "weaknesses": [], "suggestions": []},
+        {"dimension": "product_knowledge", "score": 72, "weight": 15, "category": "content",
+         "strengths": [], "weaknesses": [], "suggestions": []},
+        {"dimension": "scientific_info", "score": 68, "weight": 10, "category": "content",
+         "strengths": [], "weaknesses": [], "suggestions": []},
+    ],
+}
+
+
+@pytest.fixture(autouse=True)
+def mock_llm_scoring():
+    """Mock LLM scoring for all API tests (no Azure OpenAI in test env)."""
+    with patch(
+        "app.services.scoring_service.score_with_llm",
+        new_callable=AsyncMock,
+        return_value=_MOCK_LLM_RESULT,
+    ):
+        yield
+
+_DEFAULT_RUBRIC_DIMS = json.dumps([
+    {"name": "key_message", "weight": 30, "criteria": [], "max_score": 100.0},
+    {"name": "objection_handling", "weight": 25, "criteria": [], "max_score": 100.0},
+    {"name": "communication", "weight": 20, "criteria": [], "max_score": 100.0},
+    {"name": "product_knowledge", "weight": 15, "criteria": [], "max_score": 100.0},
+    {"name": "scientific_info", "weight": 10, "criteria": [], "max_score": 100.0},
+])
 
 
 async def _setup_scored_session() -> tuple[str, str, str]:
@@ -35,13 +76,21 @@ async def _setup_scored_session() -> tuple[str, str, str]:
         session.add(hcp)
         await session.flush()
 
+        rubric = ScoringRubric(
+            name="Test Rubric", scenario_type="f2f",
+            dimensions=_DEFAULT_RUBRIC_DIMS, is_default=True, created_by=user.id,
+        )
+        session.add(rubric)
+        await session.flush()
+
         scenario = Scenario(
             name="Score Scenario",
-            product="Brukinsa",
             hcp_profile_id=hcp.id,
             key_messages=json.dumps(["PFS", "Safety"]),
+            skill_id="test-skill-id",
             status="active",
             created_by=user.id,
+            rubric_id=rubric.id,
         )
         session.add(scenario)
         await session.flush()

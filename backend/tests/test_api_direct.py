@@ -4,19 +4,58 @@ Bypasses ASGI transport to guarantee coverage tracks async function execution.
 """
 
 import json
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from app.models.hcp_profile import HcpProfile
 from app.models.message import SessionMessage
 from app.models.scenario import Scenario
+from app.models.scoring_rubric import ScoringRubric
 from app.models.session import CoachingSession
+from app.models.skill import Skill, SkillVersion
 from app.models.user import User
 from app.schemas.auth import LoginRequest
 from app.services.auth import create_access_token, get_password_hash
 from app.utils.exceptions import AppException
 from tests.conftest import TestSessionLocal
+
+_MOCK_LLM_RESULT = {
+    "overall_score": 75.0,
+    "passed": True,
+    "feedback_summary": "Good performance overall.",
+    "dimensions": [
+        {"dimension": "key_message", "score": 80, "weight": 30, "category": "content",
+         "strengths": [], "weaknesses": [], "suggestions": []},
+        {"dimension": "objection_handling", "score": 70, "weight": 25, "category": "content",
+         "strengths": [], "weaknesses": [], "suggestions": []},
+        {"dimension": "communication", "score": 75, "weight": 20, "category": "content",
+         "strengths": [], "weaknesses": [], "suggestions": []},
+        {"dimension": "product_knowledge", "score": 72, "weight": 15, "category": "content",
+         "strengths": [], "weaknesses": [], "suggestions": []},
+        {"dimension": "scientific_info", "score": 68, "weight": 10, "category": "content",
+         "strengths": [], "weaknesses": [], "suggestions": []},
+    ],
+}
+
+
+@pytest.fixture(autouse=True)
+def mock_llm_scoring():
+    """Mock LLM scoring for all tests (no Azure OpenAI in test env)."""
+    with patch(
+        "app.services.scoring_service.score_with_llm",
+        new_callable=AsyncMock,
+        return_value=_MOCK_LLM_RESULT,
+    ):
+        yield
+
+_DEFAULT_RUBRIC_DIMS = json.dumps([
+    {"name": "key_message", "weight": 30, "criteria": [], "max_score": 100.0},
+    {"name": "objection_handling", "weight": 25, "criteria": [], "max_score": 100.0},
+    {"name": "communication", "weight": 20, "criteria": [], "max_score": 100.0},
+    {"name": "product_knowledge", "weight": 15, "criteria": [], "max_score": 100.0},
+    {"name": "scientific_info", "weight": 10, "criteria": [], "max_score": 100.0},
+])
 
 # ────────── auth.py direct calls ──────────
 
@@ -103,12 +142,20 @@ class TestScoringDirect:
         db.add(hcp)
         await db.flush()
 
+        rubric = ScoringRubric(
+            name="Test Rubric", scenario_type="f2f",
+            dimensions=_DEFAULT_RUBRIC_DIMS, is_default=True, created_by=user.id,
+        )
+        db.add(rubric)
+        await db.flush()
+
         scenario = Scenario(
             name="DScore Scn",
-            product="Drug",
             hcp_profile_id=hcp.id,
             key_messages=json.dumps(["PFS"]),
+            skill_id="test-skill-id",
             status="active",
+            rubric_id=rubric.id,
             created_by=user.id,
         )
         db.add(scenario)
@@ -190,12 +237,20 @@ class TestSessionsDirect:
         db.add(hcp)
         await db.flush()
 
+        rubric = ScoringRubric(
+            name="Test Rubric", scenario_type="f2f",
+            dimensions=_DEFAULT_RUBRIC_DIMS, is_default=True, created_by=user.id,
+        )
+        db.add(rubric)
+        await db.flush()
+
         scenario = Scenario(
             name="DSess Scn",
-            product="Drug",
             hcp_profile_id=hcp.id,
             key_messages=json.dumps(["PFS", "Safety"]),
+            skill_id="test-skill-id",
             status="active",
+            rubric_id=rubric.id,
             created_by=user.id,
         )
         db.add(scenario)
@@ -440,12 +495,20 @@ class TestSessionsDirect:
         db_session.add(hcp)
         await db_session.flush()
 
+        rubric = ScoringRubric(
+            name="Test Rubric", scenario_type="f2f",
+            dimensions=_DEFAULT_RUBRIC_DIMS, is_default=True, created_by=user.id,
+        )
+        db_session.add(rubric)
+        await db_session.flush()
+
         scenario = Scenario(
             name="Rpt Scn",
-            product="Drug",
             hcp_profile_id=hcp.id,
             key_messages=json.dumps(["PFS"]),
+            skill_id="test-skill-id",
             status="active",
+            rubric_id=rubric.id,
             created_by=user.id,
         )
         db_session.add(scenario)
@@ -492,12 +555,20 @@ class TestSessionsDirect:
         db_session.add(hcp)
         await db_session.flush()
 
+        rubric = ScoringRubric(
+            name="Test Rubric", scenario_type="f2f",
+            dimensions=_DEFAULT_RUBRIC_DIMS, is_default=True, created_by=user.id,
+        )
+        db_session.add(rubric)
+        await db_session.flush()
+
         scenario = Scenario(
             name="Sug Scn",
-            product="Drug",
             hcp_profile_id=hcp.id,
             key_messages=json.dumps(["PFS", "Safety"]),
+            skill_id="test-skill-id",
             status="active",
+            rubric_id=rubric.id,
             created_by=user.id,
         )
         db_session.add(scenario)
@@ -643,6 +714,25 @@ class TestScenariosDirect:
         hcp = HcpProfile(name="Dr. DScn", specialty="Onc", created_by=user.id)
         db.add(hcp)
         await db.flush()
+
+        skill = Skill(
+            id="test-skill-id",
+            name="Test Skill",
+            status="published",
+            created_by=user.id,
+        )
+        db.add(skill)
+        await db.flush()
+
+        skill_version = SkillVersion(
+            skill_id=skill.id,
+            version_number=1,
+            content="test content",
+            is_published=True,
+            created_by=user.id,
+        )
+        db.add(skill_version)
+        await db.flush()
         await db.commit()
         return user, hcp
 
@@ -654,9 +744,9 @@ class TestScenariosDirect:
         user, hcp = await self._seed_hcp(db_session)
         data = ScenarioCreate(
             name="Direct Scn",
-            product="Drug",
             hcp_profile_id=hcp.id,
-            created_by=user.id,
+            rubric_id="test-rubric-id",
+            skill_id="test-skill-id",
             key_messages=["M1"],
         )
         result = await create_scenario(data=data, db=db_session, user=user)
@@ -670,9 +760,9 @@ class TestScenariosDirect:
         user, hcp = await self._seed_hcp(db_session)
         data = ScenarioCreate(
             name="Get Scn",
-            product="Drug",
             hcp_profile_id=hcp.id,
-            created_by=user.id,
+            rubric_id="test-rubric-id",
+            skill_id="test-skill-id",
             key_messages=["M1"],
         )
         created = await create_scenario(data=data, db=db_session, user=user)
@@ -689,9 +779,9 @@ class TestScenariosDirect:
         user, hcp = await self._seed_hcp(db_session)
         data = ScenarioCreate(
             name="Before Scn",
-            product="Drug",
             hcp_profile_id=hcp.id,
-            created_by=user.id,
+            rubric_id="test-rubric-id",
+            skill_id="test-skill-id",
             key_messages=["M1"],
         )
         created = await create_scenario(data=data, db=db_session, user=user)
@@ -709,9 +799,9 @@ class TestScenariosDirect:
         user, hcp = await self._seed_hcp(db_session)
         data = ScenarioCreate(
             name="Del Scn",
-            product="Drug",
             hcp_profile_id=hcp.id,
-            created_by=user.id,
+            rubric_id="test-rubric-id",
+            skill_id="test-skill-id",
             key_messages=["M1"],
         )
         created = await create_scenario(data=data, db=db_session, user=user)
@@ -728,9 +818,9 @@ class TestScenariosDirect:
         user, hcp = await self._seed_hcp(db_session)
         data = ScenarioCreate(
             name="Clone Src",
-            product="Drug",
             hcp_profile_id=hcp.id,
-            created_by=user.id,
+            rubric_id="test-rubric-id",
+            skill_id="test-skill-id",
             key_messages=["M1"],
         )
         created = await create_scenario(data=data, db=db_session, user=user)

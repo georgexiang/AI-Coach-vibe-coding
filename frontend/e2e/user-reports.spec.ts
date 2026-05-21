@@ -16,19 +16,22 @@ test.describe("User Reports Page", () => {
     await expect(page.locator("h1")).toContainText(/Analytics & Reports/i);
   });
 
-  test("shows summary stat cards", async ({ page }) => {
-    // The page shows 4 stat cards: Total Sessions, Avg Score, This Week, Improvement
-    // Use heading role to disambiguate from chart legends
-    await expect(page.getByRole("heading", { name: "Total Sessions" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Avg Score" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "This Week" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Improvement" })).toBeVisible();
+  test("shows compact summary bar with key stats", async ({ page }) => {
+    // Reports page now uses a compact inline summary bar (not individual stat cards)
+    // The summary bar displays stats like "Total Sessions: 24" in a single flex row
+    const summaryBar = page.locator(".flex.flex-wrap.items-center.gap-6");
+    await expect(summaryBar.first()).toBeVisible({ timeout: 5000 });
+
+    // Check that stat labels are present in the compact bar
+    await expect(page.getByText(/Total Sessions/i).first()).toBeVisible();
+    await expect(page.getByText(/Avg Score/i).first()).toBeVisible();
+    await expect(page.getByText(/Improvement/i).first()).toBeVisible();
   });
 
   test("shows chart sections (Performance Trend and Skill analysis)", async ({
     page,
   }) => {
-    // Chart headings are h4 elements
+    // Chart headings
     await expect(page.getByRole("heading", { name: /Performance Trend/i })).toBeVisible();
     // The second chart may be "Skill Radar" or "Skill Gap Analysis" depending on translation
     await expect(page.getByRole("heading", { name: /Skill/i })).toBeVisible();
@@ -40,14 +43,21 @@ test.describe("User Reports Page", () => {
   });
 
   test("page renders fully without errors", async ({ page }) => {
-    // The page should render completely with all sections
     const body = page.locator("body");
     await expect(body).toBeVisible();
 
-    // Verify that the stat card values are rendered (numbers from the API)
-    // There should be at least one paragraph with a number value
-    const statValues = page.locator("p.text-3xl");
-    const count = await statValues.count();
-    expect(count).toBeGreaterThanOrEqual(4);
+    // The compact summary should contain numeric values
+    const summaryBar = page.locator(".flex.flex-wrap.items-center.gap-6");
+    const count = await summaryBar.count();
+    expect(count).toBeGreaterThanOrEqual(1);
+  });
+
+  test("reports page is differentiated from dashboard (no duplicate stat card grid)", async ({ page }) => {
+    // The reports page should NOT have a 4-column grid of stat cards (that's on Dashboard)
+    // Instead it uses a compact inline summary bar
+    const statCardGrid = page.locator(".grid.grid-cols-1.sm\\:grid-cols-2.lg\\:grid-cols-4");
+    // The grid should not exist or should not contain individual card elements for stats
+    const gridCount = await statCardGrid.count();
+    expect(gridCount).toBe(0);
   });
 });

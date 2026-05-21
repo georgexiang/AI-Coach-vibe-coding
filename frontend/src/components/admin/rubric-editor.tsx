@@ -41,6 +41,7 @@ const rubricSchema = z.object({
   scenario_type: z.string().optional(),
   is_default: z.boolean().optional(),
   dimensions: z.array(dimensionSchema).min(1, "At least one dimension required"),
+  content_weight: z.number().min(0).max(100),
 });
 
 type RubricFormValues = z.infer<typeof rubricSchema>;
@@ -72,6 +73,7 @@ export function RubricEditor({
       dimensions: [
         { name: "", weight: 100, criteria: "", max_score: 100 },
       ],
+      content_weight: 60,
     },
   });
 
@@ -81,6 +83,7 @@ export function RubricEditor({
   });
 
   const watchedDimensions = form.watch("dimensions");
+  const contentWeight = form.watch("content_weight");
   const weightSum = watchedDimensions.reduce(
     (sum, d) => sum + (d.weight || 0),
     0,
@@ -100,6 +103,7 @@ export function RubricEditor({
           criteria: d.criteria.join(", "),
           max_score: d.max_score,
         })),
+        content_weight: rubric.content_weight ?? 60,
       });
     } else if (isNew) {
       form.reset({
@@ -110,6 +114,7 @@ export function RubricEditor({
         dimensions: [
           { name: "", weight: 100, criteria: "", max_score: 100 },
         ],
+        content_weight: 60,
       });
     }
   }, [rubric, isNew, form]);
@@ -129,6 +134,8 @@ export function RubricEditor({
           .filter(Boolean),
         max_score: d.max_score,
       })),
+      content_weight: values.content_weight,
+      voice_weight: 100 - values.content_weight,
     };
     onSave(payload);
   };
@@ -310,6 +317,40 @@ export function RubricEditor({
               <Plus className="mr-1 size-4" />
               {t("rubrics.addDimension")}
             </Button>
+          </div>
+
+          {/* Category Weights (D-12) */}
+          <div className="space-y-4 border-t pt-4">
+            <h4 className="text-sm font-semibold">{t("rubrics.categoryWeights")}</h4>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm">{t("rubrics.contentWeight")}</Label>
+                <span className="text-sm text-muted-foreground">{contentWeight}%</span>
+              </div>
+              <Controller
+                name="content_weight"
+                control={form.control}
+                render={({ field }) => (
+                  <Slider
+                    value={[field.value]}
+                    onValueChange={(val) => {
+                      const v = val[0];
+                      if (v !== undefined) {
+                        field.onChange(v);
+                      }
+                    }}
+                    min={0}
+                    max={100}
+                    step={5}
+                  />
+                )}
+              />
+              <div className="flex items-center justify-between">
+                <Label className="text-sm">{t("rubrics.voiceWeight")}</Label>
+                <span className="text-sm text-muted-foreground">{100 - contentWeight}%</span>
+              </div>
+              <p className="text-xs text-muted-foreground">{t("rubrics.voiceWeightHint")}</p>
+            </div>
           </div>
 
           <DialogFooter>

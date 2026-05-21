@@ -27,14 +27,14 @@ from app.schemas.analytics import (
 
 async def get_user_dashboard_stats(db: AsyncSession, user_id: str) -> UserDashboardStats:
     """Compute the four stat card values for user dashboard."""
-    # Total scored sessions
+    # Total completed + scored sessions (both represent finished training)
     total_result = await db.execute(
         select(func.count())
         .select_from(CoachingSession)
         .where(
             and_(
                 CoachingSession.user_id == user_id,
-                CoachingSession.status == "scored",
+                CoachingSession.status.in_(["completed", "scored"]),
             )
         )
     )
@@ -498,19 +498,7 @@ async def get_recommended_scenarios(
     # Step 3: Find weakest dimension
     weakest_dim = min(dim_avgs, key=lambda d: dim_avgs[d])
 
-    # Step 4: Map dimension to scenario weight column
-    weight_map = {
-        "key_message": Scenario.weight_key_message,
-        "objection_handling": Scenario.weight_objection_handling,
-        "communication": Scenario.weight_communication,
-        "product_knowledge": Scenario.weight_product_knowledge,
-        "scientific_info": Scenario.weight_scientific_info,
-    }
-    weight_col = weight_map.get(weakest_dim)
-    if weight_col is None:
-        return []
-
-    # Step 5: Exclude recently completed scenarios
+    # Step 4: Exclude recently completed scenarios
     recent_scenario_ids_result = await db.execute(
         select(CoachingSession.scenario_id)
         .where(
@@ -522,30 +510,48 @@ async def get_recommended_scenarios(
         .order_by(CoachingSession.completed_at.desc())
         .limit(5)
     )
-    recent_scenario_ids = [row[0] for row in recent_scenario_ids_result.all()]
+    recent_scenario_ids = {row[0] for row in recent_scenario_ids_result.all()}
 
-    # Step 6: Query active scenarios ordered by weight for weakest dimension
-    scenario_query = (
-        select(Scenario)
-        .where(Scenario.status == "active")
-        .order_by(weight_col.desc())
-        .limit(limit + len(recent_scenario_ids))
+    # Step 5: Load active scenarios and score by rubric weight for weakest dimension
+    import json as _json
+
+    from app.services.rubric_service import get_rubric
+
+    scenario_result = await db.execute(
+        select(Scenario).where(Scenario.status == "active")
     )
-    scenario_result = await db.execute(scenario_query)
-    scenarios = list(scenario_result.scalars().all())
+    all_scenarios = list(scenario_result.scalars().all())
+
+    # Score each scenario by how much weight its rubric gives to the weakest dimension
+    scored_scenarios: list[tuple[Scenario, int]] = []
+    for s in all_scenarios:
+        if s.id in recent_scenario_ids:
+            continue
+        dims: list[dict] = []
+        try:
+            rubric = await get_rubric(db, s.rubric_id)
+            raw = rubric.dimensions
+            dims = _json.loads(raw) if isinstance(raw, str) else raw
+        except Exception:
+            pass
+
+        target_weight = 0
+        for d in dims:
+            if d["name"] == weakest_dim:
+                target_weight = d["weight"]
+                break
+        scored_scenarios.append((s, target_weight))
+
+    scored_scenarios.sort(key=lambda x: x[1], reverse=True)
 
     recommendations: list[RecommendedScenarioItem] = []
-    for scenario in scenarios:
-        if scenario.id in recent_scenario_ids:
-            continue
-        if len(recommendations) >= limit:
-            break
+    for s, _ in scored_scenarios[:limit]:
         recommendations.append(
             RecommendedScenarioItem(
-                scenario_id=scenario.id,
-                scenario_name=scenario.name,
-                product=scenario.product,
-                difficulty=scenario.difficulty,
+                scenario_id=s.id,
+                scenario_name=s.name,
+                product=s.product,
+                difficulty=s.difficulty,
                 reason=f"Targets your weakest dimension: {weakest_dim}",
                 target_dimension=weakest_dim,
             )

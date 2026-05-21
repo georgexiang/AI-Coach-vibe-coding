@@ -7,7 +7,7 @@ interface SessionItemProps {
   hcpName: string;
   specialty: string;
   mode: "F2F" | "Conference";
-  score: number;
+  score: number | null;
   timeAgo: string;
   avatar?: string;
   onClick?: () => void;
@@ -65,20 +65,26 @@ export function SessionItem({
 
       <div className="flex shrink-0 items-center gap-2">
         <div className="text-right">
-          <div
-            className={cn(
-              "rounded-md px-2 py-0.5",
-              score >= 80
-                ? "bg-strength/10 text-strength"
-                : score >= 60
-                  ? "bg-chart-3/10 text-chart-3"
-                  : "bg-destructive/10 text-destructive",
-            )}
-          >
-            <p className="text-sm font-medium">
-              {score}
-            </p>
-          </div>
+          {score != null ? (
+            <div
+              className={cn(
+                "rounded-md px-2 py-0.5",
+                score >= 80
+                  ? "bg-strength/10 text-strength"
+                  : score >= 60
+                    ? "bg-chart-3/10 text-chart-3"
+                    : "bg-destructive/10 text-destructive",
+              )}
+            >
+              <p className="text-sm font-medium">
+                {score}
+              </p>
+            </div>
+          ) : (
+            <div className="rounded-md bg-muted px-2 py-0.5">
+              <p className="text-sm font-medium text-muted-foreground">--</p>
+            </div>
+          )}
           <p className="text-xs text-muted-foreground">{timeAgo}</p>
         </div>
         <ChevronRight className="size-4 text-muted-foreground" />

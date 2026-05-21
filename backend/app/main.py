@@ -21,6 +21,7 @@ from app.api import (
     azure_config_router,
     conference_router,
     config_router,
+    dry_runs_router,
     hcp_profiles_router,
     knowledge_base_router,
     materials_router,
@@ -31,6 +32,7 @@ from app.api import (
     sessions_router,
     skills_router,
     speech_router,
+    system_enums_router,
     voice_live_router,
 )
 from app.api.health import router as health_router
@@ -84,7 +86,7 @@ app.add_middleware(
 app.add_middleware(RequestLoggingMiddleware)
 
 
-# Global exception handler
+# Global exception handlers
 @app.exception_handler(AppException)
 async def app_exception_handler(request: Request, exc: AppException):
     return JSONResponse(
@@ -93,6 +95,25 @@ async def app_exception_handler(request: Request, exc: AppException):
             "code": exc.code,
             "message": exc.message,
             "details": exc.details,
+        },
+    )
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    """Catch-all: logs full traceback so 500 errors are visible in server logs."""
+    logger.exception(
+        "Unhandled exception on %s %s: %s",
+        request.method,
+        request.url.path,
+        exc,
+    )
+    return JSONResponse(
+        status_code=500,
+        content={
+            "code": "INTERNAL_ERROR",
+            "message": "An unexpected error occurred. Please try again later.",
+            "details": None,
         },
     )
 
@@ -112,9 +133,11 @@ app.include_router(conference_router, prefix=settings.api_prefix)
 app.include_router(analytics_router, prefix=settings.api_prefix)
 app.include_router(voice_live_router, prefix=settings.api_prefix)
 app.include_router(skills_router, prefix=settings.api_prefix)
+app.include_router(dry_runs_router, prefix=settings.api_prefix)
 app.include_router(meta_skills_router, prefix=settings.api_prefix)
 app.include_router(speech_router, prefix=settings.api_prefix)
 app.include_router(admin_users_router, prefix=settings.api_prefix)
+app.include_router(system_enums_router, prefix=settings.api_prefix)
 
 # Health check (standalone router, no api_prefix)
 app.include_router(health_router)

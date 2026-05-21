@@ -1596,8 +1596,8 @@ class TestHandleMessageForwarding:
 class TestLoadConnectionConfigErrors:
     """Tests for error paths in _load_connection_config."""
 
-    async def test_missing_api_key_raises(self, seeded_db):
-        """_load_connection_config raises when API key is not set."""
+    async def test_missing_api_key_returns_none_key(self, seeded_db):
+        """_load_connection_config returns empty api_key when key is not set (DefaultAzureCredential will be used)."""
         from unittest.mock import patch as _patch
 
         # Patch get_effective_key to return empty
@@ -1606,8 +1606,8 @@ class TestLoadConnectionConfigErrors:
             new_callable=AsyncMock,
             return_value="",
         ):
-            with pytest.raises(ValueError, match="API key not set"):
-                await _load_connection_config(seeded_db)
+            cfg = await _load_connection_config(seeded_db)
+            assert cfg["api_key"] == ""
 
     async def test_missing_endpoint_raises(self, seeded_db):
         """_load_connection_config raises when endpoint is not configured."""

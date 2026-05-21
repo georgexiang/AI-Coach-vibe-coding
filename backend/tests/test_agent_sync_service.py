@@ -2002,6 +2002,62 @@ def test_get_project_client_with_default_azure_credential():
     assert call_kwargs["endpoint"] == "https://endpoint.azure.com"
 
 
+def test_get_project_client_prefers_entra_id_over_api_key():
+    """_get_project_client prefers DefaultAzureCredential even when api_key is provided."""
+    from app.services.agent_sync_service import _get_project_client
+
+    mock_dac = MagicMock()
+    mock_client_cls = MagicMock()
+
+    with (
+        patch("azure.identity.DefaultAzureCredential", mock_dac),
+        patch("azure.ai.projects.AIProjectClient", mock_client_cls),
+    ):
+        _get_project_client("https://endpoint.azure.com", "my-api-key")
+
+    # Should use DefaultAzureCredential, not API Key
+    mock_dac.assert_called_once()
+    call_kwargs = mock_client_cls.call_args[1]
+    assert call_kwargs["endpoint"] == "https://endpoint.azure.com"
+    # credential should be the DAC instance, not _ApiKeyTokenCredential
+    assert call_kwargs["credential"] == mock_dac.return_value
+    # No authentication_policy override (Entra ID doesn't need it)
+    assert "authentication_policy" not in call_kwargs
+
+
+def test_get_project_client_falls_back_to_api_key():
+    """_get_project_client falls back to API Key when DefaultAzureCredential fails."""
+    from app.services.agent_sync_service import _get_project_client
+
+    mock_dac = MagicMock()
+    mock_dac.return_value.get_token.side_effect = Exception("No credential available")
+    mock_client_cls = MagicMock()
+
+    with (
+        patch("azure.identity.DefaultAzureCredential", mock_dac),
+        patch("azure.ai.projects.AIProjectClient", mock_client_cls),
+    ):
+        _get_project_client("https://endpoint.azure.com", "my-api-key")
+
+    mock_client_cls.assert_called_once()
+    call_kwargs = mock_client_cls.call_args[1]
+    assert call_kwargs["endpoint"] == "https://endpoint.azure.com"
+    # Should have authentication_policy (API Key mode)
+    assert "authentication_policy" in call_kwargs
+
+
+def test_get_project_client_no_credential_raises():
+    """_get_project_client raises ValueError when no credential is available."""
+    from app.services.agent_sync_service import _get_project_client
+
+    mock_dac = MagicMock()
+    mock_dac.return_value.get_token.side_effect = Exception("No credential")
+
+    with patch("azure.identity.DefaultAzureCredential", mock_dac):
+        with pytest.raises(ValueError, match="No valid credential available"):
+            _get_project_client("https://endpoint.azure.com", "")
+
+
 @pytest.mark.asyncio
 async def test_create_agent_exception_path():
     """create_agent raises RuntimeError when SDK raises."""

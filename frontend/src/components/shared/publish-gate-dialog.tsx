@@ -67,7 +67,7 @@ export function PublishGateDialog({
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={onCancel}>
-              {t("quality.close", { defaultValue: "Close" })}
+              {t("quality.close")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -91,7 +91,7 @@ export function PublishGateDialog({
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={onCancel}>
-              {t("quality.close", { defaultValue: "Close" })}
+              {t("quality.close")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -114,7 +114,7 @@ export function PublishGateDialog({
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={onCancel}>
-              {t("quality.close", { defaultValue: "Close" })}
+              {t("quality.close")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -140,7 +140,7 @@ export function PublishGateDialog({
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={onCancel}>
-              {t("quality.close", { defaultValue: "Close" })}
+              {t("quality.close")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -167,7 +167,7 @@ export function PublishGateDialog({
           )}
           <DialogFooter>
             <Button variant="outline" onClick={onCancel}>
-              {t("quality.close", { defaultValue: "Close" })}
+              {t("quality.close")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -194,10 +194,10 @@ export function PublishGateDialog({
           )}
           <DialogFooter>
             <Button variant="outline" onClick={onCancel}>
-              {t("quality.returnToEdit", { defaultValue: "Return to Edit" })}
+              {t("quality.returnToEdit")}
             </Button>
             <Button variant="default" onClick={onPublish}>
-              {t("quality.publishAnyway", { defaultValue: "Publish Anyway" })}
+              {t("quality.publishAnyway")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -234,7 +234,7 @@ export function PublishGateDialog({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onCancel}>
-            {t("quality.cancel", { defaultValue: "Cancel" })}
+            {t("quality.cancel")}
           </Button>
           <Button variant="default" onClick={onPublish}>
             {t("editor.publishSkill")}

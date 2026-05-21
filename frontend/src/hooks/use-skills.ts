@@ -158,8 +158,16 @@ export function useDeleteSkill() {
 export function usePublishSkill() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (id: string) => {
-      // Backend handles draft → review → published automatically.
+    mutationFn: async ({ id, currentStatus }: { id: string; currentStatus?: string }) => {
+      // If already published, create a new version (v2+) first
+      if (currentStatus === "published") {
+        await createNewVersion(id);
+        // createNewVersion resets status to "draft"
+      }
+      // Transition to "review" if not already there
+      if (currentStatus !== "review") {
+        await updateSkill(id, { status: "review" });
+      }
       return publishSkill(id);
     },
     onSuccess: () => {

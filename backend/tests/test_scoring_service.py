@@ -1,29 +1,88 @@
-"""Tests for the scoring service: mock score generation and DB integration."""
+"""Tests for the scoring service: LLM scoring integration and DB operations."""
 
 import json
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from app.models.hcp_profile import HcpProfile
 from app.models.message import SessionMessage
 from app.models.scenario import Scenario
+from app.models.scoring_rubric import ScoringRubric
 from app.models.session import CoachingSession
 from app.models.user import User
 from app.services.auth import get_password_hash
 from app.services.scoring_service import (
     _extract_skill_criteria,
-    _generate_mock_scores,
     get_session_score,
     score_session,
 )
 from app.utils.exceptions import AppException, NotFoundException
 
+DEFAULT_RUBRIC_DIMENSIONS = [
+    {"name": "key_message", "weight": 30, "criteria": [], "max_score": 100.0},
+    {"name": "objection_handling", "weight": 25, "criteria": [], "max_score": 100.0},
+    {"name": "communication", "weight": 20, "criteria": [], "max_score": 100.0},
+    {"name": "product_knowledge", "weight": 15, "criteria": [], "max_score": 100.0},
+    {"name": "scientific_info", "weight": 10, "criteria": [], "max_score": 100.0},
+]
+
+MOCK_LLM_RESULT = {
+    "overall_score": 75.0,
+    "passed": True,
+    "feedback_summary": "Good performance overall.",
+    "dimensions": [
+        {
+            "dimension": "key_message",
+            "score": 80,
+            "weight": 30,
+            "category": "content",
+            "strengths": [{"text": "Delivered PFS data", "quote": "Superior PFS"}],
+            "weaknesses": [{"text": "Missed safety message", "quote": None}],
+            "suggestions": ["Cover all key messages"],
+        },
+        {
+            "dimension": "objection_handling",
+            "score": 70,
+            "weight": 25,
+            "category": "content",
+            "strengths": [],
+            "weaknesses": [],
+            "suggestions": [],
+        },
+        {
+            "dimension": "communication",
+            "score": 75,
+            "weight": 20,
+            "category": "content",
+            "strengths": [],
+            "weaknesses": [],
+            "suggestions": [],
+        },
+        {
+            "dimension": "product_knowledge",
+            "score": 72,
+            "weight": 15,
+            "category": "content",
+            "strengths": [],
+            "weaknesses": [],
+            "suggestions": [],
+        },
+        {
+            "dimension": "scientific_info",
+            "score": 68,
+            "weight": 10,
+            "category": "content",
+            "strengths": [],
+            "weaknesses": [],
+            "suggestions": [],
+        },
+    ],
+}
+
 
 async def _seed_completed_session(db) -> tuple[str, str, str]:
-    """Create user, HCP profile, scenario, and a completed session with messages.
-
-    Returns (user_id, session_id, scenario_id).
-    """
+    """Create user, HCP profile, scenario, and a completed session with messages."""
     user = User(
         username="scorer",
         email="scorer@test.com",
@@ -42,19 +101,25 @@ async def _seed_completed_session(db) -> tuple[str, str, str]:
     db.add(hcp)
     await db.flush()
 
+    rubric = ScoringRubric(
+        name="Test Rubric",
+        scenario_type="f2f",
+        dimensions=json.dumps(DEFAULT_RUBRIC_DIMENSIONS),
+        is_default=True,
+        created_by=user.id,
+    )
+    db.add(rubric)
+    await db.flush()
+
     scenario = Scenario(
         name="Test Scenario",
-        product="Brukinsa",
         hcp_profile_id=hcp.id,
         key_messages=json.dumps(["Superior PFS", "Better safety"]),
-        weight_key_message=30,
-        weight_objection_handling=25,
-        weight_communication=20,
-        weight_product_knowledge=15,
-        weight_scientific_info=10,
+        rubric_id=rubric.id,
         pass_threshold=70,
         status="active",
         created_by=user.id,
+        skill_id="test-skill-id",
     )
     db.add(scenario)
     await db.flush()
@@ -75,7 +140,6 @@ async def _seed_completed_session(db) -> tuple[str, str, str]:
     db.add(session)
     await db.flush()
 
-    # Add messages
     msg1 = SessionMessage(
         session_id=session.id,
         role="user",
@@ -94,126 +158,30 @@ async def _seed_completed_session(db) -> tuple[str, str, str]:
     return user.id, session.id, scenario.id
 
 
-class TestGenerateMockScores:
-    """Tests for the pure _generate_mock_scores function."""
-
-    def _make_scenario(self, **overrides):
-        defaults = {
-            "name": "S",
-            "product": "TestDrug",
-            "hcp_profile_id": "p1",
-            "key_messages": json.dumps(["Key msg 1", "Key msg 2"]),
-            "weight_key_message": 30,
-            "weight_objection_handling": 25,
-            "weight_communication": 20,
-            "weight_product_knowledge": 15,
-            "weight_scientific_info": 10,
-            "pass_threshold": 70,
-            "status": "active",
-            "created_by": "u1",
-        }
-        defaults.update(overrides)
-        return Scenario(**defaults)
-
-    def _make_messages(self, count=2):
-        msgs = []
-        for i in range(count):
-            m = SessionMessage(
-                session_id="test-session-id",
-                role="user" if i % 2 == 0 else "assistant",
-                content=f"Message content {i}",
-                message_index=i,
-            )
-            msgs.append(m)
-        return msgs
-
-    async def test_returns_five_dimensions(self):
-        scenario = self._make_scenario()
-        messages = self._make_messages()
-        km_status = [
-            {"message": "Key msg 1", "delivered": True},
-            {"message": "Key msg 2", "delivered": False},
-        ]
-        result = _generate_mock_scores(scenario, messages, km_status)
-        assert len(result["dimensions"]) == 5
-
-    async def test_dimension_names_correct(self):
-        scenario = self._make_scenario()
-        result = _generate_mock_scores(scenario, self._make_messages(), [])
-        dim_names = {d["dimension"] for d in result["dimensions"]}
-        assert dim_names == {
-            "key_message",
-            "objection_handling",
-            "communication",
-            "product_knowledge",
-            "scientific_info",
-        }
-
-    async def test_scores_in_valid_range(self):
-        scenario = self._make_scenario()
-        km_status = [{"message": "m", "delivered": True}]
-        result = _generate_mock_scores(scenario, self._make_messages(), km_status)
-        for dim in result["dimensions"]:
-            assert 60 <= dim["score"] <= 95
-
-    async def test_overall_score_is_weighted_average(self):
-        scenario = self._make_scenario()
-        result = _generate_mock_scores(scenario, self._make_messages(), [])
-        expected = sum(d["score"] * d["weight"] / 100 for d in result["dimensions"])
-        assert abs(result["overall_score"] - round(expected, 1)) < 0.01
-
-    async def test_passed_depends_on_threshold(self):
-        # Very low threshold should pass
-        scenario = self._make_scenario(pass_threshold=10)
-        km_status = [{"message": "m", "delivered": True}]
-        result = _generate_mock_scores(scenario, self._make_messages(), km_status)
-        assert result["passed"] is True
-
-    async def test_high_threshold_may_fail(self):
-        scenario = self._make_scenario(pass_threshold=100)
-        result = _generate_mock_scores(scenario, self._make_messages(), [])
-        # Score is always < 100 given the 60-95 range
-        assert result["passed"] is False
-
-    async def test_feedback_summary_differs_for_pass_and_fail(self):
-        scenario_pass = self._make_scenario(pass_threshold=10)
-        scenario_fail = self._make_scenario(pass_threshold=100)
-        km = [{"message": "m", "delivered": True}]
-
-        result_pass = _generate_mock_scores(scenario_pass, self._make_messages(), km)
-        result_fail = _generate_mock_scores(scenario_fail, self._make_messages(), km)
-
-        assert "Good performance" in result_pass["feedback_summary"]
-        assert "below the passing threshold" in result_fail["feedback_summary"]
-
-    async def test_strengths_reference_delivered_messages(self):
-        scenario = self._make_scenario()
-        km_status = [
-            {"message": "Key msg 1", "delivered": True},
-            {"message": "Key msg 2", "delivered": False},
-        ]
-        result = _generate_mock_scores(scenario, self._make_messages(), km_status)
-        km_dim = next(d for d in result["dimensions"] if d["dimension"] == "key_message")
-        assert len(km_dim["strengths"]) >= 1
-        assert "1 of 2" in km_dim["strengths"][0]["text"]
-
-
 class TestScoreSessionIntegration:
     """DB integration tests for score_session and get_session_score."""
 
-    async def test_score_session_creates_score_and_details(self, db_session):
+    @patch("app.services.scoring_service.score_with_llm", new_callable=AsyncMock)
+    async def test_score_session_creates_score_and_details(
+        self, mock_llm, db_session
+    ):
+        mock_llm.return_value = MOCK_LLM_RESULT
         _, session_id, _ = await _seed_completed_session(db_session)
         score = await score_session(db_session, session_id)
 
         assert score is not None
         assert score.session_id == session_id
-        assert score.overall_score > 0
-        assert isinstance(score.passed, bool)
+        assert score.overall_score == 75.0
+        assert score.passed is True
         assert len(score.details) == 5
 
-    async def test_score_session_updates_session_status_to_scored(self, db_session):
+    @patch("app.services.scoring_service.score_with_llm", new_callable=AsyncMock)
+    async def test_score_session_updates_session_status_to_scored(
+        self, mock_llm, db_session
+    ):
         from sqlalchemy import select
 
+        mock_llm.return_value = MOCK_LLM_RESULT
         _, session_id, _ = await _seed_completed_session(db_session)
         await score_session(db_session, session_id)
 
@@ -222,13 +190,17 @@ class TestScoreSessionIntegration:
         )
         session = result.scalar_one()
         assert session.status == "scored"
-        assert session.overall_score is not None
+        assert session.overall_score == 75.0
 
     async def test_score_session_raises_for_nonexistent_session(self, db_session):
         with pytest.raises(NotFoundException):
             await score_session(db_session, "nonexistent-id")
 
-    async def test_score_session_raises_for_already_scored(self, db_session):
+    @patch("app.services.scoring_service.score_with_llm", new_callable=AsyncMock)
+    async def test_score_session_raises_for_already_scored(
+        self, mock_llm, db_session
+    ):
+        mock_llm.return_value = MOCK_LLM_RESULT
         _, session_id, _ = await _seed_completed_session(db_session)
         await score_session(db_session, session_id)
 
@@ -251,13 +223,24 @@ class TestScoreSessionIntegration:
         db_session.add(hcp)
         await db_session.flush()
 
+        rubric = ScoringRubric(
+            name="Rubric",
+            scenario_type="f2f",
+            dimensions=json.dumps(DEFAULT_RUBRIC_DIMENSIONS),
+            is_default=False,
+            created_by=user.id,
+        )
+        db_session.add(rubric)
+        await db_session.flush()
+
         scenario = Scenario(
             name="S",
-            product="Drug",
             hcp_profile_id=hcp.id,
             key_messages="[]",
+            rubric_id=rubric.id,
             status="active",
             created_by=user.id,
+            skill_id="test-skill-id",
         )
         db_session.add(scenario)
         await db_session.flush()
@@ -275,12 +258,28 @@ class TestScoreSessionIntegration:
             await score_session(db_session, session.id)
         assert exc_info.value.code == "INVALID_STATUS"
 
+    @patch("app.services.scoring_service.score_with_llm", new_callable=AsyncMock)
+    async def test_score_session_propagates_503_on_llm_failure(
+        self, mock_llm, db_session
+    ):
+        from app.utils.exceptions import ScoringUnavailableException
+
+        mock_llm.side_effect = ScoringUnavailableException("LLM unavailable")
+        _, session_id, _ = await _seed_completed_session(db_session)
+
+        with pytest.raises(ScoringUnavailableException):
+            await score_session(db_session, session_id)
+
     async def test_get_session_score_returns_none_when_not_scored(self, db_session):
         _, session_id, _ = await _seed_completed_session(db_session)
         score = await get_session_score(db_session, session_id)
         assert score is None
 
-    async def test_get_session_score_returns_score_after_scoring(self, db_session):
+    @patch("app.services.scoring_service.score_with_llm", new_callable=AsyncMock)
+    async def test_get_session_score_returns_score_after_scoring(
+        self, mock_llm, db_session
+    ):
+        mock_llm.return_value = MOCK_LLM_RESULT
         _, session_id, _ = await _seed_completed_session(db_session)
         await score_session(db_session, session_id)
 
@@ -289,9 +288,18 @@ class TestScoreSessionIntegration:
         assert score.session_id == session_id
         assert len(score.details) == 5
 
+    @patch("app.services.scoring_service.score_with_llm", new_callable=AsyncMock)
+    async def test_score_details_have_content_category(self, mock_llm, db_session):
+        mock_llm.return_value = MOCK_LLM_RESULT
+        _, session_id, _ = await _seed_completed_session(db_session)
+        score = await score_session(db_session, session_id)
+
+        for detail in score.details:
+            assert detail.category == "content"
+
 
 class TestExtractSkillCriteria:
-    """Tests for _extract_skill_criteria helper that extracts assessment criteria from Skill content."""
+    """Tests for _extract_skill_criteria helper."""
 
     def test_returns_empty_for_none_skill(self):
         assert _extract_skill_criteria(None) == ""
@@ -322,7 +330,6 @@ class TestExtractSkillCriteria:
         assert "Assessment Rubric" in result
         assert "Key Message Delivery" in result
         assert "Objection Handling" in result
-        # Should not include the next section
         assert "Key Knowledge Points" not in result
 
     def test_extracts_assessment_fallback_section(self):
@@ -382,8 +389,7 @@ class TestBuildScoringPromptWithSkillCriteria:
             },
             messages=[{"role": "user", "content": "Hello doctor"}],
             key_messages_status=[],
-            weights={"key_message": 30, "objection_handling": 25, "communication": 20,
-                     "product_knowledge": 15, "scientific_info": 10},
+            rubric_dimensions=DEFAULT_RUBRIC_DIMENSIONS,
             skill_criteria=criteria,
         )
         assert "Skill-Specific Assessment Criteria" in prompt
@@ -403,7 +409,6 @@ class TestBuildScoringPromptWithSkillCriteria:
             },
             messages=[{"role": "user", "content": "Hello"}],
             key_messages_status=[],
-            weights={"key_message": 30, "objection_handling": 25, "communication": 20,
-                     "product_knowledge": 15, "scientific_info": 10},
+            rubric_dimensions=DEFAULT_RUBRIC_DIMENSIONS,
         )
         assert "Skill-Specific Assessment Criteria" not in prompt

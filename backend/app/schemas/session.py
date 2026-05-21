@@ -18,13 +18,20 @@ class SessionCreate(BaseModel):
         "digital_human_realtime_model",
         "voice_realtime_agent",
         "digital_human_realtime_agent",
-    ] = "text"
+    ] = "digital_human_realtime_model"
 
 
 class SendMessageRequest(BaseModel):
     """Send a message in a coaching session."""
 
     message: str
+
+
+class TranscriptMessageRequest(BaseModel):
+    """Persist a voice transcript message (no LLM response triggered)."""
+
+    message: str
+    role: Literal["user", "assistant"] = "user"
 
 
 class MessageResponse(BaseModel):
@@ -46,6 +53,7 @@ class SessionResponse(BaseModel):
     id: str
     user_id: str
     scenario_id: str
+    scenario_name: str | None = None
     status: str
     started_at: datetime | None
     completed_at: datetime | None
@@ -54,6 +62,11 @@ class SessionResponse(BaseModel):
     overall_score: float | None
     passed: bool | None
     mode: str = "text"
+    audio_url: str | None = None
+    voice_score_status: str = "none"
+    focus_instruction: str | None = None
+    sop_current_step: int | None = None
+    message_count: int = 0
     created_at: datetime
     updated_at: datetime
 

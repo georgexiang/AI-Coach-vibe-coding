@@ -15,6 +15,8 @@ import {
   FileText,
   FileCode,
   File as FileIcon,
+  UserRound,
+  Stethoscope,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -91,7 +93,7 @@ function ResourceInfoCard({ resource }: { resource: SkillResource }) {
           <span>{resource.content_type}</span>
           <span>{formatSize(resource.file_size)}</span>
           <span>
-            {t("resources.type", { defaultValue: "Type" })}:{" "}
+            {t("resources.type")}:{" "}
             {resource.resource_type}
           </span>
         </div>
@@ -153,7 +155,7 @@ function ResourceContentPreview({
         }
       >
         <Download className="mr-2 size-4" />
-        {t("resources.download", { defaultValue: "Download" })}
+        {t("resources.download")}
       </Button>
     </div>
   );
@@ -380,11 +382,11 @@ function MetaSkillCard({
         <TabsList>
           <TabsTrigger value="instructions" className="flex items-center gap-2">
             <FileText className="h-4 w-4" />
-            {t("tabs.instructions", { defaultValue: "Agent Instructions" })}
+            {t("tabs.instructions")}
           </TabsTrigger>
           <TabsTrigger value="resources" className="flex items-center gap-2">
             <FileCode className="h-4 w-4" />
-            {t("tabs.resources", { defaultValue: "Skill Resources" })}
+            {t("tabs.resources")}
           </TabsTrigger>
         </TabsList>
 
@@ -422,10 +424,7 @@ function MetaSkillCard({
 
               <div className="space-y-2">
                 <Label>
-                  {t("fields.composedInstructions", {
-                    defaultValue:
-                      "Composed Instructions (SKILL.md + References)",
-                  })}
+                  {t("fields.composedInstructions")}
                 </Label>
                 <Textarea
                   value={editTemplate}
@@ -482,25 +481,19 @@ function MetaSkillCard({
               {/* Download Package toolbar */}
               <div className="flex items-center justify-between border-b border-border px-4 py-2">
                 <span className="text-sm font-medium text-muted-foreground">
-                  {t("resources.title", { defaultValue: "Skill Resources" })}
+                  {t("resources.title")}
                 </span>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => {
                     downloadMetaSkillZip(skillType).catch(() =>
-                      toast.error(
-                        t("resources.downloadError", {
-                          defaultValue: "Download failed",
-                        }),
-                      ),
+                      toast.error(t("resources.downloadError")),
                     );
                   }}
                 >
                   <Download className="mr-2 size-4" />
-                  {t("resources.downloadPackage", {
-                    defaultValue: "Download Package",
-                  })}
+                  {t("resources.downloadPackage")}
                 </Button>
               </div>
               {resourcesLoading ? (
@@ -529,9 +522,7 @@ function MetaSkillCard({
                     {!selectedResource && (
                       <div className="flex h-full items-center justify-center p-8">
                         <p className="text-sm text-muted-foreground">
-                          {t("resources.selectFile", {
-                            defaultValue: "Select a file to preview",
-                          })}
+                          {t("resources.selectFile")}
                         </p>
                       </div>
                     )}
@@ -584,6 +575,14 @@ export default function MetaSkillsPage() {
             <ClipboardCheck className="h-4 w-4" />
             {t("tabs.evaluator")}
           </TabsTrigger>
+          <TabsTrigger value="dry-run-mr" className="flex items-center gap-2">
+            <UserRound className="h-4 w-4" />
+            {t("tabs.dryRunMr")}
+          </TabsTrigger>
+          <TabsTrigger value="dry-run-hcp" className="flex items-center gap-2">
+            <Stethoscope className="h-4 w-4" />
+            {t("tabs.dryRunHcp")}
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="creator" className="mt-4">
@@ -597,6 +596,20 @@ export default function MetaSkillsPage() {
           <MetaSkillCard
             skillType="evaluator"
             icon={<ClipboardCheck className="h-5 w-5 text-primary" />}
+          />
+        </TabsContent>
+
+        <TabsContent value="dry-run-mr" className="mt-4">
+          <MetaSkillCard
+            skillType="dry-run-mr"
+            icon={<UserRound className="h-5 w-5 text-primary" />}
+          />
+        </TabsContent>
+
+        <TabsContent value="dry-run-hcp" className="mt-4">
+          <MetaSkillCard
+            skillType="dry-run-hcp"
+            icon={<Stethoscope className="h-5 w-5 text-primary" />}
           />
         </TabsContent>
       </Tabs>

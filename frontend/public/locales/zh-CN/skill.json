@@ -15,7 +15,10 @@
     "createFromMaterials": "从材料创建",
     "importZipPackage": "导入 ZIP 包",
     "createDialogTitle": "创建新技能",
-    "createDialogDescription": "选择创建方式"
+    "createDialogDescription": "选择创建方式",
+    "selectMaterials": "选择材料",
+    "selectMaterialsDesc": "选择要转换为技能的培训材料。",
+    "convertSelected": "转换 {{count}} 个材料"
   },
   "editor": {
     "title": "技能编辑器",
@@ -54,7 +57,10 @@
     "uploadAndConvert": "上传并转换",
     "createEmpty": "或创建空白技能",
     "filesUploaded": "文件已上传",
-    "saveFirstForResources": "请先保存技能以管理资源"
+    "saveFirstForResources": "请先保存技能以管理资源",
+    "skillNamePlaceholder": "请输入技能名称...",
+    "defaultSkillName": "新技能",
+    "sourceMaterials": "来源材料"
   },
   "status": {
     "draft": "草稿",
@@ -65,6 +71,7 @@
     "completed": "已完成"
   },
   "conversion": {
+    "started": "转换已启动",
     "processing": "正在将材料转换为技能...",
     "completed": "技能已成功生成，请审阅内容。",
     "failed": "转换失败，请检查材料后重试。",
@@ -131,6 +138,7 @@
     "noResources": "暂无资源",
     "selectFile": "从文件树中选择文件进行预览",
     "download": "下载",
+    "downloadPackage": "下载包",
     "type": "类型"
   },
   "errors": {
@@ -148,5 +156,59 @@
     "publishWarning": "质量评分为 {{score}}/100。部分维度需要改进。仍然发布？",
     "publishBlock": "质量评分为 {{score}}/100。技能质量评分需达到 50 分方可发布。",
     "staleEvaluation": "上次质量评估后内容已更改。建议在发布前重新评估。"
+  },
+  "dryRun": {
+    "button": "模拟测试",
+    "startTitle": "启动模拟测试",
+    "startBody": "系统将使用 AI Agent 模拟完整的 MR-HCP 培训对话，以验证此 Skill 的 SOP 可执行性。预计耗时：1-3 分钟。",
+    "startButton": "开始模拟",
+    "goBack": "返回",
+    "cancelRun": "取消测试",
+    "cancelConfirm": "取消此模拟测试？进度将丢失。",
+    "progressTitle": "模拟测试进行中",
+    "progressStep": "已覆盖 {{current}}/{{total}} 个 SOP 步骤",
+    "progressSimulating": "正在模拟对话...",
+    "reportTitle": "模拟测试报告",
+    "scoreLabel": "可执行性评分",
+    "coverageLabel": "SOP 覆盖率",
+    "issuesLabel": "发现问题",
+    "tabConversation": "对话记录",
+    "tabCoverage": "SOP 覆盖率",
+    "tabIssues": "问题列表",
+    "stepCovered": "已覆盖",
+    "stepPartial": "部分覆盖",
+    "stepNotCovered": "未覆盖",
+    "historyTitle": "模拟测试历史",
+    "viewAll": "查看全部",
+    "startNewRun": "启动新测试",
+    "emptyTitle": "暂无模拟测试",
+    "emptyBody": "在发布前运行模拟测试以验证 Skill 的 SOP 可执行性。",
+    "errorRunFailed": "模拟测试失败，请检查 SOP 内容后重试。",
+    "errorLoadFailed": "加载模拟测试结果失败。",
+    "toastCompleted": "模拟测试已完成，请查看报告了解详情。",
+    "toastCancelled": "模拟测试已取消。",
+    "tooltipDisabled": "请先保存 Skill 内容后再运行模拟测试。",
+    "speakerMr": "AI-MR",
+    "speakerHcp": "AI-HCP",
+    "durationLabel": "耗时",
+    "severityWarning": "警告",
+    "severityError": "错误",
+    "suggestionPrefix": "建议:",
+    "noIssues": "未发现问题。SOP 能驱动完整有效的培训对话。",
+    "backToEditor": "返回编辑器",
+    "run": "测试 #{{number}}",
+    "score": "评分",
+    "coverage": "覆盖率",
+    "issues": "问题",
+    "warnings": "个警告",
+    "noConversationData": "无对话数据",
+    "noSopSteps": "未在 Skill 内容中检测到 SOP 步骤",
+    "errorStartFailed": "启动模拟测试失败",
+    "runCompleteToast": "模拟测试已启动，请查看报告了解详情。",
+    "retry": "重试",
+    "tabSopCoverage": "SOP 覆盖率",
+    "errors": {
+      "startFailed": "启动模拟测试失败"
+    }
   }
 }

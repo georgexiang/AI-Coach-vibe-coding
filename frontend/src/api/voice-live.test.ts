@@ -90,17 +90,16 @@ describe("Voice Live API client", () => {
   });
 
   describe("persistTranscriptMessage", () => {
-    it("calls POST /sessions/:id/messages with correct payload", async () => {
+    it("calls POST /sessions/:id/transcript with correct payload", async () => {
       mockClient.post.mockResolvedValue({ data: undefined });
 
       await persistTranscriptMessage("sess-123", "user", "Hello doctor");
 
       expect(mockClient.post).toHaveBeenCalledWith(
-        "/sessions/sess-123/messages",
+        "/sessions/sess-123/transcript",
         {
           message: "Hello doctor",
           role: "user",
-          source: "voice_transcript",
         },
       );
     });

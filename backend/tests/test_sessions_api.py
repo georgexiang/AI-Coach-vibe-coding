@@ -1,7 +1,10 @@
 """Tests for Sessions API endpoints: session lifecycle via HTTP."""
 
+import json
 from unittest.mock import patch
 
+from app.models.scoring_rubric import ScoringRubric
+from app.models.skill import Skill, SkillVersion
 from app.models.user import User
 from app.services.auth import create_access_token, get_password_hash
 from tests.conftest import TestSessionLocal
@@ -42,7 +45,7 @@ async def _create_user_and_token(username="user_sess") -> tuple[str, str]:
 
 
 async def _create_active_scenario(client, admin_id, admin_token) -> str:
-    """Create an HCP profile and active scenario. Returns scenario_id."""
+    """Create an HCP profile, rubric, and active scenario. Returns scenario_id."""
     hcp_resp = await client.post(
         "/api/v1/hcp-profiles",
         json={"name": "Dr. Sess", "specialty": "Onc", "created_by": admin_id},
@@ -50,19 +53,54 @@ async def _create_active_scenario(client, admin_id, admin_token) -> str:
     )
     hcp_id = hcp_resp.json()["id"]
 
+    # Create rubric and skill via DB
+    async with TestSessionLocal() as db:
+        rubric = ScoringRubric(
+            name="Test Rubric", scenario_type="f2f",
+            dimensions=json.dumps([
+                {"name": "key_message", "weight": 30, "criteria": [], "max_score": 100.0},
+                {"name": "objection_handling", "weight": 25, "criteria": [], "max_score": 100.0},
+                {"name": "communication", "weight": 20, "criteria": [], "max_score": 100.0},
+                {"name": "product_knowledge", "weight": 15, "criteria": [], "max_score": 100.0},
+                {"name": "scientific_info", "weight": 10, "criteria": [], "max_score": 100.0},
+            ]),
+            is_default=True, created_by=admin_id,
+        )
+        db.add(rubric)
+        await db.flush()
+
+        skill = Skill(id="test-skill-id", name="Test Skill", status="published", created_by=admin_id)
+        db.add(skill)
+        await db.flush()
+        skill_ver = SkillVersion(skill_id=skill.id, version_number=1, content="test", is_published=True, created_by=admin_id)
+        db.add(skill_ver)
+        await db.commit()
+        await db.refresh(rubric)
+        rubric_id = rubric.id
+
     scn_resp = await client.post(
         "/api/v1/scenarios",
         json={
             "name": "Active Scenario",
-            "product": "Brukinsa",
+            "tags": ["product:Brukinsa"],
             "hcp_profile_id": hcp_id,
-            "created_by": admin_id,
-            "status": "active",
+            "rubric_id": rubric_id,
+            "skill_id": "test-skill-id",
             "key_messages": ["Superior PFS", "Better safety"],
         },
         headers={"Authorization": f"Bearer {admin_token}"},
     )
-    return scn_resp.json()["id"]
+    scenario_id = scn_resp.json()["id"]
+
+    # Activate the scenario so sessions can be created
+    async with TestSessionLocal() as db:
+        from sqlalchemy import update
+
+        from app.models.scenario import Scenario
+        await db.execute(update(Scenario).where(Scenario.id == scenario_id).values(status="active"))
+        await db.commit()
+
+    return scenario_id
 
 
 class TestCreateSessionEndpoint:
@@ -226,15 +264,29 @@ class TestListSessionsEndpoint:
         scenario_id = await _create_active_scenario(client, admin_id, admin_token)
         user_id, user_token = await _create_user_and_token()
 
-        # Create two sessions
-        await client.post(
+        # Create two sessions and send messages so they are not filtered as abandoned
+        resp1 = await client.post(
             "/api/v1/sessions",
             json={"scenario_id": scenario_id},
             headers={"Authorization": f"Bearer {user_token}"},
         )
-        await client.post(
+        resp2 = await client.post(
             "/api/v1/sessions",
             json={"scenario_id": scenario_id},
+            headers={"Authorization": f"Bearer {user_token}"},
+        )
+
+        # Add a message to each session so they won't be filtered out
+        sid1 = resp1.json()["id"]
+        sid2 = resp2.json()["id"]
+        await client.post(
+            f"/api/v1/sessions/{sid1}/transcript",
+            json={"role": "user", "message": "Hello"},
+            headers={"Authorization": f"Bearer {user_token}"},
+        )
+        await client.post(
+            f"/api/v1/sessions/{sid2}/transcript",
+            json={"role": "user", "message": "Hi"},
             headers={"Authorization": f"Bearer {user_token}"},
         )
 

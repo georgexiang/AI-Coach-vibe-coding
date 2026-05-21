@@ -13,7 +13,7 @@ class HcpProfileCreate(BaseModel):
 
     name: str
     specialty: str
-    created_by: str
+    created_by: str = ""
     hospital: str = ""
     title: str = ""
     avatar_url: str = ""

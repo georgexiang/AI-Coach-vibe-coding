@@ -5,6 +5,31 @@
 
 ---
 
+## 🚨 最高优先级要求 (Top Priority Rule)
+
+**当有多个需求时，必须严格按照以下流程逐一实现：**
+
+1. **逐个实现** — 一次只做一个需求，不要并行处理多个需求
+2. **单元测试 100% 覆盖** — 每个需求的代码必须有完整的 unit test 覆盖（pytest for backend, vitest/jest for frontend）
+3. **Playwright E2E 测试** — 从主要 user story 角度编写 E2E 测试，覆盖核心用户故事线
+4. **测试全部通过后才能提交** — 确保所有 unit test 和 E2E test 通过
+5. **Commit & Push** — 每个需求完成后立即 commit 并 push 到 GitHub
+6. **开始下一个需求** — 上一个需求完全提交后，才开始下一个
+7. **保持提交记录** — 每个需求必须有独立的 commit 记录，commit message 清晰描述该需求
+
+**流程图：**
+```
+需求1 → 实现 → Unit Test (100%) → E2E Test → All Pass → Commit → Push → 需求2 → ...
+```
+
+**违反此规则的行为：**
+- ❌ 同时开始多个需求的代码修改
+- ❌ 跳过测试直接提交
+- ❌ 多个需求合并为一个 commit
+- ❌ 测试未通过就 push
+
+---
+
 ## Document Hierarchy (No-Overlap Principle)
 
 | Layer | File(s) | Purpose |

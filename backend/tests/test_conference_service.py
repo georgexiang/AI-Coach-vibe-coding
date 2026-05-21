@@ -51,12 +51,13 @@ async def _seed_conference_fixture(session, *, mode="conference", audience_count
 
     scenario = Scenario(
         name="Conference Test Scenario",
-        product="TestDrug",
         mode=mode,
         hcp_profile_id=hcps[0].id,
         created_by=user.id,
         key_messages=json.dumps(["Safety profile", "Efficacy data"]),
+        skill_id="test-skill-id",
         description="Cancer treatment data presentation",
+        rubric_id="test-rubric-id",
     )
     session.add(scenario)
     await session.flush()

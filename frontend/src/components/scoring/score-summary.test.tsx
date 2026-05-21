@@ -26,12 +26,17 @@ describe("ScoreSummary", () => {
 
   it("renders excellent grade for scores >= 80", () => {
     render(<ScoreSummary overallScore={80} passed={true} />);
-    expect(screen.getByText("grades.excellent")).toBeInTheDocument();
+    expect(screen.getByText("grade.excellent")).toBeInTheDocument();
   });
 
-  it("renders needsImprovement grade for scores < 60", () => {
-    render(<ScoreSummary overallScore={50} passed={false} />);
-    expect(screen.getByText("grades.needsImprovement")).toBeInTheDocument();
+  it("renders good grade for scores >= 70 and < 80", () => {
+    render(<ScoreSummary overallScore={75} passed={true} />);
+    expect(screen.getByText("grade.good")).toBeInTheDocument();
+  });
+
+  it("renders needsImprovement grade for scores < 70", () => {
+    render(<ScoreSummary overallScore={65} passed={false} />);
+    expect(screen.getByText("grade.needsImprovement")).toBeInTheDocument();
   });
 
   it("shows trend up with positive trend value", () => {

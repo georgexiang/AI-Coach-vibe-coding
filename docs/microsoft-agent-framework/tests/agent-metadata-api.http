@@ -8,7 +8,8 @@
 #   2. 在同目录创建 .env 文件（已被 .gitignore 忽略），内容如下：
 #      AZURE_FOUNDRY_ENDPOINT=https://your-resource.services.ai.azure.com
 #      AZURE_FOUNDRY_API_KEY=your-api-key-here
-#      AZURE_FOUNDRY_PROJECT=your-project-name
+#      AZURE_FOUNDRY_DEFAULT_PROJECT=your-project-name
+#      AZURE_FOUNDRY_MODEL=gpt-4o
 #
 # 使用：按序号从上到下依次点击 "Send Request" 运行
 ###############################################################################
@@ -16,9 +17,10 @@
 ### ===== 配置区（从 .env 读取，无需硬编码） =====
 
 @baseEndpoint = {{$dotenv AZURE_FOUNDRY_ENDPOINT}}
-@projectName = {{$dotenv AZURE_FOUNDRY_PROJECT}}
+@projectName = {{$dotenv AZURE_FOUNDRY_DEFAULT_PROJECT}}
 @apiKey = {{$dotenv AZURE_FOUNDRY_API_KEY}}
-@apiVersion = 2025-05-01
+@modelName = {{$dotenv AZURE_FOUNDRY_MODEL}}
+@apiVersion = 2025-11-15-preview
 
 ### ===== 动态变量 =====
 @projectUrl = {{baseEndpoint}}/api/projects/{{projectName}}
@@ -35,8 +37,8 @@ Content-Type: application/json
 
 {
   "definition": {
-    "type": "prompt",
-    "model": "gpt-4o",
+    "kind": "prompt",
+    "model": "{{modelName}}",
     "instructions": "You are a test agent for metadata API verification."
   },
   "description": "Postman metadata test agent",
@@ -68,8 +70,8 @@ Content-Type: application/json
 
 {
   "definition": {
-    "type": "prompt",
-    "model": "gpt-4o",
+    "kind": "prompt",
+    "model": "{{modelName}}",
     "instructions": "Test 512 char limit."
   },
   "metadata": {
@@ -88,8 +90,8 @@ Content-Type: application/json
 
 {
   "definition": {
-    "type": "prompt",
-    "model": "gpt-4o",
+    "kind": "prompt",
+    "model": "{{modelName}}",
     "instructions": "Test 513 char limit."
   },
   "metadata": {
@@ -104,8 +106,8 @@ Content-Type: application/json
 
 {
   "definition": {
-    "type": "prompt",
-    "model": "gpt-4o",
+    "kind": "prompt",
+    "model": "{{modelName}}",
     "instructions": "Test 1024 char limit."
   },
   "metadata": {
@@ -126,8 +128,8 @@ Content-Type: application/json
 
 {
   "definition": {
-    "type": "prompt",
-    "model": "gpt-4o",
+    "kind": "prompt",
+    "model": "{{modelName}}",
     "instructions": "You are a Voice Live test agent."
   },
   "description": "VL Postman Test Agent",
@@ -145,16 +147,16 @@ Content-Type: application/json
 GET {{projectUrl}}/agents/postman-test-vl-compact?api-version={{apiVersion}}
 api-key: {{apiKey}}
 
-### 3c. 完整格式（含所有 null 和默认值）— 应该失败 ❌ (~607 chars > 512)
-# 如果成功 → Azure 已放宽 512 限制，可以恢复完整格式
+### 3c. 完整格式（含所有 null 和默认值）— 应该成功 ✅ (实测 506 chars < 512)
+# 之前估算 ~607 chars 有误（包含了转义字符），实际存储值为 506 chars
 POST {{projectUrl}}/agents/postman-test-vl-full/versions?api-version={{apiVersion}}
 api-key: {{apiKey}}
 Content-Type: application/json
 
 {
   "definition": {
-    "type": "prompt",
-    "model": "gpt-4o",
+    "kind": "prompt",
+    "model": "{{modelName}}",
     "instructions": "Test full VL config."
   },
   "metadata": {
@@ -184,8 +186,8 @@ Content-Type: application/json
 
 {
   "definition": {
-    "type": "prompt",
-    "model": "gpt-4o",
+    "kind": "prompt",
+    "model": "{{modelName}}",
     "instructions": "Version 1 instructions."
   },
   "metadata": {
@@ -201,8 +203,8 @@ Content-Type: application/json
 
 {
   "definition": {
-    "type": "prompt",
-    "model": "gpt-4o",
+    "kind": "prompt",
+    "model": "{{modelName}}",
     "instructions": "Version 2 — updated instructions."
   },
   "metadata": {
@@ -219,8 +221,8 @@ Content-Type: application/json
 
 {
   "definition": {
-    "type": "prompt",
-    "model": "gpt-4o",
+    "kind": "prompt",
+    "model": "{{modelName}}",
     "instructions": "Version 2 — updated instructions."
   },
   "metadata": {
@@ -278,8 +280,8 @@ Content-Type: application/json
 
 {
   "definition": {
-    "type": "prompt",
-    "model": "gpt-4o",
+    "kind": "prompt",
+    "model": "{{modelName}}",
     "instructions": "Test merge behavior."
   },
   "metadata": {
@@ -295,8 +297,8 @@ Content-Type: application/json
 
 {
   "definition": {
-    "type": "prompt",
-    "model": "gpt-4o",
+    "kind": "prompt",
+    "model": "{{modelName}}",
     "instructions": "Test merge behavior."
   },
   "metadata": {

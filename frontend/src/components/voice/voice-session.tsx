@@ -22,6 +22,7 @@ import { useVoiceLive } from "@/hooks/use-voice-live";
 import { useAvatarStream } from "@/hooks/use-avatar-stream";
 import { useAudioHandler } from "@/hooks/use-audio-handler";
 import { useAudioPlayer } from "@/hooks/use-audio-player";
+import { useSessionRecorder } from "@/hooks/use-session-recorder";
 import { useVoiceSessionLifecycle } from "@/hooks/use-voice-session-lifecycle";
 import { useEndSession } from "@/hooks/use-session";
 import { useScenario } from "@/hooks/use-scenarios";
@@ -151,6 +152,7 @@ export function VoiceSession({
   const avatarStream = useAvatarStream(videoRef);
   const audioHandler = useAudioHandler();
   const audioPlayer = useAudioPlayer();
+  const sessionRecorder = useSessionRecorder();
 
   const voiceLive = useVoiceLive({
     language,
@@ -226,6 +228,17 @@ export function VoiceSession({
         setCurrentMode(resolvedMode);
         initialModeRef.current = resolvedMode;
         log.info("Mode=%s avatar=%s resolvedMode=%s", result.mode, result.avatarEnabled, resolvedMode);
+
+        // Start session recording for voice scoring
+        const micStream = audioHandler.streamRef.current;
+        if (micStream) {
+          const started = await sessionRecorder.startRecording(micStream);
+          if (started) {
+            log.info("Session recorder started");
+          } else {
+            log.warn("Session recorder failed to start");
+          }
+        }
       }
     } finally {
       setIsConnecting(false);
@@ -263,19 +276,36 @@ export function VoiceSession({
     // Flush all pending transcript writes first (D-09)
     await Promise.all(pendingFlushesRef.current);
 
-    // Disconnect voice and avatar via shared lifecycle
-    await stopVoiceSession();
+    // Stop recording and upload audio for voice scoring
+    if (sessionRecorder.isRecording) {
+      toast.info(t("recording.uploading"));
+      const uploadResult = await sessionRecorder.stopAndUpload(sessionId);
+      if (uploadResult.success) {
+        log.info("Session audio uploaded successfully");
+      } else {
+        log.warn("Session audio upload failed: %s", uploadResult.error);
+        toast.warning(t("recording.uploadFailed"));
+      }
+    }
+
+    // Disconnect voice and avatar via shared lifecycle (ignore errors — may not be connected)
+    try {
+      await stopVoiceSession();
+    } catch {
+      // Voice cleanup failure is non-fatal
+    }
 
     // Call endSession API
     try {
       await endSessionMutation.mutateAsync(sessionId);
-      navigate(`/user/scoring/${sessionId}`);
+      navigate("/user/history");
     } catch {
       toast.error(t("error.connectionFailed"));
-      navigate("/user/scenarios");
+      navigate("/user/training");
     }
   }, [
     sessionId,
+    sessionRecorder,
     stopVoiceSession,
     endSessionMutation,
     navigate,
@@ -320,11 +350,7 @@ export function VoiceSession({
     status: "active",
     hcp_profile_id: "",
     key_messages: [],
-    weight_key_message: 30,
-    weight_objection_handling: 25,
-    weight_communication: 20,
-    weight_product_knowledge: 15,
-    weight_scientific_info: 10,
+    rubric_id: "",
     pass_threshold: 70,
     estimated_duration: 15,
     created_by: "",

@@ -149,7 +149,7 @@ export default function SkillHubPage() {
     if (!deleteTarget) return;
     deleteMutation.mutate(deleteTarget.id, {
       onSuccess: () => {
-        toast.success(tc("delete", { defaultValue: "Deleted" }));
+        toast.success(tc("delete"));
         setDeleteTarget(null);
       },
       onError: () => toast.error(t("errors.deleteFailed")),
@@ -175,7 +175,7 @@ export default function SkillHubPage() {
     } else {
       // No materials available, fall back to creating empty skill
       createMutation.mutate(
-        { name: "New Skill" },
+        { name: t("editor.defaultSkillName") },
         {
           onSuccess: (skill) => {
             navigate(`/admin/skills/${skill.id}/edit`);
@@ -193,7 +193,7 @@ export default function SkillHubPage() {
       { materialIds: selectedMaterialIds },
       {
         onSuccess: (result) => {
-          toast.success(t("conversion.started", { defaultValue: "Conversion started" }));
+          toast.success(t("conversion.started"));
           navigate(`/admin/skills/${result.id}/edit`);
         },
         onError: () => toast.error(t("errors.saveFailed")),
@@ -332,7 +332,7 @@ export default function SkillHubPage() {
                 disabled={page <= 1}
                 onClick={() => setPage((p) => p - 1)}
               >
-                {tc("previous", { defaultValue: "Previous" })}
+                {tc("previous")}
               </Button>
               <span className="text-sm text-muted-foreground">
                 {page} / {totalPages}
@@ -343,7 +343,7 @@ export default function SkillHubPage() {
                 disabled={page >= totalPages}
                 onClick={() => setPage((p) => p + 1)}
               >
-                {tc("next", { defaultValue: "Next" })}
+                {tc("next")}
               </Button>
             </div>
           )}
@@ -393,12 +393,10 @@ export default function SkillHubPage() {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>
-              {t("hub.selectMaterials", { defaultValue: "Select Materials" })}
+              {t("hub.selectMaterials")}
             </DialogTitle>
             <DialogDescription>
-              {t("hub.selectMaterialsDesc", {
-                defaultValue: "Choose training materials to convert into a skill.",
-              })}
+              {t("hub.selectMaterialsDesc")}
             </DialogDescription>
           </DialogHeader>
           <div className="max-h-64 space-y-2 overflow-y-auto">
@@ -438,14 +436,13 @@ export default function SkillHubPage() {
               variant="outline"
               onClick={() => setMaterialPickerOpen(false)}
             >
-              {tc("cancel", { defaultValue: "Cancel" })}
+              {tc("cancel")}
             </Button>
             <Button
               disabled={selectedMaterialIds.length === 0}
               onClick={handleConfirmMaterials}
             >
               {t("hub.convertSelected", {
-                defaultValue: `Convert ${selectedMaterialIds.length} material(s)`,
                 count: selectedMaterialIds.length,
               })}
             </Button>
@@ -467,10 +464,10 @@ export default function SkillHubPage() {
           </p>
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setDeleteTarget(null)}>
-              {tc("cancel", { defaultValue: "Cancel" })}
+              {tc("cancel")}
             </Button>
             <Button variant="destructive" onClick={confirmDelete}>
-              {tc("delete", { defaultValue: "Delete" })}
+              {tc("delete")}
             </Button>
           </div>
         </DialogContent>
@@ -492,7 +489,7 @@ export default function SkillHubPage() {
           </p>
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setArchiveTarget(null)}>
-              {tc("cancel", { defaultValue: "Cancel" })}
+              {tc("cancel")}
             </Button>
             <Button variant="destructive" onClick={confirmArchive}>
               {t("actions.archive")}

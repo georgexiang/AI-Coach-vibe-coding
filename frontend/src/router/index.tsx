@@ -13,18 +13,19 @@ const ScenarioSelection = lazy(() => import("@/pages/user/training"));
 const ScoringFeedback = lazy(() => import("@/pages/user/scoring-feedback"));
 const SessionHistory = lazy(() => import("@/pages/user/session-history"));
 const UserReportsPage = lazy(() => import("@/pages/user/reports"));
-const TrainingSession = lazy(() => import("@/pages/user/training-session"));
 const ConferenceSession = lazy(() => import("@/pages/user/conference-session"));
-const VoiceSession = lazy(() => import("@/pages/user/voice-session"));
+const UnifiedSession = lazy(() => import("@/pages/user/unified-session"));
 
 const AdminDashboard = lazy(() => import("@/pages/admin/dashboard"));
 const HcpProfilesPage = lazy(() => import("@/pages/admin/hcp-profiles"));
 const HcpProfileEditorPage = lazy(() => import("@/pages/admin/hcp-profile-editor"));
 const ScenariosPage = lazy(() => import("@/pages/admin/scenarios"));
+const ScenarioEditorPage = lazy(() => import("@/pages/admin/scenario-editor"));
 const AzureConfigPage = lazy(() => import("@/pages/admin/azure-config"));
 const VoiceLiveManagementPage = lazy(() => import("@/pages/admin/voice-live-management"));
 const VlInstanceEditorPage = lazy(() => import("@/pages/admin/vl-instance-editor"));
 const ScoringRubricsPage = lazy(() => import("@/pages/admin/scoring-rubrics"));
+const RubricEditorPage = lazy(() => import("@/pages/admin/rubric-editor"));
 const TrainingMaterialsPage = lazy(() => import("@/pages/admin/training-materials"));
 const AdminReportsPage = lazy(() => import("@/pages/admin/reports"));
 const UserManagementPage = lazy(() => import("@/pages/admin/users"));
@@ -32,6 +33,8 @@ const AdminSettingsPage = lazy(() => import("@/pages/admin/settings"));
 const SkillHubPage = lazy(() => import("@/pages/admin/skill-hub"));
 const SkillEditorPage = lazy(() => import("@/pages/admin/skill-editor"));
 const MetaSkillsPage = lazy(() => import("@/pages/admin/meta-skills"));
+const SystemEnumsPage = lazy(() => import("@/pages/admin/system-enums"));
+const DryRunReportPage = lazy(() => import("@/pages/admin/dry-run-report"));
 
 const NotFound = lazy(() => import("@/pages/not-found"));
 
@@ -65,7 +68,7 @@ export const router = createBrowserRouter([
       },
       {
         path: "/user/training/session",
-        element: <SuspensePage><TrainingSession /></SuspensePage>,
+        element: <SuspensePage><UnifiedSession /></SuspensePage>,
       },
       {
         path: "/user/training/conference",
@@ -73,7 +76,7 @@ export const router = createBrowserRouter([
       },
       {
         path: "/user/training/voice",
-        element: <SuspensePage><VoiceSession /></SuspensePage>,
+        element: <Navigate to="/user/training/session" replace />,
       },
       {
         element: <AdminRoute />,
@@ -88,18 +91,24 @@ export const router = createBrowserRouter([
               { path: "hcp-profiles/:id", element: <SuspensePage><HcpProfileEditorPage /></SuspensePage> },
               { path: "hcp-profiles/:id/edit", element: <SuspensePage><HcpProfileEditorPage /></SuspensePage> },
               { path: "scenarios", element: <SuspensePage><ScenariosPage /></SuspensePage> },
+              { path: "scenarios/new", element: <SuspensePage><ScenarioEditorPage /></SuspensePage> },
+              { path: "scenarios/:id", element: <SuspensePage><ScenarioEditorPage /></SuspensePage> },
               { path: "azure-config", element: <SuspensePage><AzureConfigPage /></SuspensePage> },
               { path: "voice-live", element: <SuspensePage><VoiceLiveManagementPage /></SuspensePage> },
               { path: "voice-live/new", element: <SuspensePage><VlInstanceEditorPage /></SuspensePage> },
               { path: "voice-live/:id/edit", element: <SuspensePage><VlInstanceEditorPage /></SuspensePage> },
               { path: "scoring-rubrics", element: <SuspensePage><ScoringRubricsPage /></SuspensePage> },
+              { path: "scoring-rubrics/new", element: <SuspensePage><RubricEditorPage /></SuspensePage> },
+              { path: "scoring-rubrics/:id", element: <SuspensePage><RubricEditorPage /></SuspensePage> },
               { path: "materials", element: <SuspensePage><TrainingMaterialsPage /></SuspensePage> },
               { path: "skills", element: <SuspensePage><SkillHubPage /></SuspensePage> },
               { path: "skills/new", element: <SuspensePage><SkillEditorPage /></SuspensePage> },
               { path: "skills/:id/edit", element: <SuspensePage><SkillEditorPage /></SuspensePage> },
+              { path: "skills/:id/dry-run/:runId", element: <SuspensePage><DryRunReportPage /></SuspensePage> },
               { path: "reports", element: <SuspensePage><AdminReportsPage /></SuspensePage> },
               { path: "users", element: <SuspensePage><UserManagementPage /></SuspensePage> },
               { path: "meta-skills", element: <SuspensePage><MetaSkillsPage /></SuspensePage> },
+              { path: "system-enums", element: <SuspensePage><SystemEnumsPage /></SuspensePage> },
               { path: "settings", element: <SuspensePage><AdminSettingsPage /></SuspensePage> },
             ],
           },

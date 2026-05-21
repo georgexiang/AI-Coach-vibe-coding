@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies import get_current_user, get_db
 from app.models.user import User
-from app.schemas.score import SessionScoreResponse
+from app.schemas.score import CombinedScoreReport, SessionScoreResponse
 from app.services import scoring_service, session_service
 from app.utils.exceptions import NotFoundException
 
@@ -40,6 +40,27 @@ async def trigger_scoring(
     return score
 
 
+@router.post(
+    "/sessions/{session_id}/rescore",
+    response_model=SessionScoreResponse,
+    status_code=200,
+)
+async def rescore_session(
+    session_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Re-score an already-scored session with current rubric dimensions.
+
+    Use this when scoring criteria or scoring mode have changed and you need
+    to re-evaluate an existing session with the updated configuration.
+    """
+    # Verify session belongs to current user
+    await session_service.get_session(db, session_id, user.id)
+    score = await scoring_service.rescore_session(db, session_id)
+    return score
+
+
 @router.get(
     "/sessions/{session_id}/score",
     response_model=SessionScoreResponse,
@@ -56,3 +77,17 @@ async def get_session_score(
     if score is None:
         raise NotFoundException("Session has not been scored yet")
     return score
+
+
+@router.get(
+    "/sessions/{session_id}/combined-report",
+    response_model=CombinedScoreReport,
+)
+async def get_combined_report(
+    session_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Get combined content + voice scoring report (D-09, D-11)."""
+    report = await scoring_service.get_combined_score_report(db, session_id, user.id)
+    return report

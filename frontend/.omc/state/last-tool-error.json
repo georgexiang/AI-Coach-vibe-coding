@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"source .venv/bin/activate && pytest tests/test_session_service.py::TestEndSession::test_raises_for_created_status -v --timeout=30 2>&1 | tail -20\",\"description\":\"Check specific test failur...",
+  "error": "Exit code 127\n(eval):source:1: no such file or directory: .venv/bin/activate",
+  "timestamp": "2026-05-18T07:46:20.268Z",
+  "retry_count": 1
+}

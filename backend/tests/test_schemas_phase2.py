@@ -12,99 +12,60 @@ from app.schemas.session import MessageResponse, SendMessageRequest, SessionCrea
 
 
 class TestScenarioCreateSchema:
-    """Tests for ScenarioCreate validation, especially validate_weights_sum."""
+    """Tests for ScenarioCreate validation with rubric_id and skill_id."""
 
-    async def test_valid_default_weights(self):
+    async def test_requires_rubric_id(self):
         data = ScenarioCreate(
             name="Test",
-            product="Drug",
+            tags=["product:Drug"],
             hcp_profile_id="p1",
-            created_by="u1",
+            rubric_id="rubric-1",
+            skill_id="skill-1",
         )
-        assert data.weight_key_message == 30
-        assert data.weight_objection_handling == 25
-        assert data.weight_communication == 20
-        assert data.weight_product_knowledge == 15
-        assert data.weight_scientific_info == 10
+        assert data.rubric_id == "rubric-1"
 
-    async def test_custom_weights_summing_to_100(self):
+    async def test_default_mode_and_difficulty(self):
         data = ScenarioCreate(
             name="Test",
-            product="Drug",
+            tags=["product:Drug"],
             hcp_profile_id="p1",
-            created_by="u1",
-            weight_key_message=40,
-            weight_objection_handling=20,
-            weight_communication=20,
-            weight_product_knowledge=10,
-            weight_scientific_info=10,
-        )
-        assert data.weight_key_message == 40
-
-    async def test_weights_not_summing_to_100_raises(self):
-        with pytest.raises(ValidationError) as exc_info:
-            ScenarioCreate(
-                name="Test",
-                product="Drug",
-                hcp_profile_id="p1",
-                created_by="u1",
-                weight_key_message=50,
-                weight_objection_handling=50,
-                weight_communication=50,
-                weight_product_knowledge=50,
-                weight_scientific_info=50,
-            )
-        assert "Scoring weights must sum to 100" in str(exc_info.value)
-
-    async def test_default_mode_and_status(self):
-        data = ScenarioCreate(
-            name="Test",
-            product="Drug",
-            hcp_profile_id="p1",
-            created_by="u1",
+            rubric_id="rubric-1",
+            skill_id="skill-1",
         )
         assert data.mode == "f2f"
-        assert data.status == "draft"
         assert data.difficulty == "medium"
         assert data.pass_threshold == 70
 
+    async def test_missing_rubric_id_raises(self):
+        with pytest.raises(ValidationError):
+            ScenarioCreate(
+                name="Test",
+                tags=["product:Drug"],
+                hcp_profile_id="p1",
+                skill_id="skill-1",
+            )
+
+    async def test_missing_skill_id_raises(self):
+        with pytest.raises(ValidationError):
+            ScenarioCreate(
+                name="Test",
+                tags=["product:Drug"],
+                hcp_profile_id="p1",
+                rubric_id="rubric-1",
+            )
+
 
 class TestScenarioUpdateSchema:
-    """Tests for ScenarioUpdate validation with optional weights."""
+    """Tests for ScenarioUpdate validation with optional rubric_id."""
 
-    async def test_partial_update_no_weights(self):
+    async def test_partial_update_no_rubric(self):
         data = ScenarioUpdate(name="New Name")
         assert data.name == "New Name"
-        assert data.weight_key_message is None
+        assert data.rubric_id is None
 
-    async def test_all_weights_summing_to_100_passes(self):
-        data = ScenarioUpdate(
-            weight_key_message=40,
-            weight_objection_handling=20,
-            weight_communication=20,
-            weight_product_knowledge=10,
-            weight_scientific_info=10,
-        )
-        assert data.weight_key_message == 40
-
-    async def test_all_weights_not_summing_to_100_raises(self):
-        with pytest.raises(ValidationError) as exc_info:
-            ScenarioUpdate(
-                weight_key_message=50,
-                weight_objection_handling=50,
-                weight_communication=50,
-                weight_product_knowledge=50,
-                weight_scientific_info=50,
-            )
-        assert "Scoring weights must sum to 100" in str(exc_info.value)
-
-    async def test_partial_weights_skips_validation(self):
-        # When not all weights are provided, validation is skipped
-        data = ScenarioUpdate(
-            weight_key_message=50,
-        )
-        assert data.weight_key_message == 50
-        # No error because not all weights are set
+    async def test_update_with_rubric_id(self):
+        data = ScenarioUpdate(rubric_id="new-rubric-id")
+        assert data.rubric_id == "new-rubric-id"
 
 
 class TestScenarioResponseSchema:
@@ -115,25 +76,23 @@ class TestScenarioResponseSchema:
             id="s1",
             name="Test",
             description="Desc",
-            product="Drug",
-            therapeutic_area="Onc",
+            tags='["product:Drug", "area:Onc"]',
             mode="f2f",
             difficulty="medium",
             status="active",
             hcp_profile_id="p1",
             key_messages='["KM1"]',
-            weight_key_message=30,
-            weight_objection_handling=25,
-            weight_communication=20,
-            weight_product_knowledge=15,
-            weight_scientific_info=10,
+            skill_id="skill-1",
+            rubric_id="rubric-1",
             pass_threshold=70,
-            created_by="u1",
+            created_by="user1",
             created_at=datetime.now(),
             updated_at=datetime.now(),
         )
         assert resp.id == "s1"
         assert resp.key_messages == '["KM1"]'
+        assert resp.rubric_id == "rubric-1"
+        assert resp.skill_id == "skill-1"
 
 
 class TestHcpProfileSchemas:
@@ -143,7 +102,7 @@ class TestHcpProfileSchemas:
         data = HcpProfileCreate(
             name="Dr. Zhang",
             specialty="Oncology",
-            created_by="u1",
+
         )
         assert data.personality_type == "friendly"
         assert data.emotional_state == 50
@@ -156,7 +115,7 @@ class TestHcpProfileSchemas:
         data = HcpProfileCreate(
             name="Dr. Li",
             specialty="Cardiology",
-            created_by="u1",
+
             hospital="Beijing Hospital",
             title="Chief Physician",
             personality_type="skeptical",
@@ -193,7 +152,7 @@ class TestHcpProfileSchemas:
             probe_topics="[]",
             difficulty="medium",
             is_active=True,
-            created_by="u1",
+            created_by="user1",
             created_at=datetime.now(),
             updated_at=datetime.now(),
         )

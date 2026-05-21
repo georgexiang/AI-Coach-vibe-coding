@@ -35,11 +35,12 @@ async def _seed_user_and_scenario(session, *, mode: str = "conference") -> tuple
 
     scenario = Scenario(
         name="Test Scenario",
-        product="TestDrug",
         mode=mode,
         hcp_profile_id=hcp.id,
         created_by=user.id,
         key_messages=json.dumps(["msg1", "msg2"]),
+        skill_id="test-skill-id",
+        rubric_id="test-rubric-id",
     )
     session.add(scenario)
     await session.flush()

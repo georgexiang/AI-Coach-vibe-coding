@@ -155,11 +155,7 @@ export default function TrainingSession() {
     status: "active",
     hcp_profile_id: "",
     key_messages: [],
-    weight_key_message: 30,
-    weight_objection_handling: 25,
-    weight_communication: 20,
-    weight_product_knowledge: 15,
-    weight_scientific_info: 10,
+    rubric_id: "",
     pass_threshold: 70,
     estimated_duration: 15,
     created_by: "",
@@ -238,8 +234,8 @@ export default function TrainingSession() {
           onClick={() => setMobileHintsVisible((prev) => !prev)}
         >
           {mobileHintsVisible
-            ? t("session.hideHints", { defaultValue: "Hide Hints" })
-            : t("session.showHints", { defaultValue: "Show Hints" })}
+            ? t("session.hideHints")
+            : t("session.showHints")}
         </button>
         {mobileHintsVisible && (
           <div className="max-h-64 overflow-y-auto border-t border-border px-4 pb-4">
@@ -253,7 +249,7 @@ export default function TrainingSession() {
               </ul>
             ) : (
               <p className="py-4 text-center text-sm text-muted-foreground">
-                {t("session.noHints", { defaultValue: "Hints will appear as you converse..." })}
+                {t("session.noHints")}
               </p>
             )}
           </div>

@@ -199,10 +199,10 @@ export default function AzureConfigPage() {
       },
       {
         onSuccess: () => {
-          toast.success(t("azureConfig.saved", { defaultValue: "AI Foundry configuration saved" }));
+          toast.success(t("azureConfig.saved"));
           setAiFoundryApiKey("");
         },
-        onError: () => toast.error(t("azureConfig.saveFailed", { defaultValue: "Failed to save configuration" })),
+        onError: () => toast.error(t("azureConfig.saveFailed")),
       },
     );
   };
@@ -234,7 +234,7 @@ export default function AzureConfigPage() {
             onError: () => toast.error("AI Foundry: Connection test failed"),
           });
         },
-        onError: () => toast.error(t("azureConfig.saveFailed", { defaultValue: "Failed to save configuration" })),
+        onError: () => toast.error(t("azureConfig.saveFailed")),
       },
     );
   };
@@ -290,8 +290,8 @@ export default function AzureConfigPage() {
         },
       },
       {
-        onSuccess: () => toast.success(t("azureConfig.saved", { defaultValue: "Configuration saved" })),
-        onError: () => toast.error(t("azureConfig.saveFailed", { defaultValue: "Failed to save configuration" })),
+        onSuccess: () => toast.success(t("azureConfig.saved")),
+        onError: () => toast.error(t("azureConfig.saveFailed")),
       },
     );
   };
@@ -319,12 +319,12 @@ export default function AzureConfigPage() {
         <div>
           <h1 className="text-2xl font-medium text-foreground">{t("azureConfig.title")}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {t("azureConfig.description", { defaultValue: "Configure Azure AI services for coaching, speech, and avatar" })}
+            {t("azureConfig.description")}
           </p>
         </div>
         <Button variant="outline" onClick={handleTestAll} disabled={testingAll}>
           {testingAll && <Loader2 className="size-4 animate-spin" />}
-          {t("azureConfig.testAll", { defaultValue: "Test All Services" })}
+          {t("azureConfig.testAll")}
         </Button>
       </div>
 
@@ -353,25 +353,25 @@ export default function AzureConfigPage() {
                 />
               </div>
               <div className="grid gap-2">
-                <Label>{t("azureConfig.aiFoundry.project", { defaultValue: "Project" })}</Label>
+                <Label>{t("azureConfig.aiFoundry.project")}</Label>
                 <Input
                   value={aiFoundryProject}
                   onChange={(e) => setAiFoundryProject(e.target.value)}
-                  placeholder={t("azureConfig.aiFoundry.projectPlaceholder", { defaultValue: "e.g. my-ai-project" })}
+                  placeholder={t("azureConfig.aiFoundry.projectPlaceholder")}
                 />
                 <p className="text-xs text-muted-foreground">
-                  {t("azureConfig.aiFoundry.projectHint", { defaultValue: "AI Foundry project name — required for HCP agent sync" })}
+                  {t("azureConfig.aiFoundry.projectHint")}
                 </p>
               </div>
               <div className="grid gap-2">
-                <Label>{t("azureConfig.aiFoundry.model", { defaultValue: "Default Model" })}</Label>
+                <Label>{t("azureConfig.aiFoundry.model")}</Label>
                 <Input
                   value={aiFoundryModel}
                   onChange={(e) => setAiFoundryModel(e.target.value)}
-                  placeholder={t("azureConfig.aiFoundry.modelPlaceholder", { defaultValue: "e.g. gpt-4o" })}
+                  placeholder={t("azureConfig.aiFoundry.modelPlaceholder")}
                 />
                 <p className="text-xs text-muted-foreground">
-                  {t("azureConfig.aiFoundry.modelHint", { defaultValue: "Default model for AI coaching and agent creation" })}
+                  {t("azureConfig.aiFoundry.modelHint")}
                 </p>
               </div>
             </div>
@@ -405,7 +405,7 @@ export default function AzureConfigPage() {
             </div>
             {aiFoundryRegion && (
               <div className="grid gap-2 max-w-sm">
-                <Label>{t("azureConfig.aiFoundry.region", { defaultValue: "Region (auto-detected)" })}</Label>
+                <Label>{t("azureConfig.aiFoundry.region")}</Label>
                 <Input
                   value={aiFoundryRegion}
                   disabled
@@ -431,7 +431,7 @@ export default function AzureConfigPage() {
                 {(testFoundryMutation.isPending || updateFoundryMutation.isPending) && (
                   <Loader2 className="size-4 animate-spin" />
                 )}
-                {t("azureConfig.testConnection", { defaultValue: "Test Connection" })}
+                {t("azureConfig.testConnection")}
               </Button>
             </div>
           </CardContent>
@@ -599,13 +599,11 @@ function ServiceExpandedContent({
       {hasEndpointOverride && (
         <div className="space-y-2">
           <p className="text-[11px] text-muted-foreground">
-            {t("azureConfig.endpointOverrideHint", {
-              defaultValue: "Override if this service uses a different Azure resource than the master endpoint.",
-            })}
+            {t("azureConfig.endpointOverrideHint")}
           </p>
           <div className="grid gap-2 max-w-md">
             <Label className="text-xs">
-              {t("azureConfig.endpoint", { defaultValue: "Endpoint" })}
+              {t("azureConfig.endpoint")}
             </Label>
             <Input
               value={endpointValue}
@@ -616,14 +614,14 @@ function ServiceExpandedContent({
           </div>
           <div className="grid gap-2 max-w-md">
             <Label className="text-xs">
-              {t("azureConfig.apiKeyOverride", { defaultValue: "API Key (leave empty to use master)" })}
+              {t("azureConfig.apiKeyOverride")}
             </Label>
             <div className="relative">
               <Input
                 type={showKey ? "text" : "password"}
                 value={apiKeyValue}
                 onChange={(e) => setApiKeyValue(e.target.value)}
-                placeholder={saved?.masked_key || t("azureConfig.apiKeyPlaceholder", { defaultValue: "Uses master key" })}
+                placeholder={saved?.masked_key || t("azureConfig.apiKeyPlaceholder")}
                 className="h-8 pr-8 text-sm font-mono"
               />
               <button

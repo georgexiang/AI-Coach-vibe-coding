@@ -1,8 +1,11 @@
-"""Post-session scoring service: multi-dimensional analysis and feedback."""
+"""Post-session scoring service: multi-dimensional analysis and feedback.
+
+Orchestrates LLM content scoring (primary) + CU voice scoring (if audio exists).
+No mock fallback — failures raise ScoringUnavailableException (HTTP 503).
+"""
 
 import json
 import logging
-import random
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,14 +13,25 @@ from sqlalchemy.orm import selectinload
 
 from app.models.message import SessionMessage
 from app.models.scenario import Scenario
-from app.models.skill import Skill
 from app.models.score import ScoreDetail, SessionScore
 from app.models.session import CoachingSession
-from app.services.rubric_service import get_default_rubric
+from app.models.skill import Skill
+from app.services.rubric_service import get_rubric
 from app.services.scoring_engine import score_with_llm
 from app.utils.exceptions import AppException, NotFoundException
 
 logger = logging.getLogger(__name__)
+
+
+async def resolve_rubric_dimensions(db: AsyncSession, scenario: Scenario) -> list[dict]:
+    """Resolve rubric dimensions for scoring.
+
+    Per D-05: rubric_id is NOT NULL, so direct lookup always succeeds.
+    No fallback chain needed -- every scenario has an explicit rubric.
+    """
+    rubric = await get_rubric(db, scenario.rubric_id)
+    dims = rubric.dimensions
+    return json.loads(dims) if isinstance(dims, str) else dims
 
 
 async def score_session(db: AsyncSession, session_id: str) -> SessionScore:
@@ -61,20 +75,21 @@ async def score_session(db: AsyncSession, session_id: str) -> SessionScore:
     )
     messages = list(msg_result.scalars().all())
 
+    # Guard: cannot score a session with no conversation messages
+    if not messages:
+        raise AppException(
+            status_code=409,
+            code="NO_MESSAGES",
+            message="Cannot score a session with no conversation messages. "
+            "The session must have at least one message exchange.",
+        )
+
     # Get scenario and key messages status
     scenario = session.scenario
     key_messages_status = json.loads(session.key_messages_status)
 
-    # Check for default rubric to override scenario weights
-    rubric = await get_default_rubric(db, scenario.mode if hasattr(scenario, "mode") else "f2f")
-    if rubric is not None:
-        rubric_dims = json.loads(rubric.dimensions)
-        rubric_weights = {d["name"]: d["weight"] for d in rubric_dims}
-    else:
-        rubric_weights = None
-
-    # Build data for scoring engine
-    weights = rubric_weights if rubric_weights else scenario.get_scoring_weights()
+    # Resolve rubric dimensions — rubric_id is NOT NULL per D-05
+    rubric_dimensions = await resolve_rubric_dimensions(db, scenario)
     hcp_profile_data = {}
     if scenario.hcp_profile:
         hcp_profile_data = {
@@ -95,22 +110,25 @@ async def score_session(db: AsyncSession, session_id: str) -> SessionScore:
     # Extract Skill-specific assessment criteria if a Skill is assigned
     skill_criteria = _extract_skill_criteria(scenario.skill)
 
-    # Try LLM scoring first, fall back to mock if unavailable
+    # LLM content scoring (primary, raises ScoringUnavailableException on failure)
     scores = await score_with_llm(
-        db, scenario_data, message_dicts, key_messages_status,
-        weights, scenario.pass_threshold, skill_criteria=skill_criteria,
+        db,
+        scenario_data,
+        message_dicts,
+        key_messages_status,
+        rubric_dimensions,
+        scenario.pass_threshold,
+        skill_criteria=skill_criteria,
     )
-    if scores is None:
-        logger.info("LLM scoring unavailable for session %s, using mock fallback", session_id)
-        scores = _generate_mock_scores(
-            scenario, messages, key_messages_status, rubric_weights=rubric_weights
-        )
+
+    overall_score = scores["overall_score"]
+    passed = scores.get("passed", overall_score >= scenario.pass_threshold)
 
     # Create SessionScore
     session_score = SessionScore(
         session_id=session_id,
-        overall_score=scores["overall_score"],
-        passed=scores["passed"],
+        overall_score=overall_score,
+        passed=passed,
         feedback_summary=scores["feedback_summary"],
     )
     db.add(session_score)
@@ -118,21 +136,23 @@ async def score_session(db: AsyncSession, session_id: str) -> SessionScore:
 
     # Create ScoreDetail records
     for dim_data in scores["dimensions"]:
+        dimension_name = dim_data.get("dimension") or dim_data.get("name", "unknown")
         detail = ScoreDetail(
             score_id=session_score.id,
-            dimension=dim_data["dimension"],
+            dimension=dimension_name,
             score=dim_data["score"],
             weight=dim_data["weight"],
-            strengths=json.dumps(dim_data["strengths"]),
-            weaknesses=json.dumps(dim_data["weaknesses"]),
-            suggestions=json.dumps(dim_data["suggestions"]),
+            strengths=json.dumps(dim_data.get("strengths", [])),
+            weaknesses=json.dumps(dim_data.get("weaknesses", [])),
+            suggestions=json.dumps(dim_data.get("suggestions", [])),
+            category=dim_data.get("category", "content"),
         )
         db.add(detail)
 
     # Update session status
     session.status = "scored"
-    session.overall_score = scores["overall_score"]
-    session.passed = scores["passed"]
+    session.overall_score = overall_score
+    session.passed = passed
 
     await db.flush()
 
@@ -143,6 +163,59 @@ async def score_session(db: AsyncSession, session_id: str) -> SessionScore:
         .where(SessionScore.id == session_score.id)
     )
     return score_result.scalar_one()
+
+
+async def rescore_session(db: AsyncSession, session_id: str) -> SessionScore:
+    """Re-score an already-scored session with current rubric dimensions.
+
+    Deletes existing scores (SessionScore + ScoreDetails), resets session status
+    to 'completed', then runs the full scoring pipeline with current criteria.
+    This enables re-evaluation when scoring rubrics or modes have changed.
+    """
+    # Load session with scenario and HCP profile
+    result = await db.execute(
+        select(CoachingSession)
+        .options(
+            selectinload(CoachingSession.scenario).selectinload(Scenario.hcp_profile),
+            selectinload(CoachingSession.scenario).selectinload(Scenario.skill),
+        )
+        .where(CoachingSession.id == session_id)
+    )
+    session = result.scalar_one_or_none()
+    if session is None:
+        raise NotFoundException("Session not found")
+
+    if session.status != "scored":
+        raise AppException(
+            status_code=409,
+            code="NOT_SCORED",
+            message=f"Cannot rescore session with status '{session.status}'. "
+            "Session must have been scored previously.",
+        )
+
+    # Delete existing score details first (child FK), then the session score
+    existing_score = await db.execute(
+        select(SessionScore).where(SessionScore.session_id == session_id)
+    )
+    score_record = existing_score.scalar_one_or_none()
+    if score_record:
+        # Delete all score details for this score
+        detail_result = await db.execute(
+            select(ScoreDetail).where(ScoreDetail.score_id == score_record.id)
+        )
+        for detail in detail_result.scalars().all():
+            await db.delete(detail)
+        await db.delete(score_record)
+        await db.flush()
+
+    # Reset session status to completed so score_session can process it
+    session.status = "completed"
+    session.overall_score = None
+    session.passed = None
+    await db.flush()
+
+    # Run normal scoring pipeline (reuses current rubric dimensions)
+    return await score_session(db, session_id)
 
 
 async def get_session_score(db: AsyncSession, session_id: str) -> SessionScore | None:
@@ -165,6 +238,11 @@ async def get_score_history(db: AsyncSession, user_id: str, limit: int = 10) -> 
     with the previous (older) session's scores.
     """
     # Load scored sessions with score + details in a single query (fix N+1)
+    # Exclude sessions with no messages (prematurely ended/scored without conversation)
+    from sqlalchemy import exists
+
+    has_messages = exists().where(SessionMessage.session_id == CoachingSession.id)
+
     result = await db.execute(
         select(CoachingSession)
         .options(
@@ -174,6 +252,7 @@ async def get_score_history(db: AsyncSession, user_id: str, limit: int = 10) -> 
         .where(
             CoachingSession.user_id == user_id,
             CoachingSession.status == "scored",
+            has_messages,
         )
         .order_by(CoachingSession.completed_at.desc())
         .limit(limit)
@@ -232,6 +311,84 @@ async def get_score_history(db: AsyncSession, user_id: str, limit: int = 10) -> 
     return history
 
 
+async def get_combined_score_report(db: AsyncSession, session_id: str, user_id: str) -> dict:
+    """Get combined content + voice scoring report for a session (D-09, D-11).
+
+    Separates ScoreDetail records by category and computes combined overall score
+    using rubric's content_weight/voice_weight (not hardcoded).
+    """
+    result = await db.execute(
+        select(CoachingSession)
+        .options(
+            selectinload(CoachingSession.score).selectinload(SessionScore.details),
+            selectinload(CoachingSession.scenario),
+        )
+        .where(CoachingSession.id == session_id)
+    )
+    session = result.scalar_one_or_none()
+    if not session:
+        raise NotFoundException("Session not found")
+    if session.user_id != user_id:
+        raise AppException(status_code=403, code="FORBIDDEN", message="Not your session")
+
+    score = session.score
+    if not score:
+        raise NotFoundException("Score not found for session")
+
+    # Load rubric weights
+    rubric = await get_rubric(db, session.scenario.rubric_id)
+    content_weight = rubric.content_weight
+    voice_weight = rubric.voice_weight
+
+    content_dims = [d for d in score.details if d.category == "content"]
+    voice_dims = [d for d in score.details if d.category == "voice"]
+
+    content_score = score.overall_score or 0
+    voice_score = 0.0
+    if voice_dims:
+        total_w = sum(d.weight for d in voice_dims)
+        if total_w > 0:
+            voice_score = sum(d.score * d.weight for d in voice_dims) / total_w
+
+    has_voice = bool(voice_dims)
+    if has_voice:
+        total_weight = content_weight + voice_weight
+        combined_score = (
+            content_score * content_weight + voice_score * voice_weight
+        ) / total_weight
+    else:
+        combined_score = content_score
+
+    strengths = (
+        json.loads(score.feedback_summary)
+        if score.feedback_summary and score.feedback_summary.startswith("[")
+        else []
+    )
+
+    return {
+        "session_id": session_id,
+        "overall_score": content_score,
+        "overall_combined_score": round(combined_score, 1),
+        "passed": score.passed,
+        "content_dimensions": content_dims,
+        "voice_dimensions": voice_dims,
+        "voice_summary": {
+            "overall_voice_score": round(voice_score, 1),
+            "voice_score_status": session.voice_score_status,
+            "dimensions": voice_dims,
+        },
+        "strengths": strengths if isinstance(strengths, list) else [],
+        "weaknesses": [],
+        "suggestions": [],
+        "feedback_summary": score.feedback_summary,
+        "audio_url": session.audio_url,
+        "content_total": round(content_score, 1),
+        "voice_total": round(voice_score, 1) if has_voice else None,
+        "content_weight": content_weight if has_voice else 100,
+        "voice_weight": voice_weight if has_voice else None,
+    }
+
+
 def _extract_skill_criteria(skill: Skill | None) -> str:
     """Extract assessment criteria section from Skill content for scoring enrichment.
 
@@ -263,202 +420,3 @@ def _extract_skill_criteria(skill: Skill | None) -> str:
         return match.group(0).strip()
 
     return ""
-
-
-def _generate_mock_scores(
-    scenario: Scenario,
-    messages: list[SessionMessage],
-    key_messages_status: list[dict],
-    rubric_weights: dict | None = None,
-) -> dict:
-    """Generate realistic-looking mock scores for development/testing.
-
-    Produces scores between 60-95 with personality-appropriate feedback,
-    strengths with transcript quotes, weaknesses referencing missed key messages,
-    and actionable suggestions per dimension.
-
-    If rubric_weights is provided, uses those weights instead of scenario weights.
-    """
-    weights = rubric_weights if rubric_weights else scenario.get_scoring_weights()
-    key_messages = json.loads(scenario.key_messages)
-
-    # Determine delivered/missed key messages
-    delivered = [km for km in key_messages_status if km.get("delivered")]
-    missed = [km for km in key_messages_status if not km.get("delivered")]
-    delivery_ratio = len(delivered) / max(len(key_messages_status), 1)
-
-    # Collect MR quotes for referencing in strengths
-    mr_quotes = [msg.content for msg in messages if msg.role == "user"]
-    sample_quote = mr_quotes[0] if mr_quotes else "Thank you for your time."
-
-    # Generate dimension scores (slightly randomized but realistic)
-    base_score = 65 + int(delivery_ratio * 25)  # 65-90 range based on delivery
-    dimensions = []
-
-    # 1. Key Message Delivery
-    km_score = min(95, max(60, base_score + random.randint(-5, 10)))
-    km_strengths = []
-    km_weaknesses = []
-    if delivered:
-        km_strengths.append(
-            {
-                "text": (
-                    f"Successfully delivered {len(delivered)} of {len(key_messages)} key messages"
-                ),
-                "quote": sample_quote[:100] if sample_quote else None,
-            }
-        )
-    if missed:
-        for m in missed[:2]:
-            km_weaknesses.append(
-                {
-                    "text": f"Missed key message: {m['message']}",
-                    "quote": None,
-                }
-            )
-    dimensions.append(
-        {
-            "dimension": "key_message",
-            "score": km_score,
-            "weight": weights["key_message"],
-            "strengths": km_strengths,
-            "weaknesses": km_weaknesses,
-            "suggestions": [
-                "Prepare a structured approach to ensure all key messages are covered",
-                "Practice transitioning between key messages naturally",
-            ],
-        }
-    )
-
-    # 2. Objection Handling
-    oh_score = min(95, max(60, base_score + random.randint(-8, 8)))
-    dimensions.append(
-        {
-            "dimension": "objection_handling",
-            "score": oh_score,
-            "weight": weights["objection_handling"],
-            "strengths": [
-                {
-                    "text": "Showed willingness to address HCP concerns",
-                    "quote": sample_quote[:80] if len(mr_quotes) > 1 else None,
-                }
-            ],
-            "weaknesses": [
-                {
-                    "text": (
-                        "Could provide more specific clinical evidence when addressing objections"
-                    ),
-                    "quote": None,
-                }
-            ],
-            "suggestions": [
-                "Prepare specific study references for common objections",
-                "Acknowledge the HCP's concern before presenting counter-evidence",
-            ],
-        }
-    )
-
-    # 3. Communication Skills
-    comm_score = min(95, max(60, base_score + random.randint(-5, 12)))
-    dimensions.append(
-        {
-            "dimension": "communication",
-            "score": comm_score,
-            "weight": weights["communication"],
-            "strengths": [
-                {
-                    "text": "Maintained professional tone throughout the conversation",
-                    "quote": None,
-                }
-            ],
-            "weaknesses": [
-                {
-                    "text": "Could improve active listening by referencing HCP's specific points",
-                    "quote": None,
-                }
-            ],
-            "suggestions": [
-                "Use reflective listening techniques to show understanding",
-                "Adapt communication style to match the HCP's preferences",
-            ],
-        }
-    )
-
-    # 4. Product Knowledge
-    pk_score = min(95, max(60, base_score + random.randint(-3, 10)))
-    dimensions.append(
-        {
-            "dimension": "product_knowledge",
-            "score": pk_score,
-            "weight": weights["product_knowledge"],
-            "strengths": [
-                {
-                    "text": f"Demonstrated familiarity with {scenario.product}",
-                    "quote": None,
-                }
-            ],
-            "weaknesses": [
-                {
-                    "text": "Could provide more specific dosing and administration details",
-                    "quote": None,
-                }
-            ],
-            "suggestions": [
-                "Study the full prescribing information for detailed questions",
-                f"Prepare comparison data between {scenario.product} and competitors",
-            ],
-        }
-    )
-
-    # 5. Scientific Information
-    si_score = min(95, max(60, base_score + random.randint(-10, 5)))
-    dimensions.append(
-        {
-            "dimension": "scientific_info",
-            "score": si_score,
-            "weight": weights["scientific_info"],
-            "strengths": [
-                {
-                    "text": "Referenced relevant clinical data during discussion",
-                    "quote": None,
-                }
-            ],
-            "weaknesses": [
-                {
-                    "text": "Should cite specific study names, patient populations, and endpoints",
-                    "quote": None,
-                }
-            ],
-            "suggestions": [
-                "Memorize 2-3 key pivotal trial results with specific numbers",
-                "Prepare visual aids summarizing clinical evidence",
-            ],
-        }
-    )
-
-    # Calculate weighted overall score
-    overall_score = sum(dim["score"] * dim["weight"] / 100 for dim in dimensions)
-    overall_score = round(overall_score, 1)
-    passed = overall_score >= scenario.pass_threshold
-
-    # Generate feedback summary
-    if passed:
-        feedback_summary = (
-            f"Good performance with an overall score of {overall_score}. "
-            f"Successfully delivered {len(delivered)} of {len(key_messages)} key messages. "
-            "Focus on strengthening objection handling and scientific evidence for improvement."
-        )
-    else:
-        feedback_summary = (
-            f"Score of {overall_score} is below the passing threshold of "
-            f"{scenario.pass_threshold}. "
-            f"Delivered {len(delivered)} of {len(key_messages)} key messages. "
-            "Review key message coverage and practice objection handling techniques."
-        )
-
-    return {
-        "overall_score": overall_score,
-        "passed": passed,
-        "feedback_summary": feedback_summary,
-        "dimensions": dimensions,
-    }
