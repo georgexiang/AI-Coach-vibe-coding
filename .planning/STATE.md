@@ -278,7 +278,7 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-None yet.
+- **Add voice-live-webrtc transport option** (area: ui) — Add WebRTC as alternative transport mode alongside existing WebSocket default
 
 ### Roadmap Evolution
 
