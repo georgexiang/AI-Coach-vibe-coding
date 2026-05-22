@@ -462,27 +462,27 @@ export function VoiceTransportSelect({ value, onChange, disabled }: VoiceTranspo
 
 **Note:** Claims A1, A2, A3, A5 are based on the Azure WebRTC documentation fetched from `learn.microsoft.com` (HIGH confidence from official docs). A4 is a browser API behavior assumption (HIGH confidence from MDN standard).
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Avatar + WebRTC Audio Compatibility**
    - What we know: Azure docs explicitly state "Avatar configurations are currently unsupported with side-band control"
    - What's unclear: Does this mean avatar works with WebRTC audio at all, or is it completely blocked?
-   - Recommendation: For digital_human modes with WebRTC transport, show warning that avatar is unavailable in preview. Fall back to voice-only display but keep the audio WebRTC benefit.
+   - RESOLVED: For digital_human modes with WebRTC transport, show warning that avatar is unavailable in preview. Fall back to voice-only display but keep the audio WebRTC benefit. Plans implement avatar_warning field and toast notification.
 
 2. **Authentication Flow for Browser WebSocket**
    - What we know: Azure supports api-key query param and Bearer token header
    - What's unclear: Whether browser WebSocket API supports `Authorization` header (it typically does NOT in raw `new WebSocket()`)
-   - Recommendation: Backend exchanges API key for bearer token, passes it as query parameter (`?Authorization=Bearer xxx` is NOT standard). Better approach: use `api-key` query parameter OR use the Subprotocols trick. Azure docs say "Using an api-key query string parameter on the request URI" works -- this is the safest path for browser.
+   - RESOLVED: Use `api-key` query parameter on WSS URL (encrypted by TLS). Azure docs confirm this works. Backend constructs the full signaling URL with api-key param; frontend receives ready-to-use URL.
 
 3. **Agent Mode with WebRTC**
    - What we know: Agent mode uses `agent_id` + `project_id` query params on the endpoint URL
    - What's unclear: Whether agent mode works with the `/calls` WebRTC endpoint or only `/realtime`
-   - Recommendation: Implement with the assumption it works (pass agent_id/project_id in URL params), add error handling for 400/403 responses
+   - RESOLVED: Implement with the assumption it works (pass agent_id/project_id in URL params), add error handling for 400/403 responses. Plans include agent_id and project_name in the signaling URL query params.
 
 4. **Data Channel vs WebSocket for session.update**
    - What we know: Azure docs say "keep the channel open to use it for session control (session.update)" referring to the WebSocket
    - What's unclear: Whether `session.update` should go through WebSocket signaling channel or data channel
-   - Recommendation: Use WebSocket signaling channel for session.update (as documented in Step 5)
+   - RESOLVED: Use WebSocket signaling channel for session.update (as documented in Azure Step 5). Plans implement this approach.
 
 ## Environment Availability
 
