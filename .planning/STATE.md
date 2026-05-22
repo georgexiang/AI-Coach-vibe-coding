@@ -278,7 +278,7 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-- **Add voice-live-webrtc transport option** (area: ui) — Add WebRTC as alternative transport mode alongside existing WebSocket default
+None yet.
 
 ### Roadmap Evolution
 
@@ -294,6 +294,7 @@ Recent decisions affecting current work:
 - Phase 24 added: 用户评估模块重构 — session中agent按skill instruction聚焦、session结束后Azure Content Understanding评估打分
 - Phase 25 added: Refactor user training pages — fix data display, scoring logic, and dashboard/reports deduplication
 - Phase 26 added: Scoring Architecture Refactor — LLM primary for content (5 dimensions), CU for voice only (4 dimensions), remove mock fallback
+- Phase 26 added: Add voice-live-webrtc transport option as alternative to WebSocket (preview feature, dropdown selector, preserve existing WS default)
 
 ### Quick Tasks Completed
 
