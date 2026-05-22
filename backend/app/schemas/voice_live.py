@@ -57,6 +57,24 @@ class VoiceLiveConfigStatus(BaseModel):
     avatar_character: str
 
 
+class WebRTCSessionResponse(BaseModel):
+    """WebRTC session config for direct browser-to-Azure connection.
+
+    Contains the signaling WebSocket URL, bearer auth token, and session configuration
+    needed by the frontend to establish a WebRTC peer connection with Azure Voice Live.
+    """
+
+    signaling_url: str  # wss://<endpoint>/voice-live/realtime/calls?api-version=...&model=...
+    auth_token: str  # Bearer token from STS exchange (short-lived, 10 min)
+    auth_type: str  # Always "bearer" for browser WebSocket auth
+    model: str  # e.g. "gpt-4o" (empty string for agent mode)
+    mode: str  # "agent" | "model"
+    session_config: dict  # Voice, turn detection, noise suppression settings
+    agent_id: str | None = None
+    project_name: str | None = None
+    avatar_warning: str | None = None  # Warning when avatar unavailable with WebRTC
+
+
 class AvatarCharacterStyle(BaseModel):
     """A single style variant of an avatar character."""
 
