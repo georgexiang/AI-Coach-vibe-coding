@@ -107,6 +107,14 @@
     "uploading": "Uploading session recording...",
     "uploadFailed": "Failed to save recording, but session was completed."
   },
+  "transport": {
+    "label": "Audio Transport",
+    "websocket": "WebSocket",
+    "webrtc": "WebRTC (Preview)",
+    "avatarUnavailable": "Avatar (digital human) is not available with WebRTC transport in preview. Voice-only mode will be used.",
+    "connectionFailed": "WebRTC connection failed. Please try WebSocket transport instead.",
+    "reconnecting": "Connection lost. Reconnecting... (attempt {{attempt}}/3)"
+  },
   "config": {
     "title": "Configuration",
     "speechInput": "Speech input",

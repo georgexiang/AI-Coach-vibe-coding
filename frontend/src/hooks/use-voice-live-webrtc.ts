@@ -400,6 +400,7 @@ export function useVoiceLiveWebRTC(options: VoiceLiveOptions) {
       return new Promise<{
         avatarEnabled: boolean;
         model: string;
+        mode: "agent" | "model";
         iceServers: RTCIceServer[];
       }>((resolve, reject) => {
         const ws = new WebSocket(signalingUrl);
@@ -463,6 +464,7 @@ export function useVoiceLiveWebRTC(options: VoiceLiveOptions) {
                       resolve({
                         avatarEnabled: false,
                         model: session.model,
+                        mode: session.mode === "agent" ? "agent" : "model",
                         iceServers: [],
                       });
                     }
