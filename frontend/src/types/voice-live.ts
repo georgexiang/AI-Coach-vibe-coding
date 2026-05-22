@@ -1,3 +1,6 @@
+/** Audio transport mode: WebSocket proxy (default) or direct WebRTC to Azure (preview). */
+export type VoiceTransport = "websocket" | "webrtc";
+
 export type SessionMode =
   | "text"
   | "voice_pipeline"
@@ -113,6 +116,19 @@ export interface VoiceConfigSettings {
   interimResponse: boolean;
   /** AI initiates conversation proactively. */
   proactiveEngagement: boolean;
+}
+
+/** Response from POST /api/v1/voice-live/webrtc/session */
+export interface WebRTCSessionConfig {
+  signaling_url: string;
+  auth_token: string;
+  auth_type: string;
+  model: string;
+  mode: "agent" | "model";
+  session_config: Record<string, unknown>;
+  agent_id?: string;
+  project_name?: string;
+  avatar_warning?: string;
 }
 
 export interface AvatarCharacterStyle {
