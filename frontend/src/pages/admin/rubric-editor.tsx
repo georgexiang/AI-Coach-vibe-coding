@@ -74,8 +74,8 @@ export default function RubricEditorPage() {
     name: "dimensions",
   });
 
-  const watchedDimensions = form.watch("dimensions");
-  const contentWeight = form.watch("content_weight");
+  const watchedDimensions = form.watch("dimensions") ?? [];
+  const contentWeight = form.watch("content_weight") ?? 0;
   const weightSum = watchedDimensions.reduce(
     (sum, d) => sum + (d.weight || 0),
     0,
