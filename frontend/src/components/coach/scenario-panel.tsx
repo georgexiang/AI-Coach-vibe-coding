@@ -31,11 +31,13 @@ export function ScenarioPanel({
   const { t } = useTranslation("coach");
 
   const hcpInitials = scenario.hcp_profile?.name
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2) ?? "HC";
+    ? scenario.hcp_profile.name
+        .split(" ")
+        .map((n) => n[0])
+        .join("")
+        .toUpperCase()
+        .slice(0, 2) || "HC"
+    : "HC";
 
   if (isCollapsed) {
     return (

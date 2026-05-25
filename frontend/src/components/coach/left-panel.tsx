@@ -56,11 +56,13 @@ export function LeftPanel({
   const { t } = useTranslation("training");
 
   const initials = hcpName
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
+    ? hcpName
+        .split(" ")
+        .map((n) => n[0])
+        .join("")
+        .toUpperCase()
+        .slice(0, 2) || "?"
+    : "?";
 
   if (isCollapsed) {
     return (

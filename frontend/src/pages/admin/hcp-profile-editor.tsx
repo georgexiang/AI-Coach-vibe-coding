@@ -230,14 +230,16 @@ export default function HcpProfileEditorPage() {
     });
   };
 
-  const watchName = form.watch("name");
+  const watchName = form.watch("name") ?? "";
   const getInitials = (name: string) =>
     name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2) || "?";
+      ? name
+          .split(" ")
+          .map((n) => n[0])
+          .join("")
+          .toUpperCase()
+          .slice(0, 2) || "?"
+      : "?";
 
   if (!isNew && profileLoading) {
     return (
@@ -436,7 +438,7 @@ export default function HcpProfileEditorPage() {
                   <div className="grid gap-2">
                     <Label>{t("admin:hcp.expertiseAreas")}</Label>
                     <Input
-                      value={form.watch("expertise_areas").join(", ")}
+                      value={(form.watch("expertise_areas") ?? []).join(", ")}
                       onChange={(e) =>
                         form.setValue(
                           "expertise_areas",
@@ -484,13 +486,13 @@ export default function HcpProfileEditorPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <ObjectionList
-                    items={form.watch("objections")}
+                    items={form.watch("objections") ?? []}
                     onChange={(items) => form.setValue("objections", items)}
                     label={t("admin:hcp.objections")}
                     addLabel={t("admin:hcp.addObjection")}
                   />
                   <ObjectionList
-                    items={form.watch("probe_topics")}
+                    items={form.watch("probe_topics") ?? []}
                     onChange={(items) =>
                       form.setValue("probe_topics", items)
                     }
