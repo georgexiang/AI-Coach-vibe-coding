@@ -8,7 +8,7 @@ import asyncio
 import json
 import sys
 import uuid
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 from pathlib import Path
 
 # Add backend root to path so 'app' package is importable
@@ -26,6 +26,7 @@ from app.models.service_config import ServiceConfig
 from app.models.session import CoachingSession
 from app.models.user import User
 from app.services.auth import get_password_hash
+from app.utils.datetime import utc_now_naive
 
 settings = get_settings()
 
@@ -462,7 +463,7 @@ async def seed_sessions(session: AsyncSession) -> None:
         "product_knowledge",
         "scientific_info",
     ]
-    now = datetime.now(UTC)
+    now = utc_now_naive()
     session_count = 0
 
     for user_idx, user in enumerate(mr_users):
@@ -561,7 +562,11 @@ async def seed_sessions(session: AsyncSession) -> None:
                     )
                     rub = rub_result.scalar_one_or_none()
                     if rub:
-                        rub_dims = json.loads(rub.dimensions) if isinstance(rub.dimensions, str) else rub.dimensions
+                        rub_dims = (
+                            json.loads(rub.dimensions)
+                            if isinstance(rub.dimensions, str)
+                            else rub.dimensions
+                        )
                         dim_weight_map = {d["name"]: d["weight"] for d in rub_dims}
                         weight_list = [
                             dim_weight_map.get("key_message", 25),
