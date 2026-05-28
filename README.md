@@ -256,7 +256,7 @@ cd AI-Coach-vibe-coding
 # Backend
 cd backend
 python3 -m venv .venv && source .venv/bin/activate
-pip install -e ".[dev]"
+pip install -e ".[dev,voice]"
 cp .env.example .env          # 配置 Azure AI 服务密钥
 python3 scripts/init_db.py
 python3 scripts/seed_data.py
@@ -272,7 +272,7 @@ npm run dev
 ### Docker
 
 ```bash
-docker-compose up
+docker compose up --build
 # Backend:  http://localhost:8000
 # Frontend: http://localhost:5173
 ```
