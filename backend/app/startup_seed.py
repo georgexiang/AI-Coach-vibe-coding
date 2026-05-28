@@ -5,6 +5,7 @@ Skips any records that already exist. Safe to run on every startup.
 """
 
 import json
+import logging
 import sys
 from pathlib import Path
 
@@ -15,6 +16,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 _scripts_dir = str(Path(__file__).resolve().parent.parent / "scripts")
 if _scripts_dir not in sys.path:
     sys.path.insert(0, _scripts_dir)
+
+logger = logging.getLogger(__name__)
 
 
 async def seed_all(session: AsyncSession) -> None:
@@ -162,7 +165,9 @@ async def seed_all(session: AsyncSession) -> None:
 
     for stype in ("f2f", "conference"):
         count_result = await session.execute(
-            select(func.count()).select_from(ScoringRubric).where(
+            select(func.count())
+            .select_from(ScoringRubric)
+            .where(
                 ScoringRubric.scenario_type == stype,
                 ScoringRubric.is_default == True,  # noqa: E712
             )
@@ -207,6 +212,7 @@ async def seed_all(session: AsyncSession) -> None:
 
     # --- 4. Scenarios ---
     from app.models.scenario import Scenario
+    from app.models.skill import Skill, SkillVersion
 
     existing_scenario = await session.execute(select(Scenario).limit(1))
     if existing_scenario.scalar_one_or_none() is None:
@@ -221,20 +227,59 @@ async def seed_all(session: AsyncSession) -> None:
         default_rubric = default_rubric_result.scalar_one_or_none()
         default_rubric_id = default_rubric.id if default_rubric else None
 
-        # Build HCP name -> ID map
-        hcp_result = await session.execute(select(HcpProfile))
-        hcp_map = {p.name: p.id for p in hcp_result.scalars().all()}
+        default_skill_result = await session.execute(
+            select(Skill).where(Skill.status == "published").limit(1)
+        )
+        default_skill = default_skill_result.scalar_one_or_none()
+        if default_skill is None:
+            logger.info("Scenario seed skipped: no published skill exists")
+            await session.commit()
+        else:
+            default_version_result = await session.execute(
+                select(SkillVersion)
+                .where(
+                    SkillVersion.skill_id == default_skill.id,
+                    SkillVersion.is_published == True,  # noqa: E712
+                )
+                .order_by(SkillVersion.version_number.desc())
+                .limit(1)
+            )
+            default_version = default_version_result.scalar_one_or_none()
 
-        for scenario_data in SEED_SCENARIOS:
-            data = dict(scenario_data)  # copy to avoid mutating the constant
-            hcp_name = data.pop("hcp_name", None)
-            hcp_id = hcp_map.get(hcp_name) if hcp_name else None
-            # Assign rubric_id from default rubric (required NOT NULL per D-05)
-            if "rubric_id" not in data and default_rubric_id:
-                data["rubric_id"] = default_rubric_id
-            scenario = Scenario(**data, hcp_profile_id=hcp_id, created_by=admin_id)
-            session.add(scenario)
-        await session.commit()
+            # Build HCP name -> ID map
+            hcp_result = await session.execute(select(HcpProfile))
+            hcp_map = {p.name: p.id for p in hcp_result.scalars().all()}
+
+            for scenario_data in SEED_SCENARIOS:
+                data = dict(scenario_data)  # copy to avoid mutating the constant
+                hcp_name = data.pop("hcp_name", None)
+                product = data.pop("product", "")
+                therapeutic_area = data.pop("therapeutic_area", "")
+                if "tags" not in data and (product or therapeutic_area):
+                    tags = []
+                    if product:
+                        tags.append(f"product:{product}")
+                    if therapeutic_area:
+                        tags.append(f"area:{therapeutic_area}")
+                    data["tags"] = json.dumps(tags)
+
+                hcp_id = hcp_map.get(hcp_name) if hcp_name else None
+                if hcp_id is None:
+                    logger.warning("Scenario seed skipped: HCP profile not found for %s", hcp_name)
+                    continue
+                if default_rubric_id is None:
+                    logger.warning("Scenario seed skipped: no default rubric exists")
+                    continue
+                data.setdefault("rubric_id", default_rubric_id)
+                scenario = Scenario(
+                    **data,
+                    hcp_profile_id=hcp_id,
+                    skill_id=default_skill.id,
+                    skill_version_id=default_version.id if default_version else None,
+                    created_by=admin_id,
+                )
+                session.add(scenario)
+            await session.commit()
 
     # --- 5. Training materials ---
     from app.models.material import TrainingMaterial

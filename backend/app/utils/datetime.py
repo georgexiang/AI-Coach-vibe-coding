@@ -8,6 +8,11 @@ def utc_now_naive() -> datetime:
     return datetime.now(UTC).replace(tzinfo=None)
 
 
+def as_utc_naive(value: datetime) -> datetime:
+    """Return a datetime as UTC without tzinfo for DateTime columns."""
+    return as_utc_aware(value).replace(tzinfo=None)
+
+
 def as_utc_aware(value: datetime) -> datetime:
     """Return a datetime as timezone-aware UTC for calculations."""
     if value.tzinfo is None:
