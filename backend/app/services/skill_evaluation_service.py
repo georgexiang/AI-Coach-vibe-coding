@@ -303,8 +303,6 @@ async def _call_agent_for_evaluation(
         response = openai_client.responses.create(
             model=model,
             input=[{"role": "user", "content": f"{prompt}\n\n{_JSON_OUTPUT_INSTRUCTION}"}],
-            text={"format": {"type": "json_object"}},
-            temperature=0.2,
             extra_body={
                 "agent_reference": {
                     "name": agent_id,

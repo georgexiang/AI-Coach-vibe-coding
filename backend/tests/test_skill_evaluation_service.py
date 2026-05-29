@@ -348,7 +348,8 @@ class TestCallAgentForEvaluation:
         # Verify agent_reference was passed
         call_kwargs = mock_openai_client.responses.create.call_args
         assert call_kwargs.kwargs["extra_body"]["agent_reference"]["name"] == "eval-agent-id"
-        assert call_kwargs.kwargs["text"] == {"format": {"type": "json_object"}}
+        assert "text" not in call_kwargs.kwargs
+        assert "temperature" not in call_kwargs.kwargs
         assert "Do not include Markdown fences" in call_kwargs.kwargs["input"][0]["content"]
 
     @patch("app.services.agent_sync_service.get_project_endpoint", new_callable=AsyncMock)
