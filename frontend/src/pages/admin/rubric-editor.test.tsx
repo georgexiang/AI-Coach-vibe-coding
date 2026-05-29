@@ -27,6 +27,7 @@ const mockRubric: Rubric = {
   content_weight: 70,
   voice_weight: 30,
 };
+let mockRubricResponse: Rubric = mockRubric;
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
@@ -49,7 +50,7 @@ vi.mock("sonner", () => ({
 
 vi.mock("@/hooks/use-rubrics", () => ({
   useRubric: (id: string | undefined) => ({
-    data: id ? mockRubric : undefined,
+    data: id ? mockRubricResponse : undefined,
     isLoading: false,
   }),
   useCreateRubric: () => ({
@@ -87,6 +88,7 @@ describe("RubricEditorPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockParamsId = undefined;
+    mockRubricResponse = mockRubric;
   });
 
   describe("create mode (new)", () => {
@@ -166,6 +168,21 @@ describe("RubricEditorPage", () => {
       renderEditor();
       await waitFor(() => {
         expect(screen.getByDisplayValue("accuracy, depth")).toBeInTheDocument();
+      });
+    });
+
+    it("falls back to a default dimension when the loaded rubric has no dimensions", async () => {
+      mockRubricResponse = {
+        ...mockRubric,
+        dimensions: undefined,
+      } as unknown as Rubric;
+
+      renderEditor();
+
+      await waitFor(() => {
+        expect(screen.getByDisplayValue("F2F Default")).toBeInTheDocument();
+        expect(screen.getByText(/100\/100/)).toBeInTheDocument();
+        expect(screen.getByText("admin:rubrics.dimensionName 1")).toBeInTheDocument();
       });
     });
   });
