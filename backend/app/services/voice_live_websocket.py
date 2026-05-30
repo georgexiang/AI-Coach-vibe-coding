@@ -4,7 +4,7 @@ Architecture: Backend acts as a proxy between the browser WebSocket and Azure Vo
 This follows the pattern from voicelive-api-salescoach-main-sample-code (reference implementation).
 
 Dual-mode support (SDK >= 1.2.0b5):
-  - Agent mode: when HCP profile has a synced agent_id, connects with AgentSessionConfig.
+  - Agent mode: when HCP profile has a synced agent_id, connects with agent parameters.
     The agent carries its own instructions/tools/knowledge. Only modalities are sent.
   - Model mode: when no synced agent, connects with model parameter and instructions.
 
@@ -148,7 +148,7 @@ async def _load_connection_config(
             result["model"] = hcp_model
 
             # Agent mode: if HCP has a synced agent and agent mode is enabled,
-            # use AgentSessionConfig instead of model mode.
+            # use agent parameters instead of model mode.
             if (
                 _settings.voice_live_agent_mode_enabled
                 and profile.agent_id
@@ -441,24 +441,12 @@ async def handle_voice_live_websocket(ws: WebSocket, db: AsyncSession) -> None:
                 [str(m) for m in modalities],
             )
 
-            # Import AgentSessionConfig for agent mode
-            try:
-                from azure.ai.voicelive.aio import AgentSessionConfig
-            except ImportError:
-                await _send_error(
-                    ws,
-                    "azure-ai-voicelive SDK >= 1.2.0b5 required for agent mode",
-                )
-                return
-
             # NO fallback (RD-2): Agent failure = error propagated to frontend
             async with connect(
                 endpoint=cfg["endpoint"],
                 credential=credential,
-                agent_config=AgentSessionConfig(
-                    agent_name=agent_name,
-                    project_name=project_name,
-                ),
+                agent_name=agent_name,
+                project_name=project_name,
             ) as azure_conn:
                 await azure_conn.session.update(session=session_config)
                 session_log.info("Connected to Azure Voice Live (agent mode), session config sent")
