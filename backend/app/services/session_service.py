@@ -10,6 +10,7 @@ from sqlalchemy.orm import selectinload
 from app.models.message import SessionMessage
 from app.models.scenario import Scenario
 from app.models.session import CoachingSession
+from app.utils.datetime import as_utc_aware, utc_now_naive
 from app.utils.exceptions import AppException, NotFoundException
 
 
@@ -224,7 +225,7 @@ async def save_message(
         session = result.scalar_one_or_none()
         if session and session.status == "created":
             session.status = "in_progress"
-            session.started_at = datetime.now(UTC)
+            session.started_at = utc_now_naive()
 
     await db.flush()
     return message
@@ -246,12 +247,8 @@ async def _calculate_active_duration(
     if not timestamps:
         return 0
 
-    # Normalize timezone
-    def ensure_utc(dt: datetime) -> datetime:
-        return dt.replace(tzinfo=UTC) if dt.tzinfo is None else dt
-
-    timestamps = [ensure_utc(ts) for ts in timestamps]
-    started_at = ensure_utc(started_at)
+    timestamps = [as_utc_aware(ts) for ts in timestamps]
+    started_at = as_utc_aware(started_at)
 
     # Sum up active segments: gaps between consecutive messages that are <= MAX_GAP
     active_seconds = 0
@@ -266,7 +263,7 @@ async def _calculate_active_duration(
         prev = ts
 
     # Add time from last message to end (capped at MAX_GAP)
-    ended_at = ensure_utc(ended_at)
+    ended_at = as_utc_aware(ended_at)
     final_gap = (ended_at - prev).total_seconds()
     active_seconds += min(final_gap, MAX_GAP_SECONDS)
 
@@ -296,7 +293,7 @@ async def end_session(db: AsyncSession, session_id: str, user_id: str) -> Coachi
             "Only created or in_progress sessions can be ended.",
         )
 
-    now = datetime.now(UTC)
+    now = utc_now_naive()
     session.status = "completed"
     session.completed_at = now
     if not session.started_at:

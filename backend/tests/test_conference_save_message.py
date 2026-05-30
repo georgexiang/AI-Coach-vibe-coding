@@ -36,9 +36,8 @@ async def conference_session(db_session):
         mode="conference",
         key_messages="[]",
         rubric_id="test-rubric-id",
-    
-            skill_id="test-skill-id",
-        )
+        skill_id="test-skill-id",
+    )
     db_session.add(scenario)
     await db_session.flush()
 
@@ -124,6 +123,7 @@ class TestSaveConferenceMessage:
         )
         session = result.scalar_one()
         assert session.started_at is not None
+        assert session.started_at.tzinfo is None
 
     async def test_no_status_transition_on_assistant_first_message(
         self, db_session, conference_session

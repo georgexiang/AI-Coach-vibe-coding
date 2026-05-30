@@ -16,6 +16,7 @@ from app.services.agents.base import CoachEventType, CoachRequest
 from app.services.agents.registry import registry
 from app.services.prompt_builder import build_conference_audience_prompt
 from app.services.turn_manager import QueuedQuestion, turn_manager
+from app.utils.datetime import as_utc_aware, utc_now_naive
 from app.utils.exceptions import AppException, NotFoundException
 
 
@@ -318,14 +319,13 @@ async def end_conference_session(
             message=f"Cannot end session with status '{session.status}'",
         )
 
-    now = datetime.now(UTC)
+    now = utc_now_naive()
     session.status = "completed"
     session.completed_at = now
     if session.started_at:
-        started = session.started_at
-        if started.tzinfo is None:
-            started = started.replace(tzinfo=UTC)
-        session.duration_seconds = int((now - started).total_seconds())
+        session.duration_seconds = int(
+            (as_utc_aware(now) - as_utc_aware(session.started_at)).total_seconds()
+        )
 
     # Cleanup turn_manager in-memory state
     turn_manager.cleanup_session(session_id)
@@ -380,7 +380,7 @@ async def _save_conference_message(
         session = result.scalar_one_or_none()
         if session and session.status == "created":
             session.status = "in_progress"
-            session.started_at = datetime.now(UTC)
+            session.started_at = utc_now_naive()
 
     await db.flush()
     return message

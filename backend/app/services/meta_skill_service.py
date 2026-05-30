@@ -15,6 +15,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.meta_skill import MetaSkill
+from app.utils.datetime import utc_now_naive
 
 logger = logging.getLogger(__name__)
 
@@ -457,7 +458,7 @@ async def sync_meta_skill_agent(db: AsyncSession, skill_type: str) -> MetaSkill 
 
         meta.agent_id = result["id"]
         meta.agent_version = result["version"]
-        meta.last_synced_at = datetime.now(UTC)
+        meta.last_synced_at = utc_now_naive()
         await db.commit()
         await db.refresh(meta)
         logger.info(

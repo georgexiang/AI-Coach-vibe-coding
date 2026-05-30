@@ -9,7 +9,7 @@ Create Date: 2026-04-27 15:00:00.000000
 import json
 import uuid
 from collections.abc import Sequence
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import sqlalchemy as sa
 
@@ -78,7 +78,7 @@ def upgrade() -> None:
 
     # -- Step 2: Data migration -- create rubric per unique weight combo --
     conn = op.get_bind()
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).replace(tzinfo=None)
 
     # Read all existing scenarios with their weight columns
     rows = conn.execute(
@@ -109,9 +109,10 @@ def upgrade() -> None:
         if is_default:
             conn.execute(
                 sa.text(
-                    "UPDATE scoring_rubrics SET is_default = 0 "
-                    "WHERE scenario_type = 'f2f' AND is_default = 1"
-                )
+                    "UPDATE scoring_rubrics SET is_default = :new_default "
+                    "WHERE scenario_type = 'f2f' AND is_default = :old_default"
+                ),
+                {"new_default": False, "old_default": True},
             )
 
         dims = json.dumps(
@@ -159,15 +160,14 @@ def upgrade() -> None:
     # -- Step 3: Enforce NOT NULL on rubric_id, then drop weight columns --
     # For scenarios that still have no rubric_id (edge case: empty DB or new rows),
     # find or create a default rubric to assign
-    null_rows = conn.execute(
-        sa.text("SELECT id FROM scenarios WHERE rubric_id IS NULL")
-    ).fetchall()
+    null_rows = conn.execute(sa.text("SELECT id FROM scenarios WHERE rubric_id IS NULL")).fetchall()
     if null_rows:
         default_row = conn.execute(
             sa.text(
-                "SELECT id FROM scoring_rubrics WHERE is_default = 1 "
+                "SELECT id FROM scoring_rubrics WHERE is_default = :is_default "
                 "AND scenario_type = 'f2f' LIMIT 1"
-            )
+            ),
+            {"is_default": True},
         ).fetchone()
         if default_row:
             fallback_rid = default_row[0]
@@ -225,9 +225,7 @@ def downgrade() -> None:
             sa.Column("weight_key_message", sa.Integer(), server_default="30", nullable=True)
         )
         batch_op.add_column(
-            sa.Column(
-                "weight_objection_handling", sa.Integer(), server_default="25", nullable=True
-            )
+            sa.Column("weight_objection_handling", sa.Integer(), server_default="25", nullable=True)
         )
         batch_op.add_column(
             sa.Column("weight_communication", sa.Integer(), server_default="20", nullable=True)
