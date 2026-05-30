@@ -37,6 +37,11 @@ _FALLBACK_DIMENSIONS = [
     "executability",
 ]
 
+_JSON_OUTPUT_INSTRUCTION = (
+    "Return only a valid JSON object that conforms to the Skill Evaluator output schema. "
+    "Do not include Markdown fences, commentary, or any text outside the JSON object."
+)
+
 
 def _load_evaluation_dimensions() -> list[str]:
     """Load canonical dimension names from evaluation-dimensions.md.
@@ -131,7 +136,10 @@ def _get_eval_language_instruction() -> str:
 
     lang = get_settings().skill_sop_language
     if lang == "zh":
-        return "IMPORTANT: Write all text content (summary, strengths, improvements, rationale) in Chinese (中文)."
+        return (
+            "IMPORTANT: Write all text content "
+            "(summary, strengths, improvements, rationale) in Chinese (中文)."
+        )
     return ""
 
 
@@ -203,8 +211,11 @@ async def evaluate_skill_quality(
             "and sync it via the Meta Skill settings page."
         )
     ai_call = await _call_agent_for_evaluation(
-        db, prompt, evaluator_meta.agent_id,
-        evaluator_meta.agent_version, evaluator_meta.model,
+        db,
+        prompt,
+        evaluator_meta.agent_id,
+        evaluator_meta.agent_version,
+        evaluator_meta.model,
     )
     evaluated_at = datetime.now(tz=UTC).isoformat()
 
@@ -212,7 +223,9 @@ async def evaluate_skill_quality(
         # Fallback: return a result that clearly signals AI was not available
         logger.warning(
             "AI evaluation unavailable for skill %s (status=%s): %s",
-            skill_id, ai_call.status, ai_call.error_detail,
+            skill_id,
+            ai_call.status,
+            ai_call.error_detail,
         )
         eval_result = SkillEvaluationResult(
             overall_score=0,
@@ -289,7 +302,7 @@ async def _call_agent_for_evaluation(
 
         response = openai_client.responses.create(
             model=model,
-            input=[{"role": "user", "content": prompt}],
+            input=[{"role": "user", "content": f"{prompt}\n\n{_JSON_OUTPUT_INSTRUCTION}"}],
             extra_body={
                 "agent_reference": {
                     "name": agent_id,
@@ -298,17 +311,38 @@ async def _call_agent_for_evaluation(
                 }
             },
         )
-        content = response.output_text
+        content = (response.output_text or "").strip()
         if not content:
             return _AICallResult(
-                data=None, status="ai_error", model_used=model,
+                data=None,
+                status="ai_error",
+                model_used=model,
                 error_detail="Agent returned empty content",
             )
-        return _AICallResult(data=json.loads(content), status="ai_success", model_used=model)
+        try:
+            parsed = json.loads(content)
+        except json.JSONDecodeError as e:
+            preview = content[:200].replace("\n", " ")
+            return _AICallResult(
+                data=None,
+                status="ai_error",
+                model_used=model,
+                error_detail=f"Agent returned invalid JSON: {e}. Preview: {preview}",
+            )
+        if not isinstance(parsed, dict):
+            return _AICallResult(
+                data=None,
+                status="ai_error",
+                model_used=model,
+                error_detail="Agent returned JSON that was not an object",
+            )
+        return _AICallResult(data=parsed, status="ai_success", model_used=model)
     except Exception as e:
         logger.error("Agent evaluation failed: %s", e, exc_info=True)
         return _AICallResult(
-            data=None, status="ai_error", model_used=model,
+            data=None,
+            status="ai_error",
+            model_used=model,
             error_detail=str(e)[:500],
         )
 

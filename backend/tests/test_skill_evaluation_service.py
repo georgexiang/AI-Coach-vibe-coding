@@ -348,6 +348,9 @@ class TestCallAgentForEvaluation:
         # Verify agent_reference was passed
         call_kwargs = mock_openai_client.responses.create.call_args
         assert call_kwargs.kwargs["extra_body"]["agent_reference"]["name"] == "eval-agent-id"
+        assert "text" not in call_kwargs.kwargs
+        assert "temperature" not in call_kwargs.kwargs
+        assert "Do not include Markdown fences" in call_kwargs.kwargs["input"][0]["content"]
 
     @patch("app.services.agent_sync_service.get_project_endpoint", new_callable=AsyncMock)
     @patch("app.services.agent_sync_service._get_project_client")
@@ -366,6 +369,22 @@ class TestCallAgentForEvaluation:
         assert result.data is None
         assert result.status == "ai_error"
         assert "API failed" in result.error_detail
+
+    @patch("app.services.agent_sync_service.get_project_endpoint", new_callable=AsyncMock)
+    @patch("app.services.agent_sync_service._get_project_client")
+    async def test_json_array_returns_error(self, mock_get_client, mock_get_endpoint):
+        """Agent returns valid JSON but not an object -> returns ai_error."""
+        _, mock_project_client = self._mock_agent_pipeline(output_text="[]")
+        mock_get_endpoint.return_value = ("https://example.azure.com", "test-key")
+        mock_get_client.return_value = mock_project_client
+
+        db = AsyncMock()
+        result = await _call_agent_for_evaluation(db, "test prompt", "eval-agent-id", "1", "gpt-4o")
+
+        assert isinstance(result, _AICallResult)
+        assert result.data is None
+        assert result.status == "ai_error"
+        assert "not an object" in result.error_detail
 
     @patch("app.services.agent_sync_service.get_project_endpoint", new_callable=AsyncMock)
     @patch("app.services.agent_sync_service._get_project_client")
@@ -396,6 +415,7 @@ class TestCallAgentForEvaluation:
         assert isinstance(result, _AICallResult)
         assert result.data is None
         assert result.status == "ai_error"
+        assert "Agent returned invalid JSON" in result.error_detail
 
     @patch("app.services.agent_sync_service.get_project_endpoint", new_callable=AsyncMock)
     async def test_get_endpoint_fails_returns_error(self, mock_get_endpoint):
