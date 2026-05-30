@@ -8,12 +8,28 @@ import type {
   VoiceLiveInstanceCreate,
   VoiceLiveInstanceUpdate,
   VoiceLiveInstanceListResponse,
+  WebRTCSessionConfig,
 } from "@/types/voice-live";
 
 export async function fetchVoiceLiveToken(hcpProfileId?: string): Promise<VoiceLiveToken> {
   const params = hcpProfileId ? { hcp_profile_id: hcpProfileId } : {};
   const response = await apiClient.post<VoiceLiveToken>("/voice-live/token", null, { params });
   return response.data;
+}
+
+export async function fetchWebRTCSession(
+  hcpProfileId?: string,
+  vlInstanceId?: string,
+): Promise<WebRTCSessionConfig> {
+  const params: Record<string, string> = {};
+  if (hcpProfileId) params.hcp_profile_id = hcpProfileId;
+  if (vlInstanceId) params.vl_instance_id = vlInstanceId;
+  const res = await apiClient.post<WebRTCSessionConfig>(
+    "/voice-live/webrtc/session",
+    null,
+    { params },
+  );
+  return res.data;
 }
 
 export async function fetchVoiceLiveStatus(): Promise<VoiceLiveConfigStatus> {
@@ -36,10 +52,9 @@ export async function persistTranscriptMessage(
   role: "user" | "assistant",
   content: string,
 ): Promise<void> {
-  await apiClient.post(`/sessions/${sessionId}/messages`, {
+  await apiClient.post(`/sessions/${sessionId}/transcript`, {
     message: content,
     role,
-    source: "voice_transcript",
   });
 }
 

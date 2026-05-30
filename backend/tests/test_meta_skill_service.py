@@ -2,12 +2,10 @@
 
 from unittest.mock import AsyncMock, patch
 
-from tests.conftest import TestSessionLocal
-
 from app.models.meta_skill import MetaSkill
 from app.services import meta_skill_service
 from app.services.meta_skill_service import _load_default_template
-
+from tests.conftest import TestSessionLocal
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -165,9 +163,7 @@ class TestUpdateMetaSkill:
 
     async def test_partial_update_preserves_other_fields(self, db_session):
         await _seed_meta_skill(model="gpt-4o", template_content="original")
-        result = await meta_skill_service.update_meta_skill(
-            db_session, "creator", model="gpt-4.1"
-        )
+        result = await meta_skill_service.update_meta_skill(db_session, "creator", model="gpt-4.1")
         assert result.model == "gpt-4.1"
         assert result.template_content == "original"
 
@@ -192,18 +188,20 @@ class TestResetToDefault:
 
 
 class TestEnsureDefaults:
-    async def test_seeds_both_types(self, db_session):
+    async def test_seeds_all_types(self, db_session):
         await meta_skill_service.ensure_defaults(db_session)
         all_skills = await meta_skill_service.get_all_meta_skills(db_session)
         types = {m.skill_type for m in all_skills}
         assert "creator" in types
         assert "evaluator" in types
+        assert "dry-run-mr" in types
+        assert "dry-run-hcp" in types
 
     async def test_does_not_duplicate_on_rerun(self, db_session):
         await meta_skill_service.ensure_defaults(db_session)
         await meta_skill_service.ensure_defaults(db_session)  # second call
         all_skills = await meta_skill_service.get_all_meta_skills(db_session)
-        assert len(all_skills) == 2
+        assert len(all_skills) == 4
 
     async def test_seeded_creator_has_template(self, db_session):
         await meta_skill_service.ensure_defaults(db_session)
@@ -241,18 +239,17 @@ class TestSyncMetaSkillAgent:
         mock_update = AsyncMock()
         mock_endpoint = AsyncMock(return_value=("https://ai.example.com", "test-key"))
 
-        with patch(
-            "app.services.agent_sync_service.create_agent", mock_create
-        ), patch(
-            "app.services.agent_sync_service.update_agent", mock_update
-        ), patch(
-            "app.services.agent_sync_service.get_project_endpoint", mock_endpoint
+        with (
+            patch("app.services.agent_sync_service.create_agent", mock_create),
+            patch("app.services.agent_sync_service.update_agent", mock_update),
+            patch("app.services.agent_sync_service.get_project_endpoint", mock_endpoint),
         ):
             result = await meta_skill_service.sync_meta_skill_agent(db_session, "creator")
             assert result is not None
             assert result.agent_id == "agent-123"
             assert result.agent_version == "1"
             assert result.last_synced_at is not None
+            assert result.last_synced_at.tzinfo is None
             mock_create.assert_called_once()
             mock_update.assert_not_called()
 
@@ -268,12 +265,10 @@ class TestSyncMetaSkillAgent:
         mock_update = AsyncMock(return_value={"id": "existing-agent-id", "version": "2"})
         mock_endpoint = AsyncMock(return_value=("https://ai.example.com", "test-key"))
 
-        with patch(
-            "app.services.agent_sync_service.create_agent", mock_create
-        ), patch(
-            "app.services.agent_sync_service.update_agent", mock_update
-        ), patch(
-            "app.services.agent_sync_service.get_project_endpoint", mock_endpoint
+        with (
+            patch("app.services.agent_sync_service.create_agent", mock_create),
+            patch("app.services.agent_sync_service.update_agent", mock_update),
+            patch("app.services.agent_sync_service.get_project_endpoint", mock_endpoint),
         ):
             result = await meta_skill_service.sync_meta_skill_agent(db_session, "creator")
             assert result is not None

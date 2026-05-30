@@ -1,82 +1,50 @@
 """Scenario request/response schemas."""
 
 from datetime import datetime
-from typing import Self
 
-from pydantic import BaseModel, ConfigDict, model_validator
+from pydantic import BaseModel, ConfigDict
 
 
 class ScenarioCreate(BaseModel):
     """Create a new scenario."""
 
     name: str
-    product: str
     hcp_profile_id: str
-    created_by: str
+    rubric_id: str
+    skill_id: str
     description: str = ""
-    therapeutic_area: str = ""
+    tags: list[str] = []
     mode: str = "f2f"
     difficulty: str = "medium"
-    status: str = "draft"
     key_messages: list[str] = []
-    skill_id: str | None = None
-    weight_key_message: int = 30
-    weight_objection_handling: int = 25
-    weight_communication: int = 20
-    weight_product_knowledge: int = 15
-    weight_scientific_info: int = 10
     pass_threshold: int = 70
-
-    @model_validator(mode="after")
-    def validate_weights_sum(self) -> Self:
-        """Validate that all scoring weights sum to 100."""
-        total = (
-            self.weight_key_message
-            + self.weight_objection_handling
-            + self.weight_communication
-            + self.weight_product_knowledge
-            + self.weight_scientific_info
-        )
-        if total != 100:
-            raise ValueError(f"Scoring weights must sum to 100, got {total}")
-        return self
 
 
 class ScenarioUpdate(BaseModel):
     """Update an existing scenario. All fields optional for partial updates."""
 
     name: str | None = None
-    product: str | None = None
     hcp_profile_id: str | None = None
+    rubric_id: str | None = None
     description: str | None = None
-    therapeutic_area: str | None = None
+    tags: list[str] | None = None
     mode: str | None = None
     difficulty: str | None = None
-    status: str | None = None
     key_messages: list[str] | None = None
     skill_id: str | None = None
-    weight_key_message: int | None = None
-    weight_objection_handling: int | None = None
-    weight_communication: int | None = None
-    weight_product_knowledge: int | None = None
-    weight_scientific_info: int | None = None
     pass_threshold: int | None = None
 
-    @model_validator(mode="after")
-    def validate_weights_sum(self) -> Self:
-        """Validate that all scoring weights sum to 100 when all are provided."""
-        weights = [
-            self.weight_key_message,
-            self.weight_objection_handling,
-            self.weight_communication,
-            self.weight_product_knowledge,
-            self.weight_scientific_info,
-        ]
-        if all(w is not None for w in weights):
-            total = sum(weights)
-            if total != 100:
-                raise ValueError(f"Scoring weights must sum to 100, got {total}")
-        return self
+
+class HcpProfileSummary(BaseModel):
+    """Lightweight HCP profile embedded in scenario response (avatar metadata)."""
+
+    id: str
+    name: str
+    specialty: str
+    avatar_character: str = "lori"
+    avatar_style: str = "casual"
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ScenarioResponse(BaseModel):
@@ -85,20 +53,16 @@ class ScenarioResponse(BaseModel):
     id: str
     name: str
     description: str
-    product: str
-    therapeutic_area: str
+    tags: str  # JSON string from DB
     mode: str
     difficulty: str
     status: str
     hcp_profile_id: str
+    hcp_profile: HcpProfileSummary | None = None
     key_messages: str  # JSON string from DB
-    skill_id: str | None = None
+    skill_id: str
     skill_version_id: str | None = None
-    weight_key_message: int
-    weight_objection_handling: int
-    weight_communication: int
-    weight_product_knowledge: int
-    weight_scientific_info: int
+    rubric_id: str
     pass_threshold: int
     created_by: str
     created_at: datetime

@@ -104,7 +104,17 @@ async def update_instance(
 
     refreshed = await get_instance(db, instance.id)
     if refreshed.hcp_profiles:
+        # Sync avatar fields to all assigned HCP profiles (denormalized cache)
+        avatar_fields_changed = any(
+            k in update_data for k in ("avatar_character", "avatar_style", "avatar_customized")
+        )
         for profile in refreshed.hcp_profiles:
+            # Always sync avatar fields when they changed
+            if avatar_fields_changed:
+                profile.avatar_character = refreshed.avatar_character
+                profile.avatar_style = refreshed.avatar_style
+                profile.avatar_customized = refreshed.avatar_customized
+
             if profile.agent_id and profile.agent_sync_status == "synced":
                 try:
                     # Set relationship directly to avoid async lazy-load
@@ -183,6 +193,11 @@ async def assign_to_hcp(
         raise NotFoundException(message=f"HCP Profile {hcp_profile_id} not found")
 
     profile.voice_live_instance_id = instance_id
+    # Sync avatar fields from VL Instance to HcpProfile (denormalized cache)
+    # This ensures scenario API returns correct avatar without runtime resolution
+    profile.avatar_character = instance.avatar_character
+    profile.avatar_style = instance.avatar_style
+    profile.avatar_customized = instance.avatar_customized
     await db.commit()
     await db.refresh(profile)
     # Set relationship directly so resolve_voice_config works in async context

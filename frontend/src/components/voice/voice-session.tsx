@@ -19,13 +19,16 @@ import {
 import { cn } from "@/lib/utils";
 import { createVoiceLogger, getEventSummary } from "@/lib/voice-logger";
 import { useVoiceLive } from "@/hooks/use-voice-live";
+import { useVoiceLiveWebRTC } from "@/hooks/use-voice-live-webrtc";
 import { useAvatarStream } from "@/hooks/use-avatar-stream";
 import { useAudioHandler } from "@/hooks/use-audio-handler";
 import { useAudioPlayer } from "@/hooks/use-audio-player";
+import { useSessionRecorder } from "@/hooks/use-session-recorder";
 import { useVoiceSessionLifecycle } from "@/hooks/use-voice-session-lifecycle";
 import { useEndSession } from "@/hooks/use-session";
 import { useScenario } from "@/hooks/use-scenarios";
 import { persistTranscriptMessage } from "@/api/voice-live";
+import { VoiceTransportSelect } from "./voice-transport-select";
 import { VoiceSessionHeader } from "./voice-session-header";
 import { AvatarView } from "./avatar-view";
 import { VoiceTranscript } from "./voice-transcript";
@@ -35,6 +38,7 @@ import type {
   SessionMode,
   TranscriptSegment,
   VoiceConfigSettings,
+  VoiceTransport,
 } from "@/types/voice-live";
 import type { KeyMessageStatus } from "@/types/session";
 import type { Scenario } from "@/types/scenario";
@@ -90,6 +94,7 @@ export function VoiceSession({
   const [keyMessagesStatus, setKeyMessagesStatus] = useState<
     KeyMessageStatus[]
   >([]);
+  const [transport, setTransport] = useState<VoiceTransport>("websocket");
   const [startedAt] = useState<string>(new Date().toISOString());
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -151,8 +156,9 @@ export function VoiceSession({
   const avatarStream = useAvatarStream(videoRef);
   const audioHandler = useAudioHandler();
   const audioPlayer = useAudioPlayer();
+  const sessionRecorder = useSessionRecorder();
 
-  const voiceLive = useVoiceLive({
+  const voiceLiveWs = useVoiceLive({
     language,
     systemPrompt,
     onTranscript: handleTranscript,
@@ -166,6 +172,24 @@ export function VoiceSession({
       log.error("Voice Live error: %o", error);
     },
   });
+
+  const voiceLiveWebRtc = useVoiceLiveWebRTC({
+    language,
+    systemPrompt,
+    onTranscript: handleTranscript,
+    onAudioDelta: () => {},
+    onConnectionStateChange: (state) => {
+      if (state === "error") {
+        toast.error(t("transport.connectionFailed"));
+      }
+    },
+    onError: (error) => {
+      log.error("Voice Live WebRTC error: %o", error);
+      toast.error(t("transport.connectionFailed"));
+    },
+  });
+
+  const voiceLive = transport === "webrtc" ? voiceLiveWebRtc : voiceLiveWs;
 
   const { startSession: startVoiceSession, stopSession: stopVoiceSession } =
     useVoiceSessionLifecycle({ voiceLive, avatarStream, audioHandler, audioPlayer });
@@ -196,7 +220,10 @@ export function VoiceSession({
 
   // Voice initialization logic — uses shared lifecycle hook
   const initVoice = useCallback(async () => {
-    log.info("initVoice: hcpProfileId=%s avatarCharacter=%s", hcpProfileId, avatarCharacter ?? "(none)");
+    log.info("initVoice: hcpProfileId=%s avatarCharacter=%s transport=%s", hcpProfileId, avatarCharacter ?? "(none)", transport);
+    if (transport === "webrtc" && currentMode.includes("digital_human")) {
+      toast.warning(t("transport.avatarUnavailable"));
+    }
     setIsConnecting(true);
     try {
       const result = await startVoiceSession({
@@ -226,6 +253,17 @@ export function VoiceSession({
         setCurrentMode(resolvedMode);
         initialModeRef.current = resolvedMode;
         log.info("Mode=%s avatar=%s resolvedMode=%s", result.mode, result.avatarEnabled, resolvedMode);
+
+        // Start session recording for voice scoring
+        const micStream = audioHandler.streamRef.current;
+        if (micStream) {
+          const started = await sessionRecorder.startRecording(micStream);
+          if (started) {
+            log.info("Session recorder started");
+          } else {
+            log.warn("Session recorder failed to start");
+          }
+        }
       }
     } finally {
       setIsConnecting(false);
@@ -263,19 +301,36 @@ export function VoiceSession({
     // Flush all pending transcript writes first (D-09)
     await Promise.all(pendingFlushesRef.current);
 
-    // Disconnect voice and avatar via shared lifecycle
-    await stopVoiceSession();
+    // Stop recording and upload audio for voice scoring
+    if (sessionRecorder.isRecording) {
+      toast.info(t("recording.uploading"));
+      const uploadResult = await sessionRecorder.stopAndUpload(sessionId);
+      if (uploadResult.success) {
+        log.info("Session audio uploaded successfully");
+      } else {
+        log.warn("Session audio upload failed: %s", uploadResult.error);
+        toast.warning(t("recording.uploadFailed"));
+      }
+    }
+
+    // Disconnect voice and avatar via shared lifecycle (ignore errors — may not be connected)
+    try {
+      await stopVoiceSession();
+    } catch {
+      // Voice cleanup failure is non-fatal
+    }
 
     // Call endSession API
     try {
       await endSessionMutation.mutateAsync(sessionId);
-      navigate(`/user/scoring/${sessionId}`);
+      navigate("/user/history");
     } catch {
       toast.error(t("error.connectionFailed"));
-      navigate("/user/scenarios");
+      navigate("/user/training");
     }
   }, [
     sessionId,
+    sessionRecorder,
     stopVoiceSession,
     endSessionMutation,
     navigate,
@@ -320,11 +375,7 @@ export function VoiceSession({
     status: "active",
     hcp_profile_id: "",
     key_messages: [],
-    weight_key_message: 30,
-    weight_objection_handling: 25,
-    weight_communication: 20,
-    weight_product_knowledge: 15,
-    weight_scientific_info: 10,
+    rubric_id: "",
     pass_threshold: 70,
     estimated_duration: 15,
     created_by: "",
@@ -372,9 +423,14 @@ export function VoiceSession({
           {/* Start button overlay — shown before session begins */}
           {!sessionStarted && !isConnecting && (
             <div
-              className="absolute inset-0 z-30 flex flex-col items-center justify-center"
+              className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-4"
               data-testid="start-overlay"
             >
+              <VoiceTransportSelect
+                value={transport}
+                onChange={setTransport}
+                disabled={isConnecting || sessionStarted}
+              />
               <button
                 type="button"
                 onClick={handleStartSession}

@@ -4,7 +4,7 @@ Architecture: Backend acts as a proxy between the browser WebSocket and Azure Vo
 This follows the pattern from voicelive-api-salescoach-main-sample-code (reference implementation).
 
 Dual-mode support (SDK >= 1.2.0b5):
-  - Agent mode: when HCP profile has a synced agent_id, connects with AgentSessionConfig.
+  - Agent mode: when HCP profile has a synced agent_id, connects with agent parameters.
     The agent carries its own instructions/tools/knowledge. Only modalities are sent.
   - Model mode: when no synced agent, connects with model parameter and instructions.
 
@@ -127,6 +127,7 @@ async def _load_connection_config(
         "use_agent_mode": False,
         "agent_name": "",
         "project_name": "",
+        "recognition_language": "zh,en",
     }
 
     # Check avatar availability.
@@ -460,6 +461,7 @@ async def handle_voice_live_websocket(ws: WebSocket, db: AsyncSession) -> None:
             "input_audio_echo_cancellation": AudioEchoCancellation(type="server_echo_cancellation"),
             "input_audio_transcription": AudioInputTranscriptionOptions(
                 model="azure-speech",
+                language=cfg.get("recognition_language", "zh,en"),
             ),
             "voice": AzureStandardVoice(name=cfg["voice_name"], type=cfg["voice_type"]),
         }

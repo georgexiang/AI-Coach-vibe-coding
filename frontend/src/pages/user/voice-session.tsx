@@ -34,7 +34,7 @@ export default function VoiceSessionPage() {
         <div className="flex flex-col items-center gap-4">
           <AlertTriangle className="h-10 w-10 text-destructive" />
           <p className="text-sm text-muted-foreground">{t("error.loadFailed")}</p>
-          <Button variant="outline" onClick={() => navigate("/user/scenarios")}>
+          <Button variant="outline" onClick={() => navigate("/user/training")}>
             {tc("back")}
           </Button>
         </div>

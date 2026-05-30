@@ -149,14 +149,27 @@ def build_hcp_system_prompt(
 
 
 def build_scoring_prompt(
-    scenario: Scenario, transcript: list[dict], key_messages: list[str]
+    scenario: Scenario,
+    transcript: list[dict],
+    key_messages: list[str],
+    rubric_dimensions: list[dict] | None = None,
 ) -> str:
     """Build the scoring analysis prompt for post-session evaluation.
 
-    Instructs the AI to analyze the conversation transcript against 5 scoring
-    dimensions and return structured JSON results.
+    Instructs the AI to analyze the conversation transcript against rubric-defined
+    scoring dimensions and return structured JSON results.
+
+    If rubric_dimensions is provided, uses those. Otherwise falls back to
+    a default 5-dimension set (for backward compatibility during transition).
     """
-    weights = scenario.get_scoring_weights()
+    if rubric_dimensions is None:
+        rubric_dimensions = [
+            {"name": "key_message", "weight": 30, "criteria": []},
+            {"name": "objection_handling", "weight": 25, "criteria": []},
+            {"name": "communication", "weight": 20, "criteria": []},
+            {"name": "product_knowledge", "weight": 15, "criteria": []},
+            {"name": "scientific_info", "weight": 10, "criteria": []},
+        ]
 
     # Format transcript
     transcript_lines = []
@@ -165,6 +178,29 @@ def build_scoring_prompt(
         transcript_lines.append(f"{role_label}: {msg.get('content', '')}")
     formatted_transcript = "\n".join(transcript_lines)
 
+    # Build dynamic dimensions section
+    dim_section_lines = []
+    for i, dim in enumerate(rubric_dimensions, 1):
+        dim_section_lines.append(f"{i}. **{dim['name']}** (weight: {dim['weight']}%)")
+        for criterion in dim.get("criteria", []):
+            dim_section_lines.append(f"   - {criterion}")
+    dim_section = "\n".join(dim_section_lines)
+
+    # Build dynamic JSON example for output format
+    dim_json_examples = []
+    for dim in rubric_dimensions:
+        dim_json_examples.append(
+            f'    {{\n'
+            f'      "dimension": "{dim["name"]}",\n'
+            f'      "score": <0-100>,\n'
+            f'      "weight": {dim["weight"]},\n'
+            f'      "strengths": [{{"text": "description", "quote": "quote or null"}}],\n'
+            f'      "weaknesses": [{{"text": "description", "quote": "quote or null"}}],\n'
+            f'      "suggestions": ["actionable suggestion"]\n'
+            f'    }}'
+        )
+    dim_json_block = ",\n".join(dim_json_examples)
+
     prompt = f"""# Scoring Analysis Task
 
 You are an expert medical sales training evaluator. Analyze the following conversation
@@ -172,25 +208,7 @@ between a Medical Representative (MR) and a Healthcare Professional (HCP).
 
 ## Scoring Dimensions and Weights
 
-1. **Key Message Delivery** (weight: {weights["key_message"]}%)
-   - Did the MR deliver the required key messages?
-   - Were they presented clearly and persuasively?
-
-2. **Objection Handling** (weight: {weights["objection_handling"]}%)
-   - How well did the MR respond to HCP objections and concerns?
-   - Were responses evidence-based and professional?
-
-3. **Communication Skills** (weight: {weights["communication"]}%)
-   - Was the MR's communication clear, professional, and appropriate?
-   - Did they listen actively and adapt to the HCP's style?
-
-4. **Product Knowledge** (weight: {weights["product_knowledge"]}%)
-   - Did the MR demonstrate strong knowledge of the product?
-   - Were claims supported by data and evidence?
-
-5. **Scientific Information** (weight: {weights["scientific_info"]}%)
-   - Did the MR reference relevant clinical data and studies?
-   - Was the scientific information accurate and well-presented?
+{dim_section}
 
 ## Key Messages Expected
 {chr(10).join(f"{i + 1}. {msg}" for i, msg in enumerate(key_messages))}
@@ -204,50 +222,7 @@ Return ONLY valid JSON in the following format:
 {{
   "overall_feedback": "2-3 sentence summary of the MR's performance",
   "dimensions": [
-    {{
-      "dimension": "key_message",
-      "score": <0-100>,
-      "weight": {weights["key_message"]},
-      "strengths": [
-        {{"text": "description", "quote": "exact quote from transcript or null"}}
-      ],
-      "weaknesses": [
-        {{"text": "description", "quote": "exact quote from transcript or null"}}
-      ],
-      "suggestions": ["actionable suggestion 1", "actionable suggestion 2"]
-    }},
-    {{
-      "dimension": "objection_handling",
-      "score": <0-100>,
-      "weight": {weights["objection_handling"]},
-      "strengths": [...],
-      "weaknesses": [...],
-      "suggestions": [...]
-    }},
-    {{
-      "dimension": "communication",
-      "score": <0-100>,
-      "weight": {weights["communication"]},
-      "strengths": [...],
-      "weaknesses": [...],
-      "suggestions": [...]
-    }},
-    {{
-      "dimension": "product_knowledge",
-      "score": <0-100>,
-      "weight": {weights["product_knowledge"]},
-      "strengths": [...],
-      "weaknesses": [...],
-      "suggestions": [...]
-    }},
-    {{
-      "dimension": "scientific_info",
-      "score": <0-100>,
-      "weight": {weights["scientific_info"]},
-      "strengths": [...],
-      "weaknesses": [...],
-      "suggestions": [...]
-    }}
+{dim_json_block}
   ]
 }}
 
@@ -396,18 +371,25 @@ def build_conference_audience_prompt(
 
 
 def build_conference_scoring_prompt(
-    scenario: Scenario, messages: list[dict], audience_config: list[dict]
+    scenario: Scenario,
+    messages: list[dict],
+    audience_config: list[dict],
+    rubric_dimensions: list[dict] | None = None,
 ) -> str:
     """Build scoring prompt adapted for conference presentation evaluation.
 
-    Maps existing 5 dimensions to conference context:
-    - key_message -> presentation completeness
-    - objection_handling -> Q&A handling
-    - communication -> presentation delivery
-    - product_knowledge -> product knowledge depth
-    - scientific_info -> scientific rigor
+    Uses rubric dimensions dynamically. If rubric_dimensions is not provided,
+    falls back to a default 5-dimension set for backward compatibility.
     """
-    weights = scenario.get_scoring_weights()
+    if rubric_dimensions is None:
+        rubric_dimensions = [
+            {"name": "key_message", "weight": 30, "criteria": []},
+            {"name": "objection_handling", "weight": 25, "criteria": []},
+            {"name": "communication", "weight": 20, "criteria": []},
+            {"name": "product_knowledge", "weight": 15, "criteria": []},
+            {"name": "scientific_info", "weight": 10, "criteria": []},
+        ]
+
     key_messages = json.loads(scenario.key_messages)
 
     # Format transcript with speaker attribution
@@ -429,6 +411,17 @@ def build_conference_scoring_prompt(
         for a in audience_config
     )
 
+    # Build dynamic dimensions section
+    dim_section_lines = []
+    for i, dim in enumerate(rubric_dimensions, 1):
+        dim_section_lines.append(f"{i}. **{dim['name']}** (weight: {dim['weight']}%)")
+        for criterion in dim.get("criteria", []):
+            dim_section_lines.append(f"   - {criterion}")
+    dim_section = "\n".join(dim_section_lines)
+
+    # Build dimension names for output format instruction
+    dim_names = ", ".join(d["name"] for d in rubric_dimensions)
+
     prompt = f"""# Conference Presentation Scoring Task
 
 You are an expert medical sales training evaluator. Analyze the following conference
@@ -439,24 +432,7 @@ presentation by a Medical Representative (MR) to an audience of Healthcare Profe
 
 ## Scoring Dimensions and Weights (adapted for conference)
 
-1. **Presentation Completeness (key_message)** (weight: {weights["key_message"]}%)
-   - Did the MR cover all required key messages during the presentation?
-   - Were they woven naturally into the presentation flow?
-
-2. **Q&A Handling (objection_handling)** (weight: {weights["objection_handling"]}%)
-   - How well did the MR handle audience questions?
-   - Were responses specific, evidence-based, and addressed to the questioner?
-
-3. **Presentation Delivery (communication)** (weight: {weights["communication"]}%)
-   - Was the presentation clear, structured, and engaging?
-   - Did the MR maintain audience engagement?
-
-4. **Product Knowledge** (weight: {weights["product_knowledge"]}%)
-   - Did the MR demonstrate deep product knowledge under audience questioning?
-
-5. **Scientific Rigor (scientific_info)** (weight: {weights["scientific_info"]}%)
-   - Were clinical references accurate and well-cited?
-   - Did the MR handle scientific challenges from the audience competently?
+{dim_section}
 
 ## Key Messages Expected
 {chr(10).join(f"{i + 1}. {msg}" for i, msg in enumerate(key_messages))}
@@ -467,7 +443,7 @@ presentation by a Medical Representative (MR) to an audience of Healthcare Profe
 ## Required Output Format
 
 Return ONLY valid JSON matching the standard scoring format with dimensions:
-key_message, objection_handling, communication, product_knowledge, scientific_info.
+{dim_names}.
 Each with score (0-100), weight, strengths, weaknesses, and suggestions arrays."""
 
     return prompt

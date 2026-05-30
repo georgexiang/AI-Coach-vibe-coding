@@ -10,7 +10,12 @@ from app.models.meta_skill import MetaSkill
 from app.models.skill import Skill, SkillResource
 from app.models.user import User
 from app.services import skill_creator_service
-from app.services.skill_creator_service import CreationResult, _parse_creator_response
+from app.services.skill_creator_service import (
+    CreationResult,
+    PackageManifest,
+    _build_package_manifest,
+    _parse_raw_json,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -85,45 +90,86 @@ async def _seed_meta_skill_creator(
 
 
 # ---------------------------------------------------------------------------
-# _parse_creator_response
+# _parse_raw_json / _build_package_manifest
 # ---------------------------------------------------------------------------
 
 
-class TestParseCreatorResponse:
+class TestParseRawJson:
     def test_valid_json(self):
-        raw = json.dumps({
-            "name": "Test Skill",
-            "description": "A test skill",
-            "product": "Product A",
-        })
-        result = _parse_creator_response(raw)
-        assert result["name"] == "Test Skill"
-        assert result["description"] == "A test skill"
+        raw = json.dumps({"name": "Test", "skill_md": "# Content"})
+        result = _parse_raw_json(raw)
+        assert result["name"] == "Test"
 
     def test_json_in_markdown_block(self):
         raw = 'Here is the result:\n```json\n{"name": "Skill B", "summary": "blah"}\n```\n'
-        result = _parse_creator_response(raw)
+        result = _parse_raw_json(raw)
         assert result["name"] == "Skill B"
 
     def test_plain_text_fallback(self):
         raw = "This is plain text without JSON"
-        result = _parse_creator_response(raw)
-        assert "content" in result
-        assert result["content"] == raw
+        result = _parse_raw_json(raw)
+        assert result["skill_md"] == raw
 
     def test_empty_json_object(self):
         raw = "{}"
-        result = _parse_creator_response(raw)
+        result = _parse_raw_json(raw)
         assert result == {}
 
-    def test_nested_json(self):
-        raw = json.dumps({
-            "name": "Nested",
-            "steps": [{"step": 1, "action": "do thing"}],
-        })
-        result = _parse_creator_response(raw)
-        assert result["name"] == "Nested"
-        assert len(result["steps"]) == 1
+
+class TestBuildPackageManifest:
+    def test_v3_format_with_skill_md(self):
+        parsed = {
+            "metadata": {"name": "test", "description": "desc", "product": "P", "therapeutic_area": "Onc"},
+            "skill_md": "# Skill\n\n## SOP Steps\n\n### Step 1: Opening",
+            "references": {"kb.md": "# Knowledge"},
+            "scripts": {"validate.py": "def validate(): pass"},
+            "assets": {"tips.md": "# Tips"},
+            "summary": "Test summary",
+        }
+        m = _build_package_manifest(parsed)
+        assert isinstance(m, PackageManifest)
+        assert m.metadata["name"] == "test"
+        assert "## SOP Steps" in m.skill_md
+        assert "kb.md" in m.references
+        assert "validate.py" in m.scripts
+        assert m.summary == "Test summary"
+
+    def test_v2_legacy_format_with_sop_steps(self):
+        parsed = {
+            "name": "legacy",
+            "description": "Legacy desc",
+            "product": "LegacyP",
+            "therapeutic_area": "Hematology",
+            "sop_steps": [
+                {"title": "Opening", "description": "Greet", "key_points": ["Hi"], "assessment_criteria": ["Tone"]},
+            ],
+            "modules": [],
+            "scoring": {"pass_threshold": 70, "weights": {}},
+            "summary": "Legacy test",
+        }
+        m = _build_package_manifest(parsed)
+        assert m.metadata["name"] == "legacy"
+        assert "### Step 1: Opening" in m.skill_md
+        assert m.references == {}
+
+    def test_raw_text_fallback(self):
+        m = _build_package_manifest({"content": "# Raw markdown", "summary": "Fallback"})
+        assert m.skill_md == "# Raw markdown"
+        assert m.summary == "Fallback"
+
+    def test_v3_metadata_fallback_from_top_level(self):
+        """When metadata dict is empty, extract from top-level keys."""
+        parsed = {
+            "name": "top-level",
+            "description": "From top",
+            "skill_md": "# Content",
+            "references": {},
+            "scripts": {},
+            "assets": {},
+            "summary": "Sum",
+        }
+        m = _build_package_manifest(parsed)
+        assert m.metadata["name"] == "top-level"
 
 
 # ---------------------------------------------------------------------------
@@ -223,7 +269,13 @@ class TestCreateSkillViaAgent:
         mock_direct.return_value = CreationResult(
             status="success",
             model_used="gpt-4o",
-            raw_response=json.dumps({"name": "Generated Skill", "description": "Gen desc"}),
+            raw_response=json.dumps({
+                "metadata": {"name": "generated-skill", "description": "Gen desc",
+                             "product": "P", "therapeutic_area": "Onc"},
+                "skill_md": "# Generated\n\n## SOP Steps\n\n### Step 1: Opening\nContent.",
+                "references": {}, "scripts": {}, "assets": {},
+                "summary": "Generated skill.",
+            }),
         )
 
         result = await skill_creator_service.create_skill_via_agent(db_session, skill_id)
@@ -244,7 +296,13 @@ class TestCreateSkillViaAgent:
             agent_id="agent-xyz",
             agent_version="1",
             model_used="gpt-4o",
-            raw_response=json.dumps({"name": "Agent Skill", "description": "From agent"}),
+            raw_response=json.dumps({
+                "metadata": {"name": "agent-skill", "description": "From agent",
+                             "product": "P", "therapeutic_area": "Onc"},
+                "skill_md": "# Agent Skill\n\nContent.",
+                "references": {}, "scripts": {}, "assets": {},
+                "summary": "From agent.",
+            }),
         )
 
         result = await skill_creator_service.create_skill_via_agent(db_session, skill_id)
@@ -263,10 +321,17 @@ class TestCreateSkillViaAgent:
             status="success",
             model_used="gpt-4o",
             raw_response=json.dumps({
-                "name": "Updated Name",
-                "description": "Updated desc",
-                "product": "ProductX",
-                "therapeutic_area": "Immunology",
+                "metadata": {
+                    "name": "Updated Name",
+                    "description": "Updated desc",
+                    "product": "ProductX",
+                    "therapeutic_area": "Immunology",
+                },
+                "skill_md": "# Updated Skill\n\n## SOP Steps\n\nFull content.",
+                "references": {"kb.md": "# Knowledge base content here."},
+                "scripts": {"validate.py": "def validate(): pass"},
+                "assets": {},
+                "summary": "Updated skill summary.",
             }),
         )
 
@@ -276,14 +341,28 @@ class TestCreateSkillViaAgent:
         # Verify skill was updated
         async with TestSessionLocal() as s:
             from sqlalchemy import select
-            stmt = select(Skill).where(Skill.id == skill_id)
+            from sqlalchemy.orm import selectinload
+            stmt = (
+                select(Skill)
+                .options(selectinload(Skill.resources))
+                .where(Skill.id == skill_id)
+            )
             res = await s.execute(stmt)
             skill = res.scalar_one()
             assert skill.name == "Updated Name"
             assert skill.conversion_status == "completed"
+            # Content should be Markdown, not raw JSON
+            assert skill.content.startswith("# Updated Skill")
+            assert "## SOP Steps" in skill.content
             # Audit trail should be in metadata
             meta = json.loads(skill.metadata_json or "{}")
             assert "creation_audit" in meta
+            assert meta["creation_audit"]["format"] == "package_manifest_v3"
+            # Resources should have been created from manifest
+            ref_resources = [r for r in skill.resources if r.resource_type == "reference"]
+            script_resources = [r for r in skill.resources if r.resource_type == "script"]
+            assert len(ref_resources) >= 1
+            assert len(script_resources) >= 1
 
     @patch("app.services.skill_creator_service._call_direct_openai")
     async def test_sets_failed_status_on_error(self, mock_direct, db_session):

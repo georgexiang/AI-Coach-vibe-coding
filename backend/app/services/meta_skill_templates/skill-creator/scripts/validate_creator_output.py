@@ -1,9 +1,16 @@
 #!/usr/bin/env python3
-"""Validate the JSON output produced by the Skill Creator agent.
+"""Validate the Package Manifest output produced by the Skill Creator agent.
+
+Validates the new agentskills.io-aligned format with:
+- metadata (YAML frontmatter fields)
+- skill_md (Markdown body)
+- references (split documentation files)
+- scripts (validation/enforcement scripts)
+- assets (coaching aids)
 
 Usage:
     python validate_creator_output.py '<json_string>'
-    echo '{"name":"test"}' | python validate_creator_output.py
+    echo '{"metadata":...}' | python validate_creator_output.py
 
 Returns a JSON report with validation results.
 """
@@ -11,126 +18,187 @@ Returns a JSON report with validation results.
 import json
 import re
 import sys
+from pathlib import PurePosixPath
 
 
-REQUIRED_FIELDS = [
-    "name", "description", "product", "therapeutic_area",
-    "sop_steps", "modules", "scoring", "summary",
-]
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
 
 AZURE_NAME_PATTERN = re.compile(r"^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?$")
 
+# Markdown heading patterns (aligned with skill_validation_service.py L1 checks)
+SOP_STEP_RE = re.compile(r"^#{2,3}\s+(?:Step|步骤)\s*\d", re.MULTILINE | re.IGNORECASE)
+ASSESSMENT_HEADING_RE = re.compile(
+    r"^#{1,4}\s+.*(?:Assessment|考核|Rubric|评估)", re.MULTILINE | re.IGNORECASE
+)
+KNOWLEDGE_HEADING_RE = re.compile(
+    r"^#{1,4}\s+.*(?:Knowledge|知识)", re.MULTILINE | re.IGNORECASE
+)
+
+METADATA_REQUIRED = ["name", "description", "product", "therapeutic_area"]
+
+SAFE_REFERENCE_EXTENSIONS = {".md", ".json", ".yaml", ".yml", ".csv", ".xml", ".txt"}
+SAFE_SCRIPT_EXTENSIONS = {".py", ".js", ".sh", ".ps1"}
+SAFE_ASSET_EXTENSIONS = {".md", ".json", ".yaml", ".yml", ".csv", ".xml", ".txt"}
+
 MIN_SOP_STEPS = 5
-MIN_MODULES = 3
-MAX_MODULES = 8
+MIN_SKILL_MD_LENGTH = 500
 
-SOP_STEP_REQUIRED = ["title", "description", "key_points", "assessment_criteria"]
-SOP_STEP_RECOMMENDED = ["objections", "knowledge_points", "suggested_duration"]
-MODULE_REQUIRED = ["title", "objectives", "content"]
 
-CANONICAL_DIMENSIONS = [
-    "sop_completeness", "knowledge_accuracy", "conversation_logic",
-    "assessment_coverage", "difficulty_calibration", "executability",
-]
+# ---------------------------------------------------------------------------
+# Validation helpers
+# ---------------------------------------------------------------------------
+
+
+def _safe_filename(filename: str) -> bool:
+    """Check that a filename is safe (no path traversal, no absolute paths)."""
+    if not filename:
+        return False
+    p = PurePosixPath(filename)
+    if p.is_absolute() or ".." in p.parts:
+        return False
+    # Must be a simple filename, no directory components
+    return "/" not in filename and "\\" not in filename
+
+
+def _check_extension(filename: str, allowed: set[str]) -> bool:
+    """Check that a filename has an allowed extension."""
+    return PurePosixPath(filename).suffix.lower() in allowed
+
+
+# ---------------------------------------------------------------------------
+# Main validation
+# ---------------------------------------------------------------------------
 
 
 def validate(data: dict) -> dict:
-    """Validate a Skill Creator output dictionary."""
+    """Validate a Skill Creator Package Manifest dictionary.
+
+    Args:
+        data: Parsed JSON dict from the creator agent.
+
+    Returns:
+        dict with keys: valid, errors, warnings, field_count, score
+    """
     errors: list[str] = []
     warnings: list[str] = []
 
-    # --- Required fields ---
-    for field in REQUIRED_FIELDS:
-        if field not in data or not data[field]:
-            errors.append(f"Missing required field: {field}")
+    # --- Top-level structure ---
+    for field in ("metadata", "skill_md", "references", "scripts", "assets", "summary"):
+        if field not in data:
+            errors.append(f"Missing required top-level field: {field}")
 
-    # --- Name validation ---
-    name = data.get("name", "")
-    if name:
-        if not AZURE_NAME_PATTERN.match(name):
-            errors.append(
-                f"name '{name}' must be alphanumeric + hyphens, "
-                "start/end with alphanumeric"
-            )
-        if len(name) > 63:
-            errors.append(f"name '{name}' exceeds 63 character limit ({len(name)})")
-
-    # --- SOP steps ---
-    sop_steps = data.get("sop_steps", [])
-    if not isinstance(sop_steps, list):
-        errors.append("sop_steps must be a list")
+    # --- metadata ---
+    metadata = data.get("metadata", {})
+    if not isinstance(metadata, dict):
+        errors.append("metadata must be a dict")
     else:
-        if len(sop_steps) < MIN_SOP_STEPS:
-            errors.append(
-                f"sop_steps has {len(sop_steps)} items, "
-                f"minimum {MIN_SOP_STEPS} required"
-            )
-        for i, step in enumerate(sop_steps):
-            if not isinstance(step, dict):
-                errors.append(f"sop_steps[{i}] must be a dict")
-                continue
-            for req in SOP_STEP_REQUIRED:
-                if req not in step or not step[req]:
-                    warnings.append(f"sop_steps[{i}] missing '{req}'")
-            for opt in SOP_STEP_RECOMMENDED:
-                if opt not in step or not step[opt]:
-                    warnings.append(f"sop_steps[{i}] missing recommended '{opt}'")
+        for req in METADATA_REQUIRED:
+            val = metadata.get(req, "")
+            if not val or not isinstance(val, str) or not val.strip():
+                errors.append(f"metadata missing required field: {req}")
 
-    # --- Modules ---
-    modules = data.get("modules", [])
-    if not isinstance(modules, list):
-        errors.append("modules must be a list")
+        name = metadata.get("name", "")
+        if name:
+            if not AZURE_NAME_PATTERN.match(name):
+                errors.append(
+                    f"metadata.name '{name}' must be alphanumeric + hyphens, "
+                    "start/end with alphanumeric"
+                )
+            if len(name) > 63:
+                errors.append(
+                    f"metadata.name '{name}' exceeds 63 character limit ({len(name)})"
+                )
+
+        desc = metadata.get("description", "")
+        if isinstance(desc, str) and len(desc) > 1024:
+            warnings.append(
+                f"metadata.description is {len(desc)} chars, recommended <= 1024"
+            )
+
+    # --- skill_md ---
+    skill_md = data.get("skill_md", "")
+    if not isinstance(skill_md, str):
+        errors.append("skill_md must be a string")
+    elif len(skill_md) < MIN_SKILL_MD_LENGTH:
+        errors.append(
+            f"skill_md is too short ({len(skill_md)} chars, minimum {MIN_SKILL_MD_LENGTH})"
+        )
     else:
-        if len(modules) < MIN_MODULES:
+        # Check for required Markdown heading patterns
+        sop_matches = SOP_STEP_RE.findall(skill_md)
+        if len(sop_matches) < MIN_SOP_STEPS:
             warnings.append(
-                f"modules has {len(modules)} items, "
-                f"recommended >= {MIN_MODULES}"
+                f"skill_md has {len(sop_matches)} SOP step headings, "
+                f"expected >= {MIN_SOP_STEPS}"
             )
-        if len(modules) > MAX_MODULES:
-            warnings.append(
-                f"modules has {len(modules)} items, "
-                f"recommended <= {MAX_MODULES}"
-            )
-        for i, mod in enumerate(modules):
-            if not isinstance(mod, dict):
-                errors.append(f"modules[{i}] must be a dict")
-                continue
-            for req in MODULE_REQUIRED:
-                if req not in mod or not mod[req]:
-                    warnings.append(f"modules[{i}] missing '{req}'")
 
-    # --- Scoring ---
-    scoring = data.get("scoring", {})
-    if isinstance(scoring, dict):
-        if "pass_threshold" not in scoring:
-            warnings.append("scoring missing 'pass_threshold'")
-        if "weights" not in scoring:
-            warnings.append("scoring missing 'weights'")
-        else:
-            weights = scoring.get("weights", {})
-            if isinstance(weights, dict) and weights:
-                unknown = set(weights.keys()) - set(CANONICAL_DIMENSIONS)
-                if unknown:
-                    warnings.append(
-                        f"scoring.weights has non-canonical dimensions: {sorted(unknown)}"
-                    )
-                missing_dims = set(CANONICAL_DIMENSIONS) - set(weights.keys())
-                if missing_dims:
-                    warnings.append(
-                        f"scoring.weights missing dimensions: {sorted(missing_dims)}"
-                    )
-                total = sum(v for v in weights.values() if isinstance(v, (int, float)))
-                if total and not (0.95 <= total <= 1.05):
-                    warnings.append(
-                        f"scoring.weights sum to {total:.2f}, expected ~1.00"
-                    )
-    elif scoring:
-        errors.append("scoring must be a dict")
+        if not ASSESSMENT_HEADING_RE.search(skill_md):
+            warnings.append("skill_md missing Assessment/Rubric heading section")
 
-    # --- Summary ---
+        if not KNOWLEDGE_HEADING_RE.search(skill_md):
+            warnings.append("skill_md missing Knowledge heading section")
+
+    # --- references ---
+    references = data.get("references", {})
+    if not isinstance(references, dict):
+        errors.append("references must be a dict")
+    else:
+        if len(references) < 1:
+            errors.append("references must have at least 1 file")
+        for filename, content in references.items():
+            if not _safe_filename(filename):
+                errors.append(f"references: unsafe filename '{filename}'")
+            elif not _check_extension(filename, SAFE_REFERENCE_EXTENSIONS):
+                warnings.append(
+                    f"references: '{filename}' has non-standard extension"
+                )
+            if not isinstance(content, str) or len(content) < 50:
+                warnings.append(
+                    f"references['{filename}'] content is too short "
+                    f"({len(content) if isinstance(content, str) else 0} chars)"
+                )
+
+    # --- scripts ---
+    scripts = data.get("scripts", {})
+    if not isinstance(scripts, dict):
+        errors.append("scripts must be a dict")
+    else:
+        if len(scripts) < 1:
+            errors.append("scripts must have at least 1 file")
+        for filename, content in scripts.items():
+            if not _safe_filename(filename):
+                errors.append(f"scripts: unsafe filename '{filename}'")
+            elif not _check_extension(filename, SAFE_SCRIPT_EXTENSIONS):
+                warnings.append(
+                    f"scripts: '{filename}' has non-standard extension"
+                )
+            if not isinstance(content, str) or len(content) < 50:
+                warnings.append(
+                    f"scripts['{filename}'] content is too short "
+                    f"({len(content) if isinstance(content, str) else 0} chars)"
+                )
+
+    # --- assets ---
+    assets = data.get("assets", {})
+    if not isinstance(assets, dict):
+        errors.append("assets must be a dict")
+    else:
+        if len(assets) < 1:
+            warnings.append("assets is empty, recommended at least 1 file")
+        for filename, content in assets.items():
+            if not _safe_filename(filename):
+                errors.append(f"assets: unsafe filename '{filename}'")
+            elif not _check_extension(filename, SAFE_ASSET_EXTENSIONS):
+                warnings.append(
+                    f"assets: '{filename}' has non-standard extension"
+                )
+
+    # --- summary ---
     summary = data.get("summary", "")
-    if isinstance(summary, str) and len(summary) < 10:
-        warnings.append("summary is too short (< 10 chars)")
+    if isinstance(summary, str) and len(summary) < 20:
+        warnings.append(f"summary is too short ({len(summary)} chars, recommended >= 20)")
 
     return {
         "valid": len(errors) == 0,
@@ -141,7 +209,7 @@ def validate(data: dict) -> dict:
     }
 
 
-def main():
+def main() -> None:
     if len(sys.argv) > 1:
         raw = sys.argv[1]
     else:

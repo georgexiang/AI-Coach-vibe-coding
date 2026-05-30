@@ -36,11 +36,12 @@ async def _seed_in_progress_session_and_token() -> tuple[str, str, str]:
 
         scenario = Scenario(
             name="Suggest Scenario",
-            product="TestDrug",
             hcp_profile_id=hcp.id,
             key_messages=json.dumps(["Efficacy data", "Safety profile"]),
+            skill_id="test-skill-id",
             status="active",
             created_by=user.id,
+            rubric_id="test-rubric-id",
         )
         db.add(scenario)
         await db.commit()

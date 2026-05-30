@@ -19,7 +19,6 @@ from app.models.hcp_profile import HcpProfile
 from app.models.service_config import ServiceConfig
 from app.services import avatar_characters
 
-
 # ===========================================================================
 # 1. Avatar Characters
 # ===========================================================================
@@ -194,9 +193,12 @@ class TestBuildScoringPrompt:
             {"message": "Message A", "delivered": True},
             {"message": "Message B", "delivered": False},
         ]
-        weights = {"key_message": 30, "communication": 70}
+        rubric_dims = [
+            {"name": "key_message", "weight": 30, "criteria": [], "max_score": 100.0},
+            {"name": "communication", "weight": 70, "criteria": [], "max_score": 100.0},
+        ]
 
-        result = build_scoring_prompt(scenario_data, messages, key_messages_status, weights)
+        result = build_scoring_prompt(scenario_data, messages, key_messages_status, rubric_dims)
 
         assert "Dr. Test" in result
         assert "Oncology" in result
@@ -217,7 +219,7 @@ class TestBuildScoringPrompt:
             "product": "Drug",
             "key_messages": json.dumps(["Msg1", "Msg2"]),
         }
-        result = build_scoring_prompt(scenario_data, [], [], {})
+        result = build_scoring_prompt(scenario_data, [], [], [])
         assert "Msg1" in result
         assert "Msg2" in result
 
@@ -226,7 +228,7 @@ class TestBuildScoringPrompt:
         from app.services.scoring_engine import build_scoring_prompt
 
         result = build_scoring_prompt(
-            {"hcp_profile": {}}, [], [], {}
+            {"hcp_profile": {}}, [], [], []
         )
         assert "Unknown" in result  # Default for missing name/specialty
         assert "No tracking data" in result
@@ -260,10 +262,14 @@ class TestScoreWithLLM:
 
     @pytest.fixture
     def weights(self):
-        return {"key_message": 50, "communication": 50}
+        return [
+            {"name": "key_message", "weight": 50, "criteria": [], "max_score": 100.0},
+            {"name": "communication", "weight": 50, "criteria": [], "max_score": 100.0},
+        ]
 
-    async def test_returns_none_when_no_endpoint(self, mock_db, scenario_data, messages, km_status, weights):
+    async def test_raises_when_no_endpoint(self, mock_db, scenario_data, messages, km_status, weights):
         from app.services.scoring_engine import score_with_llm
+        from app.utils.exceptions import ScoringUnavailableException
 
         with (
             patch("app.services.scoring_engine.config_service") as mock_cs,
@@ -271,18 +277,29 @@ class TestScoreWithLLM:
             mock_cs.get_effective_endpoint = AsyncMock(return_value=None)
             mock_cs.get_effective_key = AsyncMock(return_value="key")
 
-            result = await score_with_llm(mock_db, scenario_data, messages, km_status, weights)
-            assert result is None
+            with pytest.raises(ScoringUnavailableException):
+                await score_with_llm(mock_db, scenario_data, messages, km_status, weights)
 
-    async def test_returns_none_when_no_key(self, mock_db, scenario_data, messages, km_status, weights):
+    async def test_raises_when_no_key_and_no_aad(
+        self, mock_db, scenario_data, messages, km_status, weights
+    ):
         from app.services.scoring_engine import score_with_llm
+        from app.utils.exceptions import ScoringUnavailableException
+
+        mock_config = MagicMock()
+        mock_config.model_or_deployment = "gpt-4o"
 
         with patch("app.services.scoring_engine.config_service") as mock_cs:
             mock_cs.get_effective_endpoint = AsyncMock(return_value="https://test.openai.azure.com")
-            mock_cs.get_effective_key = AsyncMock(return_value=None)
+            mock_cs.get_effective_key = AsyncMock(return_value="")
+            mock_cs.get_config = AsyncMock(return_value=mock_config)
 
-            result = await score_with_llm(mock_db, scenario_data, messages, km_status, weights)
-            assert result is None
+            with patch(
+                "app.services.azure_auth.get_azure_openai_client",
+                new=AsyncMock(side_effect=RuntimeError("No Azure credentials available")),
+            ):
+                with pytest.raises(ScoringUnavailableException):
+                    await score_with_llm(mock_db, scenario_data, messages, km_status, weights)
 
     async def test_successful_scoring(self, mock_db, scenario_data, messages, km_status, weights):
         from app.services.scoring_engine import score_with_llm
@@ -361,10 +378,11 @@ class TestScoreWithLLM:
         assert "Overall score: 55.0" in result["feedback_summary"]
         assert "1/1 key messages" in result["feedback_summary"]
 
-    async def test_scoring_empty_content_returns_none(
+    async def test_scoring_empty_content_raises(
         self, mock_db, scenario_data, messages, km_status, weights
     ):
         from app.services.scoring_engine import score_with_llm
+        from app.utils.exceptions import ScoringUnavailableException
 
         mock_completion = MagicMock()
         mock_completion.choices = [MagicMock()]
@@ -382,14 +400,14 @@ class TestScoreWithLLM:
             mock_cs.get_config = AsyncMock(return_value=mock_config)
 
             with patch("openai.AsyncAzureOpenAI", return_value=mock_client):
-                result = await score_with_llm(mock_db, scenario_data, messages, km_status, weights)
+                with pytest.raises(ScoringUnavailableException):
+                    await score_with_llm(mock_db, scenario_data, messages, km_status, weights)
 
-        assert result is None
-
-    async def test_scoring_exception_returns_none(
+    async def test_scoring_exception_raises(
         self, mock_db, scenario_data, messages, km_status, weights
     ):
         from app.services.scoring_engine import score_with_llm
+        from app.utils.exceptions import ScoringUnavailableException
 
         mock_client = AsyncMock()
         mock_client.chat.completions.create = AsyncMock(side_effect=Exception("LLM error"))
@@ -403,14 +421,14 @@ class TestScoreWithLLM:
             mock_cs.get_config = AsyncMock(return_value=mock_config)
 
             with patch("openai.AsyncAzureOpenAI", return_value=mock_client):
-                result = await score_with_llm(mock_db, scenario_data, messages, km_status, weights)
+                with pytest.raises(ScoringUnavailableException):
+                    await score_with_llm(mock_db, scenario_data, messages, km_status, weights)
 
-        assert result is None
-
-    async def test_scoring_no_dimensions_returns_none(
+    async def test_scoring_no_dimensions_raises(
         self, mock_db, scenario_data, messages, km_status, weights
     ):
         from app.services.scoring_engine import score_with_llm
+        from app.utils.exceptions import ScoringUnavailableException
 
         llm_response = {"dimensions": [], "feedback_summary": "Empty"}
 
@@ -430,9 +448,8 @@ class TestScoreWithLLM:
             mock_cs.get_config = AsyncMock(return_value=mock_config)
 
             with patch("openai.AsyncAzureOpenAI", return_value=mock_client):
-                result = await score_with_llm(mock_db, scenario_data, messages, km_status, weights)
-
-        assert result is None
+                with pytest.raises(ScoringUnavailableException):
+                    await score_with_llm(mock_db, scenario_data, messages, km_status, weights)
 
     async def test_scoring_uses_fallback_model_when_no_config(
         self, mock_db, scenario_data, messages, km_status, weights

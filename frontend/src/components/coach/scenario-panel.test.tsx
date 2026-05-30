@@ -71,11 +71,7 @@ const mockScenario: Scenario = {
     voice_live_instance_id: null,
   },
   key_messages: ["Efficacy", "Safety"],
-  weight_key_message: 30,
-  weight_objection_handling: 20,
-  weight_communication: 20,
-  weight_product_knowledge: 15,
-  weight_scientific_info: 15,
+  rubric_id: "rubric-1",
   pass_threshold: 70,
   created_by: "admin",
   created_at: "2024-01-01",
@@ -110,10 +106,9 @@ describe("ScenarioPanel", () => {
     expect(screen.getByText("Dr. Jane Doe")).toBeInTheDocument();
   });
 
-  it("renders scoring weight entries", () => {
+  it("renders scoring criteria section", () => {
     render(<ScenarioPanel {...defaultProps} />);
-    expect(screen.getByText("Key Message")).toBeInTheDocument();
-    expect(screen.getByText("30%")).toBeInTheDocument();
+    expect(screen.getByText("session.scoringCriteria")).toBeInTheDocument();
   });
 
   it("renders collapsed state with toggle button", () => {

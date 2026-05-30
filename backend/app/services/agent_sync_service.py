@@ -5,9 +5,7 @@ when HCP profiles change.  Uses the Agent Registry API
 (``client.agents.create_version()``) which stores agents as
 ``name:version`` pairs (e.g. ``Dr-Li-Mei:2``).
 
-Authentication priority:
-  1. DefaultAzureCredential (Entra ID)
-  2. API key via ``api-key`` header (fallback)
+Authentication: DefaultAzureCredential (Entra ID) preferred, API Key fallback.
 """
 
 import asyncio
@@ -343,19 +341,35 @@ class _ApiKeyTokenCredential:
 
 
 def _get_project_client(endpoint: str, api_key: str = ""):
-    """Create an AIProjectClient with API key or DefaultAzureCredential fallback.
+    """Create an AIProjectClient — prefers Entra ID, falls back to API Key.
 
-    For API key auth, we use AzureKeyCredentialPolicy to send the key
-    via the 'api-key' HTTP header (not as a Bearer token). This is how
-    Azure AI services expect API key authentication.
+    Authentication priority:
+      1. DefaultAzureCredential (Managed Identity / az login / Service Principal)
+         — required for creating new agents (API Key returns 500 on creation).
+      2. API Key via ``api-key`` header — works for read/update/delete only.
+
+    See docs/microsoft-agent-framework/09-agent-api-version-evolution.md
     """
     from azure.ai.projects import AIProjectClient
 
+    # 1. Try Entra ID (DefaultAzureCredential)
+    try:
+        from azure.identity import DefaultAzureCredential
+
+        credential = DefaultAzureCredential()
+        # Probe: verify a token can actually be obtained (az login / MI / SP)
+        credential.get_token("https://ai.azure.com/.default")
+        logger.info("_get_project_client: using DefaultAzureCredential (Entra ID)")
+        return AIProjectClient(endpoint=endpoint, credential=credential)
+    except Exception as exc:
+        logger.debug("_get_project_client: DefaultAzureCredential unavailable: %s", exc)
+
+    # 2. Fallback to API Key (cannot create new agents, but can read/update/delete)
     if api_key:
         from azure.core.credentials import AzureKeyCredential
         from azure.core.pipeline.policies import AzureKeyCredentialPolicy
 
-        logger.info("Creating AIProjectClient with api-key header for endpoint: %s", endpoint)
+        logger.info("_get_project_client: using API Key authentication")
         return AIProjectClient(
             endpoint=endpoint,
             credential=_ApiKeyTokenCredential(api_key),
@@ -365,12 +379,9 @@ def _get_project_client(endpoint: str, api_key: str = ""):
             ),
         )
 
-    from azure.identity import DefaultAzureCredential
-
-    logger.info("Creating AIProjectClient with DefaultAzureCredential for endpoint: %s", endpoint)
-    return AIProjectClient(
-        endpoint=endpoint,
-        credential=DefaultAzureCredential(),
+    raise ValueError(
+        "No valid credential available. Either run 'az login' for Entra ID "
+        "or provide an API key."
     )
 
 
@@ -453,15 +464,23 @@ async def create_agent(
     endpoint_override: str = "",
     key_override: str = "",
 ) -> dict:
-    """Create an AI Foundry Agent via azure-ai-projects SDK.
+    """Create an AI Foundry Agent via azure-ai-projects SDK (Agent v2 API).
 
     Uses the Agent Registry API (client.agents.create_version) with
     PromptAgentDefinition. Returns dict with agent name, version, and id.
+
+    Authentication via API Key (``api-key`` header).
+
+    Azure AI Foundry limitation: API Key auth can update existing agents but
+    may fail (HTTP 500) when creating brand-new agent registrations.  When
+    creation fails with 500, this function checks whether the agent was
+    pre-created in Foundry Portal and, if so, falls back to an update.
 
     Pass metadata to attach Voice Live configuration or other key-value pairs.
     Pass endpoint_override/key_override to skip DB+env lookup (used by batch sync).
     """
     from azure.ai.projects.models import PromptAgentDefinition
+    from azure.core.exceptions import HttpResponseError
 
     if not model:
         from app.config import get_settings
@@ -473,33 +492,112 @@ async def create_agent(
     else:
         project_endpoint, api_key = await get_project_endpoint(db)
     logger.info("create_agent: endpoint=%s, has_key=%s", project_endpoint, bool(api_key))
-    client = _get_project_client(project_endpoint, api_key)
 
     agent_name = _sanitize_agent_name(name)
     definition = PromptAgentDefinition(model=model, instructions=instructions, tools=tools or [])
+    client = _get_project_client(project_endpoint, api_key)
 
-    try:
-        result = await asyncio.to_thread(
-            client.agents.create_version,
-            agent_name=agent_name,
-            definition=definition,
-            description=f"HCP Agent: {name}",
-            metadata=metadata,
-        )
-    except Exception as e:
-        logger.error(
-            "create_agent failed: endpoint=%s, agent_name=%s, error=%s",
-            project_endpoint,
-            agent_name,
-            e,
-        )
-        raise RuntimeError(f"Agent creation failed (endpoint: {project_endpoint}): {e}") from e
-    return {
-        "id": result.name,
-        "name": result.name,
-        "version": result.version,
-        "model": model,
-    }
+    max_retries = 3
+    last_error = None
+
+    for attempt in range(1, max_retries + 1):
+        try:
+            result = await asyncio.to_thread(
+                client.agents.create_version,
+                agent_name=agent_name,
+                definition=definition,
+                description=f"HCP Agent: {name}",
+                metadata=metadata,
+            )
+            return {
+                "id": result.name,
+                "name": result.name,
+                "version": result.version,
+                "model": model,
+            }
+        except Exception as e:
+            last_error = e
+            err_str = str(e)
+            is_transient = (
+                "RemoteDisconnected" in err_str
+                or "Connection aborted" in err_str
+                or "ConnectionError" in err_str
+                or "ConnectionResetError" in err_str
+            )
+            if is_transient and attempt < max_retries:
+                wait = 2 ** attempt  # 2s, 4s
+                logger.warning(
+                    "create_agent: transient error on attempt %d/%d for '%s': %s. "
+                    "Retrying in %ds...",
+                    attempt, max_retries, agent_name, e, wait,
+                )
+                await asyncio.sleep(wait)
+                continue
+
+            # On server_error (500), check if agent was pre-created in Portal.
+            # API Key auth can update existing agents but cannot create new ones.
+            is_server_500 = (
+                isinstance(e, HttpResponseError) and e.status_code == 500
+            ) or "server_error" in err_str
+            if is_server_500:
+                logger.warning(
+                    "create_agent: server 500 for new agent '%s'. "
+                    "Checking if agent was pre-created in Foundry Portal...",
+                    agent_name,
+                )
+                try:
+                    existing = await asyncio.to_thread(
+                        client.agents.get, agent_name=agent_name
+                    )
+                    if existing:
+                        logger.info(
+                            "create_agent: agent '%s' exists in Foundry (pre-created). "
+                            "Updating with new version...",
+                            agent_name,
+                        )
+                        result = await asyncio.to_thread(
+                            client.agents.create_version,
+                            agent_name=agent_name,
+                            definition=definition,
+                            description=f"HCP Agent: {name}",
+                            metadata=metadata,
+                        )
+                        return {
+                            "id": result.name,
+                            "name": result.name,
+                            "version": result.version,
+                            "model": model,
+                        }
+                except Exception:
+                    pass  # Agent doesn't exist — fall through to error
+
+                logger.error(
+                    "create_agent: cannot create new agent '%s' with API Key auth. "
+                    "Azure AI Foundry requires agents to be pre-created in Portal "
+                    "before they can be updated via API Key. "
+                    "Please create agent '%s' in Azure AI Foundry Portal first, "
+                    "then retry sync.",
+                    agent_name, agent_name,
+                )
+                raise RuntimeError(
+                    f"Agent creation failed: Azure AI Foundry does not support "
+                    f"creating new agents via API Key. Please create agent "
+                    f"'{agent_name}' in Azure AI Foundry Portal first, then "
+                    f"retry the sync operation."
+                ) from e
+
+            logger.error(
+                "create_agent failed: endpoint=%s, agent_name=%s, attempt=%d, error=%s",
+                project_endpoint, agent_name, attempt, e,
+            )
+            raise RuntimeError(
+                f"Agent creation failed (endpoint: {project_endpoint}): {e}"
+            ) from e
+
+    raise RuntimeError(
+        f"Agent creation failed after {max_retries} attempts "
+        f"(endpoint: {project_endpoint}): {last_error}"
+    ) from last_error
 
 
 async def update_agent(
@@ -757,6 +855,7 @@ async def get_portal_url_components(db: AsyncSession) -> dict:
                 sub_hash = base64.urlsafe_b64encode(sub_uuid.bytes).rstrip(b"=").decode()
 
                 _portal_url_cache = {
+                    "subscription_id": sub_id,
                     "subscription_hash": sub_hash,
                     "resource_group": rg,
                     "resource_name": resource_name,

@@ -18,17 +18,15 @@ import asyncio
 import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from app.database import get_db
-from app.main import app
-
 import pytest
 from sqlalchemy import select
 
+from app.database import get_db
+from app.main import app
 from app.models.hcp_profile import HcpProfile
 from app.models.scoring_rubric import ScoringRubric
 from app.models.service_config import ServiceConfig
 from app.models.user import User
-
 
 # ===========================================================================
 # 1. Voice Live WebSocket: _load_connection_config
@@ -56,16 +54,19 @@ class TestLoadConnectionConfig:
             with pytest.raises(ValueError, match="Voice Live not configured"):
                 await _load_connection_config(db_session)
 
-    async def test_raises_when_no_api_key(self, db_session):
+    async def test_allows_none_api_key_for_credential_fallback(self, db_session):
         from app.services.voice_live_websocket import _load_connection_config
 
         mock_config = MagicMock()
         mock_config.is_active = True
+        mock_config.model_or_deployment = "gpt-4o"
         with patch("app.services.voice_live_websocket.config_service") as mock_cs:
             mock_cs.get_config = AsyncMock(return_value=mock_config)
             mock_cs.get_effective_key = AsyncMock(return_value=None)
-            with pytest.raises(ValueError, match="API key not set"):
-                await _load_connection_config(db_session)
+            mock_cs.get_effective_endpoint = AsyncMock(return_value="https://test.endpoint.com")
+            result = await _load_connection_config(db_session)
+            assert result["api_key"] is None
+            assert result["endpoint"] == "https://test.endpoint.com"
 
     async def test_raises_when_no_endpoint(self, db_session):
         from app.services.voice_live_websocket import _load_connection_config
@@ -763,9 +764,8 @@ class TestConnectionTester:
         assert ok is True
 
     async def test_detect_region_from_header(self):
-        from app.services.connection_tester import detect_region_from_endpoint
 
-        import httpx
+        from app.services.connection_tester import detect_region_from_endpoint
 
         mock_response = MagicMock()
         mock_response.headers = {"x-ms-region": "East US 2"}
@@ -1686,8 +1686,9 @@ class TestHcpProfileServiceCascade:
 
         # Create scenario linked to profile
         scenario = Scenario(
-            name="Test Scenario", product="TestDrug", mode="f2f",
+            name="Test Scenario", tags='["product:TestDrug"]', mode="f2f",
             hcp_profile_id=profile.id, created_by=user.id,
+            rubric_id="test-rubric-id", skill_id="test-skill-id",
         )
         db_session.add(scenario)
         await db_session.flush()
@@ -2324,6 +2325,7 @@ class TestScoringEngineImportError:
         import builtins
 
         from app.services.scoring_engine import score_with_llm
+        from app.utils.exceptions import ScoringUnavailableException
 
         mock_db = AsyncMock()
         real_import = builtins.__import__
@@ -2341,14 +2343,14 @@ class TestScoringEngineImportError:
             mock_cs.get_effective_key = AsyncMock(return_value="key")
             mock_cs.get_config = AsyncMock(return_value=MagicMock(model_or_deployment="gpt-4o"))
 
-            result = await score_with_llm(
-                mock_db,
-                {"hcp_profile": {"name": "Dr. X"}, "product": "Drug"},
-                [{"role": "user", "content": "Hi"}],
-                [],
-                {"key_message": 100},
-            )
-            assert result is None
+            with pytest.raises(ScoringUnavailableException):
+                await score_with_llm(
+                    mock_db,
+                    {"hcp_profile": {"name": "Dr. X"}, "product": "Drug"},
+                    [{"role": "user", "content": "Hi"}],
+                    [],
+                    {"key_message": 100},
+                )
 
 
 # ===========================================================================

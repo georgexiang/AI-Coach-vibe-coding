@@ -192,9 +192,7 @@ class TestMergeExtractions:
         part1 = {
             "summary": "Part 1 summary",
             "sop_steps": [{"title": "Opening", "description": "v1"}],
-            "assessment_criteria": [
-                {"name": "Communication", "description": "v1", "weight": 60}
-            ],
+            "assessment_criteria": [{"name": "Communication", "description": "v1", "weight": 60}],
             "key_knowledge_points": [{"topic": "MOA", "details": "v1"}],
         }
         part2 = {
@@ -530,27 +528,33 @@ class TestGetOpenAIClient:
         from app.services import config_service
         from app.services.skill_conversion_service import _get_openai_client
 
-        with patch.object(
-            config_service, "get_effective_endpoint", new=AsyncMock(return_value="")
-        ), patch.object(
-            config_service, "get_effective_key", new=AsyncMock(return_value="test-key")
+        with (
+            patch.object(config_service, "get_effective_endpoint", new=AsyncMock(return_value="")),
+            patch.object(
+                config_service, "get_effective_key", new=AsyncMock(return_value="test-key")
+            ),
         ):
             with pytest.raises(ValueError, match="Azure OpenAI not configured"):
                 await _get_openai_client(db_session)
 
-    async def test_missing_api_key_raises(self, db_session):
-        """Should raise ValueError when no API key configured."""
+    async def test_missing_api_key_and_no_aad_raises(self, db_session):
+        """Should raise RuntimeError when no API key and no AAD credential available."""
         from app.services import config_service
         from app.services.skill_conversion_service import _get_openai_client
 
-        with patch.object(
-            config_service,
-            "get_effective_endpoint",
-            new=AsyncMock(return_value="https://test.openai.azure.com"),
-        ), patch.object(
-            config_service, "get_effective_key", new=AsyncMock(return_value="")
+        with (
+            patch.object(
+                config_service,
+                "get_effective_endpoint",
+                new=AsyncMock(return_value="https://test.openai.azure.com"),
+            ),
+            patch.object(config_service, "get_effective_key", new=AsyncMock(return_value="")),
+            patch(
+                "app.services.azure_auth.get_azure_openai_client",
+                new=AsyncMock(side_effect=RuntimeError("No Azure credentials available")),
+            ),
         ):
-            with pytest.raises(ValueError, match="Azure OpenAI not configured"):
+            with pytest.raises(RuntimeError, match="No Azure credentials available"):
                 await _get_openai_client(db_session)
 
     async def test_uses_config_deployment(self, db_session):
@@ -561,16 +565,17 @@ class TestGetOpenAIClient:
         mock_config_obj = MagicMock()
         mock_config_obj.model_or_deployment = "my-custom-deployment"
 
-        with patch.object(
-            config_service,
-            "get_effective_endpoint",
-            new=AsyncMock(return_value="https://test.openai.azure.com"),
-        ), patch.object(
-            config_service, "get_effective_key", new=AsyncMock(return_value="test-key")
-        ), patch.object(
-            config_service, "get_config", new=AsyncMock(return_value=mock_config_obj)
-        ), patch(
-            "openai.AsyncAzureOpenAI", return_value=MagicMock()
+        with (
+            patch.object(
+                config_service,
+                "get_effective_endpoint",
+                new=AsyncMock(return_value="https://test.openai.azure.com"),
+            ),
+            patch.object(
+                config_service, "get_effective_key", new=AsyncMock(return_value="test-key")
+            ),
+            patch.object(config_service, "get_config", new=AsyncMock(return_value=mock_config_obj)),
+            patch("openai.AsyncAzureOpenAI", return_value=MagicMock()),
         ):
             client, deployment = await _get_openai_client(db_session)
             assert deployment == "my-custom-deployment"
@@ -583,16 +588,17 @@ class TestGetOpenAIClient:
         mock_config_obj = MagicMock()
         mock_config_obj.model_or_deployment = ""  # empty -> fallback
 
-        with patch.object(
-            config_service,
-            "get_effective_endpoint",
-            new=AsyncMock(return_value="https://test.openai.azure.com"),
-        ), patch.object(
-            config_service, "get_effective_key", new=AsyncMock(return_value="test-key")
-        ), patch.object(
-            config_service, "get_config", new=AsyncMock(return_value=mock_config_obj)
-        ), patch(
-            "openai.AsyncAzureOpenAI", return_value=MagicMock()
+        with (
+            patch.object(
+                config_service,
+                "get_effective_endpoint",
+                new=AsyncMock(return_value="https://test.openai.azure.com"),
+            ),
+            patch.object(
+                config_service, "get_effective_key", new=AsyncMock(return_value="test-key")
+            ),
+            patch.object(config_service, "get_config", new=AsyncMock(return_value=mock_config_obj)),
+            patch("openai.AsyncAzureOpenAI", return_value=MagicMock()),
         ):
             client, deployment = await _get_openai_client(db_session)
             # Should fall back to settings.default_chat_model ("gpt-4o")
@@ -603,16 +609,17 @@ class TestGetOpenAIClient:
         from app.services import config_service
         from app.services.skill_conversion_service import _get_openai_client
 
-        with patch.object(
-            config_service,
-            "get_effective_endpoint",
-            new=AsyncMock(return_value="https://test.openai.azure.com"),
-        ), patch.object(
-            config_service, "get_effective_key", new=AsyncMock(return_value="test-key")
-        ), patch.object(
-            config_service, "get_config", new=AsyncMock(return_value=None)
-        ), patch(
-            "openai.AsyncAzureOpenAI", return_value=MagicMock()
+        with (
+            patch.object(
+                config_service,
+                "get_effective_endpoint",
+                new=AsyncMock(return_value="https://test.openai.azure.com"),
+            ),
+            patch.object(
+                config_service, "get_effective_key", new=AsyncMock(return_value="test-key")
+            ),
+            patch.object(config_service, "get_config", new=AsyncMock(return_value=None)),
+            patch("openai.AsyncAzureOpenAI", return_value=MagicMock()),
         ):
             client, deployment = await _get_openai_client(db_session)
             assert deployment == "gpt-4o"
@@ -633,9 +640,7 @@ class TestCallSopExtraction:
         valid_response = json.dumps(MOCK_EXTRACTION_RESULT)
         mock_client = AsyncMock()
         mock_client.chat.completions.create = AsyncMock(
-            return_value=MagicMock(
-                choices=[MagicMock(message=MagicMock(content=valid_response))]
-            )
+            return_value=MagicMock(choices=[MagicMock(message=MagicMock(content=valid_response))])
         )
 
         with patch(
@@ -654,9 +659,7 @@ class TestCallSopExtraction:
 
         mock_client = AsyncMock()
         mock_client.chat.completions.create = AsyncMock(
-            return_value=MagicMock(
-                choices=[MagicMock(message=MagicMock(content=None))]
-            )
+            return_value=MagicMock(choices=[MagicMock(message=MagicMock(content=None))])
         )
 
         with patch(
@@ -672,9 +675,7 @@ class TestCallSopExtraction:
 
         mock_client = AsyncMock()
         mock_client.chat.completions.create = AsyncMock(
-            return_value=MagicMock(
-                choices=[MagicMock(message=MagicMock(content=""))]
-            )
+            return_value=MagicMock(choices=[MagicMock(message=MagicMock(content=""))])
         )
 
         with patch(
@@ -692,9 +693,7 @@ class TestCallSopExtraction:
         # Missing key_knowledge_points
         mock_client = AsyncMock()
         mock_client.chat.completions.create = AsyncMock(
-            return_value=MagicMock(
-                choices=[MagicMock(message=MagicMock(content=incomplete))]
-            )
+            return_value=MagicMock(choices=[MagicMock(message=MagicMock(content=incomplete))])
         )
 
         with patch(
@@ -947,8 +946,10 @@ class TestStartConversion:
         with pytest.raises(AppException) as exc_info:
             await skill_conversion_service.start_conversion(db_session, skill.id)
 
-        assert "already in progress" in str(exc_info.value.detail).lower() or \
-               "already in progress" in str(getattr(exc_info.value, 'message', '')).lower()
+        assert (
+            "already in progress" in str(exc_info.value.detail).lower()
+            or "already in progress" in str(getattr(exc_info.value, "message", "")).lower()
+        )
 
     async def test_no_resources_error(self, db_session):
         """Should fail when no reference resources exist."""
@@ -1141,9 +1142,7 @@ class TestRegenerateSopWithFeedback:
             return_value=MagicMock(
                 choices=[
                     MagicMock(
-                        message=MagicMock(
-                            content="# Updated SOP\n\nNew and improved content."
-                        )
+                        message=MagicMock(content="# Updated SOP\n\nNew and improved content.")
                     )
                 ]
             )
@@ -1196,9 +1195,7 @@ class TestRegenerateSopWithFeedback:
 
         mock_client = AsyncMock()
         mock_client.chat.completions.create = AsyncMock(
-            return_value=MagicMock(
-                choices=[MagicMock(message=MagicMock(content=""))]
-            )
+            return_value=MagicMock(choices=[MagicMock(message=MagicMock(content=""))])
         )
 
         with patch(
@@ -1227,9 +1224,7 @@ class TestRegenerateSopWithFeedback:
 
         mock_client = AsyncMock()
         mock_client.chat.completions.create = AsyncMock(
-            return_value=MagicMock(
-                choices=[MagicMock(message=MagicMock(content=None))]
-            )
+            return_value=MagicMock(choices=[MagicMock(message=MagicMock(content=None))])
         )
 
         with patch(
@@ -1261,11 +1256,7 @@ class TestRegenerateSopWithFeedback:
 
         async def capture_create(**kwargs):
             captured_messages.extend(kwargs.get("messages", []))
-            return MagicMock(
-                choices=[
-                    MagicMock(message=MagicMock(content="# Updated\n\nDone."))
-                ]
-            )
+            return MagicMock(choices=[MagicMock(message=MagicMock(content="# Updated\n\nDone."))])
 
         mock_client.chat.completions.create = capture_create
 

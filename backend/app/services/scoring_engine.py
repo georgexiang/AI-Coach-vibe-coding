@@ -1,10 +1,10 @@
-"""LLM-based scoring engine for multi-dimensional coaching evaluation.
+"""LLM-based content scoring engine for multi-dimensional coaching evaluation.
 
-Calls Azure OpenAI (or compatible endpoint) with structured JSON output
-to produce real scoring based on conversation transcript, HCP profile,
-scenario objectives, and key message delivery status.
+Primary content scoring engine using Azure OpenAI (GPT-4o) with structured JSON output.
+Produces real scoring based on conversation transcript, HCP profile, scenario objectives,
+key message delivery status, and skill-specific criteria.
 
-Falls back to mock scoring when no LLM is configured.
+Voice scoring is handled separately by cu_evaluation_service.score_voice_with_cu().
 """
 
 import json
@@ -13,12 +13,16 @@ import logging
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.services import config_service
+from app.utils.exceptions import ScoringUnavailableException
 
 logger = logging.getLogger(__name__)
 
-SCORING_PROMPT_TEMPLATE = """You are an expert pharmaceutical sales training evaluator.
+SCORING_PROMPT_TEMPLATE = """You are an expert pharmaceutical sales training evaluator for BeiGene.
+You evaluate ONLY the Medical Representative (MR, role="user") performance.
+DO NOT evaluate the HCP (role="assistant") performance.
+Be strict: vague or off-topic responses deserve low scores.
 
-Analyze the following Medical Representative (MR) conversation with a
+Analyze the following MR conversation with a
 Healthcare Professional (HCP) and provide a detailed multi-dimensional scoring.
 
 ## HCP Profile
@@ -44,15 +48,24 @@ Healthcare Professional (HCP) and provide a detailed multi-dimensional scoring.
 ## Scoring Dimensions and Weights
 {dimensions_config}
 
+## CRITICAL SCORING RULES (MUST FOLLOW)
+
+These rules are MANDATORY and override any other scoring judgment:
+1. If key messages are NOT DELIVERED, key_message score MUST be below 30.
+2. If MR's messages are unrelated to the product/therapeutic area, ALL scores MUST be below 50.
+3. Reference actual MR quotes (from lines marked ">>> MR") in strengths/weaknesses.
+4. NEVER reference or evaluate HCP responses. Only evaluate MR performance.
+
 ## Instructions
 
 Score each dimension from 0-100 based on the actual conversation content. Be specific:
 - Reference actual quotes from the MR's responses in strengths/weaknesses
-- For key_message dimension, consider which key messages were delivered and how naturally
-- For objection_handling, evaluate how the MR responded to HCP resistance or concerns
-- For communication, evaluate tone, active listening, professional language, adaptation to HCP style
-- For product_knowledge, evaluate accuracy and depth of product information shared
-- For scientific_info, evaluate use of clinical data, study references, and evidence-based arguments
+- Use the dimension criteria provided above as your scoring guide for each dimension
+- Evaluate how well the MR addressed the HCP's concerns and delivered the required information
+- "strengths" MUST be genuinely positive observations about the MR's performance. If there are no real strengths to report, use an empty array []. NEVER put negative, neutral, or absence-of-action observations in the strengths field. Similarly, "weaknesses" MUST be genuinely negative observations — never put positive observations there.
+
+REMINDER: Scores MUST reflect MR (role=user) performance ONLY.
+Every quote must come from MR messages marked with '>>> MR' above.
 
 Return a JSON object with this exact structure:
 {{
@@ -70,18 +83,90 @@ Return a JSON object with this exact structure:
 }}"""
 
 
+def _enforce_scoring_rules(
+    dimensions: list[dict],
+    key_messages_status: list[dict],
+    messages: list[dict],
+) -> list[dict]:
+    """Post-validation: programmatically enforce critical scoring rules as a safety net.
+
+    Rules enforced:
+    1. If ALL key_messages have delivered=false, cap key_message dimension to max 30.
+    2. If ALL undelivered AND total MR message content < 100 chars, cap ALL dims to max 50.
+
+    Returns the (possibly mutated) dimensions list.
+    """
+    # If no key messages to evaluate, skip all rules
+    if not key_messages_status:
+        return dimensions
+
+    # Check if ALL key messages are undelivered
+    all_undelivered = all(not km.get("delivered") for km in key_messages_status)
+
+    if not all_undelivered:
+        return dimensions
+
+    # Rule 1: Cap key_message dimension to 30
+    for dim in dimensions:
+        if dim.get("dimension") == "key_message" and dim.get("score", 0) > 30:
+            logger.warning(
+                "Post-validation: capping key_message from %d to 30 (all key messages undelivered)",
+                dim["score"],
+            )
+            dim["score"] = 30
+
+    # Rule 2: Check MR message total length for relevance signal
+    mr_total_chars = sum(
+        len(msg.get("content", "")) for msg in messages if msg.get("role") == "user"
+    )
+
+    if mr_total_chars < 100:
+        # Very short/irrelevant MR content -> cap ALL dimensions to 50
+        for dim in dimensions:
+            if dim.get("dimension") == "key_message":
+                # Already capped to 30 by Rule 1
+                continue
+            if dim.get("score", 0) > 50:
+                logger.warning(
+                    "Post-validation: capping %s from %d to 50 "
+                    "(all undelivered + short MR content)",
+                    dim.get("dimension"),
+                    dim["score"],
+                )
+                dim["score"] = 50
+
+    return dimensions
+
+
+def build_dimensions_instructions(rubric_dimensions: list[dict]) -> str:
+    """Build dimension config text from rubric dimensions for the scoring prompt."""
+    lines = []
+    for dim in rubric_dimensions:
+        name = dim["name"]
+        weight = dim["weight"]
+        criteria = dim.get("criteria", [])
+        lines.append(f"- {name} (weight={weight}%)")
+        if criteria:
+            for criterion in criteria:
+                lines.append(f"  * {criterion}")
+    return "\n".join(lines)
+
+
 def build_scoring_prompt(
     scenario_data: dict,
     messages: list[dict],
     key_messages_status: list[dict],
-    weights: dict[str, int],
+    rubric_dimensions: list[dict],
     skill_criteria: str = "",
 ) -> str:
     """Build the scoring prompt from session data."""
-    # Format transcript
+    # Format transcript with strong role labels to prevent LLM role confusion
     transcript_lines = []
     for msg in messages:
-        role_label = "MR" if msg["role"] == "user" else "HCP"
+        if msg["role"] == "user":
+            role_label = ">>> MR (EVALUATE THIS PERSON) <<<"
+        else:
+            role_label = ">>> HCP (DO NOT EVALUATE) <<<"
         transcript_lines.append(f"{role_label}: {msg['content']}")
     transcript = "\n".join(transcript_lines)
 
@@ -98,19 +183,8 @@ def build_scoring_prompt(
         km_status_lines.append(f"- [{status}] {km.get('message', '')}")
     km_status = "\n".join(km_status_lines) if km_status_lines else "No tracking data"
 
-    # Format dimensions config
-    dim_config_lines = []
-    dim_names = {
-        "key_message": "Key Message Delivery",
-        "objection_handling": "Objection Handling",
-        "communication": "Communication Skills",
-        "product_knowledge": "Product Knowledge",
-        "scientific_info": "Scientific Information",
-    }
-    for dim_key, weight in weights.items():
-        label = dim_names.get(dim_key, dim_key)
-        dim_config_lines.append(f"- {dim_key} ({label}): weight={weight}%")
-    dims_config = "\n".join(dim_config_lines)
+    # Format dimensions config from rubric dimensions
+    dims_config = build_dimensions_instructions(rubric_dimensions)
 
     # Format Skill-specific assessment criteria section
     if skill_criteria:
@@ -147,21 +221,24 @@ async def score_with_llm(
     scenario_data: dict,
     messages: list[dict],
     key_messages_status: list[dict],
-    weights: dict[str, int],
+    rubric_dimensions: list[dict],
     pass_threshold: int = 70,
     skill_criteria: str = "",
-) -> dict | None:
-    """Score a session using LLM. Returns None if LLM is unavailable.
+) -> dict:
+    """Score a session using LLM (primary content scoring engine).
 
     Uses the Azure OpenAI endpoint configured in the admin panel (service_name="azure_openai")
     or falls back to the master AI Foundry endpoint.
+
+    Raises ScoringUnavailableException if LLM is not configured or call fails.
     """
     endpoint = await config_service.get_effective_endpoint(db, "azure_openai")
     api_key = await config_service.get_effective_key(db, "azure_openai")
 
-    if not endpoint or not api_key:
-        logger.info("LLM scoring unavailable: no Azure OpenAI endpoint/key configured")
-        return None
+    if not endpoint:
+        raise ScoringUnavailableException(
+            "Content scoring unavailable: no Azure OpenAI endpoint configured"
+        )
 
     # Get deployment/model name
     config = await config_service.get_config(db, "azure_openai")
@@ -174,19 +251,25 @@ async def score_with_llm(
     )
 
     try:
-        from openai import AsyncAzureOpenAI
+        from app.services.azure_auth import get_azure_openai_client
 
-        client = AsyncAzureOpenAI(
-            azure_endpoint=endpoint,
+        client = await get_azure_openai_client(
+            endpoint=endpoint,
             api_key=api_key,
             api_version="2024-06-01",
         )
     except ImportError:
-        logger.warning("openai package not installed, cannot use LLM scoring")
-        return None
+        raise ScoringUnavailableException(
+            "Content scoring unavailable: openai package not installed"
+        )
+    except RuntimeError as exc:
+        raise ScoringUnavailableException(f"Content scoring unavailable: {exc}")
+
+    # Build weights lookup from rubric dimensions for post-validation
+    weights = {dim["name"]: dim["weight"] for dim in rubric_dimensions}
 
     prompt = build_scoring_prompt(
-        scenario_data, messages, key_messages_status, weights, skill_criteria
+        scenario_data, messages, key_messages_status, rubric_dimensions, skill_criteria
     )
 
     try:
@@ -196,38 +279,43 @@ async def score_with_llm(
                 {
                     "role": "system",
                     "content": (
-                        "You are a pharmaceutical sales training evaluator. "
+                        "You are a pharmaceutical sales training evaluator for BeiGene. "
+                        "You evaluate ONLY the MR (role=user) performance, NOT the HCP. "
                         "Return ONLY valid JSON, no markdown fences."
                     ),
                 },
                 {"role": "user", "content": prompt},
             ],
-            temperature=0.3,
+            temperature=0.1,
             max_completion_tokens=2048,
             response_format={"type": "json_object"},
         )
 
         content = response.choices[0].message.content
         if not content:
-            logger.error("LLM scoring returned empty content")
-            return None
+            raise ScoringUnavailableException("LLM scoring returned empty content")
 
         result = json.loads(content)
+    except ScoringUnavailableException:
+        raise
     except Exception as e:
         logger.error("LLM scoring failed: %s", e, exc_info=True)
-        return None
+        raise ScoringUnavailableException(f"Content scoring failed: {e}") from e
 
     # Validate and compute overall score
     dimensions = result.get("dimensions", [])
     if not dimensions:
-        logger.error("LLM scoring returned no dimensions")
-        return None
+        raise ScoringUnavailableException("LLM scoring returned no dimensions")
 
-    # Ensure weights match what we provided
+    # Ensure weights match what we provided and tag category
     for dim in dimensions:
         expected_weight = weights.get(dim.get("dimension", ""), 0)
         if expected_weight:
             dim["weight"] = expected_weight
+        dim["category"] = "content"
+
+    # Post-validation: enforce critical scoring rules programmatically
+    dimensions = _enforce_scoring_rules(dimensions, key_messages_status, messages)
 
     overall_score = sum(dim["score"] * dim["weight"] / 100 for dim in dimensions)
     overall_score = round(overall_score, 1)

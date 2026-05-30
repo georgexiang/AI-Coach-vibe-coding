@@ -15,7 +15,10 @@
     "createFromMaterials": "Create from Materials",
     "importZipPackage": "Import ZIP Package",
     "createDialogTitle": "Create New Skill",
-    "createDialogDescription": "Choose how to create your skill"
+    "createDialogDescription": "Choose how to create your skill",
+    "selectMaterials": "Select Materials",
+    "selectMaterialsDesc": "Choose training materials to convert into a skill.",
+    "convertSelected": "Convert {{count}} material(s)"
   },
   "editor": {
     "title": "Skill Editor",
@@ -54,7 +57,10 @@
     "uploadAndConvert": "Upload and Convert",
     "createEmpty": "or create an empty skill",
     "filesUploaded": "Files uploaded",
-    "saveFirstForResources": "Save the skill first to manage resources"
+    "saveFirstForResources": "Save the skill first to manage resources",
+    "skillNamePlaceholder": "Enter skill name...",
+    "defaultSkillName": "New Skill",
+    "sourceMaterials": "Source Materials"
   },
   "status": {
     "draft": "Draft",
@@ -65,6 +71,7 @@
     "completed": "Completed"
   },
   "conversion": {
+    "started": "Conversion started",
     "processing": "Converting materials to skill...",
     "completed": "Skill generated successfully. Please review the content.",
     "failed": "Conversion failed. Check your materials and try again.",
@@ -131,6 +138,7 @@
     "noResources": "No resources",
     "selectFile": "Select a file from the tree to preview",
     "download": "Download",
+    "downloadPackage": "Download Package",
     "type": "Type"
   },
   "errors": {
@@ -148,5 +156,59 @@
     "publishWarning": "Quality score is {{score}}/100. Some dimensions need improvement. Publish anyway?",
     "publishBlock": "Quality score is {{score}}/100. The skill cannot be published until the score is at least 50.",
     "staleEvaluation": "The content has changed since the last quality evaluation. Consider re-evaluating before publishing."
+  },
+  "dryRun": {
+    "button": "Dry Run",
+    "startTitle": "Start Dry Run Simulation",
+    "startBody": "The system will simulate a complete MR-HCP training conversation using AI agents to validate this Skill's SOP. Estimated time: 1-3 minutes.",
+    "startButton": "Start Simulation",
+    "goBack": "Go Back",
+    "cancelRun": "Cancel Run",
+    "cancelConfirm": "Cancel this simulation? Progress will be lost.",
+    "progressTitle": "Dry Run in Progress",
+    "progressStep": "Step {{current}} of {{total}} SOP steps covered",
+    "progressSimulating": "Simulating conversation...",
+    "reportTitle": "Dry Run Report",
+    "scoreLabel": "Executability Score",
+    "coverageLabel": "SOP Coverage",
+    "issuesLabel": "Issues Found",
+    "tabConversation": "Conversation",
+    "tabCoverage": "SOP Coverage",
+    "tabIssues": "Issues",
+    "stepCovered": "Covered",
+    "stepPartial": "Partial",
+    "stepNotCovered": "Not Covered",
+    "historyTitle": "Dry Run History",
+    "viewAll": "View All",
+    "startNewRun": "Start New Run",
+    "emptyTitle": "No Dry Runs yet",
+    "emptyBody": "Run a simulation to validate your Skill's SOP before publishing.",
+    "errorRunFailed": "Simulation failed. Please check the SOP content and try again.",
+    "errorLoadFailed": "Failed to load Dry Run results.",
+    "toastCompleted": "Dry Run completed. View the report for details.",
+    "toastCancelled": "Dry Run cancelled.",
+    "tooltipDisabled": "Save the skill content first to run a simulation.",
+    "speakerMr": "AI-MR",
+    "speakerHcp": "AI-HCP",
+    "durationLabel": "Duration",
+    "severityWarning": "Warning",
+    "severityError": "Error",
+    "suggestionPrefix": "Suggestion:",
+    "noIssues": "No issues found. The SOP drives a complete and effective conversation.",
+    "backToEditor": "Back to Editor",
+    "run": "Run #{{number}}",
+    "score": "Score",
+    "coverage": "Coverage",
+    "issues": "Issues",
+    "warnings": "warnings",
+    "noConversationData": "No conversation data available",
+    "noSopSteps": "No SOP steps detected in skill content",
+    "errorStartFailed": "Failed to start simulation",
+    "runCompleteToast": "Dry Run started. View the report for details.",
+    "retry": "Retry",
+    "tabSopCoverage": "SOP Coverage",
+    "errors": {
+      "startFailed": "Failed to start simulation"
+    }
   }
 }

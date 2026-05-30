@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
@@ -19,33 +20,27 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { ScenarioTable } from "@/components/admin/scenario-table";
-import { ScenarioEditor } from "@/components/admin/scenario-editor";
 import {
   useScenarios,
-  useCreateScenario,
-  useUpdateScenario,
   useDeleteScenario,
   useCloneScenario,
+  useTransitionScenarioStatus,
 } from "@/hooks/use-scenarios";
-import type { Scenario, ScenarioCreate, ScenarioUpdate } from "@/types/scenario";
 
 const ALL_STATUS = "__all__";
 
 export default function ScenariosPage() {
   const { t } = useTranslation("admin");
   const { t: tc } = useTranslation("common");
+  const navigate = useNavigate();
   const [filterStatus, setFilterStatus] = useState(ALL_STATUS);
-  const [editorOpen, setEditorOpen] = useState(false);
-  const [editingScenario, setEditingScenario] = useState<Scenario | null>(null);
-  const [isNew, setIsNew] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   const queryStatus = filterStatus === ALL_STATUS ? undefined : filterStatus;
   const { data: scenariosData } = useScenarios({ status: queryStatus });
-  const createMutation = useCreateScenario();
-  const updateMutation = useUpdateScenario();
   const deleteMutation = useDeleteScenario();
   const cloneMutation = useCloneScenario();
+  const transitionMutation = useTransitionScenarioStatus();
 
   const scenarios = useMemo(
     () => scenariosData?.items ?? [],
@@ -53,38 +48,7 @@ export default function ScenariosPage() {
   );
 
   const handleCreate = () => {
-    setEditingScenario(null);
-    setIsNew(true);
-    setEditorOpen(true);
-  };
-
-  const handleEdit = (scenario: Scenario) => {
-    setEditingScenario(scenario);
-    setIsNew(false);
-    setEditorOpen(true);
-  };
-
-  const handleSave = (data: ScenarioCreate) => {
-    if (isNew) {
-      createMutation.mutate(data, {
-        onSuccess: () => {
-          toast.success(t("scenarios.save"));
-          setEditorOpen(false);
-        },
-        onError: () => toast.error(t("errors.scenarioSaveFailed")),
-      });
-    } else if (editingScenario) {
-      updateMutation.mutate(
-        { id: editingScenario.id, data: data as ScenarioUpdate },
-        {
-          onSuccess: () => {
-            toast.success(t("scenarios.save"));
-            setEditorOpen(false);
-          },
-          onError: () => toast.error(t("errors.scenarioSaveFailed")),
-        },
-      );
-    }
+    navigate("/admin/scenarios/new");
   };
 
   const handleDelete = (id: string) => {
@@ -95,7 +59,7 @@ export default function ScenariosPage() {
     if (deleteConfirmId) {
       deleteMutation.mutate(deleteConfirmId, {
         onSuccess: () => {
-          toast.success(t("scenarios.deleted", { defaultValue: "Scenario deleted" }));
+          toast.success(t("scenarios.deleted"));
           setDeleteConfirmId(null);
         },
       });
@@ -104,8 +68,22 @@ export default function ScenariosPage() {
 
   const handleClone = (id: string) => {
     cloneMutation.mutate(id, {
-      onSuccess: () => toast.success(t("scenarios.cloned", { defaultValue: "Scenario cloned" })),
+      onSuccess: () => toast.success(t("scenarios.cloned")),
     });
+  };
+
+  const handleTransition = (id: string, status: string) => {
+    transitionMutation.mutate(
+      { id, status },
+      {
+        onSuccess: () => {
+          toast.success(t("scenarios.statusChanged"));
+        },
+        onError: () => {
+          toast.error(t("scenarios.statusChangeFailed"));
+        },
+      },
+    );
   };
 
   return (
@@ -114,7 +92,7 @@ export default function ScenariosPage() {
         <div>
           <h1 className="text-2xl font-medium text-foreground">{t("scenarios.title")}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {t("scenarios.description", { defaultValue: "Configure training scenarios with products, HCP assignments, and scoring weights" })}
+            {t("scenarios.description")}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -123,9 +101,10 @@ export default function ScenariosPage() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={ALL_STATUS}>{tc("all", { defaultValue: "All" })}</SelectItem>
-              <SelectItem value="active">{tc("active", { defaultValue: "Active" })}</SelectItem>
-              <SelectItem value="draft">{tc("draft", { defaultValue: "Draft" })}</SelectItem>
+              <SelectItem value={ALL_STATUS}>{tc("all")}</SelectItem>
+              <SelectItem value="active">{tc("active")}</SelectItem>
+              <SelectItem value="draft">{tc("draft")}</SelectItem>
+              <SelectItem value="archived">{tc("archived")}</SelectItem>
             </SelectContent>
           </Select>
           <Button onClick={handleCreate}>
@@ -137,17 +116,9 @@ export default function ScenariosPage() {
 
       <ScenarioTable
         scenarios={scenarios}
-        onEdit={handleEdit}
         onDelete={handleDelete}
         onClone={handleClone}
-      />
-
-      <ScenarioEditor
-        scenario={editingScenario}
-        open={editorOpen}
-        onOpenChange={setEditorOpen}
-        onSave={handleSave}
-        isNew={isNew}
+        onTransition={handleTransition}
       />
 
       <Dialog
@@ -157,7 +128,7 @@ export default function ScenariosPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {t("scenarios.deleteTitle", { defaultValue: "Delete Scenario" })}
+              {t("scenarios.deleteTitle")}
             </DialogTitle>
             <DialogDescription>
               {t("scenarios.deleteConfirm")}
@@ -165,10 +136,10 @@ export default function ScenariosPage() {
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteConfirmId(null)}>
-              {tc("cancel", { defaultValue: "Cancel" })}
+              {tc("cancel")}
             </Button>
             <Button variant="destructive" onClick={confirmDelete}>
-              {tc("delete", { defaultValue: "Delete" })}
+              {tc("delete")}
             </Button>
           </DialogFooter>
         </DialogContent>

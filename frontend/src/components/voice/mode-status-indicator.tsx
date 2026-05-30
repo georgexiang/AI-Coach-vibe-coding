@@ -23,21 +23,26 @@ export function ModeStatusIndicator({
 }: ModeStatusIndicatorProps) {
   const { t } = useTranslation("voice");
 
+  const isTextMode = currentMode === "text";
   const isDegraded = currentMode !== initialMode;
   const isDisconnected =
     connectionState === "disconnected" || connectionState === "error";
 
-  const dotColor = isDisconnected
-    ? "bg-destructive"
-    : isDegraded
-      ? "bg-amber-500"
-      : "bg-green-500";
+  const dotColor = isTextMode
+    ? "bg-green-500"
+    : isDisconnected
+      ? "bg-destructive"
+      : isDegraded
+        ? "bg-amber-500"
+        : "bg-green-500";
 
-  const statusText = isDisconnected
-    ? t("modeStatus.disconnected")
-    : isDegraded
-      ? t("modeStatus.degraded")
-      : t("modeStatus.connected");
+  const statusText = isTextMode
+    ? t("modeStatus.ready")
+    : isDisconnected
+      ? t("modeStatus.disconnected")
+      : isDegraded
+        ? t("modeStatus.degraded")
+        : t("modeStatus.connected");
 
   return (
     <Badge

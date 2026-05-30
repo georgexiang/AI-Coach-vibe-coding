@@ -6,7 +6,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies import get_db, require_role
 from app.models.user import User
-from app.schemas.scoring_rubric import RubricCreate, RubricResponse, RubricUpdate
+from app.schemas.scoring_rubric import (
+    CuPortalUrlResponse,
+    RubricCreate,
+    RubricResponse,
+    RubricUpdate,
+)
 from app.services import rubric_service
 
 router = APIRouter(prefix="/rubrics", tags=["rubrics"])
@@ -51,6 +56,64 @@ async def update_rubric(
 ):
     """Update a scoring rubric. Admin only."""
     return await rubric_service.update_rubric(db, rubric_id, request)
+
+
+@router.get("/{rubric_id}/cu-portal-url", response_model=CuPortalUrlResponse)
+async def get_cu_portal_url(
+    rubric_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role("admin")),
+):
+    """Get the Azure Content Understanding portal URLs for this rubric's analyzers."""
+    import urllib.parse
+
+    from app.config import get_settings
+    from app.services import agent_sync_service, config_service
+    from app.services.cu_evaluation_service import CU_SERVICE_NAME
+
+    settings = get_settings()
+    rubric = await rubric_service.get_rubric(db, rubric_id)
+    endpoint = await config_service.get_effective_endpoint(db, CU_SERVICE_NAME)
+    endpoint = endpoint.rstrip("/") if endpoint else ""
+
+    content_id = rubric.cu_content_analyzer_id
+    voice_id = rubric.cu_voice_analyzer_id
+
+    # Classic Foundry CU Portal URL (requires project context + correct tenant).
+    # tid MUST be the tenant that owns the resource, NOT the user's login tenant.
+    # Wrong tid causes "Could not load resource" error.
+    components = await agent_sync_service.get_portal_url_components(db)
+    sub_id = components.get("subscription_id", "")
+    rg = components.get("resource_group", "")
+    resource_name = components.get("resource_name", "")
+    project_name = components.get("project_name", "")
+    tenant_id = settings.azure_tenant_id
+
+    base_portal_url = None
+    if sub_id and rg and resource_name and project_name:
+        wsid = (
+            f"/subscriptions/{sub_id}/resourceGroups/{rg}"
+            f"/providers/Microsoft.CognitiveServices"
+            f"/accounts/{resource_name}/projects/{project_name}"
+        )
+        params = {"wsid": wsid}
+        if tenant_id:
+            params["tid"] = tenant_id
+        base_portal_url = (
+            "https://ai.azure.com/resource/contentunderstanding/analyzer-list?"
+            + urllib.parse.urlencode(params)
+        )
+
+    content_url = base_portal_url if content_id and base_portal_url else None
+    voice_url = base_portal_url if voice_id and base_portal_url else None
+
+    return CuPortalUrlResponse(
+        cu_content_analyzer_id=content_id,
+        cu_voice_analyzer_id=voice_id,
+        content_analyzer_url=content_url,
+        voice_analyzer_url=voice_url,
+        cu_endpoint=endpoint or None,
+    )
 
 
 @router.delete("/{rubric_id}", status_code=204)

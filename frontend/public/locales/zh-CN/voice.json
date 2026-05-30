@@ -22,6 +22,8 @@
     "voice": "语音",
     "digital_human": "数字人"
   },
+  "switchMode": "切换模式",
+  "switchModeConfirm": "切换到{{mode}}？",
   "modeSelector": "对话模式",
   "engineSelector": "引擎",
   "connect": "连接",
@@ -78,7 +80,8 @@
   "modeStatus": {
     "connected": "已连接",
     "degraded": "降级模式",
-    "disconnected": "已断开"
+    "disconnected": "已断开",
+    "ready": "就绪"
   },
   "endSession": "结束对话",
   "endSessionTitle": "结束语音对话",
@@ -99,6 +102,18 @@
   "tabs": {
     "transcript": "对话记录",
     "config": "配置"
+  },
+  "recording": {
+    "uploading": "正在上传会话录音...",
+    "uploadFailed": "录音保存失败，但会话已正常结束。"
+  },
+  "transport": {
+    "label": "音频传输",
+    "websocket": "WebSocket",
+    "webrtc": "WebRTC (预览)",
+    "avatarUnavailable": "WebRTC 预览模式不支持数字人形象，将使用纯语音模式。",
+    "connectionFailed": "WebRTC 连接失败，请切换到 WebSocket 传输重试。",
+    "reconnecting": "连接中断，正在重连... (第 {{attempt}}/3 次)"
   },
   "config": {
     "title": "配置",

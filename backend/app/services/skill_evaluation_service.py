@@ -20,7 +20,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.skill import Skill
-from app.services import config_service
 from app.services.skill_validation_service import _compute_content_hash
 
 logger = logging.getLogger(__name__)
@@ -38,6 +37,11 @@ _FALLBACK_DIMENSIONS = [
     "executability",
 ]
 
+_JSON_OUTPUT_INSTRUCTION = (
+    "Return only a valid JSON object that conforms to the Skill Evaluator output schema. "
+    "Do not include Markdown fences, commentary, or any text outside the JSON object."
+)
+
 
 def _load_evaluation_dimensions() -> list[str]:
     """Load canonical dimension names from evaluation-dimensions.md.
@@ -54,23 +58,6 @@ def _load_evaluation_dimensions() -> list[str]:
         if len(names) == 6:
             return names
     return list(_FALLBACK_DIMENSIONS)
-
-
-def _load_evaluator_instructions() -> str:
-    """Load composed evaluator instructions from skill directory.
-
-    Returns the full instructions string (SKILL.md + references) for use
-    as system message in the direct OpenAI fallback path.
-    """
-    from app.services.meta_skill_service import _load_skill_directory
-
-    instructions = _load_skill_directory("evaluator")
-    if instructions:
-        return instructions
-    return (
-        "You are a coaching skill content evaluator for pharmaceutical sales training. "
-        "Return ONLY valid JSON, no markdown fences."
-    )
 
 
 def _build_evaluation_user_message(
@@ -149,7 +136,10 @@ def _get_eval_language_instruction() -> str:
 
     lang = get_settings().skill_sop_language
     if lang == "zh":
-        return "IMPORTANT: Write all text content (summary, strengths, improvements, rationale) in Chinese (中文)."
+        return (
+            "IMPORTANT: Write all text content "
+            "(summary, strengths, improvements, rationale) in Chinese (中文)."
+        )
     return ""
 
 
@@ -210,24 +200,32 @@ async def evaluate_skill_quality(
         language_instruction=_get_eval_language_instruction(),
     )
 
-    # Try evaluator agent first, fall back to direct OpenAI
+    # Require evaluator agent — no fallback to direct OpenAI
     from app.services import meta_skill_service
 
     evaluator_meta = await meta_skill_service.get_meta_skill(db, "evaluator")
-    if evaluator_meta and evaluator_meta.agent_id:
-        ai_call = await _call_agent_for_evaluation(
-            db, prompt, evaluator_meta.agent_id,
-            evaluator_meta.agent_version, evaluator_meta.model,
+    if not evaluator_meta or not evaluator_meta.agent_id:
+        raise ValueError(
+            "Skill evaluator agent not registered. "
+            "Please register the 'skill-evaluator' agent in Azure AI Foundry "
+            "and sync it via the Meta Skill settings page."
         )
-    else:
-        ai_call = await _call_openai_for_evaluation(db, prompt)
+    ai_call = await _call_agent_for_evaluation(
+        db,
+        prompt,
+        evaluator_meta.agent_id,
+        evaluator_meta.agent_version,
+        evaluator_meta.model,
+    )
     evaluated_at = datetime.now(tz=UTC).isoformat()
 
     if ai_call.data is None:
         # Fallback: return a result that clearly signals AI was not available
         logger.warning(
             "AI evaluation unavailable for skill %s (status=%s): %s",
-            skill_id, ai_call.status, ai_call.error_detail,
+            skill_id,
+            ai_call.status,
+            ai_call.error_detail,
         )
         eval_result = SkillEvaluationResult(
             overall_score=0,
@@ -304,7 +302,7 @@ async def _call_agent_for_evaluation(
 
         response = openai_client.responses.create(
             model=model,
-            input=[{"role": "user", "content": prompt}],
+            input=[{"role": "user", "content": f"{prompt}\n\n{_JSON_OUTPUT_INSTRUCTION}"}],
             extra_body={
                 "agent_reference": {
                     "name": agent_id,
@@ -313,10 +311,12 @@ async def _call_agent_for_evaluation(
                 }
             },
         )
-        content = response.output_text
+        content = (response.output_text or "").strip()
         if not content:
             return _AICallResult(
-                data=None, status="ai_error", model_used=model,
+                data=None,
+                status="ai_error",
+                model_used=model,
                 error_detail="Agent returned empty content",
             )
         return _AICallResult(data=json.loads(content), status="ai_success", model_used=model)
@@ -400,23 +400,24 @@ async def _call_openai_for_evaluation(db: AsyncSession, prompt: str) -> _AICallR
             return _AICallResult(
                 data=None,
                 status="ai_error",
-                model_used=deployment,
-                error_detail="AI returned empty content",
+                model_used=model,
+                error_detail=f"Agent returned invalid JSON: {e}. Preview: {preview}",
             )
-
-        return _AICallResult(
-            data=json.loads(content),
-            status="ai_success",
-            model_used=deployment,
-        )
+        if not isinstance(parsed, dict):
+            return _AICallResult(
+                data=None,
+                status="ai_error",
+                model_used=model,
+                error_detail="Agent returned JSON that was not an object",
+            )
+        return _AICallResult(data=parsed, status="ai_success", model_used=model)
     except Exception as e:
-        error_msg = str(e)[:500]
-        logger.error("L2 evaluation failed: %s", e, exc_info=True)
+        logger.error("Agent evaluation failed: %s", e, exc_info=True)
         return _AICallResult(
             data=None,
             status="ai_error",
-            model_used=deployment,
-            error_detail=error_msg,
+            model_used=model,
+            error_detail=str(e)[:500],
         )
 
 

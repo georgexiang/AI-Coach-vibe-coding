@@ -23,6 +23,7 @@ interface VoiceControlsProps {
   onToggleView?: () => void;
   onEndSession?: () => void;
   isFullScreen?: boolean;
+  isTextMode?: boolean;
   className?: string;
 }
 
@@ -109,6 +110,7 @@ export function VoiceControls({
   onToggleView,
   onEndSession,
   isFullScreen = false,
+  isTextMode = false,
   className,
 }: VoiceControlsProps) {
   const { t } = useTranslation("voice");
@@ -122,48 +124,52 @@ export function VoiceControls({
         className,
       )}
     >
-      {/* Camera off button (AI Foundry style - always show as camera off since we do voice) */}
-      <Tooltip>
-        <TooltipTrigger asChild>
+      {/* Camera off button (AI Foundry style - hidden in text mode) */}
+      {!isTextMode && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              disabled
+              className={cn(
+                "flex h-12 w-12 items-center justify-center rounded-full transition-colors",
+                "bg-white/10 text-white/60 cursor-not-allowed",
+              )}
+              aria-label={t("cameraOff")}
+              data-testid="camera-off-btn"
+            >
+              <VideoOff className="h-5 w-5" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>{t("cameraOff")}</TooltipContent>
+        </Tooltip>
+      )}
+
+      {/* Central mic button (hidden in text mode) */}
+      {!isTextMode && (
+        <div className="relative">
+          {config.pulse && (
+            <span
+              className="absolute inset-0 rounded-full bg-voice-speaking animate-ping opacity-30"
+              style={{ animationDuration: "1.5s" }}
+            />
+          )}
           <button
             type="button"
-            disabled
+            onClick={onToggleMute}
+            disabled={config.disabled}
             className={cn(
-              "flex h-12 w-12 items-center justify-center rounded-full transition-colors",
-              "bg-white/10 text-white/60 cursor-not-allowed",
+              "relative z-10 flex h-14 w-14 items-center justify-center rounded-full transition-all",
+              "disabled:cursor-not-allowed",
+              config.colorClass,
             )}
-            aria-label={t("cameraOff")}
-            data-testid="camera-off-btn"
+            aria-label={t(config.ariaKey)}
+            data-testid="mic-button"
           >
-            <VideoOff className="h-5 w-5" />
+            <MicIcon className={cn("h-6 w-6", config.animateClass)} />
           </button>
-        </TooltipTrigger>
-        <TooltipContent>{t("cameraOff")}</TooltipContent>
-      </Tooltip>
-
-      {/* Central mic button */}
-      <div className="relative">
-        {config.pulse && (
-          <span
-            className="absolute inset-0 rounded-full bg-voice-speaking animate-ping opacity-30"
-            style={{ animationDuration: "1.5s" }}
-          />
-        )}
-        <button
-          type="button"
-          onClick={onToggleMute}
-          disabled={config.disabled}
-          className={cn(
-            "relative z-10 flex h-14 w-14 items-center justify-center rounded-full transition-all",
-            "disabled:cursor-not-allowed",
-            config.colorClass,
-          )}
-          aria-label={t(config.ariaKey)}
-          data-testid="mic-button"
-        >
-          <MicIcon className={cn("h-6 w-6", config.animateClass)} />
-        </button>
-      </div>
+        </div>
+      )}
 
       {/* End call button (AI Foundry style red circle with X) */}
       {onEndSession && (

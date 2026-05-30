@@ -8,6 +8,11 @@ export async function getRubrics(params?: { scenario_type?: string }) {
   return data;
 }
 
+export async function getRubric(id: string) {
+  const { data } = await apiClient.get<Rubric>(`/rubrics/${id}`);
+  return data;
+}
+
 export async function createRubric(payload: RubricCreate) {
   const { data } = await apiClient.post<Rubric>("/rubrics", payload);
   return data;
@@ -23,4 +28,19 @@ export async function updateRubric(id: string, payload: RubricUpdate) {
 
 export async function deleteRubric(id: string) {
   await apiClient.delete(`/rubrics/${id}`);
+}
+
+export interface CuPortalUrlResponse {
+  cu_content_analyzer_id: string | null;
+  cu_voice_analyzer_id: string | null;
+  content_analyzer_url: string | null;
+  voice_analyzer_url: string | null;
+  cu_endpoint: string | null;
+}
+
+export async function getCuPortalUrl(rubricId: string) {
+  const { data } = await apiClient.get<CuPortalUrlResponse>(
+    `/rubrics/${rubricId}/cu-portal-url`,
+  );
+  return data;
 }

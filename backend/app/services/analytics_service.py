@@ -1,6 +1,6 @@
 """Analytics service: aggregate queries for dashboard and reporting."""
 
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 
 from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,18 +23,24 @@ from app.schemas.analytics import (
     TopPerformer,
     UserDashboardStats,
 )
+from app.utils.datetime import as_utc_naive, utc_now_naive
+
+
+def _parse_db_datetime(value: str) -> datetime:
+    """Parse an ISO datetime into the naive UTC format used by DB DateTime columns."""
+    return as_utc_naive(datetime.fromisoformat(value))
 
 
 async def get_user_dashboard_stats(db: AsyncSession, user_id: str) -> UserDashboardStats:
     """Compute the four stat card values for user dashboard."""
-    # Total scored sessions
+    # Total completed + scored sessions (both represent finished training)
     total_result = await db.execute(
         select(func.count())
         .select_from(CoachingSession)
         .where(
             and_(
                 CoachingSession.user_id == user_id,
-                CoachingSession.status == "scored",
+                CoachingSession.status.in_(["completed", "scored"]),
             )
         )
     )
@@ -52,7 +58,7 @@ async def get_user_dashboard_stats(db: AsyncSession, user_id: str) -> UserDashbo
     avg_score = round(avg_result.scalar() or 0.0, 1)
 
     # Sessions this week
-    week_ago = datetime.now(UTC) - timedelta(days=7)
+    week_ago = utc_now_naive() - timedelta(days=7)
     week_result = await db.execute(
         select(func.count())
         .select_from(CoachingSession)
@@ -104,9 +110,9 @@ async def get_user_dimension_trends(
         CoachingSession.status == "scored",
     ]
     if start_date:
-        filters.append(CoachingSession.completed_at >= datetime.fromisoformat(start_date))
+        filters.append(CoachingSession.completed_at >= _parse_db_datetime(start_date))
     if end_date:
-        filters.append(CoachingSession.completed_at <= datetime.fromisoformat(end_date))
+        filters.append(CoachingSession.completed_at <= _parse_db_datetime(end_date))
 
     result = await db.execute(
         select(CoachingSession)
@@ -245,14 +251,12 @@ async def _get_needs_attention(
 
 async def _get_training_activity(db: AsyncSession) -> list[list[int]]:
     """Get training sessions per day for the last 4 weeks (Mon-Sun per week)."""
-    now = datetime.now(UTC)
+    now = utc_now_naive()
     days_since_monday = now.weekday()
     current_monday = (now - timedelta(days=days_since_monday)).replace(
         hour=0, minute=0, second=0, microsecond=0
     )
     start_date = current_monday - timedelta(weeks=3)
-    # Strip timezone for comparison with potentially naive DB timestamps (SQLite)
-    start_naive = start_date.replace(tzinfo=None)
 
     result = await db.execute(
         select(CoachingSession.created_at).where(
@@ -268,9 +272,7 @@ async def _get_training_activity(db: AsyncSession) -> list[list[int]]:
     for ts in timestamps:
         if ts is None:
             continue
-        # Handle both naive and aware timestamps
-        ts_naive = ts.replace(tzinfo=None) if ts.tzinfo else ts
-        delta = ts_naive - start_naive
+        delta = as_utc_naive(ts) - start_date
         week_idx = delta.days // 7
         day_idx = delta.days % 7
         if 0 <= week_idx < 4 and 0 <= day_idx < 7:
@@ -287,9 +289,9 @@ async def get_org_analytics(
     # Build date filters for session-based queries
     date_filters: list = []
     if start_date:
-        date_filters.append(CoachingSession.completed_at >= datetime.fromisoformat(start_date))
+        date_filters.append(CoachingSession.completed_at >= _parse_db_datetime(start_date))
     if end_date:
-        date_filters.append(CoachingSession.completed_at <= datetime.fromisoformat(end_date))
+        date_filters.append(CoachingSession.completed_at <= _parse_db_datetime(end_date))
 
     # Total users (non-admin) — not date-filtered
     total_users_result = await db.execute(
@@ -385,7 +387,7 @@ async def get_org_analytics(
 
 async def get_score_trends(db: AsyncSession, months: int = 6) -> list[ScoreTrendPoint]:
     """Get monthly average score trends for the last N months."""
-    now = datetime.now(UTC)
+    now = utc_now_naive()
     points: list[ScoreTrendPoint] = []
 
     for i in range(months - 1, -1, -1):
@@ -498,19 +500,7 @@ async def get_recommended_scenarios(
     # Step 3: Find weakest dimension
     weakest_dim = min(dim_avgs, key=lambda d: dim_avgs[d])
 
-    # Step 4: Map dimension to scenario weight column
-    weight_map = {
-        "key_message": Scenario.weight_key_message,
-        "objection_handling": Scenario.weight_objection_handling,
-        "communication": Scenario.weight_communication,
-        "product_knowledge": Scenario.weight_product_knowledge,
-        "scientific_info": Scenario.weight_scientific_info,
-    }
-    weight_col = weight_map.get(weakest_dim)
-    if weight_col is None:
-        return []
-
-    # Step 5: Exclude recently completed scenarios
+    # Step 4: Exclude recently completed scenarios
     recent_scenario_ids_result = await db.execute(
         select(CoachingSession.scenario_id)
         .where(
@@ -522,30 +512,46 @@ async def get_recommended_scenarios(
         .order_by(CoachingSession.completed_at.desc())
         .limit(5)
     )
-    recent_scenario_ids = [row[0] for row in recent_scenario_ids_result.all()]
+    recent_scenario_ids = {row[0] for row in recent_scenario_ids_result.all()}
 
-    # Step 6: Query active scenarios ordered by weight for weakest dimension
-    scenario_query = (
-        select(Scenario)
-        .where(Scenario.status == "active")
-        .order_by(weight_col.desc())
-        .limit(limit + len(recent_scenario_ids))
-    )
-    scenario_result = await db.execute(scenario_query)
-    scenarios = list(scenario_result.scalars().all())
+    # Step 5: Load active scenarios and score by rubric weight for weakest dimension
+    import json as _json
+
+    from app.services.rubric_service import get_rubric
+
+    scenario_result = await db.execute(select(Scenario).where(Scenario.status == "active"))
+    all_scenarios = list(scenario_result.scalars().all())
+
+    # Score each scenario by how much weight its rubric gives to the weakest dimension
+    scored_scenarios: list[tuple[Scenario, int]] = []
+    for s in all_scenarios:
+        if s.id in recent_scenario_ids:
+            continue
+        dims: list[dict] = []
+        try:
+            rubric = await get_rubric(db, s.rubric_id)
+            raw = rubric.dimensions
+            dims = _json.loads(raw) if isinstance(raw, str) else raw
+        except Exception:
+            pass
+
+        target_weight = 0
+        for d in dims:
+            if d["name"] == weakest_dim:
+                target_weight = d["weight"]
+                break
+        scored_scenarios.append((s, target_weight))
+
+    scored_scenarios.sort(key=lambda x: x[1], reverse=True)
 
     recommendations: list[RecommendedScenarioItem] = []
-    for scenario in scenarios:
-        if scenario.id in recent_scenario_ids:
-            continue
-        if len(recommendations) >= limit:
-            break
+    for s, _ in scored_scenarios[:limit]:
         recommendations.append(
             RecommendedScenarioItem(
-                scenario_id=scenario.id,
-                scenario_name=scenario.name,
-                product=scenario.product,
-                difficulty=scenario.difficulty,
+                scenario_id=s.id,
+                scenario_name=s.name,
+                product=s.product,
+                difficulty=s.difficulty,
                 reason=f"Targets your weakest dimension: {weakest_dim}",
                 target_dimension=weakest_dim,
             )

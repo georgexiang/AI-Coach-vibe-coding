@@ -16,5 +16,10 @@
   "skillOverview": "Skill Overview",
   "noImprovement": "--",
   "exportExcel": "Export Excel",
-  "exportingExcel": "Exporting..."
+  "exportingExcel": "Exporting...",
+  "noSessions": "No sessions yet",
+  "noSessionsBody": "Start training to see your sessions here.",
+  "viewReports": "Performance Reports",
+  "viewReportsDesc": "View trends, radar charts and detailed analysis",
+  "goToReports": "View Reports"
 }

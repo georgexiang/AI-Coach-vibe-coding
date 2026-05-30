@@ -17,11 +17,9 @@ import {
 } from "@/components/ui";
 import { EmptyState } from "@/components/shared";
 import { ScenarioCard } from "@/components/coach";
-import { ModeSelector } from "@/components/voice";
 import { useActiveScenarios } from "@/hooks/use-scenarios";
 import { useCreateSession } from "@/hooks/use-session";
-import { useConfig } from "@/contexts/config-context";
-import type { SessionMode } from "@/types/voice-live";
+import { useFeatureFlags } from "@/hooks/use-config";
 
 const ALL_VALUE = "__all__";
 
@@ -33,16 +31,27 @@ export default function ScenarioSelection() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedProduct, setSelectedProduct] = useState(ALL_VALUE);
   const [selectedDifficulty, setSelectedDifficulty] = useState(ALL_VALUE);
-  const [selectedVoiceMode, setSelectedVoiceMode] = useState<SessionMode>("voice_pipeline");
 
   const { data, isLoading } = useActiveScenarios();
   const createSession = useCreateSession();
-  const config = useConfig();
+  const { data: config } = useFeatureFlags(true);
+
+  // Compute available training modes from feature flags
+  const availableModes = useMemo(() => {
+    const modes: string[] = ["text"]; // text is always available
+    if (config?.features.voice_live_enabled) {
+      modes.push("voice_realtime_model");
+      if (config.features.avatar_enabled) {
+        modes.push("digital_human_realtime_model");
+      }
+    }
+    return modes;
+  }, [config]);
 
   const scenarios = data ?? [];
 
   const products = useMemo(
-    () => [...new Set(scenarios.map((s) => s.product))],
+    () => [...new Set(scenarios.map((s) => s.product).filter(Boolean))] as string[],
     [scenarios]
   );
   const difficulties = useMemo(
@@ -65,34 +74,19 @@ export default function ScenarioSelection() {
     });
   }, [scenarios, searchTerm, selectedProduct, selectedDifficulty]);
 
-  // Derive availability from feature flags
-  const pipelineAvailable = config.voice_enabled;
-  const agentAvailable = false; // Agent config not yet discoverable from feature flags; future: check voice status
-  const voiceLiveAvailable = config.voice_live_enabled;
-  const avatarAvailable = config.avatar_enabled;
-
-  const handleStartTraining = async (scenarioId: string) => {
+  const handleStartTraining = async (scenarioId: string, mode: string) => {
     try {
-      const session = await createSession.mutateAsync({ scenarioId });
+      const session = await createSession.mutateAsync({ scenarioId, mode });
       navigate(`/user/training/session?id=${session.id}`);
     } catch {
       // Error handled by TanStack Query
     }
   };
 
-  const handleStartConference = async (scenarioId: string) => {
+  const handleStartConference = async (scenarioId: string, mode: string) => {
     try {
-      const session = await createSession.mutateAsync({ scenarioId });
+      const session = await createSession.mutateAsync({ scenarioId, mode });
       navigate(`/user/training/conference?id=${session.id}`);
-    } catch {
-      // Error handled by TanStack Query
-    }
-  };
-
-  const handleStartVoiceSession = async (scenarioId: string) => {
-    try {
-      const session = await createSession.mutateAsync({ scenarioId, mode: selectedVoiceMode });
-      navigate(`/user/training/voice?id=${session.id}&mode=${selectedVoiceMode}`);
     } catch {
       // Error handled by TanStack Query
     }
@@ -137,7 +131,7 @@ export default function ScenarioSelection() {
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           className="pl-9"
-          placeholder={t("scenarioSelection.searchPlaceholder", { defaultValue: tc("search") })}
+          placeholder={t("scenarioSelection.searchPlaceholder")}
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
@@ -145,7 +139,7 @@ export default function ScenarioSelection() {
     </div>
   );
 
-  const renderGrid = (onStart: (scenarioId: string) => void) => {
+  const renderGrid = (mode: "f2f" | "conference", onStart: (scenarioId: string, trainingMode: string) => void) => {
     if (isLoading) {
       return (
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -163,7 +157,9 @@ export default function ScenarioSelection() {
       );
     }
 
-    if (filteredScenarios.length === 0) {
+    const modeScenarios = filteredScenarios.filter((s) => s.mode === mode);
+
+    if (modeScenarios.length === 0) {
       return (
         <EmptyState
           title={t("scenarioSelection.emptyTitle")}
@@ -174,11 +170,12 @@ export default function ScenarioSelection() {
 
     return (
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {filteredScenarios.map((scenario) => (
+        {modeScenarios.map((scenario) => (
           <ScenarioCard
             key={scenario.id}
             scenario={scenario}
             onStart={onStart}
+            availableModes={availableModes}
           />
         ))}
       </div>
@@ -199,39 +196,17 @@ export default function ScenarioSelection() {
           <TabsTrigger value="conference">
             {t("scenarioSelection.tabConference")}
           </TabsTrigger>
-          {config.voice_live_enabled && (
-            <TabsTrigger value="voice">
-              {t("scenarioSelection.tabVoice")}
-            </TabsTrigger>
-          )}
         </TabsList>
 
         <TabsContent value="f2f" className="mt-6">
           {filterRow}
-          {renderGrid(handleStartTraining)}
+          {renderGrid("f2f", handleStartTraining)}
         </TabsContent>
 
         <TabsContent value="conference" className="mt-6">
           {filterRow}
-          {renderGrid(handleStartConference)}
+          {renderGrid("conference", handleStartConference)}
         </TabsContent>
-
-        {config.voice_live_enabled && (
-          <TabsContent value="voice" className="mt-6">
-            <div className="mb-6 flex justify-center">
-              <ModeSelector
-                value={selectedVoiceMode}
-                onChange={setSelectedVoiceMode}
-                voiceLiveAvailable={voiceLiveAvailable}
-                avatarAvailable={avatarAvailable}
-                pipelineAvailable={pipelineAvailable}
-                agentAvailable={agentAvailable}
-              />
-            </div>
-            {filterRow}
-            {renderGrid(handleStartVoiceSession)}
-          </TabsContent>
-        )}
       </Tabs>
     </div>
   );

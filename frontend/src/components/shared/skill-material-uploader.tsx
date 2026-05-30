@@ -147,7 +147,7 @@ export function SkillMaterialUploader({
                   >
                     <X className="size-3.5" />
                     <span className="sr-only">
-                      {t("editor.removeFile", { defaultValue: "Remove" })}
+                      {t("editor.removeFile")}
                     </span>
                   </Button>
                 </div>
@@ -163,7 +163,7 @@ export function SkillMaterialUploader({
             {isUploading ? (
               <>
                 <Upload className="mr-2 size-4 animate-pulse" />
-                {t("editor.uploading", { defaultValue: "Uploading..." })}
+                {t("editor.uploading")}
               </>
             ) : (
               <>

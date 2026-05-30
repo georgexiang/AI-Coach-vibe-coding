@@ -45,11 +45,12 @@ async def _seed_user_and_scenario(db) -> tuple[str, str]:
 
     scenario = Scenario(
         name="Active Scenario",
-        product="Brukinsa",
         hcp_profile_id=hcp.id,
         key_messages=json.dumps(["Superior PFS data", "Favorable safety profile"]),
         status="active",
         created_by=user.id,
+        rubric_id="test-rubric-id",
+        skill_id="test-skill-id",
     )
     db.add(scenario)
     await db.flush()
@@ -92,11 +93,12 @@ class TestCreateSession:
 
         draft = Scenario(
             name="Draft",
-            product="Drug",
             hcp_profile_id=hcp.id,
             key_messages="[]",
             status="draft",
             created_by=user_id,
+            rubric_id="test-rubric-id",
+            skill_id="test-skill-id",
         )
         db_session.add(draft)
         await db_session.flush()
@@ -208,6 +210,7 @@ class TestSaveMessage:
         updated = result.scalar_one()
         assert updated.status == "in_progress"
         assert updated.started_at is not None
+        assert updated.started_at.tzinfo is None
 
     async def test_assistant_message_does_not_transition(self, db_session):
         from sqlalchemy import select
@@ -235,6 +238,9 @@ class TestEndSession:
         ended = await end_session(db_session, session.id, user_id)
         assert ended.status == "completed"
         assert ended.completed_at is not None
+        assert ended.completed_at.tzinfo is None
+        assert ended.started_at is not None
+        assert ended.started_at.tzinfo is None
         assert ended.duration_seconds is not None
 
     async def test_raises_for_wrong_user(self, db_session):

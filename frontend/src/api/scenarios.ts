@@ -51,3 +51,11 @@ export async function cloneScenario(id: string) {
   const { data } = await apiClient.post<Scenario>(`/scenarios/${id}/clone`);
   return data;
 }
+
+export async function transitionScenarioStatus(id: string, status: string) {
+  const { data } = await apiClient.post<Scenario>(
+    `/scenarios/${id}/transition`,
+    { status },
+  );
+  return data;
+}

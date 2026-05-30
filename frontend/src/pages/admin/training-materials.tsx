@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useDropzone } from "react-dropzone";
 import { toast } from "sonner";
@@ -78,8 +79,12 @@ export default function TrainingMaterialsPage() {
   const { t } = useTranslation("admin");
   const { t: tc } = useTranslation("common");
 
+  // Read initial search from URL query param (e.g. ?search=material_name)
+  const [searchParams] = useSearchParams();
+  const initialSearch = searchParams.get("search") ?? "";
+
   // Filter state
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState(initialSearch);
   const [selectedProduct, setSelectedProduct] = useState(ALL_PRODUCTS);
   const [showArchived, setShowArchived] = useState(false);
   const [page, setPage] = useState(1);
@@ -390,7 +395,7 @@ export default function TrainingMaterialsPage() {
                     {t("materials.uploadDate")}
                   </th>
                   <th className="hidden px-4 py-3 text-center text-sm font-medium text-muted-foreground md:table-cell">
-                    {t("materials.derivedSkills", { defaultValue: "关联Skills" })}
+                    {t("materials.derivedSkills")}
                   </th>
                   <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">
                     {t("materials.actions")}

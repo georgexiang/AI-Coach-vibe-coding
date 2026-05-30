@@ -11,16 +11,56 @@ Covers specific uncovered lines in:
 """
 
 import json
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from app.models.hcp_profile import HcpProfile
 from app.models.message import SessionMessage
 from app.models.scenario import Scenario
+from app.models.scoring_rubric import ScoringRubric
 from app.models.session import CoachingSession
+from app.models.skill import Skill, SkillVersion
 from app.models.user import User
 from app.services.auth import create_access_token, get_password_hash
 from tests.conftest import TestSessionLocal
+
+_MOCK_LLM_RESULT = {
+    "overall_score": 75.0,
+    "passed": True,
+    "feedback_summary": "Good performance overall.",
+    "dimensions": [
+        {"dimension": "key_message", "score": 80, "weight": 30, "category": "content",
+         "strengths": [], "weaknesses": [], "suggestions": []},
+        {"dimension": "objection_handling", "score": 70, "weight": 25, "category": "content",
+         "strengths": [], "weaknesses": [], "suggestions": []},
+        {"dimension": "communication", "score": 75, "weight": 20, "category": "content",
+         "strengths": [], "weaknesses": [], "suggestions": []},
+        {"dimension": "product_knowledge", "score": 72, "weight": 15, "category": "content",
+         "strengths": [], "weaknesses": [], "suggestions": []},
+        {"dimension": "scientific_info", "score": 68, "weight": 10, "category": "content",
+         "strengths": [], "weaknesses": [], "suggestions": []},
+    ],
+}
+
+
+@pytest.fixture(autouse=True)
+def mock_llm_scoring():
+    """Mock LLM scoring for all tests (no Azure OpenAI in test env)."""
+    with patch(
+        "app.services.scoring_service.score_with_llm",
+        new_callable=AsyncMock,
+        return_value=_MOCK_LLM_RESULT,
+    ):
+        yield
+
+_DEFAULT_RUBRIC_DIMS = json.dumps([
+    {"name": "key_message", "weight": 30, "criteria": [], "max_score": 100.0},
+    {"name": "objection_handling", "weight": 25, "criteria": [], "max_score": 100.0},
+    {"name": "communication", "weight": 20, "criteria": [], "max_score": 100.0},
+    {"name": "product_knowledge", "weight": 15, "criteria": [], "max_score": 100.0},
+    {"name": "scientific_info", "weight": 10, "criteria": [], "max_score": 100.0},
+])
 
 # ────────────────── helpers ──────────────────
 
@@ -61,25 +101,58 @@ async def _inactive_user(username="inactive") -> tuple[str, str]:
 
 
 async def _admin_scenario(client, admin_id, admin_token) -> str:
-    """Create an HCP profile + active scenario. Returns scenario_id."""
+    """Create an HCP profile + rubric + skill + active scenario. Returns scenario_id."""
     hcp = await client.post(
         "/api/v1/hcp-profiles",
         json={"name": "Dr. Cov", "specialty": "Onc", "created_by": admin_id},
         headers={"Authorization": f"Bearer {admin_token}"},
     )
+    # Create rubric + skill via DB (no API endpoint needed)
+    async with TestSessionLocal() as db:
+        rubric = ScoringRubric(
+            name="Test Rubric", scenario_type="f2f",
+            dimensions=_DEFAULT_RUBRIC_DIMS, is_default=True, created_by=admin_id,
+        )
+        db.add(rubric)
+        await db.flush()
+
+        skill = Skill(
+            id="test-skill-id", name="Test Skill", status="published", created_by=admin_id,
+        )
+        db.add(skill)
+        await db.flush()
+
+        skill_ver = SkillVersion(
+            skill_id=skill.id, version_number=1, content="test", is_published=True, created_by=admin_id,
+        )
+        db.add(skill_ver)
+        await db.commit()
+        await db.refresh(rubric)
+        rubric_id = rubric.id
+
     scn = await client.post(
         "/api/v1/scenarios",
         json={
             "name": "Cov Scenario",
-            "product": "Brukinsa",
+            "tags": ["product:Brukinsa"],
             "hcp_profile_id": hcp.json()["id"],
-            "created_by": admin_id,
-            "status": "active",
+            "rubric_id": rubric_id,
+            "skill_id": "test-skill-id",
             "key_messages": ["Superior PFS", "Better safety"],
         },
         headers={"Authorization": f"Bearer {admin_token}"},
     )
-    return scn.json()["id"]
+    scenario_id = scn.json()["id"]
+
+    # Activate the scenario so sessions can be created against it
+    async with TestSessionLocal() as db:
+        from sqlalchemy import update
+        await db.execute(
+            update(Scenario).where(Scenario.id == scenario_id).values(status="active")
+        )
+        await db.commit()
+
+    return scenario_id
 
 
 async def _completed_session_with_messages() -> tuple[str, str, str]:
@@ -99,13 +172,21 @@ async def _completed_session_with_messages() -> tuple[str, str, str]:
         db.add(hcp)
         await db.flush()
 
+        rubric = ScoringRubric(
+            name="Test Rubric", scenario_type="f2f",
+            dimensions=_DEFAULT_RUBRIC_DIMS, is_default=True, created_by=user.id,
+        )
+        db.add(rubric)
+        await db.flush()
+
         scenario = Scenario(
             name="Comp Scenario",
-            product="Brukinsa",
             hcp_profile_id=hcp.id,
             key_messages=json.dumps(["PFS", "Safety"]),
+            skill_id="test-skill-id",
             status="active",
             created_by=user.id,
+            rubric_id=rubric.id,
         )
         db.add(scenario)
         await db.flush()
@@ -270,16 +351,26 @@ class TestSessionsApiCoverage:
         assert resp.json()["status"] == "created"
 
     async def test_list_sessions_paginated(self, client):
-        """Cover line 54."""
+        """Cover line 54. Sessions with messages appear; abandoned (no messages) are filtered."""
         admin_id, admin_token = await _user(role="admin", username="sl_admin")
         scenario_id = await _admin_scenario(client, admin_id, admin_token)
         _, utoken = await _user(role="user", username="sl_user")
 
-        await client.post(
+        # Create a session and send a message so it won't be filtered as abandoned
+        create_resp = await client.post(
             "/api/v1/sessions",
             json={"scenario_id": scenario_id},
             headers={"Authorization": f"Bearer {utoken}"},
         )
+        session_id = create_resp.json()["id"]
+
+        # Persist a transcript message so the session has at least one message
+        await client.post(
+            f"/api/v1/sessions/{session_id}/transcript",
+            json={"role": "user", "message": "Hello doctor"},
+            headers={"Authorization": f"Bearer {utoken}"},
+        )
+
         resp = await client.get(
             "/api/v1/sessions?page=1&page_size=10",
             headers={"Authorization": f"Bearer {utoken}"},
@@ -491,13 +582,21 @@ class TestSessionsApiCoverage:
             db.add(hcp)
             await db.flush()
 
+            rubric = ScoringRubric(
+                name="Sug Rubric", scenario_type="f2f",
+                dimensions=_DEFAULT_RUBRIC_DIMS, is_default=True, created_by=user.id,
+            )
+            db.add(rubric)
+            await db.flush()
+
             scenario = Scenario(
                 name="Sug Scenario",
-                product="Brukinsa",
                 hcp_profile_id=hcp.id,
                 key_messages=json.dumps(["PFS", "Safety"]),
+                skill_id="sug-test-skill-id",
                 status="active",
                 created_by=user.id,
+                rubric_id=rubric.id,
             )
             db.add(scenario)
             await db.flush()
@@ -638,17 +737,32 @@ class TestScenariosCoverage:
         )
         return resp.json()["id"]
 
+    async def _seed_skill(self, admin_id: str, skill_id: str = "scn-cov-skill"):
+        """Seed a skill + version for scenario creation."""
+        async with TestSessionLocal() as db:
+            skill = Skill(id=skill_id, name="Cov Skill", status="published", created_by=admin_id)
+            db.add(skill)
+            await db.flush()
+            skill_ver = SkillVersion(
+                skill_id=skill.id, version_number=1, content="test", is_published=True, created_by=admin_id,
+            )
+            db.add(skill_ver)
+            await db.commit()
+        return skill_id
+
     async def test_create_scenario(self, client):
         """Cover line 69."""
         admin_id, admin_token = await _user(role="admin", username="scn_cr_admin")
         hcp_id = await self._create_hcp(client, admin_token, admin_id)
+        skill_id = await self._seed_skill(admin_id, "scn-cr-skill")
         resp = await client.post(
             "/api/v1/scenarios",
             json={
                 "name": "Cov Scenario",
-                "product": "Drug",
+                "tags": ["product:Drug"],
                 "hcp_profile_id": hcp_id,
-                "created_by": admin_id,
+                "rubric_id": "test-rubric-id",
+                "skill_id": skill_id,
                 "key_messages": ["Msg1"],
             },
             headers={"Authorization": f"Bearer {admin_token}"},
@@ -661,18 +775,26 @@ class TestScenariosCoverage:
     async def test_list_scenarios_with_filter(self, client):
         admin_id, admin_token = await _user(role="admin", username="scn_ls_admin")
         hcp_id = await self._create_hcp(client, admin_token, admin_id)
-        await client.post(
+        skill_id = await self._seed_skill(admin_id, "scn-ls-skill")
+        create_resp = await client.post(
             "/api/v1/scenarios",
             json={
                 "name": "Active Scn",
-                "product": "Drug",
+                "tags": ["product:Drug"],
                 "hcp_profile_id": hcp_id,
-                "created_by": admin_id,
-                "status": "active",
+                "rubric_id": "test-rubric-id",
+                "skill_id": skill_id,
                 "key_messages": ["M"],
             },
             headers={"Authorization": f"Bearer {admin_token}"},
         )
+        # Activate the scenario
+        sid = create_resp.json()["id"]
+        async with TestSessionLocal() as db:
+            from sqlalchemy import update
+            await db.execute(update(Scenario).where(Scenario.id == sid).values(status="active"))
+            await db.commit()
+
         resp = await client.get(
             "/api/v1/scenarios?status=active",
             headers={"Authorization": f"Bearer {admin_token}"},
@@ -684,18 +806,26 @@ class TestScenariosCoverage:
         """Cover scenarios.py /active endpoint."""
         admin_id, admin_token = await _user(role="admin", username="scn_act_admin")
         hcp_id = await self._create_hcp(client, admin_token, admin_id)
-        await client.post(
+        skill_id = await self._seed_skill(admin_id, "scn-act-skill")
+        create_resp = await client.post(
             "/api/v1/scenarios",
             json={
                 "name": "User Active Scn",
-                "product": "Drug",
+                "tags": ["product:Drug"],
                 "hcp_profile_id": hcp_id,
-                "created_by": admin_id,
-                "status": "active",
+                "rubric_id": "test-rubric-id",
+                "skill_id": skill_id,
                 "key_messages": ["M"],
             },
             headers={"Authorization": f"Bearer {admin_token}"},
         )
+        # Activate the scenario
+        sid = create_resp.json()["id"]
+        async with TestSessionLocal() as db:
+            from sqlalchemy import update
+            await db.execute(update(Scenario).where(Scenario.id == sid).values(status="active"))
+            await db.commit()
+
         _, utoken = await _user(role="user", username="scn_act_user")
         resp = await client.get(
             "/api/v1/scenarios/active",
@@ -708,13 +838,15 @@ class TestScenariosCoverage:
         """Cover line 113."""
         admin_id, admin_token = await _user(role="admin", username="scn_get_admin")
         hcp_id = await self._create_hcp(client, admin_token, admin_id)
+        skill_id = await self._seed_skill(admin_id, "scn-get-skill")
         create_resp = await client.post(
             "/api/v1/scenarios",
             json={
                 "name": "Get Scn",
-                "product": "Drug",
+                "tags": ["product:Drug"],
                 "hcp_profile_id": hcp_id,
-                "created_by": admin_id,
+                "rubric_id": "test-rubric-id",
+                "skill_id": skill_id,
                 "key_messages": ["M"],
             },
             headers={"Authorization": f"Bearer {admin_token}"},
@@ -731,13 +863,15 @@ class TestScenariosCoverage:
         """Cover line 125."""
         admin_id, admin_token = await _user(role="admin", username="scn_upd_admin")
         hcp_id = await self._create_hcp(client, admin_token, admin_id)
+        skill_id = await self._seed_skill(admin_id, "scn-upd-skill")
         create_resp = await client.post(
             "/api/v1/scenarios",
             json={
                 "name": "Before",
-                "product": "Drug",
+                "tags": ["product:Drug"],
                 "hcp_profile_id": hcp_id,
-                "created_by": admin_id,
+                "rubric_id": "test-rubric-id",
+                "skill_id": skill_id,
                 "key_messages": ["M"],
             },
             headers={"Authorization": f"Bearer {admin_token}"},
@@ -755,13 +889,15 @@ class TestScenariosCoverage:
         """Cover line 136."""
         admin_id, admin_token = await _user(role="admin", username="scn_del_admin")
         hcp_id = await self._create_hcp(client, admin_token, admin_id)
+        skill_id = await self._seed_skill(admin_id, "scn-del-skill")
         create_resp = await client.post(
             "/api/v1/scenarios",
             json={
                 "name": "Delete Scn",
-                "product": "Drug",
+                "tags": ["product:Drug"],
                 "hcp_profile_id": hcp_id,
-                "created_by": admin_id,
+                "rubric_id": "test-rubric-id",
+                "skill_id": skill_id,
                 "key_messages": ["M"],
             },
             headers={"Authorization": f"Bearer {admin_token}"},
@@ -777,13 +913,15 @@ class TestScenariosCoverage:
         """Cover line 147."""
         admin_id, admin_token = await _user(role="admin", username="scn_cln_admin")
         hcp_id = await self._create_hcp(client, admin_token, admin_id)
+        skill_id = await self._seed_skill(admin_id, "scn-cln-skill")
         create_resp = await client.post(
             "/api/v1/scenarios",
             json={
                 "name": "Clone Src",
-                "product": "Drug",
+                "tags": ["product:Drug"],
                 "hcp_profile_id": hcp_id,
-                "created_by": admin_id,
+                "rubric_id": "test-rubric-id",
+                "skill_id": skill_id,
                 "key_messages": ["M"],
             },
             headers={"Authorization": f"Bearer {admin_token}"},

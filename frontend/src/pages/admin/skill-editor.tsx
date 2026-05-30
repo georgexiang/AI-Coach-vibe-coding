@@ -36,6 +36,9 @@ import { FileTreeView } from "@/components/shared/file-tree-view";
 import { QualityRadarChart } from "@/components/shared/quality-radar-chart";
 import { QualityScoreCard } from "@/components/shared/quality-score-card";
 import { PublishGateDialog } from "@/components/shared/publish-gate-dialog";
+import { DryRunButton } from "@/components/shared/dry-run-button";
+import { DryRunProgress as DryRunProgressComponent } from "@/components/shared/dry-run-progress";
+import { DryRunHistoryList } from "@/components/shared/dry-run-history-list";
 import {
   useSkill,
   useUpdateSkill,
@@ -124,10 +127,12 @@ export default function SkillEditorPage() {
     Record<string, boolean>
   >({});
   const [publishDialogOpen, setPublishDialogOpen] = useState(false);
+  const [activeDryRunId, setActiveDryRunId] = useState<string | null>(null);
 
   // Settings form
   const settingsForm = useForm<SettingsFormValues>({
     resolver: zodResolver(settingsSchema),
+    mode: "onChange",
     defaultValues: {
       name: "",
       description: "",
@@ -137,6 +142,9 @@ export default function SkillEditorPage() {
       compatibility: "",
     },
   });
+
+  // Header display name — watches settings form in real-time
+  const headerName = settingsForm.watch("name");
 
   // Sync local state from fetched skill
   useEffect(() => {
@@ -172,13 +180,14 @@ export default function SkillEditorPage() {
   // Handlers
   // ---------------------------------------------------------------------------
   const handleSaveDraft = useCallback(async () => {
+    const nameToSave = (settingsForm.getValues("name") ?? "").trim() || t("editor.defaultSkillName");
     if (isNew) {
       createMutation.mutate(
-        { name: "New Skill", content: sopContent },
+        { name: nameToSave, content: sopContent },
         {
           onSuccess: (created) => {
             toast.success(
-              t("editor.saved", { defaultValue: "Draft saved" }),
+              t("editor.saved"),
             );
             navigate(`/admin/skills/${created.id}/edit`, { replace: true });
           },
@@ -187,19 +196,19 @@ export default function SkillEditorPage() {
       );
     } else if (id) {
       updateMutation.mutate(
-        { id, data: { content: sopContent } },
+        { id, data: { name: nameToSave, content: sopContent } },
         {
           onSuccess: () => {
             setContentDirty(false);
             toast.success(
-              t("editor.saved", { defaultValue: "Draft saved" }),
+              t("editor.saved"),
             );
           },
           onError: () => toast.error(t("errors.saveFailed")),
         },
       );
     }
-  }, [isNew, id, sopContent, createMutation, updateMutation, navigate, t]);
+  }, [isNew, id, settingsForm, sopContent, createMutation, updateMutation, navigate, t]);
 
   const handleContentChange = useCallback((content: string) => {
     setSopContent(content);
@@ -220,10 +229,11 @@ export default function SkillEditorPage() {
 
   const handleMaterialUpload = useCallback(
     (files: File[]) => {
+      const nameToSave = (settingsForm.getValues("name") ?? "").trim() || t("editor.defaultSkillName");
       if (isNew) {
         // Create skill first, then upload and convert
         createMutation.mutate(
-          { name: "New Skill" },
+          { name: nameToSave },
           {
             onSuccess: (created) => {
               navigate(`/admin/skills/${created.id}/edit`, { replace: true });
@@ -256,12 +266,13 @@ export default function SkillEditorPage() {
         );
       }
     },
-    [isNew, id, createMutation, uploadConvertMutation, navigate, queryClient, t],
+    [isNew, id, settingsForm, createMutation, uploadConvertMutation, navigate, queryClient, t],
   );
 
   const handleCreateEmpty = useCallback(() => {
+    const nameToSave = (settingsForm.getValues("name") ?? "").trim() || t("editor.defaultSkillName");
     createMutation.mutate(
-      { name: "New Skill", content: "" },
+      { name: nameToSave, content: "" },
       {
         onSuccess: (created) => {
           navigate(`/admin/skills/${created.id}/edit`, { replace: true });
@@ -269,7 +280,7 @@ export default function SkillEditorPage() {
         onError: () => toast.error(t("errors.saveFailed")),
       },
     );
-  }, [createMutation, navigate, t]);
+  }, [settingsForm, createMutation, navigate, t]);
 
   const handleRetryConversion = useCallback(() => {
     if (!id) return;
@@ -285,11 +296,7 @@ export default function SkillEditorPage() {
         { id, files, resourceType: type },
         {
           onSuccess: () =>
-            toast.success(
-              t("editor.filesUploaded", {
-                defaultValue: "Files uploaded",
-              }),
-            ),
+            toast.success(t("editor.filesUploaded")),
           onError: () => toast.error(t("errors.saveFailed")),
         },
       );
@@ -335,7 +342,7 @@ export default function SkillEditorPage() {
         { id, data: values },
         {
           onSuccess: () => {
-            toast.success(t("editor.settingsSaved", { defaultValue: "Settings saved" }));
+            toast.success(t("editor.settingsSaved"));
           },
           onError: () => toast.error(t("errors.saveFailed")),
         },
@@ -451,27 +458,38 @@ export default function SkillEditorPage() {
     <div className="space-y-6">
       {/* Page header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 min-w-0 flex-1">
           <Button
             variant="ghost"
             size="sm"
+            className="shrink-0"
             onClick={() => navigate("/admin/skills")}
           >
             <ArrowLeft className="mr-1 size-4" />
             {t("editor.backToHub")}
           </Button>
-          <h1 className="text-2xl font-semibold text-foreground">
-            {isNew
-              ? t("editor.createNew", { defaultValue: "Create New Skill" })
-              : `${t("hub.title", { defaultValue: "Skill" })}: ${skill?.name ?? ""}`}
-          </h1>
+          <span className="text-2xl font-semibold truncate px-2 py-1">
+            {headerName || t("editor.defaultSkillName")}
+          </span>
         </div>
 
         <div className="flex items-center gap-2">
+          {!isNew && skill && (
+            <DryRunButton
+              skillId={id}
+              hasContent={hasContent}
+              isNew={isNew}
+              skillStatus={skill.status}
+              onDryRunCreated={(runId) => {
+                setActiveDryRunId(runId);
+                setActiveTab("quality");
+              }}
+            />
+          )}
           <Button
             variant="outline"
             onClick={handleSaveDraft}
-            disabled={isSaving || (!contentDirty && !isNew)}
+            disabled={isSaving || (!contentDirty && !settingsForm.formState.isDirty && !isNew)}
           >
             {isSaving ? (
               <RefreshCw className="mr-2 size-4 animate-spin" />
@@ -541,9 +559,7 @@ export default function SkillEditorPage() {
                     className="text-sm text-primary underline hover:text-primary/80"
                     onClick={handleCreateEmpty}
                   >
-                    {t("editor.createEmpty", {
-                      defaultValue: "or create an empty skill",
-                    })}
+                    {t("editor.createEmpty")}
                   </button>
                 </div>
               )}
@@ -587,13 +603,13 @@ export default function SkillEditorPage() {
           {!isNew && skill && skill.source_materials && skill.source_materials.length > 0 && (
             <div className="rounded-lg border border-border bg-muted/30 p-4">
               <h4 className="text-sm font-medium mb-2">
-                {t("editor.sourceMaterials", { defaultValue: "来源材料" })}
+                {t("editor.sourceMaterials")}
               </h4>
               <div className="flex flex-wrap gap-2">
                 {skill.source_materials.map((mat) => (
                   <Link
                     key={mat.id}
-                    to={`/admin/materials/${mat.id}`}
+                    to={`/admin/materials?search=${encodeURIComponent(mat.name)}`}
                     className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary hover:bg-primary/20 transition-colors"
                   >
                     <FileText className="size-3" />
@@ -623,9 +639,7 @@ export default function SkillEditorPage() {
                   }}
                 >
                   <Download className="mr-2 size-4" />
-                  {t("fileTree.downloadPackage", {
-                    defaultValue: "Download Package",
-                  })}
+                  {t("fileTree.downloadPackage")}
                 </Button>
               </div>
               <div className="grid grid-cols-1 gap-0 lg:grid-cols-[280px_1fr]">
@@ -694,9 +708,7 @@ export default function SkillEditorPage() {
             </div>
           ) : (
             <div className="flex items-center justify-center rounded-lg border bg-muted/50 py-24 text-muted-foreground">
-              {t("editor.saveFirstForResources", {
-                defaultValue: "Save the skill first to manage resources",
-              })}
+              {t("editor.saveFirstForResources")}
             </div>
           )}
         </TabsContent>
@@ -705,9 +717,7 @@ export default function SkillEditorPage() {
         <TabsContent value="quality" className="mt-6">
           {isNew ? (
             <div className="flex items-center justify-center rounded-lg border bg-muted/50 py-24 text-muted-foreground">
-              {t("editor.saveFirstForResources", {
-                defaultValue: "Save the skill first to manage resources",
-              })}
+              {t("editor.saveFirstForResources")}
             </div>
           ) : (
             <div className="space-y-6">
@@ -869,17 +879,40 @@ export default function SkillEditorPage() {
                   </Button>
                 </div>
               )}
+
+              {/* Dry Run Progress -- shown when a dry run is actively running */}
+              {activeDryRunId && id && (
+                <DryRunProgressComponent
+                  skillId={id}
+                  runId={activeDryRunId}
+                  onCompleted={() => {
+                    setActiveDryRunId(null);
+                    queryClient.invalidateQueries({
+                      queryKey: ["skills", "detail", id, "dry-runs"],
+                    });
+                  }}
+                  onCancel={() => setActiveDryRunId(null)}
+                />
+              )}
+
+              {/* Dry Run History -- shown below L1/L2 results */}
+              {id && !activeDryRunId && (
+                <DryRunHistoryList
+                  skillId={id}
+                  onRunClick={(runId) =>
+                    navigate(`/admin/skills/${id}/dry-run/${runId}`)
+                  }
+                />
+              )}
             </div>
           )}
         </TabsContent>
 
         {/* ----- Settings Tab ----- */}
-        <TabsContent value="settings" className="mt-6">
+        <TabsContent value="settings" className="mt-6" forceMount hidden={activeTab !== "settings"}>
           {isNew ? (
             <div className="flex items-center justify-center rounded-lg border bg-muted/50 py-24 text-muted-foreground">
-              {t("editor.saveFirstForResources", {
-                defaultValue: "Save the skill first to manage resources",
-              })}
+              {t("editor.saveFirstForResources")}
             </div>
           ) : (
             <form
@@ -1108,7 +1141,7 @@ function ResourceInfoCard({ resource }: { resource: SkillResource }) {
           <span>{resource.content_type}</span>
           <span>{formatSize(resource.file_size)}</span>
           <span>
-            {t("fileTree.type", { defaultValue: "Type" })}: {resource.resource_type}
+            {t("fileTree.type")}: {resource.resource_type}
           </span>
           <span>
             {new Date(resource.created_at).toLocaleDateString()}

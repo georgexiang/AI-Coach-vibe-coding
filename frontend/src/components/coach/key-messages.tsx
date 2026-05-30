@@ -7,6 +7,7 @@ interface KeyMessagesProps {
 }
 
 export function KeyMessages({ messages }: KeyMessagesProps) {
+  if (!Array.isArray(messages)) return null;
   return (
     <div className="space-y-2.5">
       {messages.map((msg, idx) => (

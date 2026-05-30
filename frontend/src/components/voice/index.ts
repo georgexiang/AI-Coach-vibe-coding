@@ -6,3 +6,4 @@ export { ModeSelector } from "./mode-selector";
 export { ConnectionStatus } from "./connection-status";
 export { VoiceSessionHeader } from "./voice-session-header";
 export { VoiceSession } from "./voice-session";
+export { VoiceTransportSelect } from "./voice-transport-select";

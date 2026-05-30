@@ -1,6 +1,8 @@
 """Scenario CRUD API router: admin management of training scenarios."""
 
 import json
+from datetime import datetime
+from typing import Any
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import Response
@@ -16,26 +18,57 @@ from app.utils.pagination import PaginatedResponse
 router = APIRouter(prefix="/scenarios", tags=["scenarios"])
 
 
+class HcpProfileBrief(BaseModel):
+    """Minimal HCP profile data for scenario list display.
+
+    Avatar fields are resolved from VoiceLiveInstance when assigned,
+    falling back to inline HcpProfile fields (deprecated).
+    """
+
+    id: str
+    name: str
+    specialty: str = ""
+    avatar_url: str = ""
+    avatar_character: str = "lori"
+    avatar_style: str = "casual"
+
+    model_config = ConfigDict(from_attributes=True)
+
+    @classmethod
+    def from_hcp_profile(cls, profile: Any) -> "HcpProfileBrief":
+        """Create from ORM HcpProfile, resolving avatar from VL Instance if assigned."""
+        # Prefer VL Instance avatar fields (authoritative source)
+        vl_inst = getattr(profile, "voice_live_instance", None)
+        avatar_character = (
+            vl_inst.avatar_character if vl_inst else profile.avatar_character
+        )
+        avatar_style = vl_inst.avatar_style if vl_inst else profile.avatar_style
+        return cls(
+            id=profile.id,
+            name=profile.name,
+            specialty=profile.specialty or "",
+            avatar_url=getattr(profile, "avatar_url", "") or "",
+            avatar_character=avatar_character or "lori",
+            avatar_style=avatar_style or "casual",
+        )
+
+
 class ScenarioOut(BaseModel):
     """Scenario response with JSON list fields parsed to Python lists."""
 
     id: str
     name: str
     description: str
-    product: str
-    therapeutic_area: str
+    tags: list[str]
     mode: str
     difficulty: str
     status: str
     hcp_profile_id: str
+    hcp_profile: HcpProfileBrief | None = None
     key_messages: list[str]
-    skill_id: str | None = None
+    skill_id: str
     skill_version_id: str | None = None
-    weight_key_message: int
-    weight_objection_handling: int
-    weight_communication: int
-    weight_product_knowledge: int
-    weight_scientific_info: int
+    rubric_id: str
     pass_threshold: int
     created_by: str
     created_at: str
@@ -43,7 +76,16 @@ class ScenarioOut(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-    @field_validator("key_messages", mode="before")
+    @field_validator("hcp_profile", mode="before")
+    @classmethod
+    def resolve_hcp_avatar(cls, v: Any) -> Any:
+        """Resolve avatar from VL Instance if HcpProfile ORM object with relationship."""
+        if v is None or isinstance(v, dict) or isinstance(v, HcpProfileBrief):
+            return v
+        # ORM object — use resolver to prefer VL Instance avatar
+        return HcpProfileBrief.from_hcp_profile(v)
+
+    @field_validator("tags", "key_messages", mode="before")
     @classmethod
     def parse_json_list(cls, v: str | list[str]) -> list[str]:
         """Parse JSON string field into Python list."""
@@ -53,9 +95,9 @@ class ScenarioOut(BaseModel):
 
     @field_validator("created_at", "updated_at", mode="before")
     @classmethod
-    def datetime_to_str(cls, v: object) -> str:
+    def datetime_to_str(cls, v: Any) -> str:
         """Convert datetime to ISO string."""
-        if hasattr(v, "isoformat"):
+        if isinstance(v, datetime):
             return v.isoformat()
         return str(v)
 
@@ -102,6 +144,26 @@ async def list_active_scenarios(
     """List active scenarios for user selection. Accessible by authenticated users."""
     items, _ = await scenario_service.get_scenarios(db, status="active", page_size=100)
     return [ScenarioOut.model_validate(item) for item in items]
+
+
+class TransitionRequest(BaseModel):
+    """Request body for status transition."""
+
+    status: str
+
+
+@router.post("/{scenario_id}/transition", response_model=ScenarioOut)
+async def transition_scenario_status(
+    scenario_id: str,
+    body: TransitionRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role("admin")),
+):
+    """Transition scenario status. Admin only. Validates allowed transitions."""
+    scenario = await scenario_service.transition_scenario_status(
+        db, scenario_id, body.status
+    )
+    return scenario
 
 
 @router.get("/{scenario_id}", response_model=ScenarioOut)

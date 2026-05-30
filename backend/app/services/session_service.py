@@ -10,12 +10,12 @@ from sqlalchemy.orm import selectinload
 from app.models.message import SessionMessage
 from app.models.scenario import Scenario
 from app.models.session import CoachingSession
-from app.services.prompt_builder import build_key_message_detection_prompt
+from app.utils.datetime import as_utc_aware, utc_now_naive
 from app.utils.exceptions import AppException, NotFoundException
 
 
 async def create_session(
-    db: AsyncSession, scenario_id: str, user_id: str, mode: str = "text"
+    db: AsyncSession, scenario_id: str, user_id: str, mode: str = "digital_human_realtime_model"
 ) -> CoachingSession:
     """Create a new coaching session for a scenario.
 
@@ -39,6 +39,17 @@ async def create_session(
         {"message": msg, "delivered": False, "detected_at": None} for msg in key_messages
     ]
 
+    # Phase 24: Generate and snapshot Skill Focus instruction (D-03)
+    focus_instruction = None
+    if scenario.skill_id:
+        from app.services.skill_focus_service import compose_focus_instruction, extract_sop_steps
+        from app.services.skill_manager import load_skill_for_scenario
+
+        skill_content = await load_skill_for_scenario(db, scenario_id)
+        if skill_content:
+            sop_steps = extract_sop_steps(skill_content.content)
+            focus_instruction = compose_focus_instruction(skill_content, 0, sop_steps)
+
     session = CoachingSession(
         user_id=user_id,
         scenario_id=scenario_id,
@@ -48,10 +59,59 @@ async def create_session(
         # Skill audit trail: snapshot from scenario at session creation time
         skill_id=scenario.skill_id,
         skill_version_id=scenario.skill_version_id,
+        # Phase 24: Focus instruction snapshot (D-03)
+        focus_instruction=focus_instruction,
+        sop_current_step=0,
     )
     db.add(session)
     await db.flush()
     return session
+
+
+async def update_sop_progress(
+    db: AsyncSession, session: CoachingSession, messages: list[dict]
+) -> str | None:
+    """Update SOP progress after user message. Returns updated focus_instruction.
+
+    Per D-06: Uses LLM to detect current SOP step.
+    Per D-05: Returns updated focus_instruction with new progress hint.
+    """
+    if not session.focus_instruction or not session.skill_id:
+        return None
+
+    from app.services import config_service
+    from app.services.skill_focus_service import (
+        compose_focus_instruction,
+        detect_sop_step,
+        extract_sop_steps,
+    )
+    from app.services.skill_manager import load_skill_for_scenario
+
+    skill_content = await load_skill_for_scenario(db, session.scenario_id)
+    if not skill_content:
+        return session.focus_instruction
+
+    sop_steps = extract_sop_steps(skill_content.content)
+    if not sop_steps:
+        return session.focus_instruction
+
+    # Get LLM endpoint for progress detection
+    endpoint = await config_service.get_effective_endpoint(db, "azure_openai")
+    api_key = await config_service.get_effective_key(db, "azure_openai")
+
+    if endpoint and api_key:
+        new_step = await detect_sop_step(messages, sop_steps, endpoint, api_key)
+        session.sop_current_step = new_step
+    else:
+        # No LLM configured — increment step heuristically (1 step per 3 messages)
+        new_step = min(len(messages) // 3, len(sop_steps))
+        session.sop_current_step = new_step
+
+    # Recompose focus instruction with updated progress
+    updated_instruction = compose_focus_instruction(skill_content, new_step, sop_steps)
+    session.focus_instruction = updated_instruction
+    await db.flush()
+    return updated_instruction
 
 
 async def get_session(db: AsyncSession, session_id: str, user_id: str) -> CoachingSession:
@@ -63,6 +123,7 @@ async def get_session(db: AsyncSession, session_id: str, user_id: str) -> Coachi
         select(CoachingSession)
         .options(
             selectinload(CoachingSession.scenario).selectinload(Scenario.hcp_profile),
+            selectinload(CoachingSession.messages),
         )
         .where(CoachingSession.id == session_id)
     )
@@ -81,18 +142,33 @@ async def get_session(db: AsyncSession, session_id: str, user_id: str) -> Coachi
 async def get_user_sessions(
     db: AsyncSession, user_id: str, page: int = 1, page_size: int = 20
 ) -> tuple[list[CoachingSession], int]:
-    """List a user's sessions with pagination, ordered by created_at desc."""
-    # Count total
+    """List a user's sessions with pagination, ordered by created_at desc.
+
+    Excludes abandoned sessions: those with status 'created' that have no messages
+    (i.e., sessions that were created but never actually started by the user).
+    """
+    from sqlalchemy import exists
+
+    # Subquery: session has at least one message
+    has_messages = exists().where(SessionMessage.session_id == CoachingSession.id)
+
+    # Filter: exclude "created" sessions with no messages (abandoned)
+    active_filter = (CoachingSession.user_id == user_id) & (
+        (CoachingSession.status != "created") | has_messages
+    )
+
+    # Count total (excluding abandoned)
     count_result = await db.execute(
-        select(func.count()).select_from(CoachingSession).where(CoachingSession.user_id == user_id)
+        select(func.count()).select_from(CoachingSession).where(active_filter)
     )
     total = count_result.scalar_one()
 
-    # Fetch page
+    # Fetch page with eagerly loaded scenario + messages for derived properties
     offset = (page - 1) * page_size
     result = await db.execute(
         select(CoachingSession)
-        .where(CoachingSession.user_id == user_id)
+        .options(selectinload(CoachingSession.scenario), selectinload(CoachingSession.messages))
+        .where(active_filter)
         .order_by(CoachingSession.created_at.desc())
         .offset(offset)
         .limit(page_size)
@@ -107,6 +183,7 @@ async def get_active_session(db: AsyncSession, user_id: str) -> CoachingSession 
         select(CoachingSession)
         .options(
             selectinload(CoachingSession.scenario).selectinload(Scenario.hcp_profile),
+            selectinload(CoachingSession.messages),
         )
         .where(
             CoachingSession.user_id == user_id,
@@ -148,10 +225,49 @@ async def save_message(
         session = result.scalar_one_or_none()
         if session and session.status == "created":
             session.status = "in_progress"
-            session.started_at = datetime.now(UTC)
+            session.started_at = utc_now_naive()
 
     await db.flush()
     return message
+
+
+async def _calculate_active_duration(
+    db: AsyncSession, session_id: str, started_at: datetime, ended_at: datetime
+) -> int:
+    """Calculate active interaction duration, excluding idle gaps > 5 minutes."""
+    MAX_GAP_SECONDS = 300  # 5 minutes - gaps longer than this are excluded
+
+    msg_result = await db.execute(
+        select(SessionMessage.created_at)
+        .where(SessionMessage.session_id == session_id)
+        .order_by(SessionMessage.created_at.asc())
+    )
+    timestamps = [row[0] for row in msg_result.fetchall()]
+
+    if not timestamps:
+        return 0
+
+    timestamps = [as_utc_aware(ts) for ts in timestamps]
+    started_at = as_utc_aware(started_at)
+
+    # Sum up active segments: gaps between consecutive messages that are <= MAX_GAP
+    active_seconds = 0
+    prev = started_at
+    for ts in timestamps:
+        gap = (ts - prev).total_seconds()
+        if gap <= MAX_GAP_SECONDS:
+            active_seconds += gap
+        else:
+            # Count a small buffer for the user returning (reading context)
+            active_seconds += 30
+        prev = ts
+
+    # Add time from last message to end (capped at MAX_GAP)
+    ended_at = as_utc_aware(ended_at)
+    final_gap = (ended_at - prev).total_seconds()
+    active_seconds += min(final_gap, MAX_GAP_SECONDS)
+
+    return max(int(active_seconds), 0)
 
 
 async def end_session(db: AsyncSession, session_id: str, user_id: str) -> CoachingSession:
@@ -169,26 +285,29 @@ async def end_session(db: AsyncSession, session_id: str, user_id: str) -> Coachi
             code="FORBIDDEN",
             message="Session does not belong to this user",
         )
-    if session.status != "in_progress":
+    if session.status not in ("created", "in_progress"):
         raise AppException(
             status_code=409,
             code="INVALID_STATUS",
             message=f"Cannot end session with status '{session.status}'. "
-            "Only in_progress sessions can be ended.",
+            "Only created or in_progress sessions can be ended.",
         )
 
-    now = datetime.now(UTC)
+    now = utc_now_naive()
     session.status = "completed"
     session.completed_at = now
-    if session.started_at:
-        started = session.started_at
-        # Handle timezone-naive datetimes from SQLite
-        if started.tzinfo is None:
-            started = started.replace(tzinfo=UTC)
-        session.duration_seconds = int((now - started).total_seconds())
+    if not session.started_at:
+        session.started_at = now
+        session.duration_seconds = 0
+    else:
+        session.duration_seconds = await _calculate_active_duration(
+            db, session_id, session.started_at, now
+        )
 
     await db.flush()
+    # Full refresh to reload scalar columns (updated_at, etc.) + relationships
     await db.refresh(session)
+    await db.refresh(session, attribute_names=["scenario", "messages"])
     return session
 
 
@@ -236,15 +355,13 @@ async def detect_key_messages(
 
 
 def _mock_key_message_detection(
-    key_messages: list[str], mr_message: str, conversation_history: list[dict]
+    key_messages: list[str], mr_message: str, _conversation_history: list[dict]
 ) -> list[str]:
     """Simple keyword-based detection for mock/fallback key message matching.
 
     Checks if significant keywords from each key message appear in the MR's
     message or recent conversation.
     """
-    # Build detection prompt for reference (used when real LLM is available)
-    _prompt = build_key_message_detection_prompt(key_messages, mr_message, conversation_history)
 
     detected = []
     mr_lower = mr_message.lower()

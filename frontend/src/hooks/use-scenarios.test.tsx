@@ -126,6 +126,7 @@ describe("useCreateScenario", () => {
       name: "New",
       product: "Drug A",
       hcp_profile_id: "h1",
+      rubric_id: "rubric-1",
     });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));

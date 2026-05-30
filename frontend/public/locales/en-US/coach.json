@@ -10,7 +10,12 @@
     "tabF2F": "F2F Training",
     "tabConference": "Conference Training",
     "tabVoice": "Voice",
-    "searchPlaceholder": "Search scenarios..."
+    "searchPlaceholder": "Search scenarios...",
+    "modeLabel": "Training Mode",
+    "modeText": "Text",
+    "modeVoice": "Voice",
+    "modeDigitalHuman": "Digital Human",
+    "modeUnavailable": "Not available"
   },
   "session": {
     "trainingPanel": "Training Panel",
@@ -36,7 +41,10 @@
     "startRecording": "Start recording",
     "stopRecording": "Stop recording",
     "ttsOn": "Enable voice replies",
-    "ttsOff": "Disable voice replies"
+    "ttsOff": "Disable voice replies",
+    "hideHints": "Hide Hints",
+    "showHints": "Show Hints",
+    "noHints": "Hints will appear as you converse..."
   },
   "errors": {
     "sendFailed": "Message could not be sent. Check your connection and try again.",

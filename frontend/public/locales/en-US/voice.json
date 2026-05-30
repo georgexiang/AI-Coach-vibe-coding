@@ -22,6 +22,8 @@
     "voice": "Voice",
     "digital_human": "Digital Human"
   },
+  "switchMode": "Switch Mode",
+  "switchModeConfirm": "Switch to {{mode}}?",
   "modeSelector": "Session Mode",
   "engineSelector": "Engine",
   "connect": "Connect",
@@ -78,7 +80,8 @@
   "modeStatus": {
     "connected": "Connected",
     "degraded": "Degraded",
-    "disconnected": "Disconnected"
+    "disconnected": "Disconnected",
+    "ready": "Ready"
   },
   "endSession": "End Session",
   "endSessionTitle": "End Voice Session",
@@ -99,6 +102,18 @@
   "tabs": {
     "transcript": "Transcript",
     "config": "Configuration"
+  },
+  "recording": {
+    "uploading": "Uploading session recording...",
+    "uploadFailed": "Failed to save recording, but session was completed."
+  },
+  "transport": {
+    "label": "Audio Transport",
+    "websocket": "WebSocket",
+    "webrtc": "WebRTC (Preview)",
+    "avatarUnavailable": "Avatar (digital human) is not available with WebRTC transport in preview. Voice-only mode will be used.",
+    "connectionFailed": "WebRTC connection failed. Please try WebSocket transport instead.",
+    "reconnecting": "Connection lost. Reconnecting... (attempt {{attempt}}/3)"
   },
   "config": {
     "title": "Configuration",

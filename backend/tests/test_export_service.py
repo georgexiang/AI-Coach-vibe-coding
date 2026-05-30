@@ -1,5 +1,6 @@
 """Unit tests for export_service: Excel generation for sessions and admin reports."""
 
+import json
 from datetime import UTC, datetime
 from io import BytesIO
 
@@ -45,11 +46,13 @@ async def _create_scenario(session, *, hcp_id: str, created_by: str, name: str =
     """Helper to create a scenario."""
     scenario = Scenario(
         name=name,
-        product="TestDrug",
+        tags=json.dumps(["product:TestDrug"]),
         difficulty="medium",
         status="active",
         hcp_profile_id=hcp_id,
         created_by=created_by,
+        rubric_id="test-rubric-id",
+        skill_id="test-skill-id",
     )
     session.add(scenario)
     await session.flush()

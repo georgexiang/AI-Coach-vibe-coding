@@ -58,6 +58,16 @@ vi.mock("@/hooks/use-scoring", () => ({
   }),
 }));
 
+let mockUserSessions: { items: unknown[] } | undefined = { items: [] };
+let mockUserSessionsLoading = false;
+
+vi.mock("@/hooks/use-session", () => ({
+  useUserSessions: () => ({
+    data: mockUserSessions,
+    isLoading: mockUserSessionsLoading,
+  }),
+}));
+
 let mockDashStats: unknown = { total_sessions: 42, avg_score: 78, this_week: 5, improvement: 3 };
 let mockRecommended: unknown[] | undefined = [
   { scenario_name: "Dr. Amanda Hayes", difficulty: "Intermediate", reason: "Focus area" },
@@ -136,6 +146,8 @@ describe("UserDashboard", () => {
     mockDashStats = { total_sessions: 42, avg_score: 78, this_week: 5, improvement: 3 };
     mockRecommended = [{ scenario_name: "Dr. Amanda Hayes", difficulty: "Intermediate", reason: "Focus area" }];
     mockExportPending = false;
+    mockUserSessions = { items: [] };
+    mockUserSessionsLoading = false;
   });
 
   it("renders the welcome message with user name", () => {
@@ -243,12 +255,12 @@ describe("UserDashboard", () => {
     expect(improvementCard?.textContent).toContain("-2");
   });
 
-  it("renders improvement stat as '--' when improvement is null", () => {
+  it("renders improvement stat as noImprovement when improvement is null", () => {
     mockDashStats = { total_sessions: 42, avg_score: 78, this_week: 5, improvement: null };
     renderDashboard();
     const statCards = screen.getAllByTestId("stat-card");
     const improvementCard = statCards[3];
-    expect(improvementCard?.textContent).toContain("--");
+    expect(improvementCard?.textContent).toContain("noImprovement");
   });
 
   it("renders recommended scenario reason when available", () => {
@@ -328,5 +340,19 @@ describe("UserDashboard", () => {
     const statCards = screen.getAllByTestId("stat-card");
     const improvementCard = statCards[3];
     expect(improvementCard?.textContent).toContain("0");
+  });
+
+  it("renders link to reports page", () => {
+    renderDashboard();
+    expect(screen.getByText("viewReports")).toBeInTheDocument();
+    expect(screen.getByText("goToReports")).toBeInTheDocument();
+  });
+
+  it("navigates to reports page when goToReports is clicked", async () => {
+    const user = userEvent.setup();
+    renderDashboard();
+    const reportsBtn = screen.getByText("goToReports");
+    await user.click(reportsBtn);
+    expect(mockNavigate).toHaveBeenCalledWith("/user/reports");
   });
 });

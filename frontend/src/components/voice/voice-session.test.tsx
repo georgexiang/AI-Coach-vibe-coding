@@ -20,12 +20,13 @@ vi.mock("react-i18next", () => ({
 
 const mockToastError = vi.fn();
 const mockToastWarning = vi.fn();
+const mockToastInfo = vi.fn();
 vi.mock("sonner", () => ({
   toast: {
     error: (...args: unknown[]) => mockToastError(...args),
     warning: (...args: unknown[]) => mockToastWarning(...args),
     success: vi.fn(),
-    info: vi.fn(),
+    info: (...args: unknown[]) => mockToastInfo(...args),
   },
 }));
 
@@ -221,6 +222,7 @@ vi.mock("@/hooks/use-avatar-stream", () => ({
 const mockAudioInitialize = vi.fn().mockResolvedValue(undefined);
 const mockStartRecording = vi.fn();
 const mockAudioCleanup = vi.fn();
+const mockStreamRef = { current: { getTracks: () => [{ stop: vi.fn() }] } as unknown as MediaStream };
 
 vi.mock("@/hooks/use-audio-handler", () => ({
   useAudioHandler: () => ({
@@ -230,6 +232,22 @@ vi.mock("@/hooks/use-audio-handler", () => ({
     cleanup: mockAudioCleanup,
     isRecording: false,
     analyserRef: { current: null },
+    streamRef: mockStreamRef,
+  }),
+}));
+
+// Mock session recorder (records full session audio for voice scoring upload)
+const mockSessionRecorderStart = vi.fn().mockResolvedValue(true);
+const mockSessionRecorderStopAndUpload = vi.fn().mockResolvedValue({ success: true });
+const mockSessionRecorderCancel = vi.fn().mockResolvedValue(undefined);
+let mockSessionRecorderIsRecording = false;
+
+vi.mock("@/hooks/use-session-recorder", () => ({
+  useSessionRecorder: () => ({
+    isRecording: mockSessionRecorderIsRecording,
+    startRecording: mockSessionRecorderStart,
+    stopAndUpload: mockSessionRecorderStopAndUpload,
+    cancel: mockSessionRecorderCancel,
   }),
 }));
 
@@ -267,11 +285,7 @@ const mockScenarioData = {
   status: "active" as const,
   hcp_profile_id: "hcp-1",
   key_messages: ["Message A", "Message B"],
-  weight_key_message: 30,
-  weight_objection_handling: 25,
-  weight_communication: 20,
-  weight_product_knowledge: 15,
-  weight_scientific_info: 10,
+  rubric_id: "rubric-1",
   pass_threshold: 70,
   estimated_duration: 15,
   created_by: "admin",
@@ -315,6 +329,7 @@ describe("VoiceSession", () => {
     vi.clearAllMocks();
     mockScenarioReturn = { data: mockScenarioData };
     mockVoiceConnectionState = "disconnected";
+    mockSessionRecorderIsRecording = false;
     capturedOnTranscript = undefined;
     capturedOnConnectionStateChange = undefined;
     capturedOnError = undefined;
@@ -580,7 +595,7 @@ describe("VoiceSession", () => {
         expect(mockAvatarDisconnect).toHaveBeenCalled();
         expect(mockAudioCleanup).toHaveBeenCalled();
         expect(mockEndSessionMutateAsync).toHaveBeenCalledWith("session-123");
-        expect(mockNavigate).toHaveBeenCalledWith("/user/scoring/session-123");
+        expect(mockNavigate).toHaveBeenCalledWith("/user/history");
       });
     });
 
@@ -598,8 +613,8 @@ describe("VoiceSession", () => {
         expect(mockEndSessionMutateAsync).toHaveBeenCalledWith("session-123");
       });
 
-      // Should navigate to scenarios page as fallback on failure
-      expect(mockNavigate).toHaveBeenCalledWith("/user/scenarios");
+      // Should navigate to training page as fallback on failure
+      expect(mockNavigate).toHaveBeenCalledWith("/user/training");
     });
 
     it("closes dialog immediately when confirm is clicked", async () => {
@@ -1158,6 +1173,68 @@ describe("VoiceSession", () => {
 
       await waitFor(() => {
         expect(mockStopAudio).toHaveBeenCalled();
+      });
+    });
+  });
+
+  // ======== Session recording ========
+
+  describe("session recording", () => {
+    it("starts session recorder after voice connection succeeds", async () => {
+      const user = userEvent.setup();
+      renderSession();
+
+      await user.click(screen.getByTestId("start-session-btn"));
+
+      await waitFor(() => {
+        expect(mockSessionRecorderStart).toHaveBeenCalledWith(mockStreamRef.current);
+      });
+    });
+
+    it("uploads recording on confirm end session when recording is active", async () => {
+      mockSessionRecorderIsRecording = true;
+      const user = userEvent.setup();
+      renderSession();
+
+      await user.click(screen.getByTestId("end-session-btn"));
+      const endBtn = screen.getByText("voice.endSession");
+      await user.click(endBtn);
+
+      await waitFor(() => {
+        expect(mockToastInfo).toHaveBeenCalledWith("voice.recording.uploading");
+        expect(mockSessionRecorderStopAndUpload).toHaveBeenCalledWith("session-123");
+      });
+    });
+
+    it("does not attempt upload when recorder is not recording", async () => {
+      mockSessionRecorderIsRecording = false;
+      const user = userEvent.setup();
+      renderSession();
+
+      await user.click(screen.getByTestId("end-session-btn"));
+      const endBtn = screen.getByText("voice.endSession");
+      await user.click(endBtn);
+
+      await waitFor(() => {
+        expect(mockEndSessionMutateAsync).toHaveBeenCalled();
+      });
+
+      expect(mockSessionRecorderStopAndUpload).not.toHaveBeenCalled();
+    });
+
+    it("shows warning toast when upload fails but still ends session", async () => {
+      mockSessionRecorderIsRecording = true;
+      mockSessionRecorderStopAndUpload.mockResolvedValueOnce({ success: false, error: "Network error" });
+      const user = userEvent.setup();
+      renderSession();
+
+      await user.click(screen.getByTestId("end-session-btn"));
+      const endBtn = screen.getByText("voice.endSession");
+      await user.click(endBtn);
+
+      await waitFor(() => {
+        expect(mockToastWarning).toHaveBeenCalledWith("voice.recording.uploadFailed");
+        expect(mockEndSessionMutateAsync).toHaveBeenCalledWith("session-123");
       });
     });
   });

@@ -112,7 +112,7 @@ export function QualityScoreCard({
             <div className="space-y-1">
               <div className="flex items-center gap-1.5 text-xs font-medium text-strength">
                 <Check className="size-3.5" />
-                {t("quality.strengths", { defaultValue: "Strengths" })}
+                {t("quality.strengths")}
               </div>
               <ul className="space-y-0.5 pl-5">
                 {dimension.strengths.map((s, i) => (
@@ -129,7 +129,7 @@ export function QualityScoreCard({
             <div className="space-y-1">
               <div className="flex items-center gap-1.5 text-xs font-medium text-weakness">
                 <AlertTriangle className="size-3.5" />
-                {t("quality.improvements", { defaultValue: "Improvements" })}
+                {t("quality.improvements")}
               </div>
               <ul className="space-y-0.5 pl-5">
                 {dimension.improvements.map((s, i) => (

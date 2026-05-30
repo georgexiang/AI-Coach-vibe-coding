@@ -199,7 +199,7 @@ async def _get_openai_client(db: AsyncSession) -> tuple:
         else settings.default_chat_model
     )
 
-    from openai import AsyncAzureOpenAI
+    from app.services.azure_auth import get_azure_openai_client
 
     if api_key:
         client = AsyncAzureOpenAI(
@@ -242,9 +242,12 @@ async def _call_sop_extraction(db: AsyncSession, text_chunk: str) -> dict:
     response = await client.chat.completions.create(
         model=deployment,
         messages=[
-            {"role": "system", "content": SOP_EXTRACTION_PROMPT.format(
-                language_instruction=_get_language_instruction(),
-            )},
+            {
+                "role": "system",
+                "content": SOP_EXTRACTION_PROMPT.format(
+                    language_instruction=_get_language_instruction(),
+                ),
+            },
             {"role": "user", "content": text_chunk},
         ],
         temperature=settings.skill_ai_temperature,
@@ -513,8 +516,10 @@ def _update_progress(skill: Skill, step_index: int) -> None:
             {
                 "step": i + 1,
                 "name": name,
-                "status": "completed" if i < step_index
-                else "in_progress" if i == step_index
+                "status": "completed"
+                if i < step_index
+                else "in_progress"
+                if i == step_index
                 else "pending",
             }
             for i, name in enumerate(CONVERSION_STEPS)

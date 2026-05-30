@@ -28,8 +28,30 @@ class StorageBackend(Protocol):
 def get_storage() -> StorageBackend:
     """Factory that returns the appropriate storage backend based on config."""
     settings = get_settings()
-    # For MVP, always use local storage.
-    # In production, check for Azure Blob config and return AzureBlobStorageBackend.
-    from app.services.storage.local import LocalStorageBackend
+    backend = settings.storage_backend.lower().strip()
 
-    return LocalStorageBackend(base_path=settings.material_storage_path)
+    if backend == "local":
+        from app.services.storage.local import LocalStorageBackend
+
+        return LocalStorageBackend(base_path=settings.material_storage_path)
+
+    if backend in {"azure_blob", "blob"}:
+        from app.services.storage.azure_blob import AzureBlobStorageBackend
+
+        if not settings.azure_storage_connection_string and not settings.azure_storage_account_url:
+            raise ValueError(
+                "Azure Blob storage requires AZURE_STORAGE_CONNECTION_STRING "
+                "or AZURE_STORAGE_ACCOUNT_URL"
+            )
+
+        return AzureBlobStorageBackend(
+            connection_string=settings.azure_storage_connection_string,
+            account_url=settings.azure_storage_account_url,
+            container_name=settings.azure_storage_container_name,
+            blob_prefix=settings.azure_storage_blob_prefix,
+        )
+
+    raise ValueError(f"Unsupported storage backend: {settings.storage_backend}")
+
+
+__all__ = ["StorageBackend", "get_storage"]

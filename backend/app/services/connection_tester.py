@@ -210,7 +210,7 @@ async def test_azure_openai(endpoint: str, api_key: str, deployment: str) -> tup
     if not valid:
         return (False, msg)
     try:
-        from openai import AsyncAzureOpenAI
+        from app.services.azure_auth import get_azure_openai_client
 
         if api_key:
             client = AsyncAzureOpenAI(

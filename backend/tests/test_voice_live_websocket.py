@@ -610,11 +610,6 @@ def _install_mock_sdk() -> tuple[MagicMock, MagicMock, MagicMock]:
     # RequestSession should be callable and return a dict-like mock
     models_mod.RequestSession = MagicMock(name="RequestSession")
 
-    # AgentSessionConfig for agent mode (SDK >= 1.2.0b5)
-    # Production imports from azure.ai.voicelive.aio, so put it on aio_mod
-    aio_mod.AgentSessionConfig = MagicMock(name="AgentSessionConfig")
-    models_mod.AgentSessionConfig = MagicMock(name="AgentSessionConfig")
-
     # ServerEventType needs attribute-style access
     server_event_type = MagicMock(name="ServerEventType")
     server_event_type.ERROR = "error"
@@ -1263,9 +1258,9 @@ class TestWebSocketAuthentication:
 class TestDualModeWebsocketHandler:
     """Tests for agent vs model mode connect path in handle_voice_live_websocket."""
 
-    async def test_agent_mode_connect_uses_agent_session_config(self, seeded_db, mock_sdk):
-        """Agent mode: connect() uses AgentSessionConfig, mode='agent' in response."""
-        mock_connect_fn, aio_mod, models_mod = mock_sdk
+    async def test_agent_mode_connect_uses_agent_parameters(self, seeded_db, mock_sdk):
+        """Agent mode: connect() uses agent_name/project_name, mode='agent' in response."""
+        mock_connect_fn, _, _ = mock_sdk
 
         # Create HCP with synced agent
         profile = HcpProfile(
@@ -1301,17 +1296,14 @@ class TestDualModeWebsocketHandler:
 
         await handle_voice_live_websocket(ws, seeded_db)
 
-        # connect() should be called with agent_config= param, NOT model=
+        # connect() should be called with agent params, NOT model=
         mock_connect_fn.assert_called_once()
         call_kwargs = mock_connect_fn.call_args[1]
-        assert "agent_config" in call_kwargs
+        assert call_kwargs["agent_name"] == "asst_agent_mode_test"
+        assert call_kwargs["project_name"] == "default"
         assert "model" not in call_kwargs
+        assert "agent_config" not in call_kwargs
         assert "api_version" not in call_kwargs
-
-        # AgentSessionConfig was used (imported from azure.ai.voicelive.aio)
-        aio_mod.AgentSessionConfig.assert_called_once()
-        agent_cfg_kwargs = aio_mod.AgentSessionConfig.call_args[1]
-        assert agent_cfg_kwargs["agent_name"] == "asst_agent_mode_test"
 
         # proxy.connected should include mode="agent"
         sent_calls = ws.send_text.call_args_list
@@ -1406,7 +1398,10 @@ class TestDualModeWebsocketHandler:
         # connect() called exactly ONCE -- no fallback attempt
         mock_connect_fn.assert_called_once()
         call_kwargs = mock_connect_fn.call_args[1]
-        assert "agent_config" in call_kwargs  # was agent mode attempt
+        assert call_kwargs["agent_name"] == "asst_will_fail"  # was agent mode attempt
+        assert call_kwargs["project_name"] == "default"
+        assert "model" not in call_kwargs
+        assert "agent_config" not in call_kwargs
 
         # Error should be sent to client
         sent_calls = ws.send_text.call_args_list
@@ -1596,8 +1591,8 @@ class TestHandleMessageForwarding:
 class TestLoadConnectionConfigErrors:
     """Tests for error paths in _load_connection_config."""
 
-    async def test_missing_api_key_raises(self, seeded_db):
-        """_load_connection_config raises when API key is not set."""
+    async def test_missing_api_key_returns_none_key(self, seeded_db):
+        """_load_connection_config returns empty api_key when key is not set (DefaultAzureCredential will be used)."""
         from unittest.mock import patch as _patch
 
         # Patch get_effective_key to return empty
@@ -1606,8 +1601,8 @@ class TestLoadConnectionConfigErrors:
             new_callable=AsyncMock,
             return_value="",
         ):
-            with pytest.raises(ValueError, match="API key not set"):
-                await _load_connection_config(seeded_db)
+            cfg = await _load_connection_config(seeded_db)
+            assert cfg["api_key"] == ""
 
     async def test_missing_endpoint_raises(self, seeded_db):
         """_load_connection_config raises when endpoint is not configured."""
@@ -2320,12 +2315,12 @@ class TestWebSocketHandlerErrorPaths:
                 del sys.modules[k]
             sys.modules.update(saved)
 
-    async def test_agent_mode_sdk_import_error(self, seeded_db, mock_sdk):
-        """Handler sends error when AgentSessionConfig import fails (old SDK)."""
-        mock_connect_fn, aio_mod, models_mod = mock_sdk
+    async def test_agent_mode_does_not_require_agent_session_config(self, seeded_db, mock_sdk):
+        """Handler uses SDK 1.2 direct agent params instead of removed AgentSessionConfig."""
+        mock_connect_fn, aio_mod, _ = mock_sdk
 
-        # Remove AgentSessionConfig from aio module to trigger ImportError
-        # (production imports from azure.ai.voicelive.aio)
+        # azure-ai-voicelive 1.2.0 exposes direct agent_name/project_name kwargs
+        # and no longer exports AgentSessionConfig from aio.
         if hasattr(aio_mod, "AgentSessionConfig"):
             delattr(aio_mod, "AgentSessionConfig")
 
@@ -2353,14 +2348,16 @@ class TestWebSocketHandlerErrorPaths:
 
         await handle_voice_live_websocket(ws, seeded_db)
 
-        # Should send error about SDK version
+        mock_connect_fn.assert_called_once()
+        call_kwargs = mock_connect_fn.call_args[1]
+        assert call_kwargs["agent_name"] == "asst_old_sdk"
+        assert call_kwargs["project_name"] == "default"
+        assert "agent_config" not in call_kwargs
+
+        # Should connect successfully instead of sending an old SDK-version error.
         sent_calls = ws.send_text.call_args_list
-        error_sent = any(
-            "1.2.0b5" in json.loads(c[0][0]).get("error", {}).get("message", "")
-            for c in sent_calls
-            if json.loads(c[0][0]).get("type") == "error"
-        )
-        assert error_sent, "Error about SDK version should be sent"
+        assert not any(json.loads(c[0][0]).get("type") == "error" for c in sent_calls)
+        assert any(json.loads(c[0][0]).get("type") == "proxy.connected" for c in sent_calls)
 
 
 # ===========================================================================
@@ -2494,7 +2491,7 @@ class TestRealAzureSessionConfig:
         Requires a project with at least one agent. If no agent exists,
         the test validates the connection attempt and expected error.
         """
-        from azure.ai.voicelive.aio import AgentSessionConfig, connect
+        from azure.ai.voicelive.aio import connect
         from azure.ai.voicelive.models import (
             AudioInputTranscriptionOptions,
             AzureSemanticVad,
@@ -2528,10 +2525,8 @@ class TestRealAzureSessionConfig:
                 async with connect(
                     endpoint=REAL_FOUNDRY_ENDPOINT,
                     credential=credential,
-                    agent_config=AgentSessionConfig(
-                        agent_name="test-nonexistent-agent",
-                        project_name=REAL_FOUNDRY_PROJECT,
-                    ),
+                    agent_name="test-nonexistent-agent",
+                    project_name=REAL_FOUNDRY_PROJECT,
                 ) as azure_conn:
                     await azure_conn.session.update(session=session_config)
                     assert azure_conn is not None
@@ -2749,18 +2744,17 @@ class TestRealVoiceLiveIntegration:
         assert result is True
 
     # -------------------------------------------------------------------
-    # 2. Real Azure SDK connect in agent mode — agent_config parameter
+    # 2. Real Azure SDK connect in agent mode - direct agent parameters
     # -------------------------------------------------------------------
 
     async def test_real_agent_mode_connect_accepted(self):
-        """Real Azure connection accepts agent_config parameter.
+        """Real Azure connection accepts direct agent_name/project_name parameters.
 
-        Covers TestDualModeWebsocketHandler.test_agent_mode_connect_uses_agent_session_config
-        with real SDK. Uses AgentSessionConfig from azure.ai.voicelive.aio
-        (NOT from models). If agent doesn't exist, validates config is accepted.
+        Covers TestDualModeWebsocketHandler.test_agent_mode_connect_uses_agent_parameters
+        with real SDK. If agent doesn't exist, validates config is accepted.
         """
         _ensure_real_azure_modules()
-        from azure.ai.voicelive.aio import AgentSessionConfig, connect
+        from azure.ai.voicelive.aio import connect
         from azure.ai.voicelive.models import (
             AudioInputTranscriptionOptions,
             AzureSemanticVad,
@@ -2787,18 +2781,14 @@ class TestRealVoiceLiveIntegration:
             ),
         )
 
-        agent_config = AgentSessionConfig(
-            agent_name="integration-test-agent",
-            project_name=REAL_FOUNDRY_PROJECT,
-        )
-
         try:
 
             async def do_connect():
                 async with connect(
                     endpoint=REAL_FOUNDRY_ENDPOINT,
                     credential=credential,
-                    agent_config=agent_config,
+                    agent_name="integration-test-agent",
+                    project_name=REAL_FOUNDRY_PROJECT,
                 ) as azure_conn:
                     await azure_conn.session.update(session=session_config)
                     return True
@@ -2808,15 +2798,14 @@ class TestRealVoiceLiveIntegration:
         except Exception as e:
             # Agent may not exist -- but the error should be about the agent,
             # NOT about session config (voice/VAD/transcription).
-            # This validates that agent_config= is the correct parameter name
-            # and AgentSessionConfig is accepted by the SDK.
+            # This validates that agent_name/project_name are accepted by the SDK.
             error_msg = str(e).lower()
             assert "transcription" not in error_msg, f"Session config rejected by Azure: {e}"
             assert "invalid_input_audio_transcription_model" not in error_msg, (
                 f"Transcription model rejected by Azure: {e}"
             )
             # The error should be about the agent not being found
-            # (validates that connect accepted agent_config= parameter)
+            # (validates that connect accepted direct agent parameters)
 
     # -------------------------------------------------------------------
     # 3. Real config resolution from DB — _load_connection_config

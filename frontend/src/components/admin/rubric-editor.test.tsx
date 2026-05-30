@@ -147,6 +147,26 @@ describe("RubricEditor", () => {
     expect(descTextarea).not.toBeNull();
   });
 
+  it("falls back to a default dimension when an existing rubric has no dimensions", () => {
+    const incompleteRubric = {
+      ...mockRubric,
+      dimensions: undefined,
+    } as unknown as Rubric;
+
+    render(
+      <RubricEditor
+        rubric={incompleteRubric}
+        open={true}
+        onOpenChange={mockOnOpenChange}
+        onSave={mockOnSave}
+        isNew={false}
+      />,
+    );
+
+    expect(screen.getByText("rubrics.weightSum: 100/100")).toBeInTheDocument();
+    expect(screen.getByText("rubrics.dimensionName 1")).toBeInTheDocument();
+  });
+
   it("shows save button", () => {
     render(
       <RubricEditor

@@ -1,9 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   getRubrics,
+  getRubric,
   createRubric,
   updateRubric,
   deleteRubric,
+  getCuPortalUrl,
 } from "@/api/rubrics";
 import type { RubricCreate, RubricUpdate } from "@/types/rubric";
 
@@ -11,6 +13,14 @@ export function useRubrics(params?: { scenario_type?: string }) {
   return useQuery({
     queryKey: ["rubrics", params],
     queryFn: () => getRubrics(params),
+  });
+}
+
+export function useRubric(id: string | undefined) {
+  return useQuery({
+    queryKey: ["rubrics", id],
+    queryFn: () => getRubric(id!),
+    enabled: !!id,
   });
 }
 
@@ -42,5 +52,13 @@ export function useDeleteRubric() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["rubrics"] });
     },
+  });
+}
+
+export function useCuPortalUrl(rubricId: string | undefined) {
+  return useQuery({
+    queryKey: ["rubrics", rubricId, "cu-portal-url"],
+    queryFn: () => getCuPortalUrl(rubricId!),
+    enabled: !!rubricId,
   });
 }

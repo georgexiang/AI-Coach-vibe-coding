@@ -30,6 +30,18 @@ describe("KeyMessages", () => {
     expect(container.firstChild).toBeInTheDocument();
   });
 
+  it("handles non-array messages gracefully (defensive guard)", () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { container } = render(<KeyMessages messages={"not-an-array" as any} />);
+    expect(container.firstChild).toBeNull();
+  });
+
+  it("handles undefined messages gracefully", () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { container } = render(<KeyMessages messages={undefined as any} />);
+    expect(container.firstChild).toBeNull();
+  });
+
   it("renders mixed delivered and undelivered messages", () => {
     const messages: KeyMessageStatus[] = [
       { message: "Message A", delivered: true, detected_at: "2024-01-01" },

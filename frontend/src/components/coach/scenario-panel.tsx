@@ -31,11 +31,13 @@ export function ScenarioPanel({
   const { t } = useTranslation("coach");
 
   const hcpInitials = scenario.hcp_profile?.name
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2) ?? "HC";
+    ? scenario.hcp_profile.name
+        .split(" ")
+        .map((n) => n[0])
+        .join("")
+        .toUpperCase()
+        .slice(0, 2) || "HC"
+    : "HC";
 
   if (isCollapsed) {
     return (
@@ -54,13 +56,8 @@ export function ScenarioPanel({
     );
   }
 
-  const weightEntries = [
-    { label: "Key Message", value: scenario.weight_key_message },
-    { label: "Objection Handling", value: scenario.weight_objection_handling },
-    { label: "Communication", value: scenario.weight_communication },
-    { label: "Product Knowledge", value: scenario.weight_product_knowledge },
-    { label: "Scientific", value: scenario.weight_scientific_info },
-  ];
+  // Scoring criteria display removed — rubric dimensions are now displayed
+  // via the rubric associated with rubric_id (rendered in ScenarioEditor).
 
   return (
     <div className="flex w-[280px] flex-col border-r border-border bg-muted/50">
@@ -138,18 +135,13 @@ export function ScenarioPanel({
           </CardContent>
         </Card>
 
-        {/* Scoring Criteria */}
+        {/* Scoring Criteria — rubric-based (dimensions shown via rubric) */}
         <Card className="mb-4 bg-card">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">{t("session.scoringCriteria")}</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-1.5">
-            {weightEntries.map((entry) => (
-              <div key={entry.label} className="flex justify-between text-sm">
-                <span className="text-muted-foreground">{entry.label}</span>
-                <span className="font-medium text-foreground">{entry.value}%</span>
-              </div>
-            ))}
+          <CardContent className="text-sm text-muted-foreground">
+            <p>{t("session.rubricBased", "Rubric-based scoring")}</p>
           </CardContent>
         </Card>
       </ScrollArea>

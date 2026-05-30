@@ -1,5 +1,7 @@
 """Authentication service and endpoint tests."""
 
+from datetime import UTC, datetime, timedelta
+
 import pytest
 from jose import jwt
 
@@ -105,7 +107,7 @@ class TestAuthenticateUser:
 # === Integration tests for auth endpoints ===
 
 
-async def _create_test_user(client, username="testuser", password="password123", role="user"):
+async def _create_test_user(username="testuser", password="password123", role="user"):
     """Helper: create a user via direct DB insert and return user data."""
     from app.models.user import User
     from app.services.auth import get_password_hash
@@ -129,7 +131,7 @@ class TestLoginEndpoint:
     """Tests for POST /api/v1/auth/login."""
 
     async def test_login_with_valid_credentials_returns_token(self, client):
-        await _create_test_user(client, username="admin", password="admin123", role="admin")
+        await _create_test_user(username="admin", password="admin123", role="admin")
         response = await client.post(
             "/api/v1/auth/login",
             json={"username": "admin", "password": "admin123"},
@@ -140,7 +142,7 @@ class TestLoginEndpoint:
         assert data["token_type"] == "bearer"
 
     async def test_login_with_wrong_password_returns_401(self, client):
-        await _create_test_user(client, username="admin", password="admin123")
+        await _create_test_user(username="admin", password="admin123")
         response = await client.post(
             "/api/v1/auth/login",
             json={"username": "admin", "password": "wrong"},
@@ -159,7 +161,7 @@ class TestMeEndpoint:
     """Tests for GET /api/v1/auth/me."""
 
     async def test_me_with_valid_token_returns_user_profile(self, client):
-        await _create_test_user(client, username="mruser", password="pass123", role="user")
+        await _create_test_user(username="mruser", password="pass123", role="user")
         login_resp = await client.post(
             "/api/v1/auth/login",
             json={"username": "mruser", "password": "pass123"},
@@ -192,9 +194,9 @@ class TestMeEndpoint:
 class TestRoleBasedAccess:
     """Tests for role-based access control via require_role dependency."""
 
-    async def test_admin_endpoint_rejects_user_role_with_403(self, client):
+    async def test_admin_endpoint_rejects_user_role_with_403(self):
         """User with role='user' should get 403 on admin-only endpoint."""
-        await _create_test_user(client, username="regularuser", password="pass", role="user")
+        await _create_test_user(username="regularuser", password="pass", role="user")
 
         # The /me endpoint doesn't require admin role, so we test with
         # a hypothetical admin endpoint. Since none exists yet, we verify
@@ -219,9 +221,9 @@ class TestRoleBasedAccess:
             await admin_checker(user=user)
         assert exc_info.value.status_code == 403
 
-    async def test_admin_endpoint_allows_admin_role(self, client):
+    async def test_admin_endpoint_allows_admin_role(self):
         """User with role='admin' should pass the admin role checker."""
-        await _create_test_user(client, username="adminuser", password="pass", role="admin")
+        await _create_test_user(username="adminuser", password="pass", role="admin")
 
         from app.dependencies import require_role
         from app.models.user import User
@@ -238,3 +240,188 @@ class TestRoleBasedAccess:
         # Should not raise
         returned_user = await admin_checker(user=user)
         assert returned_user.role == "admin"
+
+
+# === Tests for /api/v1/auth/refresh endpoint ===
+
+
+class TestRefreshEndpoint:
+    """Tests for POST /api/v1/auth/refresh."""
+
+    async def test_refresh_with_valid_token_returns_new_token(self, client):
+        """A valid token should allow refreshing and return a new access token."""
+        await _create_test_user(username="refreshuser", password="pass123")
+        login_resp = await client.post(
+            "/api/v1/auth/login",
+            json={"username": "refreshuser", "password": "pass123"},
+        )
+        token = login_resp.json()["access_token"]
+
+        response = await client.post(
+            "/api/v1/auth/refresh",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "access_token" in data
+        assert data["token_type"] == "bearer"
+        # New token should be decodable and reference the same user
+        new_payload = jwt.decode(
+            data["access_token"], settings.secret_key, algorithms=[settings.algorithm]
+        )
+        old_payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
+        assert new_payload["sub"] == old_payload["sub"]
+
+    async def test_refresh_without_token_returns_401(self, client):
+        """Refresh without any token should return 401."""
+        response = await client.post("/api/v1/auth/refresh")
+        assert response.status_code == 401
+
+    async def test_refresh_with_invalid_token_returns_401(self, client):
+        """Refresh with an invalid token should return 401."""
+        response = await client.post(
+            "/api/v1/auth/refresh",
+            headers={"Authorization": "Bearer invalid.token.value"},
+        )
+        assert response.status_code == 401
+
+    async def test_refresh_with_expired_token_returns_401(self, client):
+        """Refresh with an expired token should return 401."""
+        await _create_test_user(username="expireduser", password="pass123")
+
+        # Create a token that expired 1 hour ago
+        from app.services.auth import create_access_token
+
+        expired_token = create_access_token(
+            data={"sub": "some-user-id"}, expires_delta=timedelta(seconds=-3600)
+        )
+
+        response = await client.post(
+            "/api/v1/auth/refresh",
+            headers={"Authorization": f"Bearer {expired_token}"},
+        )
+        assert response.status_code == 401
+
+
+# === Tests for get_current_user edge cases ===
+
+
+class TestGetCurrentUserEdgeCases:
+    """Tests for edge cases in the get_current_user dependency."""
+
+    async def test_token_without_sub_claim_returns_401(self, client):
+        """A token that has no 'sub' claim should return 401."""
+        # Create a valid JWT without a 'sub' field
+        token_data = {"exp": datetime.now(UTC) + timedelta(hours=1)}
+        token_no_sub = jwt.encode(token_data, settings.secret_key, algorithm=settings.algorithm)
+
+        response = await client.get(
+            "/api/v1/auth/me",
+            headers={"Authorization": f"Bearer {token_no_sub}"},
+        )
+        assert response.status_code == 401
+        data = response.json()
+        assert data["code"] == "INVALID_TOKEN"
+
+    async def test_deleted_user_after_token_issued_returns_401(self, client):
+        """If a user is deleted after their token was issued, return 401."""
+        from app.models.user import User
+        from app.services.auth import create_access_token
+        from tests.conftest import TestSessionLocal
+
+        # Create user and get their ID
+        user_data = await _create_test_user(username="tobeDeleted", password="pass123")
+        user_id = user_data["id"]
+
+        # Create a valid token for this user
+        token = create_access_token(data={"sub": user_id})
+
+        # Delete the user from the database
+        async with TestSessionLocal() as session:
+            from sqlalchemy import select
+
+            result = await session.execute(select(User).where(User.id == user_id))
+            user = result.scalar_one()
+            await session.delete(user)
+            await session.commit()
+
+        # Try to use the token - should get 401 USER_NOT_FOUND
+        response = await client.get(
+            "/api/v1/auth/me",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 401
+        data = response.json()
+        assert data["code"] == "USER_NOT_FOUND"
+
+    async def test_inactive_user_returns_401(self, client):
+        """A user with is_active=False should be denied access with 401."""
+        from app.models.user import User
+        from app.services.auth import create_access_token, get_password_hash
+        from tests.conftest import TestSessionLocal
+
+        # Create an inactive user directly
+        async with TestSessionLocal() as session:
+            user = User(
+                username="inactiveuser",
+                email="inactive@test.com",
+                hashed_password=get_password_hash("pass123"),
+                full_name="Inactive User",
+                role="user",
+                is_active=False,
+            )
+            session.add(user)
+            await session.commit()
+            await session.refresh(user)
+            user_id = user.id
+
+        # Create a valid token for this inactive user
+        token = create_access_token(data={"sub": user_id})
+
+        # Try to use the token - should get 401 INACTIVE_USER
+        response = await client.get(
+            "/api/v1/auth/me",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 401
+        data = response.json()
+        assert data["code"] == "INACTIVE_USER"
+
+
+# === Tests for token expiration behavior ===
+
+
+class TestTokenExpiration:
+    """Tests for expired token handling."""
+
+    async def test_expired_token_on_me_endpoint_returns_401(self, client):
+        """An expired token should be rejected with 401."""
+        await _create_test_user(username="expuser", password="pass123")
+
+        # Create a token that is already expired
+        from app.services.auth import create_access_token
+
+        expired_token = create_access_token(
+            data={"sub": "some-id"}, expires_delta=timedelta(seconds=-3600)
+        )
+
+        response = await client.get(
+            "/api/v1/auth/me",
+            headers={"Authorization": f"Bearer {expired_token}"},
+        )
+        assert response.status_code == 401
+        data = response.json()
+        assert data["code"] == "INVALID_TOKEN"
+
+    async def test_token_at_exact_expiry_boundary(self, client):
+        """A token with 0 seconds expiry (expired at creation time) should be rejected."""
+        from app.services.auth import create_access_token
+
+        # Token that expired immediately
+        token = create_access_token(data={"sub": "some-id"}, expires_delta=timedelta(seconds=-1))
+
+        response = await client.get(
+            "/api/v1/auth/me",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 401

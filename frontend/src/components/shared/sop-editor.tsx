@@ -104,7 +104,7 @@ export function SopEditor({
       <div className="flex flex-col rounded-lg border border-border">
         <div className="border-b border-border bg-muted/50 px-4 py-2">
           <span className="text-sm font-medium text-muted-foreground">
-            {t("editor.preview", { defaultValue: "Preview" })}
+            {t("editor.preview")}
           </span>
         </div>
         <ScrollArea className="h-[560px]">

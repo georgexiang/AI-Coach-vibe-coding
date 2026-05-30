@@ -26,6 +26,11 @@ class ConflictException(AppException):
         super().__init__(409, "CONFLICT", message, details)
 
 
+class ScoringUnavailableException(AppException):
+    def __init__(self, message: str = "Scoring service unavailable", details: Any = None):
+        super().__init__(503, "SCORING_UNAVAILABLE", message, details)
+
+
 def not_found(message: str = "Resource not found") -> NoReturn:
     raise NotFoundException(message)
 

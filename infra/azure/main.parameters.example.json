@@ -1,0 +1,93 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "namePrefix": {
+      "value": "aicoach"
+    },
+    "environmentName": {
+      "value": "demo"
+    },
+    "location": {
+      "value": "swedencentral"
+    },
+    "owner": {
+      "value": ""
+    },
+    "costCenter": {
+      "value": ""
+    },
+    "containerRegistryName": {
+      "value": "aicoachdemoacr"
+    },
+    "storageAccountName": {
+      "value": "aicoachdemost"
+    },
+    "postgresAdminLogin": {
+      "value": "aicoachadmin"
+    },
+    "postgresAdminPassword": {
+      "value": "REPLACE_WITH_SECURE_VALUE"
+    },
+    "jwtSecret": {
+      "value": "REPLACE_WITH_SECURE_VALUE"
+    },
+    "encryptionKey": {
+      "value": "REPLACE_WITH_FERNET_KEY"
+    },
+    "backendImage": {
+      "value": "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest"
+    },
+    "frontendImage": {
+      "value": "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest"
+    },
+    "corsOrigins": {
+      "value": "http://localhost:5173,http://localhost:3000"
+    },
+    "githubOwner": {
+      "value": "jeromeecho"
+    },
+    "githubRepo": {
+      "value": "AI-Coach-vibe-coding"
+    },
+    "githubBranch": {
+      "value": "main"
+    },
+    "chatDeploymentName": {
+      "value": "gpt-4o"
+    },
+    "chatModelName": {
+      "value": "gpt-4o"
+    },
+    "chatModelVersion": {
+      "value": "2024-11-20"
+    },
+    "realtimeDeploymentName": {
+      "value": "gpt-realtime-1-5"
+    },
+    "realtimeModelName": {
+      "value": "gpt-realtime-1.5"
+    },
+    "realtimeModelVersion": {
+      "value": "2026-02-23"
+    },
+    "realtimeDeploymentSkuName": {
+      "value": "GlobalStandard"
+    },
+    "realtimeDeploymentCapacity": {
+      "value": 5
+    },
+    "enableAzureAi": {
+      "value": true
+    },
+    "enableVoiceAndAvatar": {
+      "value": true
+    },
+    "enableContentUnderstanding": {
+      "value": true
+    },
+    "enableAiSearch": {
+      "value": true
+    }
+  }
+}
