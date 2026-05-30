@@ -319,10 +319,84 @@ async def _call_agent_for_evaluation(
                 model_used=model,
                 error_detail="Agent returned empty content",
             )
-        try:
-            parsed = json.loads(content)
-        except json.JSONDecodeError as e:
-            preview = content[:200].replace("\n", " ")
+        return _AICallResult(data=json.loads(content), status="ai_success", model_used=model)
+    except Exception as e:
+        logger.error("Agent evaluation failed: %s", e, exc_info=True)
+        return _AICallResult(
+            data=None, status="ai_error", model_used=model,
+            error_detail=str(e)[:500],
+        )
+
+
+async def _call_openai_for_evaluation(db: AsyncSession, prompt: str) -> _AICallResult:
+    """Call Azure OpenAI for skill evaluation. Returns structured result with status."""
+    endpoint = await config_service.get_effective_endpoint(db, "azure_openai")
+    api_key = await config_service.get_effective_key(db, "azure_openai")
+
+    if not endpoint:
+        logger.info("L2 evaluation unavailable: no Azure OpenAI endpoint configured")
+        return _AICallResult(
+            data=None,
+            status="ai_unavailable",
+            error_detail="Azure OpenAI endpoint not configured",
+        )
+
+    config = await config_service.get_config(db, "azure_openai")
+    from app.config import get_settings
+
+    settings = get_settings()
+    deployment = (
+        config.model_or_deployment
+        if config and config.model_or_deployment
+        else settings.default_chat_model
+    )
+
+    try:
+        from openai import AsyncAzureOpenAI
+
+        if api_key:
+            client = AsyncAzureOpenAI(
+                azure_endpoint=endpoint,
+                api_key=api_key,
+                api_version=settings.skill_ai_api_version,
+            )
+        else:
+            from azure.identity import DefaultAzureCredential, get_bearer_token_provider
+            credential = DefaultAzureCredential()
+            token_provider = get_bearer_token_provider(credential, "https://cognitiveservices.azure.com/.default")
+            client = AsyncAzureOpenAI(
+                azure_endpoint=endpoint,
+                azure_ad_token_provider=token_provider,
+                api_version=settings.skill_ai_api_version,
+            )
+    except ImportError:
+        logger.warning("openai package not installed, cannot run L2 evaluation")
+        return _AICallResult(
+            data=None,
+            status="ai_unavailable",
+            model_used=deployment,
+            error_detail="openai package not installed",
+        )
+
+    try:
+        response = await client.chat.completions.create(
+            model=deployment,
+            messages=[
+                {
+                    "role": "system",
+                    "content": _load_evaluator_instructions()
+                    + "\n\nIMPORTANT: Return ONLY valid JSON, no markdown fences.",
+                },
+                {"role": "user", "content": prompt},
+            ],
+            temperature=settings.skill_ai_temperature,
+            max_completion_tokens=settings.skill_ai_max_tokens,
+            response_format={"type": "json_object"},
+        )
+
+        content = response.choices[0].message.content
+        if not content:
+            logger.error("L2 evaluation returned empty content")
             return _AICallResult(
                 data=None,
                 status="ai_error",

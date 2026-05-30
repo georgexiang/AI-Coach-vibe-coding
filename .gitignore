@@ -68,3 +68,6 @@ backend/ai_coach.db-shm
 backend/ai_coach.db-wal
 backend/test_avatar_direct.py
 frontend/e2e/screenshots/
+
+docs/
+backend/data/

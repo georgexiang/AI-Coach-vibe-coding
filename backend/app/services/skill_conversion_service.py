@@ -201,13 +201,35 @@ async def _get_openai_client(db: AsyncSession) -> tuple:
 
     from app.services.azure_auth import get_azure_openai_client
 
-    client = await get_azure_openai_client(
-        endpoint=endpoint,
-        api_key=api_key,
-        api_version=settings.skill_ai_api_version,
-    )
+    if api_key:
+        client = AsyncAzureOpenAI(
+            azure_endpoint=endpoint,
+            api_key=api_key,
+            api_version=settings.skill_ai_api_version,
+        )
+    else:
+        from azure.identity.aio import (
+            DefaultAzureCredential as AsyncDefaultAzureCredential,
+            get_bearer_token_provider as async_get_bearer_token_provider,
+        )
+
+        credential = AsyncDefaultAzureCredential()
+        token_provider = async_get_bearer_token_provider(
+            credential, "https://cognitiveservices.azure.com/.default"
+        )
+        client = AsyncAzureOpenAI(
+            azure_endpoint=endpoint,
+            azure_ad_token_provider=token_provider,
+            api_version=settings.skill_ai_api_version,
+        )
 
     return client, deployment
+
+
+async def _get_aad_token(credential) -> str:
+    """Get AAD token for Azure OpenAI."""
+    token = await credential.get_token("https://cognitiveservices.azure.com/.default")
+    return token.token
 
 
 async def _call_sop_extraction(db: AsyncSession, text_chunk: str) -> dict:
@@ -413,8 +435,8 @@ async def extract_resource_texts(db: AsyncSession, skill_id: str) -> None:
             SkillResource.skill_id == skill_id,
             SkillResource.resource_type == "reference",
             or_(
-                SkillResource.extraction_status.is_(None),
                 SkillResource.extraction_status != "completed",
+                SkillResource.extraction_status.is_(None),
             ),
         )
     )

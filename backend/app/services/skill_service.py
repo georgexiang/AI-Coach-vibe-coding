@@ -222,14 +222,8 @@ async def update_skill(db: AsyncSession, skill_id: str, data: SkillUpdate, user_
 
 
 async def delete_skill(db: AsyncSession, skill_id: str) -> None:
-    """Delete a skill. Only draft or failed skills can be deleted."""
+    """Delete a skill. Admin can delete skills in any status."""
     skill = await get_skill(db, skill_id)
-
-    if skill.status not in ("draft", "failed"):
-        bad_request(
-            f"Cannot delete skill in '{skill.status}' status. "
-            "Only draft or failed skills can be deleted."
-        )
 
     # Delete associated resource files from storage
     from app.services.storage import get_storage
@@ -253,6 +247,16 @@ async def delete_skill(db: AsyncSession, skill_id: str) -> None:
 async def publish_skill(db: AsyncSession, skill_id: str, user_id: str) -> Skill:
     """Publish a skill: enforce quality gates, create published version snapshot."""
     skill = await get_skill(db, skill_id)
+
+    # Idempotent: if already published, return as-is
+    if skill.status == "published":
+        return skill
+
+    # Auto-transition draft → review → published
+    if skill.status == "draft":
+        validate_status_transition(skill.status, "review")
+        skill.status = "review"
+        await db.flush()
 
     # Enforce transition: must be in review
     validate_status_transition(skill.status, "published")
