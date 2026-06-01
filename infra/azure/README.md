@@ -11,8 +11,13 @@ The first implementation goal is a complete Azure target deployment surface whil
 | Location | `swedencentral` |
 | Environment | `demo` |
 | Name prefix | `aicoach` |
+| Deployment mode | `foundryOnly` |
+| Network profile | `publicDemo` |
+| Knowledge base mode | `none` |
 
 ## Intended scope
+
+The default script path deploys the Foundry/OpenAI core plus the app platform. Heavier services remain available through explicit parameters so the infrastructure can support older/full demos without requiring unused services.
 
 - Azure Container Registry
 - Azure Container Apps for backend and frontend
@@ -28,6 +33,13 @@ The first implementation goal is a complete Azure target deployment surface whil
 - Azure AI Search
 - GitHub Actions OIDC bootstrap
 - RBAC role assignments
+
+Optional capabilities:
+
+- `-DeploymentMode fullLegacy` preserves the previous broad deployment shape by enabling Speech/Avatar, Content Understanding, and Azure AI Search.
+- `-NetworkProfile publicDemo` is the current supported network profile and keeps Container Apps public for demo access.
+- `-KnowledgeBaseMode azureAiSearch` deploys Azure AI Search without otherwise switching to the full legacy profile.
+- `-ResourceGroupName <name>` overrides the generated `rg-{prefix}-{environment}-{location}` resource group name.
 
 ## Execution model
 
@@ -47,6 +59,8 @@ Then deploy infrastructure:
 ```
 
 The script creates a local ignored `infra\azure\.local\main.parameters.generated.json`, deploys Bicep, and prints GitHub OIDC values. On later runs, it reuses existing Key Vault secrets instead of rotating application secrets.
+
+By default, Azure AI Search is not deployed because the current app code does not directly use an Azure AI Search client. Enable it only when you are validating a knowledge-base/Search path.
 
 If you also want to build/push backend and frontend images and update Container Apps:
 

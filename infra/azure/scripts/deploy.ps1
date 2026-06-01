@@ -3,6 +3,13 @@ param(
     [string]$Location = "swedencentral",
     [string]$EnvironmentName = "demo",
     [string]$NamePrefix = "aicoach",
+    [string]$ResourceGroupName = "",
+    [ValidateSet("foundryOnly", "fullLegacy")]
+    [string]$DeploymentMode = "foundryOnly",
+    [ValidateSet("publicDemo")]
+    [string]$NetworkProfile = "publicDemo",
+    [ValidateSet("none", "azureAiSearch")]
+    [string]$KnowledgeBaseMode = "none",
     [string]$GithubOwner = "jeromeecho",
     [string]$GithubRepo = "AI-Coach-vibe-coding",
     [string]$GithubBranch = "main",
@@ -113,7 +120,13 @@ if ($storageToken.Length -gt 22) {
     $storageToken = $storageToken.Substring(0, 22)
 }
 $defaultStorageName = "${storageToken}st"
-$resourceGroupName = "rg-$NamePrefix-$EnvironmentName-$regionToken"
+$defaultResourceGroupName = "rg-$NamePrefix-$EnvironmentName-$regionToken"
+$resourceGroupName = if ([string]::IsNullOrWhiteSpace($ResourceGroupName)) {
+    $defaultResourceGroupName
+}
+else {
+    $ResourceGroupName.Trim()
+}
 $backendContainerAppName = "ca-$NamePrefix-$EnvironmentName-backend"
 $frontendContainerAppName = "ca-$NamePrefix-$EnvironmentName-frontend"
 $defaultBackendImage = "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest"
@@ -166,6 +179,10 @@ $parameters = [ordered]@{
         namePrefix = @{ value = $NamePrefix }
         environmentName = @{ value = $EnvironmentName }
         location = @{ value = $Location }
+        resourceGroupName = @{ value = $resourceGroupName }
+        deploymentMode = @{ value = $DeploymentMode }
+        networkProfile = @{ value = $NetworkProfile }
+        knowledgeBaseMode = @{ value = $KnowledgeBaseMode }
         containerRegistryName = @{ value = $defaultAcrName }
         storageAccountName = @{ value = $defaultStorageName }
         backendImage = @{ value = $backendImage }

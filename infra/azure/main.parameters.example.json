@@ -11,6 +11,18 @@
     "location": {
       "value": "swedencentral"
     },
+    "resourceGroupName": {
+      "value": ""
+    },
+    "deploymentMode": {
+      "value": "foundryOnly"
+    },
+    "networkProfile": {
+      "value": "publicDemo"
+    },
+    "knowledgeBaseMode": {
+      "value": "none"
+    },
     "owner": {
       "value": ""
     },
@@ -81,13 +93,13 @@
       "value": true
     },
     "enableVoiceAndAvatar": {
-      "value": true
+      "value": false
     },
     "enableContentUnderstanding": {
-      "value": true
+      "value": false
     },
     "enableAiSearch": {
-      "value": true
+      "value": false
     }
   }
 }

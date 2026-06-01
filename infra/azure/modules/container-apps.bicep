@@ -28,10 +28,15 @@ param jwtSecret string
 param encryptionKey string
 
 param corsOrigins string
+@allowed([
+  'publicDemo'
+])
+param networkProfile string = 'publicDemo'
 
 var environmentResourceName = 'cae-${namePrefix}-${environmentName}'
 var backendAppName = 'ca-${namePrefix}-${environmentName}-backend'
 var frontendAppName = 'ca-${namePrefix}-${environmentName}-frontend'
+var publicIngress = networkProfile == 'publicDemo'
 
 resource workspace 'Microsoft.OperationalInsights/workspaces@2023-09-01' existing = {
   name: logAnalyticsWorkspaceName
@@ -67,7 +72,7 @@ resource backendApp 'Microsoft.App/containerApps@2023-05-01' = {
     configuration: {
       activeRevisionsMode: 'Single'
       ingress: {
-        external: true
+        external: publicIngress
         targetPort: 8000
         transport: 'auto'
         allowInsecure: false
@@ -190,7 +195,7 @@ resource frontendApp 'Microsoft.App/containerApps@2023-05-01' = {
     configuration: {
       activeRevisionsMode: 'Single'
       ingress: {
-        external: true
+        external: publicIngress
         targetPort: 80
         transport: 'auto'
         allowInsecure: false
@@ -237,6 +242,7 @@ output summary object = {
   frontendUrl: 'https://${frontendApp.properties.configuration.ingress.fqdn}'
   registryLoginServer: registryLoginServer
   location: location
+  networkProfile: networkProfile
 }
 
 output backendUrl string = 'https://${backendApp.properties.configuration.ingress.fqdn}'

@@ -15,6 +15,29 @@ param environmentName string = 'demo'
 @description('Azure region for resource deployment.')
 param location string = 'eastus2'
 
+@description('Optional resource group name. Leave empty to use rg-{namePrefix}-{environmentName}-{location}.')
+param resourceGroupName string = ''
+
+@description('High-level deployment profile. foundryOnly keeps the default footprint small; fullLegacy preserves the previous broad deployment shape.')
+@allowed([
+  'foundryOnly'
+  'fullLegacy'
+])
+param deploymentMode string = 'foundryOnly'
+
+@description('Network exposure profile. publicDemo keeps frontend and backend Container Apps publicly reachable; private networking is a later hardening task.')
+@allowed([
+  'publicDemo'
+])
+param networkProfile string = 'publicDemo'
+
+@description('Optional knowledge base capability. Azure AI Search is deployed only when this is azureAiSearch, fullLegacy mode is used, or enableAiSearch is true.')
+@allowed([
+  'none'
+  'azureAiSearch'
+])
+param knowledgeBaseMode string = 'none'
+
 @description('Optional owner tag.')
 param owner string = ''
 
@@ -96,18 +119,23 @@ param realtimeDeploymentCapacity int = 5
 @description('Whether to include Azure AI / Foundry / OpenAI resources in the deployment.')
 param enableAzureAi bool = true
 
-@description('Whether to include Speech / Voice Live / Avatar resources in the deployment plan.')
-param enableVoiceAndAvatar bool = true
+@description('Whether to include Speech / Voice Live / Avatar resources in the deployment plan. fullLegacy also enables this for compatibility.')
+param enableVoiceAndAvatar bool = false
 
-@description('Whether to include Content Understanding resources in the deployment plan.')
-param enableContentUnderstanding bool = true
+@description('Whether to include Content Understanding resources in the deployment plan. fullLegacy also enables this for compatibility.')
+param enableContentUnderstanding bool = false
 
-@description('Whether to include Azure AI Search resources in the deployment plan.')
-param enableAiSearch bool = true
+@description('Whether to include Azure AI Search resources in the deployment plan. Prefer knowledgeBaseMode=azureAiSearch for new deployments.')
+param enableAiSearch bool = false
 
 var locationToken = replace(toLower(location), ' ', '')
-var resourceGroupName = 'rg-${namePrefix}-${environmentName}-${locationToken}'
+var effectiveResourceGroupName = empty(resourceGroupName) ? 'rg-${namePrefix}-${environmentName}-${locationToken}' : resourceGroupName
 var deploymentName = '${namePrefix}-${environmentName}-${locationToken}'
+var isFullLegacyDeployment = deploymentMode == 'fullLegacy'
+var deployAzureAi = enableAzureAi || isFullLegacyDeployment
+var deployVoiceAndAvatar = enableVoiceAndAvatar || isFullLegacyDeployment
+var deployContentUnderstanding = enableContentUnderstanding || isFullLegacyDeployment
+var deployAiSearch = enableAiSearch || knowledgeBaseMode == 'azureAiSearch' || isFullLegacyDeployment
 var commonTags = union({
   project: 'ai-coach'
   environment: environmentName
@@ -119,7 +147,7 @@ var commonTags = union({
 })
 
 resource deploymentResourceGroup 'Microsoft.Resources/resourceGroups@2024-03-01' = {
-  name: resourceGroupName
+  name: effectiveResourceGroupName
   location: location
   tags: commonTags
 }
@@ -221,10 +249,11 @@ module containerApps './modules/container-apps.bicep' = {
     jwtSecret: jwtSecret
     encryptionKey: encryptionKey
     corsOrigins: corsOrigins
+    networkProfile: networkProfile
   }
 }
 
-module aiFoundry './modules/ai-foundry.bicep' = if (enableAzureAi) {
+module aiFoundry './modules/ai-foundry.bicep' = if (deployAzureAi) {
   name: '${deploymentName}-ai-foundry'
   scope: deploymentResourceGroup
   params: {
@@ -244,7 +273,7 @@ module aiFoundry './modules/ai-foundry.bicep' = if (enableAzureAi) {
   }
 }
 
-module aiOpenAi './modules/ai-openai.bicep' = if (enableAzureAi) {
+module aiOpenAi './modules/ai-openai.bicep' = if (deployAzureAi) {
   name: '${deploymentName}-ai-openai'
   scope: deploymentResourceGroup
   params: {
@@ -263,7 +292,7 @@ module aiOpenAi './modules/ai-openai.bicep' = if (enableAzureAi) {
   }
 }
 
-module speechAvatar './modules/speech-avatar.bicep' = if (enableVoiceAndAvatar) {
+module speechAvatar './modules/speech-avatar.bicep' = if (deployVoiceAndAvatar) {
   name: '${deploymentName}-speech-avatar'
   scope: deploymentResourceGroup
   params: {
@@ -271,11 +300,11 @@ module speechAvatar './modules/speech-avatar.bicep' = if (enableVoiceAndAvatar) 
     environmentName: environmentName
     location: location
     tags: commonTags
-    enableAvatar: enableVoiceAndAvatar
+    enableAvatar: deployVoiceAndAvatar
   }
 }
 
-module contentUnderstanding './modules/content-understanding.bicep' = if (enableContentUnderstanding) {
+module contentUnderstanding './modules/content-understanding.bicep' = if (deployContentUnderstanding) {
   name: '${deploymentName}-content-understanding'
   scope: deploymentResourceGroup
   params: {
@@ -286,7 +315,7 @@ module contentUnderstanding './modules/content-understanding.bicep' = if (enable
   }
 }
 
-module aiSearch './modules/ai-search.bicep' = if (enableAiSearch) {
+module aiSearch './modules/ai-search.bicep' = if (deployAiSearch) {
   name: '${deploymentName}-ai-search'
   scope: deploymentResourceGroup
   params: {
@@ -320,15 +349,15 @@ module roleAssignments './modules/role-assignments.bicep' = {
     location: location
     tags: commonTags
     backendIdentityPrincipalId: managedIdentity.outputs.backendIdentityPrincipalId
-    enableAzureAi: enableAzureAi
-    enableVoiceAndAvatar: enableVoiceAndAvatar
-    enableContentUnderstanding: enableContentUnderstanding
-    enableAiSearch: enableAiSearch
+    enableAzureAi: deployAzureAi
+    enableVoiceAndAvatar: deployVoiceAndAvatar
+    enableContentUnderstanding: deployContentUnderstanding
+    enableAiSearch: deployAiSearch
     githubDeploymentPrincipalId: githubOidc.outputs.githubDeploymentPrincipalId
   }
 }
 
-output resourceGroupName string = resourceGroupName
+output resourceGroupName string = effectiveResourceGroupName
 output location string = location
 output tenantId string = tenant().tenantId
 output containerRegistryName string = containerRegistry.outputs.summary.registryName
@@ -346,11 +375,20 @@ output deployment object = {
   postgresql: postgresql.outputs.summary
   storage: storage.outputs.summary
   containerApps: containerApps.outputs.summary
-  aiFoundry: enableAzureAi ? aiFoundry!.outputs.summary : null
-  aiOpenAi: enableAzureAi ? aiOpenAi!.outputs.summary : null
-  speechAvatar: enableVoiceAndAvatar ? speechAvatar!.outputs.summary : null
-  contentUnderstanding: enableContentUnderstanding ? contentUnderstanding!.outputs.summary : null
-  aiSearch: enableAiSearch ? aiSearch!.outputs.summary : null
+  profile: {
+    deploymentMode: deploymentMode
+    networkProfile: networkProfile
+    knowledgeBaseMode: knowledgeBaseMode
+    enableAzureAi: deployAzureAi
+    enableVoiceAndAvatar: deployVoiceAndAvatar
+    enableContentUnderstanding: deployContentUnderstanding
+    enableAiSearch: deployAiSearch
+  }
+  aiFoundry: deployAzureAi ? aiFoundry!.outputs.summary : null
+  aiOpenAi: deployAzureAi ? aiOpenAi!.outputs.summary : null
+  speechAvatar: deployVoiceAndAvatar ? speechAvatar!.outputs.summary : null
+  contentUnderstanding: deployContentUnderstanding ? contentUnderstanding!.outputs.summary : null
+  aiSearch: deployAiSearch ? aiSearch!.outputs.summary : null
   githubOidc: githubOidc.outputs.summary
   roleAssignments: roleAssignments.outputs.summary
 }
@@ -360,5 +398,5 @@ output githubActions object = {
   AZURE_TENANT_ID: tenant().tenantId
   AZURE_SUBSCRIPTION_ID: subscription().subscriptionId
   ACR_NAME: containerRegistry.outputs.summary.registryName
-  RESOURCE_GROUP: resourceGroupName
+  RESOURCE_GROUP: effectiveResourceGroupName
 }
