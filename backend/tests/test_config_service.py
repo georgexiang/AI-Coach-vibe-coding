@@ -4,6 +4,7 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.schemas.azure_config import ServiceConfigUpdate
+from app.services import config_service as config_service_module
 from app.services.config_service import (
     get_all_configs,
     get_config,
@@ -162,3 +163,42 @@ async def test_get_decrypted_key_returns_empty_for_missing(db_session: AsyncSess
     """get_decrypted_key should return empty string when service not found."""
     key = await get_decrypted_key(db_session, "nonexistent")
     assert key == ""
+
+
+async def test_keyvault_mode_stores_key_outside_database(
+    db_session: AsyncSession,
+    sample_update,
+    monkeypatch,
+):
+    """Key Vault mode should write keys to the secret store and leave DB key empty."""
+
+    class FakeSecretStore:
+        def __init__(self) -> None:
+            self.values: dict[str, str] = {}
+
+        async def get_secret(self, service_name: str, encrypted_value: str = "") -> str:
+            return self.values.get(service_name, "")
+
+        async def set_secret(self, service_name: str, value: str) -> str:
+            self.values[service_name] = value
+            return ""
+
+        async def mask_secret(self, service_name: str, encrypted_value: str = "") -> str:
+            value = self.values.get(service_name, "")
+            return ("****" + value[-4:]) if value else ""
+
+    fake_store = FakeSecretStore()
+    monkeypatch.setattr(config_service_module, "get_secret_store", lambda: fake_store)
+    monkeypatch.setattr(config_service_module, "is_keyvault_secret_store", lambda: True)
+
+    config = await upsert_config(
+        db=db_session,
+        service_name="azure_openai",
+        display_name="Azure OpenAI",
+        update=sample_update,
+        updated_by="admin-user-id",
+    )
+
+    assert config.api_key_encrypted == ""
+    assert fake_store.values["azure_openai"] == "sk-test-api-key-1234"
+    assert await get_decrypted_key(db_session, "azure_openai") == "sk-test-api-key-1234"

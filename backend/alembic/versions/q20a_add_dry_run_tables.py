@@ -16,15 +16,26 @@ from alembic import op
 revision: str = "q20a00000001"
 down_revision: str = "p19a00000001"
 branch_labels: str | Sequence[str] | None = None
-depends_on: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = "960bc2f081dd"
 
 
 def upgrade() -> None:
     op.create_table(
         "dry_runs",
         sa.Column("id", sa.String(36), primary_key=True),
-        sa.Column("skill_id", sa.String(36), sa.ForeignKey("skills.id", ondelete="CASCADE"), nullable=False, index=True),
-        sa.Column("skill_version_id", sa.String(36), sa.ForeignKey("skill_versions.id", ondelete="SET NULL"), nullable=True),
+        sa.Column(
+            "skill_id",
+            sa.String(36),
+            sa.ForeignKey("skills.id", ondelete="CASCADE"),
+            nullable=False,
+            index=True,
+        ),
+        sa.Column(
+            "skill_version_id",
+            sa.String(36),
+            sa.ForeignKey("skill_versions.id", ondelete="SET NULL"),
+            nullable=True,
+        ),
         sa.Column("status", sa.String(20), server_default="pending", nullable=False, index=True),
         sa.Column("run_number", sa.Integer(), nullable=False),
         sa.Column("executability_score", sa.Integer(), nullable=True),
@@ -47,7 +58,13 @@ def upgrade() -> None:
     op.create_table(
         "dry_run_messages",
         sa.Column("id", sa.String(36), primary_key=True),
-        sa.Column("dry_run_id", sa.String(36), sa.ForeignKey("dry_runs.id", ondelete="CASCADE"), nullable=False, index=True),
+        sa.Column(
+            "dry_run_id",
+            sa.String(36),
+            sa.ForeignKey("dry_runs.id", ondelete="CASCADE"),
+            nullable=False,
+            index=True,
+        ),
         sa.Column("sequence_number", sa.Integer(), nullable=False),
         sa.Column("role", sa.String(20), nullable=False),
         sa.Column("content", sa.Text(), nullable=False),

@@ -69,6 +69,16 @@ class RubricUpdate(BaseModel):
                 raise ValueError(msg)
         return v
 
+    @model_validator(mode="after")
+    def validate_category_weights(self) -> "RubricUpdate":
+        if (
+            self.content_weight is not None
+            and self.voice_weight is not None
+            and self.content_weight + self.voice_weight != 100
+        ):
+            raise ValueError("content_weight + voice_weight must equal 100")
+        return self
+
     model_config = ConfigDict(from_attributes=True)
 
 

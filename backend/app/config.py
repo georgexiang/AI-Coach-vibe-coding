@@ -11,6 +11,14 @@ class Settings(BaseSettings):
 
     # Database
     database_url: str = "sqlite+aiosqlite:///./ai_coach.db"
+    database_auth_mode: str = "password"  # password | azure_ad
+    database_host: str = ""
+    database_port: int = 5432
+    database_name: str = "ai_coach"
+    database_user: str = ""
+    database_ssl: str = "require"
+    database_pool_recycle_seconds: int = 1800
+    database_auto_create_tables: bool = True
 
     # JWT
     secret_key: str = "change-me-in-production"
@@ -55,6 +63,7 @@ class Settings(BaseSettings):
 
     # Azure Tenant (for portal URL generation)
     azure_tenant_id: str = ""
+    azure_client_id: str = ""
 
     # Azure Content Understanding (ARCH-05)
     azure_content_endpoint: str = ""
@@ -72,6 +81,8 @@ class Settings(BaseSettings):
 
     # Encryption (for API key storage)
     encryption_key: str = ""  # Set via ENCRYPTION_KEY env var; generated at runtime if empty
+    secret_store: str = "database"  # database | keyvault
+    azure_key_vault_url: str = ""
 
     # Seed data control: set SEED_DATA_IGNORE=true to skip seed on startup
     seed_data_ignore: bool = False

@@ -78,6 +78,40 @@ param frontendImage string = 'mcr.microsoft.com/azuredocs/containerapps-hellowor
 @description('Backend CORS origins. Frontend normally calls the backend through nginx /api proxy, so same-origin browser calls do not require CORS.')
 param corsOrigins string = 'http://localhost:5173,http://localhost:3000'
 
+@description('Backend database auth mode. password preserves legacy DATABASE_URL auth; azureAd uses backend Managed Identity / Entra token auth.')
+@allowed([
+  'password'
+  'azureAd'
+])
+param backendDatabaseAuthMode string = 'password'
+
+@description('Service API key storage. database preserves encrypted DB storage; keyvault stores Admin UI service keys in Key Vault.')
+@allowed([
+  'database'
+  'keyvault'
+])
+param azureServiceKeyStorage string = 'database'
+
+@description('Microsoft Entra admin login/display name for PostgreSQL Flexible Server. Required when backendDatabaseAuthMode=azureAd for initial DB bootstrap.')
+param postgresEntraAdminLogin string = ''
+
+@description('Microsoft Entra admin object ID for PostgreSQL Flexible Server. Required when backendDatabaseAuthMode=azureAd for initial DB bootstrap.')
+param postgresEntraAdminObjectId string = ''
+
+@description('Microsoft Entra admin principal type for PostgreSQL Flexible Server.')
+@allowed([
+  'User'
+  'Group'
+  'ServicePrincipal'
+])
+param postgresEntraAdminPrincipalType string = 'User'
+
+@description('Manage first-deployment bootstrap secrets in Key Vault and PostgreSQL admin password. Set false for later updates that should not rotate existing secrets.')
+param manageBootstrapSecrets bool = true
+
+@description('Allow backend startup to create missing tables. Keep false for production/migration-governed deployments; use true for first-pass demo initialization.')
+param databaseAutoCreateTables bool = false
+
 @description('GitHub repository owner or organization for OIDC federation.')
 param githubOwner string = 'jeromeecho'
 
@@ -95,26 +129,6 @@ param chatModelName string = 'gpt-4o'
 
 @description('Default Azure OpenAI chat/scoring model version. Confirm available versions in the target region before deployment.')
 param chatModelVersion string = '2024-11-20'
-
-@description('Default Azure OpenAI realtime / Voice Live deployment name.')
-param realtimeDeploymentName string = 'gpt-realtime-1-5'
-
-@description('Default Azure OpenAI realtime / Voice Live model name.')
-param realtimeModelName string = 'gpt-realtime-1.5'
-
-@description('Default Azure OpenAI realtime / Voice Live model version. Confirm available versions in the target region before deployment.')
-param realtimeModelVersion string = '2026-02-23'
-
-@description('Azure OpenAI realtime deployment SKU. Realtime preview often requires GlobalStandard even when chat deployments use Standard.')
-@allowed([
-  'GlobalStandard'
-  'Standard'
-])
-param realtimeDeploymentSkuName string = 'GlobalStandard'
-
-@description('Realtime deployment capacity allocation. Keep this within the remaining quota for the selected realtime model/SKU/region.')
-@minValue(1)
-param realtimeDeploymentCapacity int = 5
 
 @description('Whether to include Azure AI / Foundry / OpenAI resources in the deployment.')
 param enableAzureAi bool = true
@@ -136,6 +150,7 @@ var deployAzureAi = enableAzureAi || isFullLegacyDeployment
 var deployVoiceAndAvatar = enableVoiceAndAvatar || isFullLegacyDeployment
 var deployContentUnderstanding = enableContentUnderstanding || isFullLegacyDeployment
 var deployAiSearch = enableAiSearch || knowledgeBaseMode == 'azureAiSearch' || isFullLegacyDeployment
+var useAzureAdDatabaseAuth = backendDatabaseAuthMode == 'azureAd'
 var commonTags = union({
   project: 'ai-coach'
   environment: environmentName
@@ -197,6 +212,7 @@ module keyVault './modules/key-vault.bicep' = {
     jwtSecret: jwtSecret
     encryptionKey: encryptionKey
     postgresAdminPassword: postgresAdminPassword
+    manageBootstrapSecrets: manageBootstrapSecrets
   }
 }
 
@@ -210,6 +226,20 @@ module postgresql './modules/postgresql.bicep' = {
     tags: commonTags
     administratorLogin: postgresAdminLogin
     administratorPassword: postgresAdminPassword
+    manageAdministratorPassword: manageBootstrapSecrets
+    activeDirectoryAuthEnabled: useAzureAdDatabaseAuth
+  }
+}
+
+module postgresqlEntraAdmin './modules/postgresql-entra-admin.bicep' = {
+  name: '${deploymentName}-postgresql-entra-admin'
+  scope: deploymentResourceGroup
+  params: {
+    serverName: postgresql.outputs.serverName
+    activeDirectoryAuthEnabled: useAzureAdDatabaseAuth
+    entraAdminLogin: postgresEntraAdminLogin
+    entraAdminSid: postgresEntraAdminObjectId
+    entraAdminPrincipalType: postgresEntraAdminPrincipalType
   }
 }
 
@@ -237,18 +267,21 @@ module containerApps './modules/container-apps.bicep' = {
     applicationInsightsConnectionString: monitoring.outputs.applicationInsightsConnectionString
     registryLoginServer: containerRegistry.outputs.registryLoginServer
     backendIdentityId: managedIdentity.outputs.backendIdentityId
+    backendIdentityName: managedIdentity.outputs.backendIdentityName
     backendIdentityClientId: managedIdentity.outputs.backendIdentityClientId
     backendImage: backendImage
     frontendImage: frontendImage
     postgresServerFqdn: postgresql.outputs.serverFqdn
     postgresDatabaseName: postgresql.outputs.databaseName
     postgresAdminLogin: postgresql.outputs.administratorLogin
+    keyVaultUri: keyVault.outputs.summary.vaultUri
     storageAccountBlobEndpoint: storage.outputs.blobEndpoint
     storageContainerName: 'materials'
     postgresAdminPassword: postgresAdminPassword
-    jwtSecret: jwtSecret
-    encryptionKey: encryptionKey
     corsOrigins: corsOrigins
+    backendDatabaseAuthMode: backendDatabaseAuthMode
+    azureServiceKeyStorage: azureServiceKeyStorage
+    databaseAutoCreateTables: databaseAutoCreateTables
     networkProfile: networkProfile
   }
 }
@@ -265,11 +298,6 @@ module aiFoundry './modules/ai-foundry.bicep' = if (deployAzureAi) {
     chatDeploymentName: chatDeploymentName
     chatModelName: chatModelName
     chatModelVersion: chatModelVersion
-    realtimeDeploymentName: realtimeDeploymentName
-    realtimeModelName: realtimeModelName
-    realtimeModelVersion: realtimeModelVersion
-    realtimeDeploymentSkuName: realtimeDeploymentSkuName
-    realtimeDeploymentCapacity: realtimeDeploymentCapacity
   }
 }
 
@@ -284,11 +312,6 @@ module aiOpenAi './modules/ai-openai.bicep' = if (deployAzureAi) {
     chatDeploymentName: chatDeploymentName
     chatModelName: chatModelName
     chatModelVersion: chatModelVersion
-    realtimeDeploymentName: realtimeDeploymentName
-    realtimeModelName: realtimeModelName
-    realtimeModelVersion: realtimeModelVersion
-    realtimeDeploymentSkuName: realtimeDeploymentSkuName
-    realtimeDeploymentCapacity: realtimeDeploymentCapacity
   }
 }
 
@@ -362,10 +385,17 @@ output location string = location
 output tenantId string = tenant().tenantId
 output containerRegistryName string = containerRegistry.outputs.summary.registryName
 output containerRegistryLoginServer string = containerRegistry.outputs.registryLoginServer
+output storageAccountName string = storage.outputs.summary.storageAccountName
+output storageBlobEndpoint string = storage.outputs.blobEndpoint
 output backendContainerAppName string = containerApps.outputs.backendAppName
+output backendBootstrapJobName string = containerApps.outputs.backendBootstrapJobName
 output frontendContainerAppName string = containerApps.outputs.frontendAppName
 output backendUrl string = containerApps.outputs.backendUrl
 output frontendUrl string = containerApps.outputs.frontendUrl
+output postgresServerFqdn string = postgresql.outputs.serverFqdn
+output postgresDatabaseName string = postgresql.outputs.databaseName
+output backendIdentityName string = managedIdentity.outputs.backendIdentityName
+output backendIdentityPrincipalId string = managedIdentity.outputs.backendIdentityPrincipalId
 output githubDeploymentClientId string = githubOidc.outputs.githubDeploymentClientId
 output deployment object = {
   monitoring: monitoring.outputs.summary

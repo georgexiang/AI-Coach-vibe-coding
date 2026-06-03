@@ -7,7 +7,6 @@ Run with: python3 scripts/seed_materials.py
 """
 
 import asyncio
-import os
 import sys
 import uuid
 from pathlib import Path
@@ -16,12 +15,12 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
-from app.models.base import Base
 from app.models.material import MaterialVersion, TrainingMaterial
 from app.models.user import User
+from app.services.storage import get_storage
 
 settings = get_settings()
 
@@ -64,25 +63,17 @@ _PLACEHOLDER_PDF = (
 )
 
 
-async def seed_materials() -> None:
+async def seed_materials(session: AsyncSession | None = None) -> None:
     """Create seed training materials with versions and placeholder files."""
-    engine = create_async_engine(settings.database_url, echo=False)
 
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-
-    session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-
-    async with session_factory() as session:
-        # Get admin user for created_by
-        result = await session.execute(select(User).where(User.role == "admin"))
-        admin = result.scalar_one_or_none()
+    async def _seed(session: AsyncSession) -> None:
+        result = await session.execute(select(User).where(User.role == "admin").limit(1))
+        admin = result.scalars().first()
         if admin is None:
-            print("  [error] No admin user found. Run seed_data.py first.")
-            await engine.dispose()
-            return
+            raise RuntimeError("No admin user found. Run seed_data.py before seeding materials.")
 
         admin_id = admin.id
+        storage = get_storage()
 
         print("Seeding training materials...")
         for mat_data in SEED_MATERIALS:
@@ -110,7 +101,8 @@ async def seed_materials() -> None:
 
             # Create MaterialVersion
             version_id = str(uuid.uuid4())
-            storage_url = f"materials/{material_id}/v1/{mat_data['filename']}"
+            storage_path = f"materials/{material_id}/v1/{mat_data['filename']}"
+            storage_url = await storage.save(storage_path, _PLACEHOLDER_PDF)
             version = MaterialVersion(
                 id=version_id,
                 material_id=material_id,
@@ -123,21 +115,21 @@ async def seed_materials() -> None:
             )
             session.add(version)
 
-            # Write placeholder PDF file so download/preview works
-            file_dir = os.path.join(
-                settings.material_storage_path, "materials", material_id, "v1"
-            )
-            os.makedirs(file_dir, exist_ok=True)
-            file_path = os.path.join(file_dir, mat_data["filename"])
-            if not os.path.exists(file_path):
-                with open(file_path, "wb") as f:
-                    f.write(_PLACEHOLDER_PDF)
-
             print(f"  [created] Material '{name}' ({mat_data['product']})")
 
         await session.commit()
 
-    await engine.dispose()
+    if session is not None:
+        await _seed(session)
+    else:
+        from app.database import AsyncSessionLocal, engine
+        from app.models.base import Base
+
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+
+        async with AsyncSessionLocal() as new_session:
+            await _seed(new_session)
     print("Materials seed complete.")
 
 

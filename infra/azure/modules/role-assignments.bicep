@@ -15,7 +15,7 @@ param githubDeploymentPrincipalId string
 var acrPullRoleDefinitionId = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d')
 var acrPushRoleDefinitionId = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '8311e382-0749-4cb8-b61a-304f252e45ec')
 var contributorRoleDefinitionId = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'b24988ac-6180-42a0-ab88-20f7382dd24c')
-var keyVaultSecretsUserRoleDefinitionId = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '4633458b-17de-408a-b874-0445c86b69e6')
+var keyVaultSecretsOfficerRoleDefinitionId = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'b86a8fe4-44ce-4948-aee5-eccb2c155cd7')
 var storageBlobDataContributorRoleDefinitionId = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')
 var cognitiveServicesUserRoleDefinitionId = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'a97b65f3-24c7-4388-baec-2e87135dc908')
 var azureAiDeveloperRoleDefinitionId = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '64702f94-c441-49e6-a78b-ef80e0188fee')
@@ -30,12 +30,12 @@ resource backendAcrPull 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   }
 }
 
-resource backendKeyVaultSecretsUser 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(resourceGroup().id, backendIdentityPrincipalId, 'key-vault-secrets-user')
+resource backendKeyVaultSecretsOfficer 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(resourceGroup().id, backendIdentityPrincipalId, 'key-vault-secrets-officer')
   properties: {
     principalId: backendIdentityPrincipalId
     principalType: 'ServicePrincipal'
-    roleDefinitionId: keyVaultSecretsUserRoleDefinitionId
+    roleDefinitionId: keyVaultSecretsOfficerRoleDefinitionId
   }
 }
 
@@ -104,7 +104,7 @@ output summary object = {
   githubDeploymentPrincipalId: githubDeploymentPrincipalId
   resources: [
     backendAcrPull.name
-    backendKeyVaultSecretsUser.name
+    backendKeyVaultSecretsOfficer.name
     backendStorageBlobDataContributor.name
     enableAzureAi || enableVoiceAndAvatar || enableContentUnderstanding ? backendCognitiveServicesUser.name : 'cognitive-services-user-disabled'
     enableAiSearch ? backendSearchIndexDataContributor.name : 'search-index-data-contributor-disabled'

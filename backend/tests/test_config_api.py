@@ -2,6 +2,7 @@
 
 from unittest.mock import MagicMock, patch
 
+from app.models.service_config import ServiceConfig
 from app.models.user import User
 from app.services.auth import get_password_hash
 from tests.conftest import TestSessionLocal
@@ -70,6 +71,37 @@ class TestGetFeatures:
         # Verify available_adapters is a dict
         assert "available_adapters" in data
         assert isinstance(data["available_adapters"], dict)
+
+    async def test_get_features_enables_voice_from_active_speech_config(self, client):
+        token = await _create_and_login(client, username="configspeech")
+        async with TestSessionLocal() as session:
+            session.add(
+                ServiceConfig(
+                    service_name="azure_speech_stt",
+                    display_name="Azure Speech (STT)",
+                    is_active=True,
+                )
+            )
+            await session.commit()
+
+        with patch("app.api.config.get_settings") as mock_get_settings:
+            mock_settings = MagicMock()
+            mock_settings.feature_avatar_enabled = False
+            mock_settings.feature_voice_enabled = False
+            mock_settings.feature_realtime_voice_enabled = False
+            mock_settings.feature_conference_enabled = False
+            mock_settings.feature_voice_live_enabled = False
+            mock_settings.default_voice_mode = "text_only"
+            mock_settings.region = "global"
+            mock_get_settings.return_value = mock_settings
+
+            response = await client.get(
+                "/api/v1/config/features",
+                headers={"Authorization": f"Bearer {token}"},
+            )
+
+        assert response.status_code == 200
+        assert response.json()["features"]["voice_enabled"] is True
 
     async def test_get_features_without_auth_returns_401(self, client):
         response = await client.get("/api/v1/config/features")

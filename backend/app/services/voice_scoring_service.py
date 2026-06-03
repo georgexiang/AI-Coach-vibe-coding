@@ -52,17 +52,13 @@ VOICE_DIMENSIONS = [
 ]
 
 
-async def save_voice_score_details(
-    db: AsyncSession, session_id: str, scores: dict
-) -> None:
+async def save_voice_score_details(db: AsyncSession, session_id: str, scores: dict) -> None:
     """Save voice scoring results as ScoreDetail records with category='voice'.
 
     If a SessionScore already exists (content scoring done first), appends voice
     dimensions to it. Otherwise creates a preliminary SessionScore for voice-only.
     """
-    result = await db.execute(
-        select(SessionScore).where(SessionScore.session_id == session_id)
-    )
+    result = await db.execute(select(SessionScore).where(SessionScore.session_id == session_id))
     session_score = result.scalar_one_or_none()
 
     if not session_score:
@@ -104,9 +100,7 @@ async def trigger_voice_scoring(session_id: str, language: str = "zh-CN") -> Non
             )
             session = result.scalar_one_or_none()
             if not session or not session.audio_url:
-                logger.warning(
-                    "Voice scoring skipped for session %s: no audio", session_id
-                )
+                logger.warning("Voice scoring skipped for session %s: no audio", session_id)
                 return
 
             session.voice_score_status = "processing"
@@ -116,8 +110,8 @@ async def trigger_voice_scoring(session_id: str, language: str = "zh-CN") -> Non
             endpoint = await config_service.get_effective_endpoint(db, CU_SERVICE_NAME)
             api_key = await config_service.get_effective_key(db, CU_SERVICE_NAME)
 
-            if not endpoint or not api_key:
-                raise RuntimeError("CU endpoint/key not configured for voice scoring")
+            if not endpoint:
+                raise RuntimeError("CU endpoint not configured for voice scoring")
 
             # Get voice analyzer ID from rubric
             from app.models.scenario import Scenario
@@ -137,14 +131,10 @@ async def trigger_voice_scoring(session_id: str, language: str = "zh-CN") -> Non
                     analyzer_id = rubric.cu_voice_analyzer_id
 
             if not analyzer_id:
-                raise RuntimeError(
-                    f"No CU voice analyzer configured for session {session_id}"
-                )
+                raise RuntimeError(f"No CU voice analyzer configured for session {session_id}")
 
             # Call CU voice scoring
-            cu_fields = await score_voice_with_cu(
-                endpoint, api_key, analyzer_id, session.audio_url
-            )
+            cu_fields = await score_voice_with_cu(endpoint, api_key, analyzer_id, session.audio_url)
             voice_result = _parse_cu_voice_result(cu_fields)
 
             # Calculate overall voice score

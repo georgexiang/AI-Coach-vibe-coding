@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
 import { DryRunConversation } from "@/components/shared/dry-run-conversation";
 import { SopCoverageMap } from "@/components/shared/sop-coverage-map";
 import { CoverageRingChart } from "@/components/shared/coverage-ring-chart";
@@ -81,6 +82,16 @@ export default function DryRunReportPage() {
     );
   }
 
+  const hasFailed = dryRun.status === "failed";
+  const failureMessage =
+    dryRun.error_message ||
+    t("dryRun.errorRunFailed", {
+      defaultValue: "Simulation failed. Please check the SOP content and try again.",
+    });
+  const notEvaluatedLabel = t("dryRun.notEvaluated", {
+    defaultValue: "Not evaluated",
+  });
+
   return (
     <div className="space-y-6">
       {/* ---- Header row ---- */}
@@ -115,6 +126,12 @@ export default function DryRunReportPage() {
       <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
         <span>Run #{dryRun.run_number}</span>
         <span className="text-border">|</span>
+        <Badge variant={hasFailed ? "destructive" : "outline"}>
+          {t(`dryRun.status.${dryRun.status}`, {
+            defaultValue: dryRun.status,
+          })}
+        </Badge>
+        <span className="text-border">|</span>
         <span>{formatDate(dryRun.created_at)}</span>
         <span className="text-border">|</span>
         <span>
@@ -122,6 +139,22 @@ export default function DryRunReportPage() {
           {formatDuration(dryRun.duration_seconds)}
         </span>
       </div>
+
+      {hasFailed && (
+        <Card className="border-destructive/40 bg-destructive/5">
+          <CardContent className="flex gap-3 p-4">
+            <AlertTriangle className="mt-0.5 size-5 shrink-0 text-destructive" />
+            <div className="space-y-1">
+              <p className="text-sm font-semibold text-destructive">
+                {t("dryRun.failedTitle", {
+                  defaultValue: "Dry Run failed",
+                })}
+              </p>
+              <p className="text-sm text-foreground">{failureMessage}</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* ---- Summary cards ---- */}
       <DryRunScoreSummary
@@ -166,24 +199,42 @@ export default function DryRunReportPage() {
 
         {/* SOP Coverage tab */}
         <TabsContent value="sop-coverage" className="mt-4 space-y-6">
-          <div className="flex justify-center">
-            <CoverageRingChart
-              percent={dryRun.coverage_percent ?? 0}
-              covered={dryRun.covered_sop_steps}
-              total={dryRun.total_sop_steps}
-              size={120}
-            />
-          </div>
-          <Card>
-            <CardContent className={cn("p-2")}>
-              <SopCoverageMap coverage={dryRun.sop_coverage} />
-            </CardContent>
-          </Card>
+          {dryRun.coverage_percent === null ? (
+            <Card>
+              <CardContent className="flex items-center justify-center gap-3 p-8">
+                <AlertTriangle className="size-5 text-destructive" />
+                <p className="text-sm text-foreground">{notEvaluatedLabel}</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <>
+              <div className="flex justify-center">
+                <CoverageRingChart
+                  percent={dryRun.coverage_percent}
+                  covered={dryRun.covered_sop_steps}
+                  total={dryRun.total_sop_steps}
+                  size={120}
+                />
+              </div>
+              <Card>
+                <CardContent className={cn("p-2")}>
+                  <SopCoverageMap coverage={dryRun.sop_coverage} />
+                </CardContent>
+              </Card>
+            </>
+          )}
         </TabsContent>
 
         {/* Issues tab */}
         <TabsContent value="issues" className="mt-4 space-y-4">
-          {dryRun.issues.length === 0 ? (
+          {hasFailed && dryRun.issues.length === 0 ? (
+            <Card>
+              <CardContent className="flex items-center justify-center gap-3 p-8">
+                <AlertTriangle className="size-5 text-destructive" />
+                <p className="text-sm text-foreground">{failureMessage}</p>
+              </CardContent>
+            </Card>
+          ) : dryRun.issues.length === 0 ? (
             <Card>
               <CardContent className="flex items-center justify-center gap-3 p-8">
                 <Check className="size-5 text-strength" />

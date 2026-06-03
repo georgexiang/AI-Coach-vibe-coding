@@ -1,9 +1,8 @@
-"""add meta_skills table
+"""Ensure meta_skills table exists.
 
-Revision ID: 50811ca8b0f6
-Revises: df6cb9a8d3c1
-Create Date: 2026-04-11 23:37:33.020793
-
+Revision ID: v25a_ensure_meta_skills_table
+Revises: u24a_focus_cu_fields
+Create Date: 2026-06-02
 """
 
 from collections.abc import Sequence
@@ -12,14 +11,13 @@ import sqlalchemy as sa
 
 from alembic import op
 
-# revision identifiers, used by Alembic.
-revision: str = "50811ca8b0f6"
-down_revision: str | None = "df6cb9a8d3c1"
+revision: str = "v25a_ensure_meta_skills_table"
+down_revision: str = "u24a_focus_cu_fields"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
 
-def upgrade() -> None:
+def _create_meta_skills_table() -> None:
     op.create_table(
         "meta_skills",
         sa.Column("name", sa.String(50), nullable=False),
@@ -42,7 +40,17 @@ def upgrade() -> None:
     op.create_index("ix_meta_skills_skill_type", "meta_skills", ["skill_type"], unique=False)
 
 
+def upgrade() -> None:
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    if not inspector.has_table("meta_skills"):
+        _create_meta_skills_table()
+
+
 def downgrade() -> None:
-    op.drop_index("ix_meta_skills_skill_type", table_name="meta_skills")
-    op.drop_index("ix_meta_skills_name", table_name="meta_skills")
-    op.drop_table("meta_skills")
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    if inspector.has_table("meta_skills"):
+        op.drop_index("ix_meta_skills_skill_type", table_name="meta_skills")
+        op.drop_index("ix_meta_skills_name", table_name="meta_skills")
+        op.drop_table("meta_skills")

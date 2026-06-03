@@ -98,7 +98,7 @@ describe("ScenarioCard", () => {
     const onStart = vi.fn();
     render(<ScenarioCard scenario={mockScenario} onStart={onStart} />);
     await userEvent.click(screen.getByText("scenarioSelection.startButton"));
-    expect(onStart).toHaveBeenCalledWith("sc-1", "digital_human_realtime_model");
+    expect(onStart).toHaveBeenCalledWith("sc-1", "voice_realtime_model");
   });
 
   it("calls onStart with first available mode when default is unavailable", async () => {
@@ -107,11 +107,11 @@ describe("ScenarioCard", () => {
       <ScenarioCard
         scenario={mockScenario}
         onStart={onStart}
-        availableModes={["text", "voice_realtime_model"]}
+        availableModes={["text"]}
       />,
     );
     await userEvent.click(screen.getByText("scenarioSelection.startButton"));
-    // digital_human_realtime_model is not available, so falls back to first available: text
+    // voice_realtime_model is not available, so falls back to first available: text
     expect(onStart).toHaveBeenCalledWith("sc-1", "text");
   });
 

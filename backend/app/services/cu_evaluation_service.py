@@ -100,9 +100,9 @@ async def sync_rubric_analyzers(db: AsyncSession, rubric: ScoringRubric) -> None
     endpoint = await config_service.get_effective_endpoint(db, CU_SERVICE_NAME)
     api_key = await config_service.get_effective_key(db, CU_SERVICE_NAME)
 
-    if not endpoint or not api_key:
+    if not endpoint:
         logger.warning(
-            "CU endpoint/key not configured; skipping analyzer sync for rubric %s", rubric.id
+            "CU endpoint not configured; skipping analyzer sync for rubric %s", rubric.id
         )
         return
 
@@ -150,6 +150,8 @@ async def _put_analyzer(
 
         if response.status_code in (200, 201):
             logger.info("CU analyzer %s created/updated successfully", analyzer_id)
+        elif response.status_code == 409 and "ModelExists" in response.text:
+            logger.info("CU analyzer %s already exists; reusing it", analyzer_id)
         else:
             logger.error(
                 "CU analyzer PUT failed for %s: HTTP %d - %s",
@@ -311,12 +313,13 @@ def _parse_cu_voice_result(cu_fields: dict) -> dict:
             continue
         parsed_value = _extract_cu_field_value(value)
         if isinstance(parsed_value, dict) and "score" in parsed_value:
+            feedback = parsed_value.get("feedback", "")
             dimensions.append(
                 {
                     "name": key,
-                    "score": parsed_value.get("score", 0),
+                    "score": _coerce_score(parsed_value.get("score")),
                     "weight": 25,
-                    "feedback": parsed_value.get("feedback", ""),
+                    "feedback": str(feedback) if feedback else "",
                 }
             )
 
@@ -340,6 +343,10 @@ def _extract_cu_field_value(field: object) -> object:
     if not isinstance(field, dict):
         return field
 
+    for value_key in ("valueObject", "valueArray"):
+        if value_key in field:
+            return _unwrap_cu_value(field[value_key])
+
     value_string = field.get("valueString")
     if value_string is not None:
         if isinstance(value_string, str):
@@ -350,9 +357,43 @@ def _extract_cu_field_value(field: object) -> object:
         return value_string
 
     if "score" in field:
-        return field
+        return {key: _unwrap_cu_value(value) for key, value in field.items()}
+
+    content = field.get("content")
+    if content is not None:
+        if isinstance(content, str):
+            try:
+                return json.loads(content)
+            except (json.JSONDecodeError, ValueError):
+                return content
+        return content
 
     return field
+
+
+def _unwrap_cu_value(value: object) -> object:
+    """Recursively unwrap nested CU valueObject/valueArray field payloads."""
+    if isinstance(value, dict):
+        if any(key in value for key in ("valueObject", "valueArray", "valueString", "content")):
+            return _extract_cu_field_value(value)
+        return {key: _unwrap_cu_value(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_unwrap_cu_value(item) for item in value]
+    return value
+
+
+def _coerce_score(value: object) -> float:
+    """Coerce CU generated score values to a numeric score."""
+    if isinstance(value, bool) or value is None:
+        return 0
+    if isinstance(value, int | float):
+        return value
+    if isinstance(value, str):
+        try:
+            return float(value)
+        except ValueError:
+            return 0
+    return 0
 
 
 async def _get_session_rubric(db: AsyncSession, scenario: object) -> ScoringRubric | None:

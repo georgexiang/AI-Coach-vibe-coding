@@ -14,6 +14,7 @@ from the POST create endpoint.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import re
@@ -34,6 +35,10 @@ _FALLBACK_MARKER = "unavailable -- simulation continues"
 
 # Abort simulation if this many consecutive turns return fallback text
 _MAX_CONSECUTIVE_FAILURES = 2
+
+# Retry transient Responses API failures before returning fallback text.
+_AGENT_CALL_MAX_ATTEMPTS = 3
+_AGENT_CALL_RETRY_BASE_SECONDS = 0.5
 
 # Phrases that signal the end of a conversation (case-insensitive)
 _ENDING_PHRASES = [
@@ -135,6 +140,60 @@ def _is_conversation_ending(message: str, turn_number: int) -> bool:
     return any(phrase in lower for phrase in _ENDING_PHRASES)
 
 
+def _sanitize_agent_error(error: Exception, api_key: str = "") -> str:
+    """Return a short, admin-safe error summary for dry-run diagnostics."""
+    error_type = type(error).__name__
+    status_code = getattr(error, "status_code", None)
+    request_id = getattr(error, "request_id", None)
+    message = str(error)
+
+    if api_key:
+        message = message.replace(api_key, "[redacted]")
+
+    message = re.sub(
+        r"(?i)(api[-_ ]?key|authorization|bearer)\s*[:=]\s*[^,\s]+",
+        r"\1=[redacted]",
+        message,
+    )
+    message = re.sub(r"sk-[A-Za-z0-9_-]+", "sk-[redacted]", message)
+    message = re.sub(r"\s+", " ", message).strip()
+    message = message[:220]
+
+    parts = [error_type]
+    if status_code:
+        parts.append(f"status={status_code}")
+    if request_id:
+        parts.append(f"request_id={request_id}")
+    if message:
+        parts.append(message)
+    return ": ".join(parts)
+
+
+def _set_failed_dry_run(
+    dry_run,
+    *,
+    message: str,
+    start_time: datetime | None = None,
+    suggestion: str = "Check Azure AI Foundry agent availability and retry the dry run.",
+) -> None:
+    """Persist a failed dry run with structured issue data for API/UI consumers."""
+    dry_run.status = "failed"
+    dry_run.error_message = message
+    if start_time and dry_run.duration_seconds is None:
+        dry_run.duration_seconds = int((datetime.now(tz=UTC) - start_time).total_seconds())
+    dry_run.issues_json = json.dumps(
+        [
+            {
+                "severity": "error",
+                "step_id": None,
+                "description": message[:500],
+                "suggestion": suggestion,
+            }
+        ]
+    )
+    dry_run.issues_count = 1
+
+
 # ---------------------------------------------------------------------------
 # Agent call helper (replaces _call_llm)
 # ---------------------------------------------------------------------------
@@ -163,37 +222,49 @@ async def _call_dry_run_agent(
     from app.services.agent_sync_service import _get_project_client
 
     agent_label = agent_id or "unknown-agent"
+    last_error = ""
 
-    try:
-        client = _get_project_client(project_endpoint, api_key)
-        openai_client = client.get_openai_client()
+    for attempt in range(1, _AGENT_CALL_MAX_ATTEMPTS + 1):
+        try:
+            client = _get_project_client(project_endpoint, api_key)
+            openai_client = client.get_openai_client()
 
-        input_messages = [{"role": "user", "content": message}]
+            input_messages = [{"role": "user", "content": message}]
 
-        extra_body = {
-            "agent_reference": {
-                "name": agent_id,
-                "version": agent_version or "1",
-                "type": "agent_reference",
+            extra_body = {
+                "agent_reference": {
+                    "name": agent_id,
+                    "version": agent_version or "1",
+                    "type": "agent_reference",
+                }
             }
-        }
 
-        kwargs: dict = {
-            "model": model,
-            "input": input_messages,
-            "extra_body": extra_body,
-        }
+            kwargs: dict = {
+                "model": model,
+                "input": input_messages,
+                "extra_body": extra_body,
+            }
 
-        if previous_response_id:
-            kwargs["previous_response_id"] = previous_response_id
+            if previous_response_id:
+                kwargs["previous_response_id"] = previous_response_id
 
-        response = openai_client.responses.create(**kwargs)
-        content = (response.output_text or "")[:500]
-        return content, response.id
+            response = openai_client.responses.create(**kwargs)
+            content = (response.output_text or "")[:500]
+            return content, response.id
 
-    except Exception as e:
-        logger.warning("_call_dry_run_agent failed for %s: %s", agent_label, e)
-        return f"[{agent_label} {_FALLBACK_MARKER}]", ""
+        except Exception as e:
+            last_error = _sanitize_agent_error(e, api_key)
+            logger.warning(
+                "_call_dry_run_agent failed for %s on attempt %d/%d: %s",
+                agent_label,
+                attempt,
+                _AGENT_CALL_MAX_ATTEMPTS,
+                last_error,
+            )
+            if attempt < _AGENT_CALL_MAX_ATTEMPTS:
+                await asyncio.sleep(_AGENT_CALL_RETRY_BASE_SECONDS * attempt)
+
+    return f"[{agent_label} {_FALLBACK_MARKER}. Last error: {last_error}]", ""
 
 
 # ---------------------------------------------------------------------------
@@ -385,6 +456,7 @@ async def run_dry_run_simulation(dry_run_id: str) -> None:
     from app.services import meta_skill_service
     from app.services.agent_sync_service import get_project_endpoint
 
+    start_time: datetime | None = None
     async with AsyncSessionLocal() as db:
         try:
             # 1. Load DryRun and Skill
@@ -395,8 +467,11 @@ async def run_dry_run_simulation(dry_run_id: str) -> None:
 
             skill = await db.get(Skill, dry_run.skill_id)
             if not skill:
-                dry_run.status = "failed"
-                dry_run.error_message = "Associated skill not found"
+                _set_failed_dry_run(
+                    dry_run,
+                    message="Associated skill not found",
+                    suggestion="Delete this dry run and create a new one from an existing skill.",
+                )
                 await db.commit()
                 return
 
@@ -406,19 +481,25 @@ async def run_dry_run_simulation(dry_run_id: str) -> None:
             eval_meta = await meta_skill_service.get_meta_skill(db, "evaluator")
 
             if not mr_meta or not mr_meta.agent_id:
-                dry_run.status = "failed"
-                dry_run.error_message = (
-                    "Dry Run MR agent not synced to Azure AI Foundry. "
-                    "Go to Admin > Meta Skills and sync the 'dry-run-mr' agent."
+                _set_failed_dry_run(
+                    dry_run,
+                    message=(
+                        "Dry Run MR agent not synced to Azure AI Foundry. "
+                        "Go to Admin > Meta Skills and sync the 'dry-run-mr' agent."
+                    ),
+                    suggestion="Sync the dry-run-mr Meta Skill in Admin > Meta Skills.",
                 )
                 await db.commit()
                 return
 
             if not hcp_meta or not hcp_meta.agent_id:
-                dry_run.status = "failed"
-                dry_run.error_message = (
-                    "Dry Run HCP agent not synced to Azure AI Foundry. "
-                    "Go to Admin > Meta Skills and sync the 'dry-run-hcp' agent."
+                _set_failed_dry_run(
+                    dry_run,
+                    message=(
+                        "Dry Run HCP agent not synced to Azure AI Foundry. "
+                        "Go to Admin > Meta Skills and sync the 'dry-run-hcp' agent."
+                    ),
+                    suggestion="Sync the dry-run-hcp Meta Skill in Admin > Meta Skills.",
                 )
                 await db.commit()
                 return
@@ -525,11 +606,14 @@ async def run_dry_run_simulation(dry_run_id: str) -> None:
 
                 # Early abort: if first MR turn fails, AI service is unavailable
                 if turn == 0 and is_fallback:
-                    dry_run.status = "failed"
-                    dry_run.error_message = (
-                        "AI service unavailable — check Azure AI Foundry configuration "
-                        "and ensure dry-run agents are synced. "
-                        f"First response: {response_text[:200]}"
+                    _set_failed_dry_run(
+                        dry_run,
+                        message=(
+                            "AI service unavailable — check Azure AI Foundry configuration "
+                            "and ensure dry-run agents are synced. "
+                            f"First response: {response_text[:300]}"
+                        ),
+                        start_time=start_time,
                     )
                     await db.commit()
                     logger.error(
@@ -540,11 +624,14 @@ async def run_dry_run_simulation(dry_run_id: str) -> None:
 
                 # Mid-simulation abort: consecutive failures indicate persistent issue
                 if consecutive_failures >= _MAX_CONSECUTIVE_FAILURES:
-                    dry_run.status = "failed"
-                    dry_run.error_message = (
-                        f"AI service became unavailable during simulation "
-                        f"({consecutive_failures} consecutive failures at turn {turn}). "
-                        f"Last response: {response_text[:200]}"
+                    _set_failed_dry_run(
+                        dry_run,
+                        message=(
+                            f"AI service became unavailable during simulation "
+                            f"({consecutive_failures} consecutive failures at turn {turn}). "
+                            f"Last response: {response_text[:300]}"
+                        ),
+                        start_time=start_time,
                     )
                     await db.commit()
                     logger.error(
@@ -663,8 +750,14 @@ async def run_dry_run_simulation(dry_run_id: str) -> None:
             try:
                 dry_run = await db.get(DryRun, dry_run_id)
                 if dry_run:
-                    dry_run.status = "failed"
-                    dry_run.error_message = str(e)[:500]
+                    _set_failed_dry_run(
+                        dry_run,
+                        message=str(e)[:500],
+                        start_time=start_time,
+                        suggestion=(
+                            "Review backend logs for the dry-run simulation failure and retry."
+                        ),
+                    )
                     await db.commit()
             except Exception:
                 logger.exception("Failed to update dry run %s error state", dry_run_id)

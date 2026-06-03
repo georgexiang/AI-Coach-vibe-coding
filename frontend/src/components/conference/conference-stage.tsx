@@ -25,6 +25,7 @@ interface ConferenceStageProps {
   featureAvatarEnabled: boolean;
   messages?: ChatMessage[];
   inputMode?: "text" | "audio";
+  onInputModeChange?: (mode: "text" | "audio") => void;
   onMicClick?: () => void;
   recordingState?: "idle" | "recording" | "processing";
   disabled?: boolean;
@@ -47,6 +48,7 @@ export function ConferenceStage({
   avatarEnabled,
   messages = [],
   inputMode = "text",
+  onInputModeChange,
   onMicClick,
   recordingState = "idle",
   disabled = false,
@@ -140,6 +142,7 @@ export function ConferenceStage({
         <ChatInput
           onSend={onSendMessage}
           inputMode={inputMode}
+          onInputModeChange={onInputModeChange}
           onMicClick={onMicClick ?? (() => {})}
           recordingState={recordingState}
           disabled={disabled}

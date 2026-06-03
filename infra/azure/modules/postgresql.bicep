@@ -12,6 +12,8 @@ param administratorLogin string = 'aicoachadmin'
 param administratorPassword string
 
 param databaseName string = 'ai_coach'
+param manageAdministratorPassword bool = true
+param activeDirectoryAuthEnabled bool = false
 
 var serverName = toLower('${namePrefix}-${environmentName}-pg-${uniqueString(resourceGroup().id, location)}')
 
@@ -23,9 +25,8 @@ resource server 'Microsoft.DBforPostgreSQL/flexibleServers@2022-12-01' = {
     name: 'Standard_B1ms'
     tier: 'Burstable'
   }
-  properties: {
+  properties: union({
     administratorLogin: administratorLogin
-    administratorLoginPassword: administratorPassword
     version: '16'
     storage: {
       storageSizeGB: 32
@@ -34,10 +35,17 @@ resource server 'Microsoft.DBforPostgreSQL/flexibleServers@2022-12-01' = {
       backupRetentionDays: 7
       geoRedundantBackup: 'Disabled'
     }
+    authConfig: {
+      activeDirectoryAuth: activeDirectoryAuthEnabled ? 'Enabled' : 'Disabled'
+      passwordAuth: 'Enabled'
+      tenantId: tenant().tenantId
+    }
     highAvailability: {
       mode: 'Disabled'
     }
-  }
+  }, manageAdministratorPassword ? {
+    administratorLoginPassword: administratorPassword
+  } : {})
 }
 
 resource database 'Microsoft.DBforPostgreSQL/flexibleServers/databases@2022-12-01' = {
@@ -64,11 +72,14 @@ output summary object = {
   serverFqdn: server.properties.fullyQualifiedDomainName
   databaseName: databaseName
   administratorLogin: administratorLogin
+  manageAdministratorPassword: manageAdministratorPassword
+  activeDirectoryAuthEnabled: activeDirectoryAuthEnabled
   serverId: server.id
   environmentName: environmentName
   location: location
 }
 
 output serverFqdn string = server.properties.fullyQualifiedDomainName
+output serverName string = server.name
 output databaseName string = databaseName
 output administratorLogin string = administratorLogin

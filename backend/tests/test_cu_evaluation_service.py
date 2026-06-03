@@ -8,6 +8,7 @@ from app.services.cu_evaluation_service import (
     DEFAULT_VOICE_DIMENSIONS,
     _get_auth_headers,
     _parse_cu_voice_result,
+    _put_analyzer,
     build_voice_analyzer_schema,
     merge_scores,
 )
@@ -93,6 +94,46 @@ class TestGetAuthHeaders:
         with patch.dict("sys.modules", {"azure.identity.aio": None}):
             with pytest.raises((RuntimeError, TypeError, ModuleNotFoundError)):
                 await _get_auth_headers("")
+
+
+class TestPutAnalyzer:
+    """Test CU analyzer create/update behavior."""
+
+    @pytest.mark.asyncio
+    async def test_model_exists_conflict_is_reused(self):
+        """Deterministic analyzer IDs can already exist; 409 ModelExists is success."""
+
+        class FakeResponse:
+            status_code = 409
+            text = '{"error":{"code":"ModelExists"}}'
+
+        class FakeClient:
+            def __init__(self, timeout: float) -> None:
+                self.timeout = timeout
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc, tb):
+                return None
+
+            async def put(self, url, headers, json):
+                return FakeResponse()
+
+        with (
+            patch(
+                "app.services.cu_evaluation_service._get_auth_headers",
+                AsyncMock(return_value={}),
+            ),
+            patch("app.services.cu_evaluation_service.httpx.AsyncClient", FakeClient),
+        ):
+            await _put_analyzer(
+                "https://example.cognitiveservices.azure.com",
+                "",
+                "rubricVoice12345678",
+                {"name": "VoiceScoring", "fields": {}},
+                "voice",
+            )
 
 
 class TestMergeScores:
@@ -185,3 +226,46 @@ class TestParseCuVoiceResult:
         result = _parse_cu_voice_result({})
         assert result["dimensions"] == []
         assert result["feedback_summary"] == ""
+
+    def test_parse_voice_dimension_from_value_object(self):
+        cu_fields = {
+            "fluency": {
+                "type": "object",
+                "valueObject": {
+                    "score": {"type": "string", "valueString": "88"},
+                    "feedback": {"type": "string", "valueString": "Clear and smooth"},
+                },
+            },
+            "feedback_summary": {"valueString": "Strong voice delivery"},
+        }
+
+        result = _parse_cu_voice_result(cu_fields)
+
+        assert result["dimensions"] == [
+            {
+                "name": "fluency",
+                "score": 88.0,
+                "weight": 25,
+                "feedback": "Clear and smooth",
+            }
+        ]
+        assert result["feedback_summary"] == "Strong voice delivery"
+
+    def test_parse_voice_dimension_from_content_json(self):
+        cu_fields = {
+            "tone": {
+                "type": "string",
+                "content": '{"score": 76, "feedback": "Professional tone"}',
+            }
+        }
+
+        result = _parse_cu_voice_result(cu_fields)
+
+        assert result["dimensions"] == [
+            {
+                "name": "tone",
+                "score": 76,
+                "weight": 25,
+                "feedback": "Professional tone",
+            }
+        ]

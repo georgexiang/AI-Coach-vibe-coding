@@ -56,6 +56,24 @@
     "corsOrigins": {
       "value": "http://localhost:5173,http://localhost:3000"
     },
+    "backendDatabaseAuthMode": {
+      "value": "azureAd"
+    },
+    "azureServiceKeyStorage": {
+      "value": "keyvault"
+    },
+    "postgresEntraAdminLogin": {
+      "value": "REPLACE_WITH_ENTRA_ADMIN_LOGIN"
+    },
+    "postgresEntraAdminObjectId": {
+      "value": "REPLACE_WITH_ENTRA_ADMIN_OBJECT_ID"
+    },
+    "postgresEntraAdminPrincipalType": {
+      "value": "User"
+    },
+    "manageBootstrapSecrets": {
+      "value": true
+    },
     "githubOwner": {
       "value": "jeromeecho"
     },
@@ -73,21 +91,6 @@
     },
     "chatModelVersion": {
       "value": "2024-11-20"
-    },
-    "realtimeDeploymentName": {
-      "value": "gpt-realtime-1-5"
-    },
-    "realtimeModelName": {
-      "value": "gpt-realtime-1.5"
-    },
-    "realtimeModelVersion": {
-      "value": "2026-02-23"
-    },
-    "realtimeDeploymentSkuName": {
-      "value": "GlobalStandard"
-    },
-    "realtimeDeploymentCapacity": {
-      "value": 5
     },
     "enableAzureAi": {
       "value": true

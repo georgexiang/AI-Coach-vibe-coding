@@ -66,8 +66,8 @@ export default function UnifiedSession() {
   } = useScenario(session?.scenario_id);
 
   // State
-  const [currentMode, setCurrentMode] = useState<SessionMode>("digital_human_realtime_model");
-  const initialModeRef = useRef<SessionMode>("digital_human_realtime_model");
+  const [currentMode, setCurrentMode] = useState<SessionMode>("voice_realtime_model");
+  const initialModeRef = useRef<SessionMode>("voice_realtime_model");
   const [transcripts, setTranscripts] = useState<TranscriptSegment[]>([]);
   const [showKeyboard, setShowKeyboard] = useState(true); // Text input always visible for MR
   const [showEndDialog, setShowEndDialog] = useState(false);
@@ -102,9 +102,6 @@ export default function UnifiedSession() {
     const modes: SessionMode[] = ["text"];
     if (config?.features.voice_live_enabled) {
       modes.push("voice_realtime_model");
-      if (config.features.avatar_enabled) {
-        modes.push("digital_human_realtime_model");
-      }
     }
     return modes;
   }, [config]);
@@ -281,9 +278,7 @@ export default function UnifiedSession() {
 
       if (result) {
         const isAgent = result.mode === "agent";
-        const resolvedMode: SessionMode = result.avatarEnabled
-          ? (isAgent ? "digital_human_realtime_agent" : "digital_human_realtime_model")
-          : (isAgent ? "voice_realtime_agent" : "voice_realtime_model");
+        const resolvedMode: SessionMode = isAgent ? "voice_realtime_agent" : "voice_realtime_model";
         setCurrentMode(resolvedMode);
         initialModeRef.current = resolvedMode;
 

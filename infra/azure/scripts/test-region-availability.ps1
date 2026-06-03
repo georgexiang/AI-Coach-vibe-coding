@@ -7,9 +7,6 @@ param(
     [string]$GithubRepo = "AI-Coach-vibe-coding",
     [string]$GithubBranch = "main",
     [string]$ChatDeploymentName = "gpt-4o",
-    [string]$RealtimeDeploymentName = "gpt-realtime-1-5",
-    [ValidateSet("GlobalStandard", "Standard")]
-    [string]$RealtimeDeploymentSkuName = "GlobalStandard",
     [switch]$StopOnFirstPass
 )
 
@@ -51,8 +48,6 @@ function New-TestParameters {
             githubRepo = @{ value = $GithubRepo }
             githubBranch = @{ value = $GithubBranch }
             chatDeploymentName = @{ value = $ChatDeploymentName }
-            realtimeDeploymentName = @{ value = $RealtimeDeploymentName }
-            realtimeDeploymentSkuName = @{ value = $RealtimeDeploymentSkuName }
         }
     }
 
