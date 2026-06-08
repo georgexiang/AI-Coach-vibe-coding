@@ -188,6 +188,8 @@ async def score_voice_with_cu(
     analyzer_id: str,
     audio_url: str,
     audio_data: bytes | None = None,
+    mime_type: str | None = None,
+    use_binary_upload: bool = False,
 ) -> dict:
     """Submit audio to CU voice analyzer and poll for results.
 
@@ -196,30 +198,50 @@ async def score_voice_with_cu(
     Returns raw CU fields dict for parsing by _parse_cu_voice_result.
     """
     endpoint = endpoint.rstrip("/")
-    url = (
-        f"{endpoint}/contentunderstanding/analyzers/{analyzer_id}:analyze"
-        f"?api-version={CU_API_VERSION}"
-    )
     headers = await _get_auth_headers(api_key)
 
-    if audio_data is not None:
-        b64_audio = base64.b64encode(audio_data).decode("utf-8")
-        body = {"data": b64_audio, "mimeType": _mime_type_for_audio_path(audio_url)}
-    elif audio_url.startswith(("http://", "https://")):
-        body: dict = {"url": audio_url}
+    if audio_data is not None and use_binary_upload:
+        url = (
+            f"{endpoint}/contentunderstanding/analyzers/{analyzer_id}:analyzeBinary"
+            f"?api-version={CU_API_VERSION}"
+        )
+        binary_headers = {
+            **headers,
+            "Content-Type": mime_type or _mime_type_for_audio_path(audio_url),
+        }
+        body = audio_data
     else:
+        url = (
+            f"{endpoint}/contentunderstanding/analyzers/{analyzer_id}:analyze"
+            f"?api-version={CU_API_VERSION}"
+        )
+        binary_headers = None
+        body = None
+
+    if audio_data is not None and not use_binary_upload:
+        b64_audio = base64.b64encode(audio_data).decode("utf-8")
+        body = {"data": b64_audio, "mimeType": mime_type or _mime_type_for_audio_path(audio_url)}
+    elif audio_data is None and audio_url.startswith(("http://", "https://")):
+        body = {"url": audio_url}
+    elif audio_data is None:
         try:
             with open(audio_url, "rb") as f:
                 audio_bytes = f.read()
             b64_audio = base64.b64encode(audio_bytes).decode("utf-8")
-            body = {"data": b64_audio, "mimeType": _mime_type_for_audio_path(audio_url)}
+            body = {
+                "data": b64_audio,
+                "mimeType": mime_type or _mime_type_for_audio_path(audio_url),
+            }
         except (FileNotFoundError, OSError) as e:
             raise RuntimeError(f"Failed to read local audio file: {e}") from e
 
     logger.info("Submitting voice scoring to CU analyzer %s", analyzer_id)
 
     async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT) as client:
-        response = await client.post(url, headers=headers, json=body)
+        if use_binary_upload:
+            response = await client.post(url, headers=binary_headers, content=body)
+        else:
+            response = await client.post(url, headers=headers, json=body)
 
         if response.status_code != 202:
             logger.error(

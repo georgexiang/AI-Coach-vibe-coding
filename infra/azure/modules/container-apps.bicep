@@ -211,6 +211,14 @@ resource backendApp 'Microsoft.App/containerApps@2023-05-01' = {
               value: backendIdentityClientId
             }
             {
+              name: 'VOICE_SCORING_TRANSCODE_ENABLED'
+              value: 'true'
+            }
+            {
+              name: 'VOICE_SCORING_TRANSCODE_TIMEOUT_SECONDS'
+              value: '120'
+            }
+            {
               name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
               value: applicationInsightsConnectionString
             }
@@ -400,6 +408,14 @@ resource backendBootstrapJob 'Microsoft.App/jobs@2023-05-01' = {
             {
               name: 'AZURE_CLIENT_ID'
               value: backendIdentityClientId
+            }
+            {
+              name: 'VOICE_SCORING_TRANSCODE_ENABLED'
+              value: 'true'
+            }
+            {
+              name: 'VOICE_SCORING_TRANSCODE_TIMEOUT_SECONDS'
+              value: '120'
             }
             {
               name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'

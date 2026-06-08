@@ -12,10 +12,12 @@ from urllib.parse import urlparse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import get_settings
 from app.database import AsyncSessionLocal
 from app.models.score import ScoreDetail, SessionScore
 from app.models.session import CoachingSession
 from app.services import config_service
+from app.services.audio_transcoding_service import transcode_audio_to_wav_pcm
 from app.services.cu_evaluation_service import (
     CU_SERVICE_NAME,
     _parse_cu_voice_result,
@@ -151,12 +153,25 @@ async def trigger_voice_scoring(session_id: str, language: str = "zh-CN") -> Non
             # Private Blob URLs are read by the backend with Managed Identity
             # and submitted as base64 data so CU does not need Blob access.
             audio_data = await _read_audio_for_private_source(session.audio_url)
+            mime_type = None
+            use_binary_upload = False
+            settings = get_settings()
+            if audio_data is not None and settings.voice_scoring_transcode_enabled:
+                audio_data = await transcode_audio_to_wav_pcm(
+                    audio_data,
+                    timeout_seconds=settings.voice_scoring_transcode_timeout_seconds,
+                )
+                mime_type = "audio/wav"
+                use_binary_upload = True
+
             cu_fields = await score_voice_with_cu(
                 endpoint,
                 api_key,
                 analyzer_id,
                 session.audio_url,
                 audio_data=audio_data,
+                mime_type=mime_type,
+                use_binary_upload=use_binary_upload,
             )
             voice_result = _parse_cu_voice_result(cu_fields)
 

@@ -68,6 +68,8 @@ class Settings(BaseSettings):
     # Azure Content Understanding (ARCH-05)
     azure_content_endpoint: str = ""
     azure_content_key: str = ""
+    voice_scoring_transcode_enabled: bool = False
+    voice_scoring_transcode_timeout_seconds: int = 120
 
     # Training Material Management
     storage_backend: str = "local"
