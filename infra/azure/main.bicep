@@ -25,11 +25,24 @@ param resourceGroupName string = ''
 ])
 param deploymentMode string = 'foundryOnly'
 
-@description('Network exposure profile. publicDemo keeps frontend and backend Container Apps publicly reachable; private networking is a later hardening task.')
+@description('Network exposure profile. publicDemo keeps frontend and backend Container Apps publicly reachable; privateBackend adds an auto-created or user-supplied VNet, private ingress, and private endpoints for the first private backend path.')
 @allowed([
   'publicDemo'
+  'privateBackend'
 ])
 param networkProfile string = 'publicDemo'
+
+@description('Optional existing VNet name for privateBackend. Leave empty to auto-create a VNet using the supplied CIDR ranges.')
+param vnetName string = ''
+
+@description('VNet address prefix used when privateBackend auto-creates the VNet.')
+param vnetAddressPrefix string = '10.60.0.0/16'
+
+@description('Container Apps delegated subnet prefix used when privateBackend auto-creates the VNet.')
+param containerAppsSubnetPrefix string = '10.60.0.0/23'
+
+@description('Private endpoint subnet prefix used when privateBackend auto-creates the VNet.')
+param privateEndpointsSubnetPrefix string = '10.60.2.0/24'
 
 @description('Optional knowledge base capability. Azure AI Search is deployed only when this is azureAiSearch, fullLegacy mode is used, or enableAiSearch is true.')
 @allowed([
@@ -255,6 +268,26 @@ module storage './modules/storage.bicep' = {
   }
 }
 
+module network './modules/network.bicep' = {
+ name: '${deploymentName}-network'
+ scope: deploymentResourceGroup
+ params: {
+   namePrefix: namePrefix
+   environmentName: environmentName
+   location: location
+   tags: commonTags
+   networkProfile: networkProfile
+   vnetName: vnetName
+   vnetAddressPrefix: vnetAddressPrefix
+   containerAppsSubnetPrefix: containerAppsSubnetPrefix
+   privateEndpointsSubnetPrefix: privateEndpointsSubnetPrefix
+   storageAccountId: storage.outputs.summary.storageAccountId
+   keyVaultId: keyVault.outputs.summary.vaultId
+   postgresqlServerId: postgresql.outputs.summary.serverId
+   foundryAccountId: deployAzureAi ? aiFoundry!.outputs.foundryAccountId : ''
+ }
+}
+
 module containerApps './modules/container-apps.bicep' = {
   name: '${deploymentName}-container-apps'
   scope: deploymentResourceGroup
@@ -283,6 +316,7 @@ module containerApps './modules/container-apps.bicep' = {
     azureServiceKeyStorage: azureServiceKeyStorage
     databaseAutoCreateTables: databaseAutoCreateTables
     networkProfile: networkProfile
+    managedEnvironmentInfrastructureSubnetId: network.outputs.infrastructureSubnetId
   }
 }
 

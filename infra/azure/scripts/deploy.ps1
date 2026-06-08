@@ -6,8 +6,12 @@ param(
     [string]$ResourceGroupName = "",
     [ValidateSet("foundryOnly", "fullLegacy")]
     [string]$DeploymentMode = "foundryOnly",
-    [ValidateSet("publicDemo")]
+    [ValidateSet("publicDemo", "privateBackend")]
     [string]$NetworkProfile = "publicDemo",
+    [string]$VnetName = "",
+    [string]$VnetAddressPrefix = "10.60.0.0/16",
+    [string]$ContainerAppsSubnetPrefix = "10.60.0.0/23",
+    [string]$PrivateEndpointsSubnetPrefix = "10.60.2.0/24",
     [ValidateSet("none", "azureAiSearch")]
     [string]$KnowledgeBaseMode = "none",
     [string]$GithubOwner = "jeromeecho",
@@ -305,6 +309,10 @@ $parameters = [ordered]@{
         resourceGroupName = @{ value = $resourceGroupName }
         deploymentMode = @{ value = $DeploymentMode }
         networkProfile = @{ value = $NetworkProfile }
+        vnetName = @{ value = $VnetName }
+        vnetAddressPrefix = @{ value = $VnetAddressPrefix }
+        containerAppsSubnetPrefix = @{ value = $ContainerAppsSubnetPrefix }
+        privateEndpointsSubnetPrefix = @{ value = $PrivateEndpointsSubnetPrefix }
         knowledgeBaseMode = @{ value = $KnowledgeBaseMode }
         containerRegistryName = @{ value = $defaultAcrName }
         storageAccountName = @{ value = $defaultStorageName }
@@ -433,7 +441,7 @@ elseif ($DeployApp) {
     Write-Host "Skipping application DB/schema/sample bootstrap because -SkipAppBootstrap was specified." -ForegroundColor Yellow
 }
 
-if ($DeployApp -or $Verify) {
+if ($Verify) {
     & (Join-Path $ScriptRoot "verify-deployment.ps1") `
         -BackendUrl $outputs.backendUrl.value `
         -FrontendUrl $outputs.frontendUrl.value

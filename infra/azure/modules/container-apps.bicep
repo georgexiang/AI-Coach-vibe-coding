@@ -40,14 +40,18 @@ param databaseAutoCreateTables bool = true
 
 @allowed([
   'publicDemo'
+  'privateBackend'
 ])
 param networkProfile string = 'publicDemo'
+
+param managedEnvironmentInfrastructureSubnetId string = ''
 
 var environmentResourceName = 'cae-${namePrefix}-${environmentName}'
 var backendAppName = 'ca-${namePrefix}-${environmentName}-backend'
 var frontendAppName = 'ca-${namePrefix}-${environmentName}-frontend'
 var backendBootstrapJobName = 'job-${namePrefix}-${environmentName}-bootstrap'
-var publicIngress = networkProfile == 'publicDemo'
+var backendIngressExternal = networkProfile == 'publicDemo'
+var usePrivateVNet = networkProfile == 'privateBackend' && !empty(managedEnvironmentInfrastructureSubnetId)
 var useAzureAdDatabaseAuth = backendDatabaseAuthMode == 'azureAd'
 
 resource workspace 'Microsoft.OperationalInsights/workspaces@2023-09-01' existing = {
@@ -66,6 +70,9 @@ resource managedEnvironment 'Microsoft.App/managedEnvironments@2023-05-01' = {
         sharedKey: workspace.listKeys().primarySharedKey
       }
     }
+    vnetConfiguration: usePrivateVNet ? {
+      infrastructureSubnetId: managedEnvironmentInfrastructureSubnetId
+    } : null
   }
 }
 
@@ -84,7 +91,7 @@ resource backendApp 'Microsoft.App/containerApps@2023-05-01' = {
     configuration: {
       activeRevisionsMode: 'Single'
       ingress: {
-        external: publicIngress
+        external: backendIngressExternal
         targetPort: 8000
         transport: 'auto'
         allowInsecure: false
@@ -237,7 +244,7 @@ resource frontendApp 'Microsoft.App/containerApps@2023-05-01' = {
     configuration: {
       activeRevisionsMode: 'Single'
       ingress: {
-        external: publicIngress
+        external: true
         targetPort: 80
         transport: 'auto'
         allowInsecure: false

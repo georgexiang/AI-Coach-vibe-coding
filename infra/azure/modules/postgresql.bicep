@@ -81,5 +81,6 @@ output summary object = {
 
 output serverFqdn string = server.properties.fullyQualifiedDomainName
 output serverName string = server.name
+output serverId string = server.id
 output databaseName string = databaseName
 output administratorLogin string = administratorLogin
