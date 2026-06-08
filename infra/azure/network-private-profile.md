@@ -2,9 +2,9 @@
 
 ## 目的
 
-本文档规划 AI Coach 平台的第二套 Azure 部署网络 profile。现有部署继续保留为公开 demo profile；新的 profile 目标是：只有 frontend 可以被公网访问，其余后端服务在 Azure 支持的情况下都通过私有网络访问。
+本文档记录 AI Coach 平台的第二套 Azure 部署网络 profile。现有 `publicDemo` 继续保留为公开 demo profile；`privateBackend` 的目标是：只有 frontend 可以被公网访问，其余后端服务在 Azure 支持的情况下都通过私有网络访问。
 
-本文档只做架构和网络规划，不修改当前 Bicep 部署。
+当前 Bicep 已实现 `privateBackend` 的第一版基础设施路径，包括 VNet 集成、backend internal ingress、核心 private endpoints 和 private DNS zones。本文档同时记录仍需应用代码或后续硬化处理的范围。
 
 ## Profile 设计
 
@@ -15,10 +15,10 @@
 
 ## 当前公网架构
 
-当前模板是 public-first 部署：
+`publicDemo` 模板仍保持 public-first 部署：
 
-- `main.bicep` 暴露了 `networkProfile` 参数，但目前只允许 `publicDemo`。
-- Container Apps 没有接入 VNet。
+- `main.bicep` 暴露 `networkProfile` 参数，支持 `publicDemo` 和 `privateBackend`。
+- 在 `publicDemo` 下，Container Apps 不接入 VNet。
 - 在 public profile 下，frontend 和 backend Container Apps 都使用公网 ingress。
 - PostgreSQL Flexible Server 是公网访问，并且包含 `AllowAzureServices` firewall rule。
 - Storage 开启 public network access；容器本身是 private。
@@ -97,7 +97,9 @@ Foundry 网络需要拆成 inbound 和 outbound 两层，不应只用“Foundry 
 - Backend Container App 接入 VNet。
 - 在应用 VNet 中创建 Foundry Private Endpoint。
 - 配套 private DNS zone / VNet link，让 backend 在 VNet 内把 Foundry endpoint 解析到 private IP。
+- Foundry Tools private endpoint 必须同时关联 `privatelink.cognitiveservices.azure.com`、`privatelink.openai.azure.com` 和 `privatelink.services.ai.azure.com`。Azure Portal 创建时也会默认关联这三类 zone。
 - Backend 调用 Foundry 的 URL 通常保持不变，由 DNS 决定走 private endpoint。
+- 当前应用实际会使用两类 Foundry/Cognitive host：Voice Live/OpenAI 相关路径可能使用 `*.cognitiveservices.azure.com`，Content Understanding 和 Foundry project/agent 路径可能使用 `*.services.ai.azure.com`。因此只建 `privatelink.cognitiveservices.azure.com` 不够，关闭 Foundry public network 后会导致仍访问 `services.ai.azure.com` 的路径 403。
 - Azure Portal、ARM、Azure CLI 等控制平面仍走 Azure 公共管理端点，这是 Azure PaaS 正常行为，不代表 data-plane 没有私有化。
 
 ### Outbound：Foundry -> 下游资源
@@ -137,8 +139,8 @@ Foundry 网络需要拆成 inbound 和 outbound 两层，不应只用“Foundry 
 | PostgreSQL Flexible Server | 公网访问，并有宽泛 Azure firewall rule | 仅私有网络访问 | private profile 下移除 `AllowAzureServices` 类访问。 |
 | Storage | Public network enabled，容器 private | Private endpoint | 确认私有路径可用后再关闭 public network access。 |
 | Key Vault | Public default allow | Private endpoint | 需要确认 Container Apps Key Vault references 可私有解析。 |
-| Azure AI Foundry | Public network enabled | Inbound private endpoint；第一版不要求 Foundry outbound Managed VNet | Backend 私有访问 Foundry data-plane；voice score 改为 backend 读 Blob 后提交 data/base64。 |
-| Azure OpenAI | Public network enabled | 支持时使用 private endpoint | 保持 model deployment 行为不变。 |
+| Azure AI Foundry | Public network enabled | Inbound private endpoint；第一版不要求 Foundry outbound Managed VNet | Foundry PE 关联 `cognitiveservices`、`openai`、`services.ai` 三类 private DNS zone；voice score 仍建议改为 backend 读 Blob 后提交 data/base64。 |
+| Azure OpenAI | Public network enabled | Foundry/OpenAI 域名通过 Foundry PE DNS 覆盖；单独 OpenAI 资源 private endpoint 仍需后续评估 | 保持 model deployment 行为不变。 |
 | Speech / Avatar | Public network enabled | 支持时使用 private endpoint | Voice Live/Avatar 的 private endpoint 支持受区域和 preview 状态影响。 |
 | Content Understanding | Public network enabled | 支持时使用 private endpoint | CU preview API 需要验证 endpoint 域名。 |
 | Azure AI Search | 如果部署则 public network enabled | 如果部署则使用 private endpoint | Search 保持可选。 |
@@ -155,31 +157,30 @@ Foundry 网络需要拆成 inbound 和 outbound 两层，不应只用“Foundry 
 - GitHub Actions 仍可通过 Azure Resource Manager 部署 ARM/Bicep，但所有 data-plane 初始化都必须从允许的网络路径执行。
 - 在关闭 public access 之前，必须先从 Container Apps 环境内部验证 private endpoint DNS 和 runtime connectivity。
 
-## Bicep 实现前需要 review 的决策
+## 剩余需要 review 的决策
 
-1. **分支基线**：`feat/network-private-profile` 是基于当前 infra hardening 分支继续做，还是等 hardening 合并后从 `main` 重新创建或 rebase。
-2. **ACR private endpoint**：private profile 是否要把 ACR 升级到 Premium 以支持 private endpoint，还是第一版先保留 ACR public。
-3. **Azure Monitor Private Link**：Application Insights/Log Analytics 第一版是否保持 public，还是纳入 Azure Monitor Private Link Scope。
-4. **Azure AI private endpoint 支持**：在锁定 Bicep 设计前，需要验证 Foundry、Voice Live/Avatar、Content Understanding 在目标区域的 private endpoint 和 DNS 行为。
-5. **Foundry outbound 是否需要进入第一版**：当前决策是不需要。Voice score 通过 backend 读取 Blob 并提交 data/base64 解决；Managed VNet 留给未来 Foundry-managed Agent/RAG 场景。
-6. **运维访问方式**：本阶段是否需要 VPN/Bastion/jump host，还是 Azure-hosted bootstrap jobs 已足够。
+1. **ACR private endpoint**：private profile 是否要把 ACR 升级到 Premium 以支持 private endpoint，还是第一版先保留 ACR public。
+2. **Azure Monitor Private Link**：Application Insights/Log Analytics 第一版是否保持 public，还是纳入 Azure Monitor Private Link Scope。
+3. **单独 Azure OpenAI private endpoint**：当前 Foundry Tools PE 覆盖 Foundry account 的 OpenAI host family；如果应用切到独立 OpenAI account endpoint，需要单独评估 private endpoint。
+4. **Foundry outbound 是否需要进入第一版**：当前决策是不需要。Voice score 通过 backend 读取 Blob 并提交 data/base64 解决；Managed VNet 留给未来 Foundry-managed Agent/RAG 场景。
+5. **运维访问方式**：本阶段是否需要 VPN/Bastion/jump host，还是 Azure-hosted bootstrap jobs 已足够。
 
-## 文档 review 后的建议实施顺序
+## 已实现和剩余实施顺序
 
-1. 保持 `publicDemo` 不变。
-2. 在 `networkProfile` allowed values 中新增 `privateBackend`。
-3. 新增 network module：VNet、subnets、private DNS zones、VNet links。
-4. 将 Container Apps managed environment 接入 VNet。
-5. 在 `privateBackend` 下把 backend ingress 改为 internal，frontend ingress 保持 public。
-6. 为 PostgreSQL、Storage、Key Vault、Foundry inbound 和支持 private endpoint 的 AI 服务添加 private endpoints。
-7. 修复 voice score 数据流：backend 从 Blob 读取音频，并以 data/base64 提交给 Content Understanding，避免 CU 直接读取 private Blob URL。
-8. 只有在 private DNS 和 runtime connectivity 验证通过后，才关闭或限制 public network access。
-9. 更新参数示例和部署文档。
-10. 同时验证 `publicDemo` 和 `privateBackend` 两套 Bicep 部署路径。
+1. 已保持 `publicDemo` 不变。
+2. 已在 `networkProfile` allowed values 中新增 `privateBackend`。
+3. 已新增 network module：VNet、subnets、private DNS zones、VNet links。
+4. 已将 Container Apps managed environment 接入 VNet。
+5. 已在 `privateBackend` 下把 backend ingress 改为 internal，frontend ingress 保持 public。
+6. 已为 PostgreSQL、Storage、Key Vault、Foundry inbound 添加 private endpoints。
+7. 已为 Foundry Tools PE 关联 `privatelink.cognitiveservices.azure.com`、`privatelink.openai.azure.com`、`privatelink.services.ai.azure.com`。
+8. 待修复 voice score 数据流：backend 从 Blob 读取音频，并以 data/base64 提交给 Content Understanding，避免 CU 直接读取 private Blob URL。
+9. 只有在 private DNS 和 runtime connectivity 验证通过后，才关闭或限制 public network access。
+10. 需要同时验证 `publicDemo` 和 `privateBackend` 两套 Bicep 部署路径。
 
 ## 本文档不包含的范围
 
-- 不修改 Bicep。
-- 不修改应用代码。
+- 不继续扩展 ACR private endpoint、Azure Monitor Private Link 或 VPN/Bastion。
+- 不修改应用代码；Voice Live endpoint normalization、lazy API-key fallback、voice score base64 数据流属于应用层后续任务。
 - 不迁移现有已部署资源。
 - 不移除当前 public demo 部署路径。

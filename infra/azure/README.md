@@ -38,7 +38,8 @@
 可选能力：
 
 - `-DeploymentMode fullLegacy`：兼容之前较完整的部署形态，会启用 Speech/Avatar、Content Understanding 和 Azure AI Search。
-- `-NetworkProfile publicDemo`：当前支持的网络配置，Container Apps 对外公开，方便 demo 访问。
+- `-NetworkProfile publicDemo`：默认网络配置，frontend 和 backend Container Apps 都对外公开，方便 demo 访问。
+- `-NetworkProfile privateBackend`：私有后端网络配置，frontend 保持公网入口，backend 使用 internal ingress，Container Apps Environment 接入 VNet，并为 Storage、Key Vault、PostgreSQL 和 Foundry data-plane 创建 private endpoints。
 - `-KnowledgeBaseMode azureAiSearch`：只额外部署 Azure AI Search，不切换到完整 legacy profile。
 - `-ResourceGroupName <name>`：指定资源组名称；不传时使用 `rg-{prefix}-{environment}-{location}`。
 
@@ -92,6 +93,16 @@ az account set --subscription "<subscription-id-or-name>"
 ```powershell
 .\infra\azure\scripts\deploy.ps1 -KnowledgeBaseMode azureAiSearch
 ```
+
+部署私有后端网络 profile：
+
+```powershell
+.\infra\azure\scripts\deploy.ps1 `
+  -NetworkProfile privateBackend `
+  -VnetName "vnet-aicoach-demo"
+```
+
+如果不传 `-VnetName`，模板会自动创建 VNet，并使用 `-VnetAddressPrefix`、`-ContainerAppsSubnetPrefix`、`-PrivateEndpointsSubnetPrefix` 的 CIDR 默认值。`privateBackend` 会为 Foundry Tools private endpoint 同时关联 `privatelink.cognitiveservices.azure.com`、`privatelink.openai.azure.com` 和 `privatelink.services.ai.azure.com`，匹配 Azure Portal 默认 DNS zone 行为。基础设施更新不需要 `-DeployApp`；如果 backend 是 internal ingress，本地机器不能直接验证 backend URL，只有显式传 `-Verify` 才会运行公网 health check。
 
 默认云端安全路径已经启用 PostgreSQL Entra/MI + Admin UI service key 写 Key Vault：
 

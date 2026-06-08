@@ -8,7 +8,7 @@ Run commands from the repository root on Windows PowerShell.
 - Bicep CLI available through Azure CLI.
 - `gh` CLI installed and authenticated if you want to set GitHub repository variables.
 - Azure subscription permissions to create resource groups, identities, role assignments, AI resources, Container Apps, PostgreSQL, and ACR.
-- Existing deployments require permission to read Key Vault secrets, such as `Key Vault Secrets User` on the deployed vault, so the script can preserve stable app secrets.
+- Existing deployments do not require local data-plane access to Key Vault for bootstrap secrets. When a vault already exists, the script reuses Container App Key Vault references and does not read or rotate those secrets locally.
 
 ## What-if
 
@@ -45,6 +45,8 @@ Generated secret parameter files live in `infra\azure\.local\` and are ignored b
 The default mode is infrastructure-only. It does not rebuild images or update Container App revisions.
 For existing deployments, the script reads the current backend/frontend Container App images and passes them back into Bicep so infra-only runs do not revert the apps to the placeholder image.
 
+For private backend infrastructure, pass `-NetworkProfile privateBackend`. You can provide an existing VNet with `-VnetName`; otherwise the template creates one using the configured CIDR parameters. This profile keeps frontend public, makes backend ingress internal, and adds private endpoint DNS for Storage, Key Vault, PostgreSQL, and Foundry.
+
 ## Deploy infrastructure and app images
 
 ```powershell
@@ -76,7 +78,7 @@ The template does not set `SEED_DATA_IGNORE=true`. Startup sample/demo seed beha
 .\infra\azure\scripts\deploy.ps1 -Verify
 ```
 
-`-DeployApp` runs verification automatically after image updates. For infrastructure-only changes, use `-Verify` only when backend/frontend images are already deployed.
+Verification is opt-in. `-DeployApp` does not automatically run verification. For `privateBackend`, the backend URL is internal and cannot be checked directly from a local workstation unless you have a private network path; use `-Verify` only for reachable endpoints or run private checks from inside the VNet/Container Apps environment.
 
 ## Realtime quota allocation
 
