@@ -109,6 +109,37 @@ function Invoke-WithTemporaryEnvironment {
             [Environment]::SetEnvironmentVariable($key, $previousValues[$key], "Process")
         }
     }
+
+}
+
+function Wait-SubscriptionDeployment {
+    param(
+        [Parameter(Mandatory = $true)][string]$DeploymentName,
+        [int]$TimeoutSeconds = 3600,
+        [int]$PollSeconds = 10
+    )
+
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    while ((Get-Date) -lt $deadline) {
+        $state = az deployment sub show `
+            --name $DeploymentName `
+            --query "properties.provisioningState" `
+            --output tsv 2>$null
+
+        if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($state)) {
+            Write-Host "Deployment state: $state"
+            if ($state -eq "Succeeded") {
+                return
+            }
+            if ($state -in @("Failed", "Canceled")) {
+                throw "Azure infrastructure deployment ended with state '$state'."
+            }
+        }
+
+        Start-Sleep -Seconds $PollSeconds
+    }
+
+    throw "Timed out waiting for Azure infrastructure deployment '$DeploymentName'."
 }
 
 function Invoke-ContainerAppBootstrapJob {
@@ -365,12 +396,13 @@ if ($WhatIf) {
 }
 
 Write-Host "Deploying Azure infrastructure..." -ForegroundColor Cyan
-$deploymentJson = az deployment sub create `
+az deployment sub create `
     --name $deploymentName `
     --location $Location `
     --template-file $TemplateFile `
     --parameters "@$parametersPath" `
-    --output json
+    --no-wait `
+    --output none
 if ($LASTEXITCODE -ne 0) {
     if (-not $KeepGeneratedParameters) {
         Remove-Item -Path $parametersPath -Force
@@ -378,9 +410,20 @@ if ($LASTEXITCODE -ne 0) {
     throw "Azure infrastructure deployment failed."
 }
 
-$deployment = $deploymentJson | ConvertFrom-Json
+Wait-SubscriptionDeployment -DeploymentName $deploymentName
 
-$outputs = $deployment.properties.outputs
+$outputsJson = az deployment sub show `
+    --name $deploymentName `
+    --query "properties.outputs" `
+    --output json
+if ($LASTEXITCODE -ne 0) {
+    if (-not $KeepGeneratedParameters) {
+        Remove-Item -Path $parametersPath -Force
+    }
+    throw "Failed to read Azure infrastructure deployment outputs."
+}
+
+$outputs = $outputsJson | ConvertFrom-Json
 $outputPath = Join-Path $LocalDir "deployment.outputs.json"
 $outputs | ConvertTo-Json -Depth 20 | Set-Content -Path $outputPath -Encoding utf8NoBOM
 
