@@ -91,6 +91,18 @@ resource cognitiveservicesDnsZone 'Microsoft.Network/privateDnsZones@2024-06-01'
   tags: tags
 }
 
+resource openAiDnsZone 'Microsoft.Network/privateDnsZones@2024-06-01' = if (usePrivateBackend) {
+  name: 'privatelink.openai.azure.com'
+  location: 'global'
+  tags: tags
+}
+
+resource servicesAiDnsZone 'Microsoft.Network/privateDnsZones@2024-06-01' = if (usePrivateBackend) {
+  name: 'privatelink.services.ai.azure.com'
+  location: 'global'
+  tags: tags
+}
+
 resource blobLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2024-06-01' = if (usePrivateBackend) {
   parent: blobDnsZone
   name: '${effectiveVnetName}-blob-link'
@@ -130,6 +142,30 @@ resource postgresLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@202
 resource cognitiveservicesLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2024-06-01' = if (usePrivateBackend) {
   parent: cognitiveservicesDnsZone
   name: '${effectiveVnetName}-cog-link'
+  location: 'global'
+  properties: {
+    registrationEnabled: false
+    virtualNetwork: {
+      id: useExistingVnet ? existingVnet.id : createdVnet.id
+    }
+  }
+}
+
+resource openAiLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2024-06-01' = if (usePrivateBackend) {
+  parent: openAiDnsZone
+  name: '${effectiveVnetName}-openai-link'
+  location: 'global'
+  properties: {
+    registrationEnabled: false
+    virtualNetwork: {
+      id: useExistingVnet ? existingVnet.id : createdVnet.id
+    }
+  }
+}
+
+resource servicesAiLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2024-06-01' = if (usePrivateBackend) {
+  parent: servicesAiDnsZone
+  name: '${effectiveVnetName}-services-ai-link'
   location: 'global'
   properties: {
     registrationEnabled: false
@@ -281,6 +317,18 @@ resource foundryPrivateDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateD
         name: 'cognitiveservices'
         properties: {
           privateDnsZoneId: cognitiveservicesDnsZone.id
+        }
+      }
+      {
+        name: 'openai'
+        properties: {
+          privateDnsZoneId: openAiDnsZone.id
+        }
+      }
+      {
+        name: 'services-ai'
+        properties: {
+          privateDnsZoneId: servicesAiDnsZone.id
         }
       }
     ]

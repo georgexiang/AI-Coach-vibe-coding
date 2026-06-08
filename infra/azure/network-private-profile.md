@@ -80,10 +80,10 @@ Private endpoint 需要配套 private DNS zone，并 link 到部署使用的 VNe
 | PostgreSQL Flexible Server | `privatelink.postgres.database.azure.com` | private profile 下数据库不走公网。 |
 | Azure AI Search | `privatelink.search.windows.net` | 仅在启用可选 Search 部署时需要。 |
 | Azure Container Registry | `privatelink.azurecr.io` | 候选项：实现完全私有 image pull；可能要求 Premium SKU。 |
-| Azure OpenAI / Cognitive Services | `privatelink.cognitiveservices.azure.com` | 实现前需要验证具体 endpoint 域名。 |
+| Azure OpenAI / Cognitive Services | `privatelink.cognitiveservices.azure.com`, `privatelink.openai.azure.com` | Foundry Tools private endpoint 默认覆盖 Cognitive Services 和 OpenAI 两类公网域名。 |
 | Speech / Avatar / Voice Live | `privatelink.cognitiveservices.azure.com` | 需要验证目标区域和 preview 功能的 private endpoint 行为。 |
-| Content Understanding | `privatelink.cognitiveservices.azure.com` | 需要在实现前验证 preview API endpoint 行为。 |
-| Azure AI Foundry | 服务特定域名 | `privateBackend` 第一版只要求 inbound private endpoint；需要验证 Foundry project、target subresource 和 `services.ai.azure.com` 的 private link 行为。 |
+| Content Understanding | `privatelink.services.ai.azure.com` | CU 当前代码优先使用 `*.services.ai.azure.com`。 |
+| Azure AI Foundry | `privatelink.cognitiveservices.azure.com`, `privatelink.openai.azure.com`, `privatelink.services.ai.azure.com` | Foundry Tools (`Microsoft.CognitiveServices/accounts`, subresource `account`) 需要同时覆盖三类域名，匹配 Portal 默认 DNS zone 关联。 |
 
 ## Azure AI Foundry 私有网络决策
 
