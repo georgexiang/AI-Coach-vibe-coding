@@ -4,9 +4,17 @@ import { VoiceScoreSection } from "./voice-score-section";
 import type { ScoreDimension } from "@/hooks/use-combined-score";
 import apiClient from "@/api/client";
 
+const mockInvalidateQueries = vi.fn();
+
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string) => key,
+  }),
+}));
+
+vi.mock("@tanstack/react-query", () => ({
+  useQueryClient: () => ({
+    invalidateQueries: mockInvalidateQueries,
   }),
 }));
 
@@ -33,6 +41,7 @@ const mockDimensions: ScoreDimension[] = [
 describe("VoiceScoreSection", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockInvalidateQueries.mockResolvedValue(undefined);
   });
 
   it("returns null when voiceScoreStatus is 'none'", () => {
@@ -103,6 +112,32 @@ describe("VoiceScoreSection", () => {
       expect(apiClient.post).toHaveBeenCalledWith(
         "/sessions/session-123/voice-score/retry",
       );
+    });
+  });
+
+  it("shows processing and refreshes score queries after retry succeeds", async () => {
+    vi.mocked(apiClient.post).mockResolvedValueOnce({ data: {} });
+
+    render(
+      <VoiceScoreSection
+        dimensions={mockDimensions}
+        overallVoiceScore={0}
+        voiceScoreStatus="failed"
+        audioUrl={null}
+        sessionId="session-123"
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId("retry-voice-scoring"));
+
+    await waitFor(() => {
+      expect(screen.getByText("voiceScore.processing")).toBeInTheDocument();
+    });
+    expect(mockInvalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["combined-score", "session-123"],
+    });
+    expect(mockInvalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["voice-score", "session-123"],
     });
   });
 

@@ -162,7 +162,6 @@ async def trigger_voice_scoring(session_id: str, language: str = "zh-CN") -> Non
                     timeout_seconds=settings.voice_scoring_transcode_timeout_seconds,
                 )
                 mime_type = "audio/wav"
-                use_binary_upload = True
 
             cu_fields = await score_voice_with_cu(
                 endpoint,

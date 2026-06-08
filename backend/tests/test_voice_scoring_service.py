@@ -304,4 +304,4 @@ class TestTriggerVoiceScoring:
         mock_transcode.assert_awaited_once_with(b"webm-bytes", timeout_seconds=120)
         assert mock_score_voice.await_args.kwargs["audio_data"] == b"wav-bytes"
         assert mock_score_voice.await_args.kwargs["mime_type"] == "audio/wav"
-        assert mock_score_voice.await_args.kwargs["use_binary_upload"] is True
+        assert mock_score_voice.await_args.kwargs["use_binary_upload"] is False
