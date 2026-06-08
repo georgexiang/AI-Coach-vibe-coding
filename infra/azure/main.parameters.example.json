@@ -104,6 +104,9 @@
     "chatModelVersion": {
       "value": "2024-11-20"
     },
+    "chatDeploymentCapacity": {
+      "value": 120
+    },
     "enableAzureAi": {
       "value": true
     },

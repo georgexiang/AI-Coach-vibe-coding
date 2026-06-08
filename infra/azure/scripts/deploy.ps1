@@ -18,6 +18,7 @@ param(
     [string]$GithubRepo = "AI-Coach-vibe-coding",
     [string]$GithubBranch = "main",
     [string]$ChatDeploymentName = "gpt-4o",
+    [int]$ChatDeploymentCapacity = 120,
     [ValidateSet("password", "azureAd")]
     [string]$BackendDatabaseAuthMode = "azureAd",
     [ValidateSet("database", "keyvault")]
@@ -332,6 +333,7 @@ $parameters = [ordered]@{
         githubRepo = @{ value = $GithubRepo }
         githubBranch = @{ value = $GithubBranch }
         chatDeploymentName = @{ value = $ChatDeploymentName }
+        chatDeploymentCapacity = @{ value = $ChatDeploymentCapacity }
     }
 }
 $parameters | ConvertTo-Json -Depth 20 | Set-Content -Path $parametersPath -Encoding utf8NoBOM

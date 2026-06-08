@@ -8,6 +8,7 @@ param tags object
 param chatDeploymentName string
 param chatModelName string
 param chatModelVersion string
+param chatDeploymentCapacity int = 120
 
 var accountName = toLower('${namePrefix}-${environmentName}-openai-${uniqueString(resourceGroup().id, location)}')
 
@@ -33,7 +34,7 @@ resource chatDeployment 'Microsoft.CognitiveServices/accounts/deployments@2023-0
   name: chatDeploymentName
   sku: {
     name: 'Standard'
-    capacity: 10
+    capacity: chatDeploymentCapacity
   }
   properties: {
     model: {

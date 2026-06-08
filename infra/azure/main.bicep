@@ -143,6 +143,10 @@ param chatModelName string = 'gpt-4o'
 @description('Default Azure OpenAI chat/scoring model version. Confirm available versions in the target region before deployment.')
 param chatModelVersion string = '2024-11-20'
 
+@minValue(1)
+@description('Default Azure OpenAI chat/scoring deployment capacity. For gpt-4o in Sweden Central, 120 maps to 120,000 TPM.')
+param chatDeploymentCapacity int = 120
+
 @description('Whether to include Azure AI / Foundry / OpenAI resources in the deployment.')
 param enableAzureAi bool = true
 
@@ -332,6 +336,7 @@ module aiFoundry './modules/ai-foundry.bicep' = if (deployAzureAi) {
     chatDeploymentName: chatDeploymentName
     chatModelName: chatModelName
     chatModelVersion: chatModelVersion
+    chatDeploymentCapacity: chatDeploymentCapacity
   }
 }
 
@@ -346,6 +351,7 @@ module aiOpenAi './modules/ai-openai.bicep' = if (deployAzureAi) {
     chatDeploymentName: chatDeploymentName
     chatModelName: chatModelName
     chatModelVersion: chatModelVersion
+    chatDeploymentCapacity: chatDeploymentCapacity
   }
 }
 
