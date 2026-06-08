@@ -15,6 +15,8 @@ import asyncio
 import base64
 import json
 import logging
+from pathlib import Path
+from urllib.parse import urlparse
 
 import httpx
 from sqlalchemy import select
@@ -33,6 +35,22 @@ REQUEST_TIMEOUT = 30.0
 
 # Service name for config lookup
 CU_SERVICE_NAME = "content_understanding"
+
+_AUDIO_MIME_TYPES = {
+    ".webm": "audio/webm",
+    ".wav": "audio/wav",
+    ".mp3": "audio/mpeg",
+    ".m4a": "audio/mp4",
+    ".mp4": "video/mp4",
+}
+
+
+def _mime_type_for_audio_path(audio_url: str) -> str:
+    """Infer the MIME type CU needs when submitting base64 audio data."""
+    parsed = urlparse(audio_url)
+    path = parsed.path or audio_url
+    suffix = Path(path).suffix.lower()
+    return _AUDIO_MIME_TYPES.get(suffix, "application/octet-stream")
 
 
 async def _get_auth_headers(api_key: str) -> dict[str, str]:
@@ -169,11 +187,12 @@ async def score_voice_with_cu(
     api_key: str,
     analyzer_id: str,
     audio_url: str,
+    audio_data: bytes | None = None,
 ) -> dict:
     """Submit audio to CU voice analyzer and poll for results.
 
-    Supports URL-based submission for Azure Blob storage audio,
-    or base64 fallback for local development.
+    Supports preloaded audio bytes for private cloud storage, URL-based
+    submission for public sources, or local file reads for development.
     Returns raw CU fields dict for parsing by _parse_cu_voice_result.
     """
     endpoint = endpoint.rstrip("/")
@@ -183,14 +202,17 @@ async def score_voice_with_cu(
     )
     headers = await _get_auth_headers(api_key)
 
-    if audio_url.startswith(("http://", "https://")):
+    if audio_data is not None:
+        b64_audio = base64.b64encode(audio_data).decode("utf-8")
+        body = {"data": b64_audio, "mimeType": _mime_type_for_audio_path(audio_url)}
+    elif audio_url.startswith(("http://", "https://")):
         body: dict = {"url": audio_url}
     else:
         try:
             with open(audio_url, "rb") as f:
                 audio_bytes = f.read()
             b64_audio = base64.b64encode(audio_bytes).decode("utf-8")
-            body = {"data": b64_audio}
+            body = {"data": b64_audio, "mimeType": _mime_type_for_audio_path(audio_url)}
         except (FileNotFoundError, OSError) as e:
             raise RuntimeError(f"Failed to read local audio file: {e}") from e
 
@@ -233,7 +255,9 @@ async def _poll_result(
                 return contents[0].get("fields", {})
             return result.get("fields", {})
         if status in ("failed", "cancelled"):
-            error_msg = poll_data.get("error", {}).get("message", "Unknown error")
+            error = poll_data.get("error", {})
+            error_msg = error.get("message", "Unknown error")
+            logger.error("CU analysis %s: %s", status, json.dumps(error, ensure_ascii=False))
             raise RuntimeError(f"CU analysis {status}: {error_msg}")
 
     raise RuntimeError(f"CU analysis timed out after {MAX_POLL_ATTEMPTS * POLL_INTERVAL_SECONDS}s")

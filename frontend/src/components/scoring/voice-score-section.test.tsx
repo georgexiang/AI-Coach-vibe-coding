@@ -1,7 +1,8 @@
-import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { beforeEach, describe, it, expect, vi } from "vitest";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { VoiceScoreSection } from "./voice-score-section";
 import type { ScoreDimension } from "@/hooks/use-combined-score";
+import apiClient from "@/api/client";
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
@@ -17,6 +18,12 @@ vi.mock("./audio-evidence-player", () => ({
   ),
 }));
 
+vi.mock("@/api/client", () => ({
+  default: {
+    post: vi.fn(),
+  },
+}));
+
 const mockDimensions: ScoreDimension[] = [
   { id: "d1", dimension: "clarity", score: 80, weight: 0.3, strengths: "", weaknesses: "", suggestions: "", category: "voice", created_at: "" },
   { id: "d2", dimension: "pace", score: 70, weight: 0.2, strengths: "", weaknesses: "", suggestions: "", category: "voice", created_at: "" },
@@ -24,6 +31,10 @@ const mockDimensions: ScoreDimension[] = [
 ];
 
 describe("VoiceScoreSection", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it("returns null when voiceScoreStatus is 'none'", () => {
     const { container } = render(
       <VoiceScoreSection
@@ -71,6 +82,28 @@ describe("VoiceScoreSection", () => {
       />,
     );
     expect(screen.getByText("voiceScore.failed")).toBeInTheDocument();
+  });
+
+  it("retries voice scoring with a path relative to apiClient baseURL", async () => {
+    vi.mocked(apiClient.post).mockRejectedValueOnce(new Error("retry failed"));
+
+    render(
+      <VoiceScoreSection
+        dimensions={mockDimensions}
+        overallVoiceScore={0}
+        voiceScoreStatus="failed"
+        audioUrl={null}
+        sessionId="session-123"
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId("retry-voice-scoring"));
+
+    await waitFor(() => {
+      expect(apiClient.post).toHaveBeenCalledWith(
+        "/sessions/session-123/voice-score/retry",
+      );
+    });
   });
 
   it("renders completed state with overall score", () => {

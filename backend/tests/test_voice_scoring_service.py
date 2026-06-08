@@ -95,14 +95,17 @@ class TestTriggerVoiceScoring:
         await db_session.commit()
 
         # Mock config_service to return None (not configured)
-        with patch(
-            "app.services.voice_scoring_service.config_service.get_effective_endpoint",
-            new_callable=AsyncMock,
-            return_value=None,
-        ), patch(
-            "app.services.voice_scoring_service.config_service.get_effective_key",
-            new_callable=AsyncMock,
-            return_value=None,
+        with (
+            patch(
+                "app.services.voice_scoring_service.config_service.get_effective_endpoint",
+                new_callable=AsyncMock,
+                return_value=None,
+            ),
+            patch(
+                "app.services.voice_scoring_service.config_service.get_effective_key",
+                new_callable=AsyncMock,
+                return_value=None,
+            ),
         ):
             await trigger_voice_scoring(session_id)
 
@@ -171,20 +174,34 @@ class TestTriggerVoiceScoring:
             "transcript": {"valueString": "Hello doctor"},
         }
 
-        with patch(
-            "app.services.voice_scoring_service.config_service.get_effective_endpoint",
-            new_callable=AsyncMock,
-            return_value="https://cu.cognitiveservices.azure.com",
-        ), patch(
-            "app.services.voice_scoring_service.config_service.get_effective_key",
-            new_callable=AsyncMock,
-            return_value="test-key",
-        ), patch(
-            "app.services.voice_scoring_service.score_voice_with_cu",
-            new_callable=AsyncMock,
-            return_value=mock_cu_fields,
+        mock_storage = AsyncMock()
+        mock_storage.read = AsyncMock(return_value=b"audio-bytes")
+
+        with (
+            patch(
+                "app.services.voice_scoring_service.config_service.get_effective_endpoint",
+                new_callable=AsyncMock,
+                return_value="https://cu.cognitiveservices.azure.com",
+            ),
+            patch(
+                "app.services.voice_scoring_service.config_service.get_effective_key",
+                new_callable=AsyncMock,
+                return_value="test-key",
+            ),
+            patch(
+                "app.services.voice_scoring_service.score_voice_with_cu",
+                new_callable=AsyncMock,
+                return_value=mock_cu_fields,
+            ) as mock_score_voice,
+            patch(
+                "app.services.voice_scoring_service.get_storage",
+                return_value=mock_storage,
+            ),
         ):
             await trigger_voice_scoring(session_id)
+
+        mock_storage.read.assert_awaited_once_with("https://blob.core.windows.net/audio/test.webm")
+        assert mock_score_voice.await_args.kwargs["audio_data"] == b"audio-bytes"
 
         async with TestSessionLocal() as verify_session:
             result = await verify_session.execute(

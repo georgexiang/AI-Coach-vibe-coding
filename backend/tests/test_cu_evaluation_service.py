@@ -11,6 +11,7 @@ from app.services.cu_evaluation_service import (
     _put_analyzer,
     build_voice_analyzer_schema,
     merge_scores,
+    score_voice_with_cu,
 )
 
 
@@ -134,6 +135,62 @@ class TestPutAnalyzer:
                 {"name": "VoiceScoring", "fields": {}},
                 "voice",
             )
+
+
+class TestScoreVoiceWithCu:
+    """Test voice scoring submission payloads."""
+
+    @pytest.mark.asyncio
+    async def test_audio_data_is_submitted_as_base64(self):
+        captured_body = {}
+
+        class FakePostResponse:
+            status_code = 202
+            headers = {"Operation-Location": "https://example.test/operations/1"}
+            text = ""
+
+        class FakeGetResponse:
+            def json(self):
+                return {
+                    "status": "Succeeded",
+                    "result": {"contents": [{"fields": {"transcript": {"valueString": "hi"}}}]},
+                }
+
+        class FakeClient:
+            def __init__(self, timeout: float) -> None:
+                self.timeout = timeout
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc, tb):
+                return None
+
+            async def post(self, url, headers, json):
+                captured_body.update(json)
+                return FakePostResponse()
+
+            async def get(self, url, headers):
+                return FakeGetResponse()
+
+        with (
+            patch(
+                "app.services.cu_evaluation_service._get_auth_headers",
+                AsyncMock(return_value={}),
+            ),
+            patch("app.services.cu_evaluation_service.httpx.AsyncClient", FakeClient),
+            patch("app.services.cu_evaluation_service.asyncio.sleep", AsyncMock()),
+        ):
+            result = await score_voice_with_cu(
+                "https://example.services.ai.azure.com",
+                "",
+                "rubricVoice12345678",
+                "https://storage.blob.core.windows.net/audio.webm",
+                audio_data=b"audio-bytes",
+            )
+
+        assert captured_body == {"data": "YXVkaW8tYnl0ZXM=", "mimeType": "audio/webm"}
+        assert result == {"transcript": {"valueString": "hi"}}
 
 
 class TestMergeScores:

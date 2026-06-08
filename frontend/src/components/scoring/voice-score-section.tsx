@@ -33,7 +33,7 @@ export function VoiceScoreSection({
     setRetrying(true);
     setRetryError(null);
     try {
-      await apiClient.post(`/api/v1/sessions/${sessionId}/voice-score/retry`);
+      await apiClient.post(`/sessions/${sessionId}/voice-score/retry`);
       window.location.reload();
     } catch {
       setRetryError(t("voiceScore.retryFailed"));

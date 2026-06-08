@@ -7,6 +7,7 @@ Uses durable background task pattern (own DB session) per project convention.
 """
 
 import logging
+from urllib.parse import urlparse
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,6 +21,7 @@ from app.services.cu_evaluation_service import (
     _parse_cu_voice_result,
     score_voice_with_cu,
 )
+from app.services.storage import get_storage
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +52,19 @@ VOICE_DIMENSIONS = [
         "description": "Pronunciation clarity",
     },
 ]
+
+
+async def _read_audio_for_private_source(audio_url: str) -> bytes | None:
+    """Read cloud audio through the backend when CU cannot fetch the URL itself."""
+    parsed = urlparse(audio_url)
+    if parsed.scheme not in {"http", "https"}:
+        return None
+
+    storage = get_storage()
+    try:
+        return await storage.read(audio_url)
+    except Exception as exc:
+        raise RuntimeError(f"Failed to read audio from storage for voice scoring: {exc}") from exc
 
 
 async def save_voice_score_details(db: AsyncSession, session_id: str, scores: dict) -> None:
@@ -133,8 +148,16 @@ async def trigger_voice_scoring(session_id: str, language: str = "zh-CN") -> Non
             if not analyzer_id:
                 raise RuntimeError(f"No CU voice analyzer configured for session {session_id}")
 
-            # Call CU voice scoring
-            cu_fields = await score_voice_with_cu(endpoint, api_key, analyzer_id, session.audio_url)
+            # Private Blob URLs are read by the backend with Managed Identity
+            # and submitted as base64 data so CU does not need Blob access.
+            audio_data = await _read_audio_for_private_source(session.audio_url)
+            cu_fields = await score_voice_with_cu(
+                endpoint,
+                api_key,
+                analyzer_id,
+                session.audio_url,
+                audio_data=audio_data,
+            )
             voice_result = _parse_cu_voice_result(cu_fields)
 
             # Calculate overall voice score
