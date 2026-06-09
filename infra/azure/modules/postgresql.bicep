@@ -15,7 +15,14 @@ param databaseName string = 'ai_coach'
 param manageAdministratorPassword bool = true
 param activeDirectoryAuthEnabled bool = false
 
+@allowed([
+  'publicDemo'
+  'privateBackend'
+])
+param networkProfile string = 'publicDemo'
+
 var serverName = toLower('${namePrefix}-${environmentName}-pg-${uniqueString(resourceGroup().id, location)}')
+var usePrivateBackend = networkProfile == 'privateBackend'
 
 resource server 'Microsoft.DBforPostgreSQL/flexibleServers@2022-12-01' = {
   name: serverName
@@ -43,6 +50,9 @@ resource server 'Microsoft.DBforPostgreSQL/flexibleServers@2022-12-01' = {
     highAvailability: {
       mode: 'Disabled'
     }
+    network: {
+      publicNetworkAccess: usePrivateBackend ? 'Disabled' : 'Enabled'
+    }
   }, manageAdministratorPassword ? {
     administratorLoginPassword: administratorPassword
   } : {})
@@ -57,7 +67,7 @@ resource database 'Microsoft.DBforPostgreSQL/flexibleServers/databases@2022-12-0
   }
 }
 
-resource allowAzureServices 'Microsoft.DBforPostgreSQL/flexibleServers/firewallRules@2022-12-01' = {
+resource allowAzureServices 'Microsoft.DBforPostgreSQL/flexibleServers/firewallRules@2022-12-01' = if (!usePrivateBackend) {
   parent: server
   name: 'AllowAzureServices'
   properties: {

@@ -10,6 +10,14 @@ param tags object
 @maxLength(24)
 param storageAccountName string
 
+@allowed([
+  'publicDemo'
+  'privateBackend'
+])
+param networkProfile string = 'publicDemo'
+
+var usePrivateBackend = networkProfile == 'privateBackend'
+
 resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' = {
   name: storageAccountName
   location: location
@@ -24,7 +32,11 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' = {
     allowSharedKeyAccess: true
     minimumTlsVersion: 'TLS1_2'
     supportsHttpsTrafficOnly: true
-    publicNetworkAccess: 'Enabled'
+    publicNetworkAccess: usePrivateBackend ? 'Disabled' : 'Enabled'
+    networkAcls: {
+      bypass: 'AzureServices'
+      defaultAction: usePrivateBackend ? 'Deny' : 'Allow'
+    }
   }
 }
 

@@ -17,7 +17,14 @@ param postgresAdminPassword string
 
 param manageBootstrapSecrets bool = true
 
+@allowed([
+  'publicDemo'
+  'privateBackend'
+])
+param networkProfile string = 'publicDemo'
+
 var vaultName = take(toLower('${namePrefix}-${environmentName}-${uniqueString(resourceGroup().id, location)}'), 24)
+var usePrivateBackend = networkProfile == 'privateBackend'
 
 resource vault 'Microsoft.KeyVault/vaults@2023-07-01' = {
   name: vaultName
@@ -35,10 +42,10 @@ resource vault 'Microsoft.KeyVault/vaults@2023-07-01' = {
     enableRbacAuthorization: true
     enableSoftDelete: true
     softDeleteRetentionInDays: 7
-    publicNetworkAccess: 'Enabled'
+    publicNetworkAccess: usePrivateBackend ? 'Disabled' : 'Enabled'
     networkAcls: {
       bypass: 'AzureServices'
-      defaultAction: 'Allow'
+      defaultAction: usePrivateBackend ? 'Deny' : 'Allow'
     }
   }
 }

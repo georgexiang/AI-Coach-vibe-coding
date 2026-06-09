@@ -164,6 +164,7 @@ var effectiveResourceGroupName = empty(resourceGroupName) ? 'rg-${namePrefix}-${
 var deploymentName = '${namePrefix}-${environmentName}-${locationToken}'
 var isFullLegacyDeployment = deploymentMode == 'fullLegacy'
 var deployAzureAi = enableAzureAi || isFullLegacyDeployment
+var deployLegacyOpenAi = isFullLegacyDeployment
 var deployVoiceAndAvatar = enableVoiceAndAvatar || isFullLegacyDeployment
 var deployContentUnderstanding = enableContentUnderstanding || isFullLegacyDeployment
 var deployAiSearch = enableAiSearch || knowledgeBaseMode == 'azureAiSearch' || isFullLegacyDeployment
@@ -230,6 +231,7 @@ module keyVault './modules/key-vault.bicep' = {
     encryptionKey: encryptionKey
     postgresAdminPassword: postgresAdminPassword
     manageBootstrapSecrets: manageBootstrapSecrets
+    networkProfile: networkProfile
   }
 }
 
@@ -245,6 +247,7 @@ module postgresql './modules/postgresql.bicep' = {
     administratorPassword: postgresAdminPassword
     manageAdministratorPassword: manageBootstrapSecrets
     activeDirectoryAuthEnabled: useAzureAdDatabaseAuth
+    networkProfile: networkProfile
   }
 }
 
@@ -269,6 +272,7 @@ module storage './modules/storage.bicep' = {
     location: location
     tags: commonTags
     storageAccountName: storageAccountName
+    networkProfile: networkProfile
   }
 }
 
@@ -337,10 +341,11 @@ module aiFoundry './modules/ai-foundry.bicep' = if (deployAzureAi) {
     chatModelName: chatModelName
     chatModelVersion: chatModelVersion
     chatDeploymentCapacity: chatDeploymentCapacity
+    networkProfile: networkProfile
   }
 }
 
-module aiOpenAi './modules/ai-openai.bicep' = if (deployAzureAi) {
+module aiOpenAi './modules/ai-openai.bicep' = if (deployLegacyOpenAi) {
   name: '${deploymentName}-ai-openai'
   scope: deploymentResourceGroup
   params: {
@@ -455,7 +460,7 @@ output deployment object = {
     enableAiSearch: deployAiSearch
   }
   aiFoundry: deployAzureAi ? aiFoundry!.outputs.summary : null
-  aiOpenAi: deployAzureAi ? aiOpenAi!.outputs.summary : null
+  aiOpenAi: deployLegacyOpenAi ? aiOpenAi!.outputs.summary : null
   speechAvatar: deployVoiceAndAvatar ? speechAvatar!.outputs.summary : null
   contentUnderstanding: deployContentUnderstanding ? contentUnderstanding!.outputs.summary : null
   aiSearch: deployAiSearch ? aiSearch!.outputs.summary : null

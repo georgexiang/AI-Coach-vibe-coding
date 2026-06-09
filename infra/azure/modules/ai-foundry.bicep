@@ -12,7 +12,14 @@ param chatModelName string
 param chatModelVersion string
 param chatDeploymentCapacity int = 120
 
+@allowed([
+  'publicDemo'
+  'privateBackend'
+])
+param networkProfile string = 'publicDemo'
+
 var foundryAccountName = toLower('${namePrefix}-${environmentName}-foundry-${uniqueString(resourceGroup().id, location)}')
+var usePrivateBackend = networkProfile == 'privateBackend'
 
 resource foundryAccount 'Microsoft.CognitiveServices/accounts@2026-03-01' = {
   name: foundryAccountName
@@ -25,9 +32,9 @@ resource foundryAccount 'Microsoft.CognitiveServices/accounts@2026-03-01' = {
   properties: {
     allowProjectManagement: true
     customSubDomainName: foundryAccountName
-    publicNetworkAccess: 'Enabled'
+    publicNetworkAccess: usePrivateBackend ? 'Disabled' : 'Enabled'
     networkAcls: {
-      defaultAction: 'Allow'
+      defaultAction: usePrivateBackend ? 'Deny' : 'Allow'
     }
   }
 }
