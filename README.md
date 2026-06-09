@@ -286,6 +286,108 @@ docker compose up --build
 
 ---
 
+## Cloud Deployment / 云端部署
+
+Azure 部署资产位于 `infra\azure\`，入口脚本是：
+
+```powershell
+.\infra\azure\scripts\deploy.ps1
+```
+
+部署前先登录并确认订阅：
+
+```powershell
+az login
+az account show -o table
+```
+
+脚本默认使用：
+
+| 配置 | 默认值 |
+|---|---|
+| `DeploymentMode` | `foundryOnly` |
+| `NetworkProfile` | `publicDemo` |
+| 数据库认证 | PostgreSQL Entra ID + backend Managed Identity |
+| Azure service key 存储 | Key Vault |
+| Chat model deployment | Foundry `gpt-4o` |
+
+### 方式一：Public demo 部署
+
+`publicDemo` 是默认网络配置，适合快速 demo、调试和本地直接验证：
+
+```powershell
+.\infra\azure\scripts\deploy.ps1 `
+  -ResourceGroupName ai-coach-demo-rg `
+  -DeployApp
+```
+
+这个模式下：
+
+- Frontend Container App：public ingress
+- Backend Container App：public ingress
+- Storage / Key Vault / PostgreSQL / Foundry：保留 public network access
+- 本地可以直接访问 backend health/API docs
+
+如果只更新基础设施，不重建应用镜像，可以不传 `-DeployApp`：
+
+```powershell
+.\infra\azure\scripts\deploy.ps1 -ResourceGroupName ai-coach-demo-rg
+```
+
+### 方式二：Private backend 部署
+
+`privateBackend` 用于更接近生产安全边界的云端验证：
+
+```powershell
+.\infra\azure\scripts\deploy.ps1 `
+  -NetworkProfile privateBackend `
+  -ResourceGroupName ai-coach-private-rg `
+  -DeployApp
+```
+
+这个模式下：
+
+- Frontend Container App：public ingress，用户从公网访问前端
+- Backend Container App：internal ingress，只在 Container Apps Environment / VNet 内访问
+- Container Apps Environment：接入 VNet
+- Storage Blob、Key Vault、PostgreSQL、Foundry/AIServices：通过 private endpoint 访问
+- 这些 private endpoint 覆盖的资源会关闭 public network access
+- PostgreSQL 不再创建 `AllowAzureServices` firewall rule
+- `foundryOnly` 只管理 Foundry/AIServices 的 `gpt-4o` deployment，不再管理 legacy standalone Azure OpenAI account
+
+如果不传 `-VnetName`，模板会自动创建 VNet 和两个 subnet：
+
+- Container Apps infrastructure subnet
+- Private endpoints subnet
+
+`privateBackend` 下本地机器不能直接访问 backend internal URL；验证应通过 public frontend、Container App logs、bootstrap job 状态或 Azure Portal/CLI 查看。
+
+### 常用部署检查
+
+部署前预览：
+
+```powershell
+.\infra\azure\scripts\deploy.ps1 `
+  -NetworkProfile privateBackend `
+  -ResourceGroupName ai-coach-private-rg `
+  -WhatIf
+```
+
+只构建并更新应用镜像：
+
+```powershell
+.\infra\azure\scripts\deploy.ps1 `
+  -NetworkProfile privateBackend `
+  -ResourceGroupName ai-coach-private-rg `
+  -DeployApp
+```
+
+`-DeployApp` 使用当前本地 worktree 的 `backend\` 和 `frontend\` 构建 ACR 镜像；部署前请确认当前分支就是要上线验证的代码。
+
+更多 Azure 参数和网络细节见 [`infra\azure\README.md`](infra/azure/README.md)。
+
+---
+
 ## API Endpoints
 
 启动后端后访问 Swagger UI: http://localhost:8000/docs
