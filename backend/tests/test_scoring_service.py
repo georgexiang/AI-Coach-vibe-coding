@@ -1,6 +1,7 @@
 """Tests for the scoring service: LLM scoring integration and DB operations."""
 
 import json
+from datetime import datetime
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -8,12 +9,14 @@ import pytest
 from app.models.hcp_profile import HcpProfile
 from app.models.message import SessionMessage
 from app.models.scenario import Scenario
+from app.models.score import ScoreDetail, SessionScore
 from app.models.scoring_rubric import ScoringRubric
 from app.models.session import CoachingSession
 from app.models.user import User
 from app.services.auth import get_password_hash
 from app.services.scoring_service import (
     _extract_skill_criteria,
+    get_score_history,
     get_session_score,
     score_session,
 )
@@ -175,6 +178,49 @@ class TestScoreSessionIntegration:
         assert score.passed is True
         assert len(score.details) == 5
 
+    async def test_score_history_excludes_voice_dimensions(self, db_session):
+        user_id, session_id, _ = await _seed_completed_session(db_session)
+
+        session = await db_session.get(CoachingSession, session_id)
+        session.status = "scored"
+        session.completed_at = datetime(2026, 6, 10, 12, 0, 0)
+
+        score = SessionScore(
+            session_id=session_id,
+            overall_score=40,
+            passed=False,
+            feedback_summary="Needs improvement",
+        )
+        db_session.add(score)
+        await db_session.flush()
+
+        db_session.add_all(
+            [
+                ScoreDetail(
+                    score_id=score.id,
+                    dimension="客户问题管理",
+                    score=40,
+                    weight=20,
+                    category="content",
+                ),
+                ScoreDetail(
+                    score_id=score.id,
+                    dimension="fluency",
+                    score=85,
+                    weight=25,
+                    category="voice",
+                ),
+            ]
+        )
+        await db_session.flush()
+
+        history = await get_score_history(db_session, user_id)
+
+        assert len(history) == 1
+        assert history[0]["dimensions"] == [
+            {"dimension": "客户问题管理", "score": 40, "weight": 20, "improvement_pct": None}
+        ]
+
     @patch("app.services.scoring_service.score_with_llm", new_callable=AsyncMock)
     async def test_score_session_updates_session_status_to_scored(
         self, mock_llm, db_session
@@ -207,6 +253,57 @@ class TestScoreSessionIntegration:
         with pytest.raises(AppException) as exc_info:
             await score_session(db_session, session_id)
         assert exc_info.value.code == "ALREADY_SCORED"
+
+    @patch("app.services.scoring_service.score_with_llm", new_callable=AsyncMock)
+    async def test_score_session_returns_existing_score_for_completed_orphan(
+        self, mock_llm, db_session
+    ):
+        """Existing score with completed session is repaired instead of duplicated."""
+        from sqlalchemy import func, select
+
+        _, session_id, _ = await _seed_completed_session(db_session)
+        existing_score = SessionScore(
+            session_id=session_id,
+            overall_score=88.0,
+            passed=True,
+            feedback_summary="Already scored.",
+        )
+        db_session.add(existing_score)
+        await db_session.flush()
+        db_session.add(
+            ScoreDetail(
+                score_id=existing_score.id,
+                dimension="communication",
+                score=88,
+                weight=100,
+                strengths="[]",
+                weaknesses="[]",
+                suggestions="[]",
+            )
+        )
+        await db_session.flush()
+
+        score = await score_session(db_session, session_id)
+
+        assert score.id == existing_score.id
+        assert score.overall_score == 88.0
+        assert len(score.details) == 1
+        mock_llm.assert_not_awaited()
+
+        session_result = await db_session.execute(
+            select(CoachingSession).where(CoachingSession.id == session_id)
+        )
+        session = session_result.scalar_one()
+        assert session.status == "scored"
+        assert session.overall_score == 88.0
+        assert session.passed is True
+
+        count_result = await db_session.execute(
+            select(func.count())
+            .select_from(SessionScore)
+            .where(SessionScore.session_id == session_id)
+        )
+        assert count_result.scalar_one() == 1
 
     async def test_score_session_raises_for_in_progress_session(self, db_session):
         user = User(

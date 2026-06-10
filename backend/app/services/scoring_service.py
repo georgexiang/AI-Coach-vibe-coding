@@ -8,6 +8,7 @@ import json
 import logging
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -59,6 +60,15 @@ async def score_session(db: AsyncSession, session_id: str) -> SessionScore:
             code="ALREADY_SCORED",
             message="Session has already been scored",
         )
+
+    existing_score = await get_session_score(db, session_id)
+    if existing_score is not None and session.status == "completed":
+        session.status = "scored"
+        session.overall_score = existing_score.overall_score
+        session.passed = existing_score.passed
+        await db.flush()
+        return existing_score
+
     if session.status != "completed":
         raise AppException(
             status_code=409,
@@ -132,7 +142,23 @@ async def score_session(db: AsyncSession, session_id: str) -> SessionScore:
         feedback_summary=scores["feedback_summary"],
     )
     db.add(session_score)
-    await db.flush()
+    try:
+        await db.flush()
+    except IntegrityError:
+        await db.rollback()
+        existing_score = await get_session_score(db, session_id)
+        if existing_score is None:
+            raise
+        session_result = await db.execute(
+            select(CoachingSession).where(CoachingSession.id == session_id)
+        )
+        existing_session = session_result.scalar_one_or_none()
+        if existing_session is not None:
+            existing_session.status = "scored"
+            existing_session.overall_score = existing_score.overall_score
+            existing_session.passed = existing_score.passed
+            await db.flush()
+        return existing_score
 
     # Create ScoreDetail records
     for dim_data in scores["dimensions"]:
@@ -276,6 +302,7 @@ async def get_score_history(db: AsyncSession, user_id: str, limit: int = 10) -> 
                 "weight": detail.weight,
             }
             for detail in score.details
+            if detail.category == "content"
         ]
 
         history.append(

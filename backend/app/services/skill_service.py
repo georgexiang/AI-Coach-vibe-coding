@@ -26,7 +26,7 @@ ALLOWED_RESOURCE_EXTENSIONS = {
     ".csv",
     ".xlsx",
 }
-MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB per file
+MAX_FILE_SIZE = 4 * 1024 * 1024  # 4MB per file, constrained by Container Apps ingress
 MAX_FILES_PER_UPLOAD = 10
 MAX_RESOURCES_PER_SKILL = 100
 

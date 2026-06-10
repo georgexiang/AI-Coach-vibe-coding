@@ -15,6 +15,7 @@ export interface ScoreDetail {
   strengths: ScoreStrength[];
   weaknesses: ScoreWeakness[];
   suggestions: string[];
+  category?: "content" | "voice";
 }
 
 export interface SessionScore {
