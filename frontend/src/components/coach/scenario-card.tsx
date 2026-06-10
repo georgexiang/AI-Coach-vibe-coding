@@ -49,11 +49,13 @@ export function ScenarioCard({ scenario, onStart, availableModes }: ScenarioCard
   }, [availableModes, selectedMode, filteredModes]);
 
   const hcpInitials = scenario.hcp_profile?.name
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2) ?? "HC";
+    ? scenario.hcp_profile.name
+        .split(" ")
+        .map((n) => n[0])
+        .join("")
+        .toUpperCase()
+        .slice(0, 2) || "HC"
+    : "HC";
 
   return (
     <div className="relative overflow-hidden rounded-xl border border-border bg-card p-6 shadow-sm transition-shadow hover:shadow-md">

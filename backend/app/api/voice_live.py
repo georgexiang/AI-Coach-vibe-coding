@@ -21,6 +21,7 @@ from app.schemas.voice_live import (
     VoiceLiveModelInfo,
     VoiceLiveModelsResponse,
     VoiceLiveTokenResponse,
+    WebRTCSessionResponse,
 )
 from app.schemas.voice_live_instance import (
     VoiceLiveInstanceAssign,
@@ -35,6 +36,7 @@ from app.services.avatar_characters import (
     AVATAR_CHARACTERS,
     get_avatar_characters_list,
 )
+from app.services.voice_live_webrtc import create_webrtc_session_config
 from app.services.voice_live_websocket import handle_voice_live_websocket
 from app.utils.exceptions import AppException
 
@@ -92,6 +94,28 @@ async def get_voice_live_status(
 ) -> VoiceLiveConfigStatus:
     """Check Voice Live and Avatar availability for the current deployment."""
     return await voice_live_service.get_voice_live_status(db)
+
+
+@router.post("/webrtc/session", response_model=WebRTCSessionResponse, status_code=200)
+async def create_webrtc_session(
+    hcp_profile_id: str | None = Query(None, description="HCP profile ID for per-HCP config"),
+    vl_instance_id: str | None = Query(None, description="Voice Live instance ID"),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> WebRTCSessionResponse:
+    """Create a WebRTC session -- returns signaling URL + auth for direct Azure connection.
+
+    The frontend uses the signaling_url to open a WebSocket to Azure for SDP exchange,
+    then establishes a direct RTCPeerConnection for bidirectional audio.
+    """
+    try:
+        return await create_webrtc_session_config(db, hcp_profile_id, vl_instance_id)
+    except ValueError as e:
+        raise AppException(
+            status_code=503,
+            code="WEBRTC_SESSION_FAILED",
+            message=str(e),
+        ) from None
 
 
 @router.get("/avatar-characters", response_model=AvatarCharactersResponse, status_code=200)

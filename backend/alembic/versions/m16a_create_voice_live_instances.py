@@ -12,7 +12,7 @@ from datetime import UTC, datetime
 
 import sqlalchemy as sa
 
-from alembic import op
+from alembic import context, op
 
 # revision identifiers, used by Alembic.
 revision: str = "m16a00000001"
@@ -31,7 +31,7 @@ def upgrade() -> None:
         sa.Column(
             "voice_live_model", sa.String(50), server_default=sa.text("'gpt-4o'"), nullable=False
         ),
-        sa.Column("enabled", sa.Boolean(), server_default=sa.text("1"), nullable=False),
+        sa.Column("enabled", sa.Boolean(), server_default=sa.true(), nullable=False),
         sa.Column(
             "voice_name",
             sa.String(200),
@@ -45,7 +45,7 @@ def upgrade() -> None:
             nullable=False,
         ),
         sa.Column("voice_temperature", sa.Float(), server_default=sa.text("0.9"), nullable=False),
-        sa.Column("voice_custom", sa.Boolean(), server_default=sa.text("0"), nullable=False),
+        sa.Column("voice_custom", sa.Boolean(), server_default=sa.false(), nullable=False),
         sa.Column(
             "avatar_character",
             sa.String(100),
@@ -55,16 +55,16 @@ def upgrade() -> None:
         sa.Column(
             "avatar_style", sa.String(100), server_default=sa.text("'casual'"), nullable=False
         ),
-        sa.Column("avatar_customized", sa.Boolean(), server_default=sa.text("0"), nullable=False),
+        sa.Column("avatar_customized", sa.Boolean(), server_default=sa.false(), nullable=False),
         sa.Column(
             "turn_detection_type",
             sa.String(50),
             server_default=sa.text("'server_vad'"),
             nullable=False,
         ),
-        sa.Column("noise_suppression", sa.Boolean(), server_default=sa.text("0"), nullable=False),
-        sa.Column("echo_cancellation", sa.Boolean(), server_default=sa.text("0"), nullable=False),
-        sa.Column("eou_detection", sa.Boolean(), server_default=sa.text("0"), nullable=False),
+        sa.Column("noise_suppression", sa.Boolean(), server_default=sa.false(), nullable=False),
+        sa.Column("echo_cancellation", sa.Boolean(), server_default=sa.false(), nullable=False),
+        sa.Column("eou_detection", sa.Boolean(), server_default=sa.false(), nullable=False),
         sa.Column(
             "recognition_language",
             sa.String(20),
@@ -82,9 +82,7 @@ def upgrade() -> None:
 
     # 2. Add voice_live_instance_id FK to hcp_profiles
     with op.batch_alter_table("hcp_profiles") as batch_op:
-        batch_op.add_column(
-            sa.Column("voice_live_instance_id", sa.String(36), nullable=True)
-        )
+        batch_op.add_column(sa.Column("voice_live_instance_id", sa.String(36), nullable=True))
         batch_op.create_index("ix_hcp_voice_live_instance", ["voice_live_instance_id"])
         batch_op.create_foreign_key(
             "fk_hcp_voice_live_instance",
@@ -93,11 +91,14 @@ def upgrade() -> None:
             ["id"],
         )
 
+    if context.is_offline_mode():
+        return
+
     # 3. Data migration: create VoiceLiveInstance for each HcpProfile with voice config
     conn = op.get_bind()
     profiles = conn.execute(sa.text("SELECT * FROM hcp_profiles")).fetchall()
 
-    now = datetime.now(UTC).isoformat()
+    now = datetime.now(UTC).replace(tzinfo=None)
     for profile in profiles:
         # Use dict-style access for Row objects
         profile_dict = profile._mapping

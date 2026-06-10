@@ -210,6 +210,7 @@ class TestSaveMessage:
         updated = result.scalar_one()
         assert updated.status == "in_progress"
         assert updated.started_at is not None
+        assert updated.started_at.tzinfo is None
 
     async def test_assistant_message_does_not_transition(self, db_session):
         from sqlalchemy import select
@@ -237,6 +238,9 @@ class TestEndSession:
         ended = await end_session(db_session, session.id, user_id)
         assert ended.status == "completed"
         assert ended.completed_at is not None
+        assert ended.completed_at.tzinfo is None
+        assert ended.started_at is not None
+        assert ended.started_at.tzinfo is None
         assert ended.duration_seconds is not None
 
     async def test_raises_for_wrong_user(self, db_session):

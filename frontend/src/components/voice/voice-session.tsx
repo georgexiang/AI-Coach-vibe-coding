@@ -19,6 +19,7 @@ import {
 import { cn } from "@/lib/utils";
 import { createVoiceLogger, getEventSummary } from "@/lib/voice-logger";
 import { useVoiceLive } from "@/hooks/use-voice-live";
+import { useVoiceLiveWebRTC } from "@/hooks/use-voice-live-webrtc";
 import { useAvatarStream } from "@/hooks/use-avatar-stream";
 import { useAudioHandler } from "@/hooks/use-audio-handler";
 import { useAudioPlayer } from "@/hooks/use-audio-player";
@@ -27,6 +28,7 @@ import { useVoiceSessionLifecycle } from "@/hooks/use-voice-session-lifecycle";
 import { useEndSession } from "@/hooks/use-session";
 import { useScenario } from "@/hooks/use-scenarios";
 import { persistTranscriptMessage } from "@/api/voice-live";
+import { VoiceTransportSelect } from "./voice-transport-select";
 import { VoiceSessionHeader } from "./voice-session-header";
 import { AvatarView } from "./avatar-view";
 import { VoiceTranscript } from "./voice-transcript";
@@ -36,6 +38,7 @@ import type {
   SessionMode,
   TranscriptSegment,
   VoiceConfigSettings,
+  VoiceTransport,
 } from "@/types/voice-live";
 import type { KeyMessageStatus } from "@/types/session";
 import type { Scenario } from "@/types/scenario";
@@ -91,6 +94,7 @@ export function VoiceSession({
   const [keyMessagesStatus, setKeyMessagesStatus] = useState<
     KeyMessageStatus[]
   >([]);
+  const [transport, setTransport] = useState<VoiceTransport>("websocket");
   const [startedAt] = useState<string>(new Date().toISOString());
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -154,7 +158,7 @@ export function VoiceSession({
   const audioPlayer = useAudioPlayer();
   const sessionRecorder = useSessionRecorder();
 
-  const voiceLive = useVoiceLive({
+  const voiceLiveWs = useVoiceLive({
     language,
     systemPrompt,
     onTranscript: handleTranscript,
@@ -168,6 +172,24 @@ export function VoiceSession({
       log.error("Voice Live error: %o", error);
     },
   });
+
+  const voiceLiveWebRtc = useVoiceLiveWebRTC({
+    language,
+    systemPrompt,
+    onTranscript: handleTranscript,
+    onAudioDelta: () => {},
+    onConnectionStateChange: (state) => {
+      if (state === "error") {
+        toast.error(t("transport.connectionFailed"));
+      }
+    },
+    onError: (error) => {
+      log.error("Voice Live WebRTC error: %o", error);
+      toast.error(t("transport.connectionFailed"));
+    },
+  });
+
+  const voiceLive = transport === "webrtc" ? voiceLiveWebRtc : voiceLiveWs;
 
   const { startSession: startVoiceSession, stopSession: stopVoiceSession } =
     useVoiceSessionLifecycle({ voiceLive, avatarStream, audioHandler, audioPlayer });
@@ -198,7 +220,10 @@ export function VoiceSession({
 
   // Voice initialization logic — uses shared lifecycle hook
   const initVoice = useCallback(async () => {
-    log.info("initVoice: hcpProfileId=%s avatarCharacter=%s", hcpProfileId, avatarCharacter ?? "(none)");
+    log.info("initVoice: hcpProfileId=%s avatarCharacter=%s transport=%s", hcpProfileId, avatarCharacter ?? "(none)", transport);
+    if (transport === "webrtc" && currentMode.includes("digital_human")) {
+      toast.warning(t("transport.avatarUnavailable"));
+    }
     setIsConnecting(true);
     try {
       const result = await startVoiceSession({
@@ -398,9 +423,14 @@ export function VoiceSession({
           {/* Start button overlay — shown before session begins */}
           {!sessionStarted && !isConnecting && (
             <div
-              className="absolute inset-0 z-30 flex flex-col items-center justify-center"
+              className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-4"
               data-testid="start-overlay"
             >
+              <VoiceTransportSelect
+                value={transport}
+                onChange={setTransport}
+                disabled={isConnecting || sessionStarted}
+              />
               <button
                 type="button"
                 onClick={handleStartSession}

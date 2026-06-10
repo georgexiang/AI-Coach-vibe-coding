@@ -163,7 +163,7 @@ export default function ScenarioEditorPage() {
     }
   };
 
-  const currentTags = form.watch("tags");
+  const currentTags = form.watch("tags") ?? [];
 
   const addTag = (tag: string) => {
     if (tag && !currentTags.includes(tag)) {
@@ -192,11 +192,13 @@ export default function ScenarioEditorPage() {
 
   const getInitials = (name: string) =>
     name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
+      ? name
+          .split(" ")
+          .map((n) => n[0])
+          .join("")
+          .toUpperCase()
+          .slice(0, 2) || "?"
+      : "?";
 
   if (!isNew && scenarioLoading) {
     return (
@@ -433,7 +435,7 @@ export default function ScenarioEditorPage() {
 
                   {/* Key Messages */}
                   <ObjectionList
-                    items={form.watch("key_messages")}
+                    items={form.watch("key_messages") ?? []}
                     onChange={(items) => form.setValue("key_messages", items)}
                     label={t("admin:scenarios.keyMessages")}
                     addLabel={t("admin:scenarios.addKeyMessage")}

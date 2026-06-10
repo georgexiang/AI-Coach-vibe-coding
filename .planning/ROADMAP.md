@@ -685,3 +685,14 @@ Plans:
   5. TypeScript compiles and frontend builds without errors
 
 **UI hint**: yes
+### Phase 26: Add voice-live-webrtc transport option as alternative to WebSocket
+
+**Goal:** Add WebRTC as an alternative real-time audio transport for Voice Live sessions. Browser connects directly to Azure for lower latency. WebSocket proxy remains default.
+**Requirements**: D-01, D-02, D-03, D-04, D-05, D-06, D-07, D-08, D-09, D-10, D-11
+**Depends on:** Phase 25
+**Plans:** 3 plans (complete)
+
+Plans:
+- [x] 26-01-PLAN.md -- Backend WebRTC session endpoint (token broker + signaling URL assembly) (2/2 tasks, completed 2026-05-22)
+- [x] 26-02-PLAN.md -- Frontend useVoiceLiveWebRTC hook (RTCPeerConnection, signaling WS, data channel) (2/2 tasks, completed 2026-05-22)
+- [x] 26-03-PLAN.md -- UI transport selector integration (VoiceTransportSelect, dual hook wiring, i18n) (2/2 tasks, completed 2026-05-22)

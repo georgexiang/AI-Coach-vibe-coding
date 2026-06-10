@@ -29,11 +29,13 @@ export function HcpList({
 
   const getInitials = (name: string) =>
     name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
+      ? name
+          .split(" ")
+          .map((n) => n[0])
+          .join("")
+          .toUpperCase()
+          .slice(0, 2) || "?"
+      : "?";
 
   return (
     <div className="w-[300px] border-r border-border flex flex-col h-full">

@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Phase 26 Complete
-stopped_at: All phases complete
-last_updated: "2026-05-19T17:30:00.000Z"
-last_activity: 2026-05-20
+stopped_at: Phase 26 all plans executed
+last_updated: "2026-05-22T20:50:00.000Z"
+last_activity: 2026-05-22
 progress:
-  total_phases: 26
-  completed_phases: 26
-  total_plans: 132
-  completed_plans: 132
-  percent: 100
+  total_phases: 28
+  completed_phases: 24
+  total_plans: 134
+  completed_plans: 121
+  percent: 90
 ---
 
 # Project State
@@ -21,11 +21,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-24)
 
 **Core value:** MRs can practice realistic conversations with AI-powered digital HCPs and receive immediate, multi-dimensional feedback to improve their communication skills -- anytime, without needing a real HCP or trainer.
-**Current focus:** All phases complete
+**Current focus:** Phase 26 — add-voice-live-webrtc-transport-option-as-alternative-to-web
 
 ## Current Position
 
-Phase: 23 (Complete training session with digital human) — COMPLETE (6/6 plans)
+Phase: 26 (add-voice-live-webrtc-transport-option-as-alternative-to-web) — COMPLETE (3/3 plans)
+Plan: 3 of 3
 Phase: 24 (Skill Focus + CU Evaluation) — COMPLETE (5/5 plans)
 Phase: 25 (Refactor user training pages) — COMPLETE (2/2 plans)
 Phase: 26 (Scoring Architecture: LLM Content + CU Voice) — COMPLETE (1/1 plan)
@@ -294,6 +295,7 @@ None yet.
 - Phase 24 added: 用户评估模块重构 — session中agent按skill instruction聚焦、session结束后Azure Content Understanding评估打分
 - Phase 25 added: Refactor user training pages — fix data display, scoring logic, and dashboard/reports deduplication
 - Phase 26 added: Scoring Architecture Refactor — LLM primary for content (5 dimensions), CU for voice only (4 dimensions), remove mock fallback
+- Phase 26 added: Add voice-live-webrtc transport option as alternative to WebSocket (preview feature, dropdown selector, preserve existing WS default)
 
 ### Quick Tasks Completed
 
@@ -304,7 +306,7 @@ None yet.
 
 ## Session Continuity
 
-Last activity: 2026-05-19
-Last session: 2026-05-19T12:00:00.000Z
-Stopped at: Phase 26 complete
-Resume file: N/A (Phase 26 fully delivered, commit 50a0dd7)
+Last activity: 2026-05-22
+Last session: 2026-05-22T11:16:25.854Z
+Stopped at: Phase 26 context gathered
+Resume file: .planning/phases/26-add-voice-live-webrtc-transport-option-as-alternative-to-web/26-CONTEXT.md

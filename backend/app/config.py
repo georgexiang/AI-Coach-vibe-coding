@@ -61,9 +61,14 @@ class Settings(BaseSettings):
     azure_content_key: str = ""
 
     # Training Material Management
+    storage_backend: str = "local"
     material_storage_path: str = "./storage/materials"
     material_max_size_mb: int = 50
     material_retention_days: int = 365
+    azure_storage_connection_string: str = ""
+    azure_storage_account_url: str = ""
+    azure_storage_container_name: str = "materials"
+    azure_storage_blob_prefix: str = ""
 
     # Encryption (for API key storage)
     encryption_key: str = ""  # Set via ENCRYPTION_KEY env var; generated at runtime if empty

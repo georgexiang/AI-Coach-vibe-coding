@@ -23,15 +23,21 @@ def upgrade() -> None:
     # Image #8 — Response settings
     with op.batch_alter_table("voice_live_instances") as batch_op:
         batch_op.add_column(
-            sa.Column("response_temperature", sa.Float(), server_default=sa.text("0.8"), nullable=False)
+            sa.Column(
+                "response_temperature", sa.Float(), server_default=sa.text("0.8"), nullable=False
+            )
         )
         batch_op.add_column(
-            sa.Column("proactive_engagement", sa.Boolean(), server_default=sa.text("1"), nullable=False)
+            sa.Column(
+                "proactive_engagement", sa.Boolean(), server_default=sa.true(), nullable=False
+            )
         )
 
         # Image #9 — Speech input
         batch_op.add_column(
-            sa.Column("auto_detect_language", sa.Boolean(), server_default=sa.text("1"), nullable=False)
+            sa.Column(
+                "auto_detect_language", sa.Boolean(), server_default=sa.true(), nullable=False
+            )
         )
 
         # Image #10 — Speech output
@@ -40,16 +46,18 @@ def upgrade() -> None:
         )
         batch_op.add_column(
             sa.Column(
-                "custom_lexicon_enabled", sa.Boolean(), server_default=sa.text("0"), nullable=False
+                "custom_lexicon_enabled", sa.Boolean(), server_default=sa.false(), nullable=False
             )
         )
         batch_op.add_column(
-            sa.Column("custom_lexicon_url", sa.String(500), server_default=sa.text("''"), nullable=False)
+            sa.Column(
+                "custom_lexicon_url", sa.String(500), server_default=sa.text("''"), nullable=False
+            )
         )
 
         # Image #11 — Avatar toggle
         batch_op.add_column(
-            sa.Column("avatar_enabled", sa.Boolean(), server_default=sa.text("1"), nullable=False)
+            sa.Column("avatar_enabled", sa.Boolean(), server_default=sa.true(), nullable=False)
         )
 
 

@@ -333,6 +333,30 @@ class TestGetUserDimensionTrends:
         trends = await get_user_dimension_trends(db_session, user.id, limit=3)
         assert len(trends) == 3
 
+    async def test_date_filters_accept_offset_aware_iso_strings(self, db_session):
+        """Offset-aware ISO filters should compare against naive UTC DB timestamps."""
+        user = await _create_user(db_session)
+        hcp = await _create_hcp(db_session, created_by=user.id)
+        scenario = await _create_scenario(db_session, hcp_id=hcp.id, created_by=user.id)
+        cs = await _create_scored_session(
+            db_session,
+            user_id=user.id,
+            scenario_id=scenario.id,
+            overall_score=82.0,
+            completed_at=datetime(2026, 5, 28, 10, 0, 0),
+        )
+        await _create_score_with_details(db_session, session_id=cs.id, overall_score=82.0)
+        await db_session.commit()
+
+        trends = await get_user_dimension_trends(
+            db_session,
+            user.id,
+            start_date="2026-05-28T17:00:00+08:00",
+            end_date="2026-05-28T19:00:00+08:00",
+        )
+
+        assert [trend.session_id for trend in trends] == [cs.id]
+
     async def test_skips_session_without_score(self, db_session):
         """Sessions that have no score relationship should be skipped."""
         user = await _create_user(db_session)

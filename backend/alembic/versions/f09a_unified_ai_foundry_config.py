@@ -23,7 +23,7 @@ def upgrade() -> None:
     # Add is_master column to service_configs (unified AI Foundry master row flag)
     with op.batch_alter_table("service_configs") as batch_op:
         batch_op.add_column(
-            sa.Column("is_master", sa.Boolean(), server_default=sa.text("0"), nullable=False)
+            sa.Column("is_master", sa.Boolean(), server_default=sa.false(), nullable=False)
         )
 
     # Expand coaching_sessions.mode from String(20) to String(40)

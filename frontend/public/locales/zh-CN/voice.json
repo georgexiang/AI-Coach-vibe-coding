@@ -107,6 +107,14 @@
     "uploading": "正在上传会话录音...",
     "uploadFailed": "录音保存失败，但会话已正常结束。"
   },
+  "transport": {
+    "label": "音频传输",
+    "websocket": "WebSocket",
+    "webrtc": "WebRTC (预览)",
+    "avatarUnavailable": "WebRTC 预览模式不支持数字人形象，将使用纯语音模式。",
+    "connectionFailed": "WebRTC 连接失败，请切换到 WebSocket 传输重试。",
+    "reconnecting": "连接中断，正在重连... (第 {{attempt}}/3 次)"
+  },
   "config": {
     "title": "配置",
     "speechInput": "语音输入",
