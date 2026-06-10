@@ -194,7 +194,7 @@ export default function ScoringFeedback() {
           dimensions={combinedReport.voice_summary.dimensions}
           overallVoiceScore={combinedReport.voice_summary.overall_voice_score}
           voiceScoreStatus={combinedReport.voice_summary.voice_score_status}
-          audioUrl={combinedReport.audio_url}
+          audioUrl={combinedReport.audio_url ? `/sessions/${sessionId}/audio` : null}
           sessionId={sessionId}
         />
       )}

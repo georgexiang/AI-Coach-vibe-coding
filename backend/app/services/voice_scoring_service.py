@@ -14,8 +14,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
 from app.database import AsyncSessionLocal
-from app.models.score import ScoreDetail, SessionScore
 from app.models.session import CoachingSession
+from app.models.voice_score import VoiceScore, VoiceScoreDetail
 from app.services import config_service
 from app.services.audio_transcoding_service import transcode_audio_to_wav_pcm
 from app.services.cu_evaluation_service import (
@@ -70,27 +70,31 @@ async def _read_audio_for_private_source(audio_url: str) -> bytes | None:
 
 
 async def save_voice_score_details(db: AsyncSession, session_id: str, scores: dict) -> None:
-    """Save voice scoring results as ScoreDetail records with category='voice'.
+    """Save voice scoring results independently from content scoring."""
+    result = await db.execute(select(VoiceScore).where(VoiceScore.session_id == session_id))
+    voice_score = result.scalar_one_or_none()
 
-    If a SessionScore already exists (content scoring done first), appends voice
-    dimensions to it. Otherwise creates a preliminary SessionScore for voice-only.
-    """
-    result = await db.execute(select(SessionScore).where(SessionScore.session_id == session_id))
-    session_score = result.scalar_one_or_none()
-
-    if not session_score:
-        session_score = SessionScore(
+    if not voice_score:
+        voice_score = VoiceScore(
             session_id=session_id,
-            overall_score=scores.get("overall_voice_score", 0),
-            passed=True,
-            feedback_summary="Voice scoring completed",
+            overall_voice_score=scores.get("overall_voice_score", 0),
+            feedback_summary=scores.get("feedback_summary", ""),
         )
-        db.add(session_score)
+        db.add(voice_score)
+        await db.flush()
+    else:
+        voice_score.overall_voice_score = scores.get("overall_voice_score", 0)
+        voice_score.feedback_summary = scores.get("feedback_summary", "")
+        existing = await db.execute(
+            select(VoiceScoreDetail).where(VoiceScoreDetail.voice_score_id == voice_score.id)
+        )
+        for detail in existing.scalars().all():
+            await db.delete(detail)
         await db.flush()
 
     for dim in scores["dimensions"]:
-        detail = ScoreDetail(
-            score_id=session_score.id,
+        detail = VoiceScoreDetail(
+            voice_score_id=voice_score.id,
             dimension=dim["name"],
             score=dim["score"],
             weight=dim["weight"],

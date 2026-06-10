@@ -14,6 +14,7 @@ beforeEach(() => {
     setLocalDescription: vi.fn(),
     setRemoteDescription: vi.fn(),
     close: vi.fn(),
+    getStats: vi.fn().mockResolvedValue(new Map()),
     addEventListener: vi.fn(),
     createDataChannel: vi.fn(),
     localDescription: { sdp: "mock-sdp", type: "offer" },

@@ -1,6 +1,13 @@
-import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { beforeEach, describe, it, expect, vi } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
 import { AudioEvidencePlayer } from "./audio-evidence-player";
+import apiClient from "@/api/client";
+
+vi.mock("@/api/client", () => ({
+  default: {
+    get: vi.fn(),
+  },
+}));
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
@@ -9,14 +16,30 @@ vi.mock("react-i18next", () => ({
 }));
 
 describe("AudioEvidencePlayer", () => {
-  const defaultUrl = "https://blob.example.com/audio.webm";
+  const defaultUrl = "/sessions/session-1/audio";
 
-  it("renders audio element with correct source", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(apiClient.get).mockReturnValue(new Promise(() => undefined));
+    vi.stubGlobal("URL", {
+      createObjectURL: vi.fn(() => "blob:session-audio"),
+      revokeObjectURL: vi.fn(),
+    });
+  });
+
+  it("renders audio element with fetched blob source", async () => {
+    vi.mocked(apiClient.get).mockResolvedValue({ data: new Blob(["audio"]) });
+
     render(<AudioEvidencePlayer audioUrl={defaultUrl} />);
     const audio = screen.getByTestId("audio-element");
     expect(audio).toBeInTheDocument();
-    const source = audio.querySelector("source");
-    expect(source).toHaveAttribute("src", defaultUrl);
+    await waitFor(() => {
+      expect(apiClient.get).toHaveBeenCalledWith(defaultUrl, {
+        responseType: "blob",
+      });
+    });
+    const source = await waitFor(() => audio.querySelector("source"));
+    expect(source).toHaveAttribute("src", "blob:session-audio");
     expect(source).toHaveAttribute("type", "audio/webm");
   });
 

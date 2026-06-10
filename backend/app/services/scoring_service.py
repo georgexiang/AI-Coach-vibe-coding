@@ -17,6 +17,7 @@ from app.models.scenario import Scenario
 from app.models.score import ScoreDetail, SessionScore
 from app.models.session import CoachingSession
 from app.models.skill import Skill
+from app.models.voice_score import VoiceScore
 from app.services.rubric_service import get_rubric
 from app.services.scoring_engine import score_with_llm
 from app.utils.exceptions import AppException, NotFoundException
@@ -348,6 +349,7 @@ async def get_combined_score_report(db: AsyncSession, session_id: str, user_id: 
         select(CoachingSession)
         .options(
             selectinload(CoachingSession.score).selectinload(SessionScore.details),
+            selectinload(CoachingSession.voice_score).selectinload(VoiceScore.details),
             selectinload(CoachingSession.scenario),
         )
         .where(CoachingSession.id == session_id)
@@ -368,11 +370,17 @@ async def get_combined_score_report(db: AsyncSession, session_id: str, user_id: 
     voice_weight = rubric.voice_weight
 
     content_dims = [d for d in score.details if d.category == "content"]
-    voice_dims = [d for d in score.details if d.category == "voice"]
+    voice_dims = (
+        list(session.voice_score.details)
+        if session.voice_score
+        else [d for d in score.details if d.category == "voice"]
+    )
 
     content_score = score.overall_score or 0
     voice_score = 0.0
-    if voice_dims:
+    if session.voice_score:
+        voice_score = session.voice_score.overall_voice_score
+    elif voice_dims:
         total_w = sum(d.weight for d in voice_dims)
         if total_w > 0:
             voice_score = sum(d.score * d.weight for d in voice_dims) / total_w
