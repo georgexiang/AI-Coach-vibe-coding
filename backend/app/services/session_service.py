@@ -99,7 +99,7 @@ async def update_sop_progress(
     endpoint = await config_service.get_effective_endpoint(db, "azure_openai")
     api_key = await config_service.get_effective_key(db, "azure_openai")
 
-    if endpoint and api_key:
+    if endpoint:
         new_step = await detect_sop_step(messages, sop_steps, endpoint, api_key)
         session.sop_current_step = new_step
     else:

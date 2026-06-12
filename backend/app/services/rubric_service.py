@@ -28,6 +28,8 @@ async def create_rubric(db: AsyncSession, data: RubricCreate, user_id: str) -> S
         scenario_type=data.scenario_type,
         dimensions=json.dumps([d.model_dump() for d in data.dimensions]),
         is_default=data.is_default,
+        content_weight=data.content_weight,
+        voice_weight=data.voice_weight,
         created_by=user_id,
     )
     db.add(rubric)
@@ -39,6 +41,7 @@ async def create_rubric(db: AsyncSession, data: RubricCreate, user_id: str) -> S
     except Exception as e:
         logger.warning("CU analyzer sync failed on create (non-blocking): %s", e)
 
+    await db.refresh(rubric)
     return rubric
 
 
@@ -80,9 +83,12 @@ async def update_rubric(db: AsyncSession, rubric_id: str, data: RubricUpdate) ->
         if data.is_default:
             await _unset_defaults(db, rubric.scenario_type)
         rubric.is_default = data.is_default
+    if data.content_weight is not None:
+        rubric.content_weight = data.content_weight
+    if data.voice_weight is not None:
+        rubric.voice_weight = data.voice_weight
 
     await db.flush()
-    await db.refresh(rubric)
 
     # D-09: Update CU analyzers when rubric changes
     try:
@@ -90,6 +96,7 @@ async def update_rubric(db: AsyncSession, rubric_id: str, data: RubricUpdate) ->
     except Exception as e:
         logger.warning("CU analyzer sync failed on update (non-blocking): %s", e)
 
+    await db.refresh(rubric)
     return rubric
 
 

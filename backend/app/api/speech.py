@@ -2,17 +2,27 @@
 
 from fastapi import APIRouter, Depends, File, Query, UploadFile
 from fastapi.responses import Response
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
-from app.dependencies import get_current_user
+from app.dependencies import get_current_user, get_db
 from app.models.user import User
 from app.schemas.speech import SpeechStatusResponse, SynthesizeRequest, TranscribeResponse
+from app.services import config_service
 from app.services.agents.registry import registry
 from app.utils.exceptions import AppException
 
 settings = get_settings()
 
 router = APIRouter(prefix="/speech", tags=["speech"])
+
+
+async def _service_enabled(db: AsyncSession, service_name: str, env_enabled: bool) -> bool:
+    """Return true when either deployment flags or admin service config enable a service."""
+    if env_enabled:
+        return True
+    config = await config_service.get_config(db, service_name)
+    return bool(config and config.is_active)
 
 
 @router.get("/status", response_model=SpeechStatusResponse)
@@ -36,6 +46,7 @@ async def get_speech_status(
 async def transcribe_audio(
     audio: UploadFile = File(...),
     language: str = Query("zh-CN"),
+    db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> TranscribeResponse:
     """Transcribe uploaded audio to text using the configured STT adapter.
@@ -43,7 +54,7 @@ async def transcribe_audio(
     Accepts audio file via multipart form data.
     Requires feature_voice_enabled to be true.
     """
-    if not settings.feature_voice_enabled:
+    if not await _service_enabled(db, "azure_speech_stt", settings.feature_voice_enabled):
         raise AppException(
             status_code=409,
             code="VOICE_NOT_ENABLED",
@@ -73,6 +84,7 @@ async def transcribe_audio(
 @router.post("/synthesize", status_code=200)
 async def synthesize_speech(
     request: SynthesizeRequest,
+    db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> Response:
     """Synthesize text to speech audio using the configured TTS adapter.
@@ -80,7 +92,7 @@ async def synthesize_speech(
     Returns audio bytes with audio/wav content type.
     Requires feature_voice_enabled to be true.
     """
-    if not settings.feature_voice_enabled:
+    if not await _service_enabled(db, "azure_speech_tts", settings.feature_voice_enabled):
         raise AppException(
             status_code=409,
             code="VOICE_NOT_ENABLED",

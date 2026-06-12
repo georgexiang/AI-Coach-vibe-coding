@@ -15,6 +15,8 @@ import asyncio
 import base64
 import json
 import logging
+from pathlib import Path
+from urllib.parse import urlparse
 
 import httpx
 from sqlalchemy import select
@@ -33,6 +35,22 @@ REQUEST_TIMEOUT = 30.0
 
 # Service name for config lookup
 CU_SERVICE_NAME = "content_understanding"
+
+_AUDIO_MIME_TYPES = {
+    ".webm": "audio/webm",
+    ".wav": "audio/wav",
+    ".mp3": "audio/mpeg",
+    ".m4a": "audio/mp4",
+    ".mp4": "video/mp4",
+}
+
+
+def _mime_type_for_audio_path(audio_url: str) -> str:
+    """Infer the MIME type CU needs when submitting base64 audio data."""
+    parsed = urlparse(audio_url)
+    path = parsed.path or audio_url
+    suffix = Path(path).suffix.lower()
+    return _AUDIO_MIME_TYPES.get(suffix, "application/octet-stream")
 
 
 async def _get_auth_headers(api_key: str) -> dict[str, str]:
@@ -100,9 +118,9 @@ async def sync_rubric_analyzers(db: AsyncSession, rubric: ScoringRubric) -> None
     endpoint = await config_service.get_effective_endpoint(db, CU_SERVICE_NAME)
     api_key = await config_service.get_effective_key(db, CU_SERVICE_NAME)
 
-    if not endpoint or not api_key:
+    if not endpoint:
         logger.warning(
-            "CU endpoint/key not configured; skipping analyzer sync for rubric %s", rubric.id
+            "CU endpoint not configured; skipping analyzer sync for rubric %s", rubric.id
         )
         return
 
@@ -150,6 +168,8 @@ async def _put_analyzer(
 
         if response.status_code in (200, 201):
             logger.info("CU analyzer %s created/updated successfully", analyzer_id)
+        elif response.status_code == 409 and "ModelExists" in response.text:
+            logger.info("CU analyzer %s already exists; reusing it", analyzer_id)
         else:
             logger.error(
                 "CU analyzer PUT failed for %s: HTTP %d - %s",
@@ -167,35 +187,61 @@ async def score_voice_with_cu(
     api_key: str,
     analyzer_id: str,
     audio_url: str,
+    audio_data: bytes | None = None,
+    mime_type: str | None = None,
+    use_binary_upload: bool = False,
 ) -> dict:
     """Submit audio to CU voice analyzer and poll for results.
 
-    Supports URL-based submission for Azure Blob storage audio,
-    or base64 fallback for local development.
+    Supports preloaded audio bytes for private cloud storage, URL-based
+    submission for public sources, or local file reads for development.
     Returns raw CU fields dict for parsing by _parse_cu_voice_result.
     """
     endpoint = endpoint.rstrip("/")
-    url = (
-        f"{endpoint}/contentunderstanding/analyzers/{analyzer_id}:analyze"
-        f"?api-version={CU_API_VERSION}"
-    )
     headers = await _get_auth_headers(api_key)
 
-    if audio_url.startswith(("http://", "https://")):
-        body: dict = {"url": audio_url}
+    if audio_data is not None and use_binary_upload:
+        url = (
+            f"{endpoint}/contentunderstanding/analyzers/{analyzer_id}:analyzeBinary"
+            f"?api-version={CU_API_VERSION}"
+        )
+        binary_headers = {
+            **headers,
+            "Content-Type": mime_type or _mime_type_for_audio_path(audio_url),
+        }
+        body = audio_data
     else:
+        url = (
+            f"{endpoint}/contentunderstanding/analyzers/{analyzer_id}:analyze"
+            f"?api-version={CU_API_VERSION}"
+        )
+        binary_headers = None
+        body = None
+
+    if audio_data is not None and not use_binary_upload:
+        b64_audio = base64.b64encode(audio_data).decode("utf-8")
+        body = {"data": b64_audio, "mimeType": mime_type or _mime_type_for_audio_path(audio_url)}
+    elif audio_data is None and audio_url.startswith(("http://", "https://")):
+        body = {"url": audio_url}
+    elif audio_data is None:
         try:
             with open(audio_url, "rb") as f:
                 audio_bytes = f.read()
             b64_audio = base64.b64encode(audio_bytes).decode("utf-8")
-            body = {"data": b64_audio}
+            body = {
+                "data": b64_audio,
+                "mimeType": mime_type or _mime_type_for_audio_path(audio_url),
+            }
         except (FileNotFoundError, OSError) as e:
             raise RuntimeError(f"Failed to read local audio file: {e}") from e
 
     logger.info("Submitting voice scoring to CU analyzer %s", analyzer_id)
 
     async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT) as client:
-        response = await client.post(url, headers=headers, json=body)
+        if use_binary_upload:
+            response = await client.post(url, headers=binary_headers, content=body)
+        else:
+            response = await client.post(url, headers=headers, json=body)
 
         if response.status_code != 202:
             logger.error(
@@ -231,7 +277,9 @@ async def _poll_result(
                 return contents[0].get("fields", {})
             return result.get("fields", {})
         if status in ("failed", "cancelled"):
-            error_msg = poll_data.get("error", {}).get("message", "Unknown error")
+            error = poll_data.get("error", {})
+            error_msg = error.get("message", "Unknown error")
+            logger.error("CU analysis %s: %s", status, json.dumps(error, ensure_ascii=False))
             raise RuntimeError(f"CU analysis {status}: {error_msg}")
 
     raise RuntimeError(f"CU analysis timed out after {MAX_POLL_ATTEMPTS * POLL_INTERVAL_SECONDS}s")
@@ -311,12 +359,13 @@ def _parse_cu_voice_result(cu_fields: dict) -> dict:
             continue
         parsed_value = _extract_cu_field_value(value)
         if isinstance(parsed_value, dict) and "score" in parsed_value:
+            feedback = parsed_value.get("feedback", "")
             dimensions.append(
                 {
                     "name": key,
-                    "score": parsed_value.get("score", 0),
+                    "score": _coerce_score(parsed_value.get("score")),
                     "weight": 25,
-                    "feedback": parsed_value.get("feedback", ""),
+                    "feedback": str(feedback) if feedback else "",
                 }
             )
 
@@ -340,6 +389,10 @@ def _extract_cu_field_value(field: object) -> object:
     if not isinstance(field, dict):
         return field
 
+    for value_key in ("valueObject", "valueArray"):
+        if value_key in field:
+            return _unwrap_cu_value(field[value_key])
+
     value_string = field.get("valueString")
     if value_string is not None:
         if isinstance(value_string, str):
@@ -350,9 +403,43 @@ def _extract_cu_field_value(field: object) -> object:
         return value_string
 
     if "score" in field:
-        return field
+        return {key: _unwrap_cu_value(value) for key, value in field.items()}
+
+    content = field.get("content")
+    if content is not None:
+        if isinstance(content, str):
+            try:
+                return json.loads(content)
+            except (json.JSONDecodeError, ValueError):
+                return content
+        return content
 
     return field
+
+
+def _unwrap_cu_value(value: object) -> object:
+    """Recursively unwrap nested CU valueObject/valueArray field payloads."""
+    if isinstance(value, dict):
+        if any(key in value for key in ("valueObject", "valueArray", "valueString", "content")):
+            return _extract_cu_field_value(value)
+        return {key: _unwrap_cu_value(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_unwrap_cu_value(item) for item in value]
+    return value
+
+
+def _coerce_score(value: object) -> float:
+    """Coerce CU generated score values to a numeric score."""
+    if isinstance(value, bool) or value is None:
+        return 0
+    if isinstance(value, int | float):
+        return value
+    if isinstance(value, str):
+        try:
+            return float(value)
+        except ValueError:
+            return 0
+    return 0
 
 
 async def _get_session_rubric(db: AsyncSession, scenario: object) -> ScoringRubric | None:

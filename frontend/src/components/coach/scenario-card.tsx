@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { MessageSquareText, Mic, User } from "lucide-react";
+import { MessageSquareText, Mic } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage, Badge } from "@/components/ui";
 import { cn } from "@/lib/utils";
 import type { Scenario } from "@/types/scenario";
@@ -21,10 +21,9 @@ const difficultyStyles = {
 const TRAINING_MODES = [
   { value: "text", icon: MessageSquareText, labelKey: "scenarioSelection.modeText" },
   { value: "voice_realtime_model", icon: Mic, labelKey: "scenarioSelection.modeVoice" },
-  { value: "digital_human_realtime_model", icon: User, labelKey: "scenarioSelection.modeDigitalHuman" },
 ] as const;
 
-const DEFAULT_MODE = "digital_human_realtime_model";
+const DEFAULT_MODE = "voice_realtime_model";
 
 export function ScenarioCard({ scenario, onStart, availableModes }: ScenarioCardProps) {
   const { t } = useTranslation("coach");

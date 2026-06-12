@@ -24,8 +24,8 @@ def upgrade() -> None:
         batch_op.add_column(
             sa.Column(
                 "voice_live_enabled",
-                sa.Boolean,
-                server_default=sa.text("1"),
+                sa.Boolean(),
+                server_default=sa.true(),
                 nullable=False,
             )
         )

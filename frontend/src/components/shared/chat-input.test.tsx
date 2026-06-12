@@ -128,36 +128,60 @@ describe("ChatInput", () => {
     expect(audioBtn.className).toContain("bg-primary");
   });
 
-  it("clicking text mode button when in audio mode calls onMicClick", async () => {
-    const onMicClick = vi.fn();
-    render(<ChatInput {...defaultProps} inputMode="audio" onMicClick={onMicClick} />);
+  it("clicking text mode button when in audio mode changes input mode", async () => {
+    const onInputModeChange = vi.fn();
+    render(
+      <ChatInput
+        {...defaultProps}
+        inputMode="audio"
+        onInputModeChange={onInputModeChange}
+      />,
+    );
     const textBtn = screen.getByText("textMode");
     await userEvent.click(textBtn);
-    expect(onMicClick).toHaveBeenCalled();
+    expect(onInputModeChange).toHaveBeenCalledWith("text");
   });
 
-  it("clicking audio mode button when in text mode calls onMicClick", async () => {
-    const onMicClick = vi.fn();
-    render(<ChatInput {...defaultProps} inputMode="text" onMicClick={onMicClick} />);
+  it("clicking audio mode button when in text mode changes input mode", async () => {
+    const onInputModeChange = vi.fn();
+    render(
+      <ChatInput
+        {...defaultProps}
+        inputMode="text"
+        onInputModeChange={onInputModeChange}
+      />,
+    );
     const audioBtn = screen.getByText("audioMode");
     await userEvent.click(audioBtn);
-    expect(onMicClick).toHaveBeenCalled();
+    expect(onInputModeChange).toHaveBeenCalledWith("audio");
   });
 
-  it("clicking text mode button when already in text mode does not call onMicClick", async () => {
-    const onMicClick = vi.fn();
-    render(<ChatInput {...defaultProps} inputMode="text" onMicClick={onMicClick} />);
+  it("clicking text mode button when already in text mode does not change input mode", async () => {
+    const onInputModeChange = vi.fn();
+    render(
+      <ChatInput
+        {...defaultProps}
+        inputMode="text"
+        onInputModeChange={onInputModeChange}
+      />,
+    );
     const textBtn = screen.getByText("textMode");
     await userEvent.click(textBtn);
-    expect(onMicClick).not.toHaveBeenCalled();
+    expect(onInputModeChange).not.toHaveBeenCalled();
   });
 
-  it("clicking audio mode button when already in audio mode does not call onMicClick", async () => {
-    const onMicClick = vi.fn();
-    render(<ChatInput {...defaultProps} inputMode="audio" onMicClick={onMicClick} />);
+  it("clicking audio mode button when already in audio mode does not change input mode", async () => {
+    const onInputModeChange = vi.fn();
+    render(
+      <ChatInput
+        {...defaultProps}
+        inputMode="audio"
+        onInputModeChange={onInputModeChange}
+      />,
+    );
     const audioBtn = screen.getByText("audioMode");
     await userEvent.click(audioBtn);
-    expect(onMicClick).not.toHaveBeenCalled();
+    expect(onInputModeChange).not.toHaveBeenCalled();
   });
 
   it("does not send whitespace-only messages", async () => {

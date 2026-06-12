@@ -83,8 +83,8 @@ export function VoiceSession({
   const navigate = useNavigate();
 
   // State
-  const [currentMode, setCurrentMode] = useState<SessionMode>("digital_human_realtime_model");
-  const initialModeRef = useRef<SessionMode>("digital_human_realtime_model");
+  const [currentMode, setCurrentMode] = useState<SessionMode>("voice_realtime_model");
+  const initialModeRef = useRef<SessionMode>("voice_realtime_model");
   const [transcripts, setTranscripts] = useState<TranscriptSegment[]>([]);
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [showKeyboard, setShowKeyboard] = useState(false);
@@ -247,9 +247,7 @@ export function VoiceSession({
 
       if (result) {
         const isAgent = result.mode === "agent";
-        const resolvedMode: SessionMode = result.avatarEnabled
-          ? (isAgent ? "digital_human_realtime_agent" : "digital_human_realtime_model")
-          : (isAgent ? "voice_realtime_agent" : "voice_realtime_model");
+        const resolvedMode: SessionMode = isAgent ? "voice_realtime_agent" : "voice_realtime_model";
         setCurrentMode(resolvedMode);
         initialModeRef.current = resolvedMode;
         log.info("Mode=%s avatar=%s resolvedMode=%s", result.mode, result.avatarEnabled, resolvedMode);
@@ -388,7 +386,7 @@ export function VoiceSession({
   const currentScenario = scenario ?? defaultScenario;
 
   // Whether avatar is currently active (connected or character configured)
-  const avatarActive = avatarStream.isConnected || currentMode.includes("digital_human");
+  const avatarActive = avatarStream.isConnected || Boolean(avatarCharacter);
 
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-slate-100">

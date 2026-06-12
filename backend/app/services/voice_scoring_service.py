@@ -7,19 +7,23 @@ Uses durable background task pattern (own DB session) per project convention.
 """
 
 import logging
+from urllib.parse import urlparse
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import get_settings
 from app.database import AsyncSessionLocal
 from app.models.score import ScoreDetail, SessionScore
 from app.models.session import CoachingSession
 from app.services import config_service
+from app.services.audio_transcoding_service import transcode_audio_to_wav_pcm
 from app.services.cu_evaluation_service import (
     CU_SERVICE_NAME,
     _parse_cu_voice_result,
     score_voice_with_cu,
 )
+from app.services.storage import get_storage
 
 logger = logging.getLogger(__name__)
 
@@ -52,17 +56,26 @@ VOICE_DIMENSIONS = [
 ]
 
 
-async def save_voice_score_details(
-    db: AsyncSession, session_id: str, scores: dict
-) -> None:
+async def _read_audio_for_private_source(audio_url: str) -> bytes | None:
+    """Read cloud audio through the backend when CU cannot fetch the URL itself."""
+    parsed = urlparse(audio_url)
+    if parsed.scheme not in {"http", "https"}:
+        return None
+
+    storage = get_storage()
+    try:
+        return await storage.read(audio_url)
+    except Exception as exc:
+        raise RuntimeError(f"Failed to read audio from storage for voice scoring: {exc}") from exc
+
+
+async def save_voice_score_details(db: AsyncSession, session_id: str, scores: dict) -> None:
     """Save voice scoring results as ScoreDetail records with category='voice'.
 
     If a SessionScore already exists (content scoring done first), appends voice
     dimensions to it. Otherwise creates a preliminary SessionScore for voice-only.
     """
-    result = await db.execute(
-        select(SessionScore).where(SessionScore.session_id == session_id)
-    )
+    result = await db.execute(select(SessionScore).where(SessionScore.session_id == session_id))
     session_score = result.scalar_one_or_none()
 
     if not session_score:
@@ -104,9 +117,7 @@ async def trigger_voice_scoring(session_id: str, language: str = "zh-CN") -> Non
             )
             session = result.scalar_one_or_none()
             if not session or not session.audio_url:
-                logger.warning(
-                    "Voice scoring skipped for session %s: no audio", session_id
-                )
+                logger.warning("Voice scoring skipped for session %s: no audio", session_id)
                 return
 
             session.voice_score_status = "processing"
@@ -116,8 +127,8 @@ async def trigger_voice_scoring(session_id: str, language: str = "zh-CN") -> Non
             endpoint = await config_service.get_effective_endpoint(db, CU_SERVICE_NAME)
             api_key = await config_service.get_effective_key(db, CU_SERVICE_NAME)
 
-            if not endpoint or not api_key:
-                raise RuntimeError("CU endpoint/key not configured for voice scoring")
+            if not endpoint:
+                raise RuntimeError("CU endpoint not configured for voice scoring")
 
             # Get voice analyzer ID from rubric
             from app.models.scenario import Scenario
@@ -137,13 +148,29 @@ async def trigger_voice_scoring(session_id: str, language: str = "zh-CN") -> Non
                     analyzer_id = rubric.cu_voice_analyzer_id
 
             if not analyzer_id:
-                raise RuntimeError(
-                    f"No CU voice analyzer configured for session {session_id}"
-                )
+                raise RuntimeError(f"No CU voice analyzer configured for session {session_id}")
 
-            # Call CU voice scoring
+            # Private Blob URLs are read by the backend with Managed Identity
+            # and submitted as base64 data so CU does not need Blob access.
+            audio_data = await _read_audio_for_private_source(session.audio_url)
+            mime_type = None
+            use_binary_upload = False
+            settings = get_settings()
+            if audio_data is not None and settings.voice_scoring_transcode_enabled:
+                audio_data = await transcode_audio_to_wav_pcm(
+                    audio_data,
+                    timeout_seconds=settings.voice_scoring_transcode_timeout_seconds,
+                )
+                mime_type = "audio/wav"
+
             cu_fields = await score_voice_with_cu(
-                endpoint, api_key, analyzer_id, session.audio_url
+                endpoint,
+                api_key,
+                analyzer_id,
+                session.audio_url,
+                audio_data=audio_data,
+                mime_type=mime_type,
+                use_binary_upload=use_binary_upload,
             )
             voice_result = _parse_cu_voice_result(cu_fields)
 

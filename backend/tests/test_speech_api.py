@@ -11,6 +11,7 @@ Covers all branches of backend/app/api/speech.py including:
 from io import BytesIO
 from unittest.mock import AsyncMock, patch
 
+from app.models.service_config import ServiceConfig
 from app.models.user import User
 from app.services.auth import create_access_token, get_password_hash
 from tests.conftest import TestSessionLocal
@@ -134,6 +135,38 @@ class TestTranscribeAudio:
         data = response.json()
         assert data["text"] == "你好医生"
         assert data["language"] == "zh-CN"
+
+    @patch("app.api.speech.registry")
+    @patch("app.api.speech.settings")
+    async def test_transcribe_allows_active_stt_service_config(
+        self, mock_settings, mock_registry, client
+    ):
+        """POST /api/v1/speech/transcribe allows active STT config when env flag is off."""
+        mock_settings.feature_voice_enabled = False
+        mock_settings.default_stt_provider = "mock"
+        mock_adapter = AsyncMock()
+        mock_adapter.transcribe = AsyncMock(return_value="会议发言")
+        mock_registry.get.return_value = mock_adapter
+        async with TestSessionLocal() as session:
+            session.add(
+                ServiceConfig(
+                    service_name="azure_speech_stt",
+                    display_name="Azure Speech (STT)",
+                    is_active=True,
+                )
+            )
+            await session.commit()
+
+        _, token = await _create_user_and_token("speech_trans_active_config")
+        audio_data = BytesIO(b"fake audio bytes here")
+        response = await client.post(
+            "/api/v1/speech/transcribe",
+            headers={"Authorization": f"Bearer {token}"},
+            files={"audio": ("test.wav", audio_data, "audio/wav")},
+        )
+
+        assert response.status_code == 200
+        assert response.json()["text"] == "会议发言"
 
     @patch("app.api.speech.registry")
     @patch("app.api.speech.settings")

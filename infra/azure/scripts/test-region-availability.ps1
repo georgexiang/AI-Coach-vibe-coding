@@ -7,9 +7,10 @@ param(
     [string]$GithubRepo = "AI-Coach-vibe-coding",
     [string]$GithubBranch = "main",
     [string]$ChatDeploymentName = "gpt-4o",
-    [string]$RealtimeDeploymentName = "gpt-realtime-1-5",
-    [ValidateSet("GlobalStandard", "Standard")]
-    [string]$RealtimeDeploymentSkuName = "GlobalStandard",
+    [string]$VnetName = "",
+    [string]$VnetAddressPrefix = "10.60.0.0/16",
+    [string]$ContainerAppsSubnetPrefix = "10.60.0.0/23",
+    [string]$PrivateEndpointsSubnetPrefix = "10.60.2.0/24",
     [switch]$StopOnFirstPass
 )
 
@@ -51,8 +52,10 @@ function New-TestParameters {
             githubRepo = @{ value = $GithubRepo }
             githubBranch = @{ value = $GithubBranch }
             chatDeploymentName = @{ value = $ChatDeploymentName }
-            realtimeDeploymentName = @{ value = $RealtimeDeploymentName }
-            realtimeDeploymentSkuName = @{ value = $RealtimeDeploymentSkuName }
+            vnetName = @{ value = $VnetName }
+            vnetAddressPrefix = @{ value = $VnetAddressPrefix }
+            containerAppsSubnetPrefix = @{ value = $ContainerAppsSubnetPrefix }
+            privateEndpointsSubnetPrefix = @{ value = $PrivateEndpointsSubnetPrefix }
         }
     }
 

@@ -207,6 +207,15 @@
     "runCompleteToast": "Dry Run started. View the report for details.",
     "retry": "Retry",
     "tabSopCoverage": "SOP Coverage",
+    "notEvaluated": "Not evaluated",
+    "failedTitle": "Dry Run failed",
+    "status": {
+      "pending": "Pending",
+      "running": "Running",
+      "completed": "Completed",
+      "failed": "Failed",
+      "cancelled": "Cancelled"
+    },
     "errors": {
       "startFailed": "Failed to start simulation"
     }

@@ -24,5 +24,6 @@ output summary object = {
 }
 
 output backendIdentityId string = backendIdentity.id
+output backendIdentityName string = backendIdentity.name
 output backendIdentityClientId string = backendIdentity.properties.clientId
 output backendIdentityPrincipalId string = backendIdentity.properties.principalId

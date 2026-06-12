@@ -147,7 +147,9 @@ class TestEncryption:
         env_file = tmp_path / ".env"
         env_file.write_text("ENCRYPTION_KEY=existing-key\n")
 
-        with patch.object(Path, "resolve", return_value=tmp_path / "app" / "utils" / "encryption.py"):
+        with patch.object(
+            Path, "resolve", return_value=tmp_path / "app" / "utils" / "encryption.py"
+        ):
             # Since the function uses __file__ parents[2], we mock more directly
             with patch("app.utils.encryption.Path") as mock_path_cls:
                 mock_path_cls.return_value.resolve.return_value.parents.__getitem__ = (
@@ -227,9 +229,7 @@ class TestBuildScoringPrompt:
         """Empty input should not crash."""
         from app.services.scoring_engine import build_scoring_prompt
 
-        result = build_scoring_prompt(
-            {"hcp_profile": {}}, [], [], []
-        )
+        result = build_scoring_prompt({"hcp_profile": {}}, [], [], [])
         assert "Unknown" in result  # Default for missing name/specialty
         assert "No tracking data" in result
 
@@ -267,7 +267,9 @@ class TestScoreWithLLM:
             {"name": "communication", "weight": 50, "criteria": [], "max_score": 100.0},
         ]
 
-    async def test_raises_when_no_endpoint(self, mock_db, scenario_data, messages, km_status, weights):
+    async def test_raises_when_no_endpoint(
+        self, mock_db, scenario_data, messages, km_status, weights
+    ):
         from app.services.scoring_engine import score_with_llm
         from app.utils.exceptions import ScoringUnavailableException
 
@@ -306,10 +308,22 @@ class TestScoreWithLLM:
 
         llm_response = {
             "dimensions": [
-                {"dimension": "key_message", "score": 80, "weight": 50,
-                 "strengths": [], "weaknesses": [], "suggestions": []},
-                {"dimension": "communication", "score": 90, "weight": 50,
-                 "strengths": [], "weaknesses": [], "suggestions": []},
+                {
+                    "dimension": "key_message",
+                    "score": 80,
+                    "weight": 50,
+                    "strengths": [],
+                    "weaknesses": [],
+                    "suggestions": [],
+                },
+                {
+                    "dimension": "communication",
+                    "score": 90,
+                    "weight": 50,
+                    "strengths": [],
+                    "weaknesses": [],
+                    "suggestions": [],
+                },
             ],
             "feedback_summary": "Good performance overall.",
         }
@@ -345,10 +359,22 @@ class TestScoreWithLLM:
 
         llm_response = {
             "dimensions": [
-                {"dimension": "key_message", "score": 60, "weight": 50,
-                 "strengths": [], "weaknesses": [], "suggestions": []},
-                {"dimension": "communication", "score": 50, "weight": 50,
-                 "strengths": [], "weaknesses": [], "suggestions": []},
+                {
+                    "dimension": "key_message",
+                    "score": 60,
+                    "weight": 50,
+                    "strengths": [],
+                    "weaknesses": [],
+                    "suggestions": [],
+                },
+                {
+                    "dimension": "communication",
+                    "score": 50,
+                    "weight": 50,
+                    "strengths": [],
+                    "weaknesses": [],
+                    "suggestions": [],
+                },
             ],
             # No feedback_summary
         }
@@ -459,10 +485,22 @@ class TestScoreWithLLM:
 
         llm_response = {
             "dimensions": [
-                {"dimension": "key_message", "score": 75, "weight": 50,
-                 "strengths": [], "weaknesses": [], "suggestions": []},
-                {"dimension": "communication", "score": 75, "weight": 50,
-                 "strengths": [], "weaknesses": [], "suggestions": []},
+                {
+                    "dimension": "key_message",
+                    "score": 75,
+                    "weight": 50,
+                    "strengths": [],
+                    "weaknesses": [],
+                    "suggestions": [],
+                },
+                {
+                    "dimension": "communication",
+                    "score": 75,
+                    "weight": 50,
+                    "strengths": [],
+                    "weaknesses": [],
+                    "suggestions": [],
+                },
             ],
             "feedback_summary": "Decent.",
         }
@@ -528,6 +566,13 @@ class TestConfigServiceUpsert:
         assert config.endpoint == "https://new-endpoint.openai.azure.com"
         assert config.model_or_deployment == "gpt-4o"
 
+        result = await db_session.execute(
+            select(ServiceConfig).where(ServiceConfig.service_name == "azure_voice_live")
+        )
+        voice_live = result.scalar_one_or_none()
+        assert voice_live is not None
+        assert voice_live.is_active is True
+
     async def test_upsert_updates_existing_master_config(self, db_session):
         from app.schemas.azure_config import AIFoundryConfigUpdate
         from app.services.config_service import upsert_master_config
@@ -556,6 +601,78 @@ class TestConfigServiceUpsert:
         assert config.endpoint == "https://updated.openai.azure.com"
         assert config.model_or_deployment == "gpt-4o-updated"
         assert config.region == "westus"
+
+    async def test_upsert_existing_master_creates_missing_voice_live_toggle(self, db_session):
+        from app.schemas.azure_config import AIFoundryConfigUpdate
+        from app.services.config_service import upsert_master_config
+
+        master = ServiceConfig(
+            service_name="ai_foundry",
+            display_name="Azure AI Foundry",
+            endpoint="https://existing.services.ai.azure.com",
+            api_key_encrypted="",
+            model_or_deployment="gpt-4o",
+            default_project="existing-project",
+            region="swedencentral",
+            is_master=True,
+            is_active=True,
+            updated_by="seed",
+        )
+        db_session.add(master)
+        await db_session.flush()
+
+        update = AIFoundryConfigUpdate(
+            endpoint="https://existing.services.ai.azure.com",
+            api_key="",
+            model_or_deployment="gpt-4o",
+            default_project="existing-project",
+            region="swedencentral",
+        )
+
+        await upsert_master_config(db_session, update, "admin-user")
+
+        result = await db_session.execute(
+            select(ServiceConfig).where(ServiceConfig.service_name == "azure_voice_live")
+        )
+        voice_live = result.scalar_one_or_none()
+        assert voice_live is not None
+        assert voice_live.is_active is True
+
+    async def test_voice_live_status_available_with_endpoint_without_key(self, db_session):
+        from app.services.voice_live_service import get_voice_live_status
+
+        db_session.add(
+            ServiceConfig(
+                service_name="ai_foundry",
+                display_name="Azure AI Foundry",
+                endpoint="https://keyless.services.ai.azure.com",
+                api_key_encrypted="",
+                model_or_deployment="gpt-4o",
+                default_project="keyless-project",
+                region="swedencentral",
+                is_master=True,
+                is_active=True,
+                updated_by="test",
+            )
+        )
+        db_session.add(
+            ServiceConfig(
+                service_name="azure_voice_live",
+                display_name="Azure Voice Live",
+                endpoint="",
+                api_key_encrypted="",
+                model_or_deployment="gpt-4o",
+                region="",
+                is_master=False,
+                is_active=True,
+                updated_by="test",
+            )
+        )
+        await db_session.flush()
+
+        status = await get_voice_live_status(db_session)
+
+        assert status.voice_live_available is True
 
 
 # ===========================================================================
@@ -679,9 +796,7 @@ class TestVoiceLiveInstanceCRUD:
         inst = await create_instance(db_session, data, "test-user")
         inst_id = inst.id
 
-        profile = HcpProfile(
-            name="Dr. Assign", specialty="Cardiology", created_by="test-user"
-        )
+        profile = HcpProfile(name="Dr. Assign", specialty="Cardiology", created_by="test-user")
         db_session.add(profile)
         await db_session.flush()
         await db_session.refresh(profile)
@@ -719,9 +834,7 @@ class TestVoiceLiveInstanceCRUD:
         data = VoiceLiveInstanceCreate(name="UnassignTest", voice_live_model="gpt-4o")
         inst = await create_instance(db_session, data, "test-user")
 
-        profile = HcpProfile(
-            name="Dr. Unassign", specialty="Dermatology", created_by="test-user"
-        )
+        profile = HcpProfile(name="Dr. Unassign", specialty="Dermatology", created_by="test-user")
         db_session.add(profile)
         await db_session.flush()
         await db_session.refresh(profile)
@@ -731,9 +844,7 @@ class TestVoiceLiveInstanceCRUD:
         await unassign_from_hcp(db_session, profile_id)
 
         # Re-query to verify
-        result = await db_session.execute(
-            select(HcpProfile).where(HcpProfile.id == profile_id)
-        )
+        result = await db_session.execute(select(HcpProfile).where(HcpProfile.id == profile_id))
         updated = result.scalar_one()
         assert updated.voice_live_instance_id is None
 

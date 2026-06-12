@@ -31,10 +31,10 @@ def upgrade() -> None:
             sa.Column("voice_type", sa.String(50), server_default="azure-standard", nullable=False)
         )
         batch_op.add_column(
-            sa.Column("voice_temperature", sa.Float, server_default="0.9", nullable=False)
+            sa.Column("voice_temperature", sa.Float(), server_default="0.9", nullable=False)
         )
         batch_op.add_column(
-            sa.Column("voice_custom", sa.Boolean, server_default=sa.text("0"), nullable=False)
+            sa.Column("voice_custom", sa.Boolean(), server_default=sa.false(), nullable=False)
         )
 
         # Avatar settings
@@ -45,7 +45,7 @@ def upgrade() -> None:
             sa.Column("avatar_style", sa.String(100), server_default="casual", nullable=False)
         )
         batch_op.add_column(
-            sa.Column("avatar_customized", sa.Boolean, server_default=sa.text("0"), nullable=False)
+            sa.Column("avatar_customized", sa.Boolean(), server_default=sa.false(), nullable=False)
         )
 
         # Conversation parameters
@@ -58,13 +58,13 @@ def upgrade() -> None:
             )
         )
         batch_op.add_column(
-            sa.Column("noise_suppression", sa.Boolean, server_default=sa.text("0"), nullable=False)
+            sa.Column("noise_suppression", sa.Boolean(), server_default=sa.false(), nullable=False)
         )
         batch_op.add_column(
-            sa.Column("echo_cancellation", sa.Boolean, server_default=sa.text("0"), nullable=False)
+            sa.Column("echo_cancellation", sa.Boolean(), server_default=sa.false(), nullable=False)
         )
         batch_op.add_column(
-            sa.Column("eou_detection", sa.Boolean, server_default=sa.text("0"), nullable=False)
+            sa.Column("eou_detection", sa.Boolean(), server_default=sa.false(), nullable=False)
         )
         batch_op.add_column(
             sa.Column("recognition_language", sa.String(20), server_default="auto", nullable=False)

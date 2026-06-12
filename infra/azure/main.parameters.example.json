@@ -11,6 +11,30 @@
     "location": {
       "value": "swedencentral"
     },
+    "resourceGroupName": {
+      "value": ""
+    },
+    "deploymentMode": {
+      "value": "foundryOnly"
+    },
+    "networkProfile": {
+      "value": "publicDemo"
+    },
+    "vnetName": {
+      "value": ""
+    },
+    "vnetAddressPrefix": {
+      "value": "10.60.0.0/16"
+    },
+    "containerAppsSubnetPrefix": {
+      "value": "10.60.0.0/23"
+    },
+    "privateEndpointsSubnetPrefix": {
+      "value": "10.60.2.0/24"
+    },
+    "knowledgeBaseMode": {
+      "value": "none"
+    },
     "owner": {
       "value": ""
     },
@@ -44,6 +68,24 @@
     "corsOrigins": {
       "value": "http://localhost:5173,http://localhost:3000"
     },
+    "backendDatabaseAuthMode": {
+      "value": "azureAd"
+    },
+    "azureServiceKeyStorage": {
+      "value": "keyvault"
+    },
+    "postgresEntraAdminLogin": {
+      "value": "REPLACE_WITH_ENTRA_ADMIN_LOGIN"
+    },
+    "postgresEntraAdminObjectId": {
+      "value": "REPLACE_WITH_ENTRA_ADMIN_OBJECT_ID"
+    },
+    "postgresEntraAdminPrincipalType": {
+      "value": "User"
+    },
+    "manageBootstrapSecrets": {
+      "value": true
+    },
     "githubOwner": {
       "value": "jeromeecho"
     },
@@ -62,32 +104,20 @@
     "chatModelVersion": {
       "value": "2024-11-20"
     },
-    "realtimeDeploymentName": {
-      "value": "gpt-realtime-1-5"
-    },
-    "realtimeModelName": {
-      "value": "gpt-realtime-1.5"
-    },
-    "realtimeModelVersion": {
-      "value": "2026-02-23"
-    },
-    "realtimeDeploymentSkuName": {
-      "value": "GlobalStandard"
-    },
-    "realtimeDeploymentCapacity": {
-      "value": 5
+    "chatDeploymentCapacity": {
+      "value": 120
     },
     "enableAzureAi": {
       "value": true
     },
     "enableVoiceAndAvatar": {
-      "value": true
+      "value": false
     },
     "enableContentUnderstanding": {
-      "value": true
+      "value": false
     },
     "enableAiSearch": {
-      "value": true
+      "value": false
     }
   }
 }

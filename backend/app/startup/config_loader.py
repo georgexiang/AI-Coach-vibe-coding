@@ -6,7 +6,7 @@ from sqlalchemy import select
 
 from app.database import AsyncSessionLocal
 from app.models.service_config import ServiceConfig
-from app.utils.encryption import decrypt_value
+from app.services import config_service
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +35,10 @@ async def load_service_configs() -> None:
             master_cfg = master_result.scalar_one_or_none()
             if master_cfg:
                 master_endpoint = master_cfg.endpoint
-                master_key = decrypt_value(master_cfg.api_key_encrypted)
+                master_key = await config_service.get_decrypted_key(
+                    session,
+                    master_cfg.service_name,
+                )
                 master_region = master_cfg.region
                 master_model = master_cfg.model_or_deployment
 
@@ -48,7 +51,7 @@ async def load_service_configs() -> None:
             )
             configs = result.scalars().all()
             for cfg in configs:
-                api_key = decrypt_value(cfg.api_key_encrypted)
+                api_key = await config_service.get_decrypted_key(session, cfg.service_name)
                 await register_adapter_from_config(
                     cfg.service_name,
                     cfg.endpoint,

@@ -35,7 +35,7 @@
 8. **API Key 认证可能被禁用** — `ai-foundary-hu-sweden-central2` 资源已禁用 Key-based auth，必须用 Entra ID
 9. **Analyzer 命名** = `rubricContent{id8}` / `rubricVoice{id8}`（不含连字符）
 10. **Base Analyzer 名称差异** — Preview: `prebuilt-documentAnalyzer` / `prebuilt-audioAnalyzer`；GA: `prebuilt-document` / `prebuilt-audio`
-11. **提交格式差异** — Preview: `{"data": "<base64>"}`；GA: `{"inputs": [{"base64Source": "<base64>"}]}`
+11. **提交格式差异** — Preview: 文本可用 `{"data": "<base64>"}`，音频 base64 需带 `mimeType`（如 `{"data": "<base64>", "mimeType": "audio/webm"}`）；GA: `{"inputs": [{"base64Source": "<base64>"}]}`
 12. **Preview API 允许连字符 ID** — GA 文档说不支持，但 Preview API 实测接受 `test-hyphen` 格式（仍建议用纯字母数字）
 13. **专用 CU Portal 需绑定正确资源** — 需在 Portal 中创建 project 并连接到 `ai-foundary-hu-sweden-central2` 资源才能看到 Analyzer
 14. **Preview API 将于 2026-06-30 退役** — 响应头 `azure-deprecating` 提示需迁移到 GA（见 https://aka.ms/cu-ga-migrate）
