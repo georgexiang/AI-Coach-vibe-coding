@@ -68,6 +68,7 @@ class Settings(BaseSettings):
     # Azure Content Understanding (ARCH-05)
     azure_content_endpoint: str = ""
     azure_content_key: str = ""
+    content_understanding_api_version: str = "2025-11-01"
     voice_scoring_transcode_enabled: bool = False
     voice_scoring_transcode_timeout_seconds: int = 120
 

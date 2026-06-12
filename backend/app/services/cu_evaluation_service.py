@@ -22,13 +22,14 @@ import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import get_settings
 from app.models.scoring_rubric import ScoringRubric
 from app.services import config_service
 
 logger = logging.getLogger(__name__)
 
 # CU API configuration
-CU_API_VERSION = "2025-05-01-preview"
+DEFAULT_CU_API_VERSION = "2025-11-01"
 MAX_POLL_ATTEMPTS = 60
 POLL_INTERVAL_SECONDS = 2.0
 REQUEST_TIMEOUT = 30.0
@@ -43,6 +44,11 @@ _AUDIO_MIME_TYPES = {
     ".m4a": "audio/mp4",
     ".mp4": "video/mp4",
 }
+
+
+def _get_cu_api_version() -> str:
+    """Return configured CU API version, falling back to the current stable default."""
+    return get_settings().content_understanding_api_version or DEFAULT_CU_API_VERSION
 
 
 def _mime_type_for_audio_path(audio_url: str) -> str:
@@ -152,7 +158,8 @@ async def _put_analyzer(
     analyzer_type: str,
 ) -> None:
     """PUT a CU custom analyzer definition. Creates or updates."""
-    url = f"{endpoint}/contentunderstanding/analyzers/{analyzer_id}?api-version={CU_API_VERSION}"
+    api_version = _get_cu_api_version()
+    url = f"{endpoint}/contentunderstanding/analyzers/{analyzer_id}?api-version={api_version}"
     headers = await _get_auth_headers(api_key)
     base_analyzer = (
         "prebuilt-audioAnalyzer" if analyzer_type == "voice" else "prebuilt-documentAnalyzer"
@@ -199,11 +206,12 @@ async def score_voice_with_cu(
     """
     endpoint = endpoint.rstrip("/")
     headers = await _get_auth_headers(api_key)
+    api_version = _get_cu_api_version()
 
     if audio_data is not None and use_binary_upload:
         url = (
             f"{endpoint}/contentunderstanding/analyzers/{analyzer_id}:analyzeBinary"
-            f"?api-version={CU_API_VERSION}"
+            f"?api-version={api_version}"
         )
         binary_headers = {
             **headers,
@@ -213,7 +221,7 @@ async def score_voice_with_cu(
     else:
         url = (
             f"{endpoint}/contentunderstanding/analyzers/{analyzer_id}:analyze"
-            f"?api-version={CU_API_VERSION}"
+            f"?api-version={api_version}"
         )
         binary_headers = None
         body = None

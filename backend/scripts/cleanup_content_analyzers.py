@@ -19,14 +19,18 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from app.database import AsyncSessionLocal
 from app.services import config_service
-from app.services.cu_evaluation_service import CU_API_VERSION, REQUEST_TIMEOUT, _get_auth_headers
+from app.services.cu_evaluation_service import (
+    REQUEST_TIMEOUT,
+    _get_auth_headers,
+    _get_cu_api_version,
+)
 
 CU_SERVICE_NAME = "content_understanding"
 
 
 async def list_analyzers(endpoint: str, api_key: str) -> list[dict]:
     """List all CU analyzers."""
-    url = f"{endpoint}/contentunderstanding/analyzers?api-version={CU_API_VERSION}"
+    url = f"{endpoint}/contentunderstanding/analyzers?api-version={_get_cu_api_version()}"
     headers = await _get_auth_headers(api_key)
 
     async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT) as client:
@@ -38,7 +42,10 @@ async def list_analyzers(endpoint: str, api_key: str) -> list[dict]:
 
 async def delete_analyzer(endpoint: str, api_key: str, analyzer_id: str) -> bool:
     """Delete a single CU analyzer by ID."""
-    url = f"{endpoint}/contentunderstanding/analyzers/{analyzer_id}?api-version={CU_API_VERSION}"
+    url = (
+        f"{endpoint}/contentunderstanding/analyzers/{analyzer_id}"
+        f"?api-version={_get_cu_api_version()}"
+    )
     headers = await _get_auth_headers(api_key)
 
     async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT) as client:
@@ -60,12 +67,14 @@ async def main():
 
     endpoint = endpoint.rstrip("/")
     print(f"CU Endpoint: {endpoint}")
-    print(f"API Version: {CU_API_VERSION}\n")
+    print(f"API Version: {_get_cu_api_version()}\n")
 
     print("Listing all analyzers...")
     analyzers = await list_analyzers(endpoint, api_key)
 
-    content_analyzers = [a for a in analyzers if a.get("analyzerId", "").startswith("rubricContent")]
+    content_analyzers = [
+        a for a in analyzers if a.get("analyzerId", "").startswith("rubricContent")
+    ]
 
     if not content_analyzers:
         print("No rubricContent* analyzers found. Nothing to clean up.")

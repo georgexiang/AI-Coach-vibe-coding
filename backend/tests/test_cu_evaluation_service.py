@@ -103,6 +103,7 @@ class TestPutAnalyzer:
     @pytest.mark.asyncio
     async def test_model_exists_conflict_is_reused(self):
         """Deterministic analyzer IDs can already exist; 409 ModelExists is success."""
+        captured = {}
 
         class FakeResponse:
             status_code = 409
@@ -119,6 +120,7 @@ class TestPutAnalyzer:
                 return None
 
             async def put(self, url, headers, json):
+                captured["url"] = url
                 return FakeResponse()
 
         with (
@@ -127,6 +129,10 @@ class TestPutAnalyzer:
                 AsyncMock(return_value={}),
             ),
             patch("app.services.cu_evaluation_service.httpx.AsyncClient", FakeClient),
+            patch(
+                "app.services.cu_evaluation_service._get_cu_api_version",
+                return_value="2025-11-01",
+            ),
         ):
             await _put_analyzer(
                 "https://example.cognitiveservices.azure.com",
@@ -135,6 +141,10 @@ class TestPutAnalyzer:
                 {"name": "VoiceScoring", "fields": {}},
                 "voice",
             )
+
+        assert captured["url"].endswith(
+            "/contentunderstanding/analyzers/rubricVoice12345678?api-version=2025-11-01"
+        )
 
 
 class TestScoreVoiceWithCu:
@@ -180,6 +190,10 @@ class TestScoreVoiceWithCu:
             ),
             patch("app.services.cu_evaluation_service.httpx.AsyncClient", FakeClient),
             patch("app.services.cu_evaluation_service.asyncio.sleep", AsyncMock()),
+            patch(
+                "app.services.cu_evaluation_service._get_cu_api_version",
+                return_value="2025-11-01",
+            ),
         ):
             result = await score_voice_with_cu(
                 "https://example.services.ai.azure.com",
@@ -247,7 +261,7 @@ class TestScoreVoiceWithCu:
 
         assert captured["url"].endswith(
             "/contentunderstanding/analyzers/rubricVoice12345678:analyzeBinary"
-            "?api-version=2025-05-01-preview"
+            "?api-version=2025-11-01"
         )
         assert captured["headers"]["Content-Type"] == "audio/wav"
         assert captured["content"] == b"wav-bytes"
