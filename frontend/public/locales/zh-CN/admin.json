@@ -365,7 +365,7 @@
     "description": "管理AI知识库的培训文档",
     "upload": "上传资料",
     "uploadDescription": "拖放文件到此处，或点击浏览",
-    "uploadHint": "支持格式：PDF、Word (.docx)、Excel (.xlsx)。最大 50MB。",
+    "uploadHint": "支持格式：PDF、Word (.docx)、Excel (.xlsx)。最大 4MB。",
     "name": "资料名称",
     "namePlaceholder": "输入资料名称",
     "product": "产品",

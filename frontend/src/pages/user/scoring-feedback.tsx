@@ -74,7 +74,9 @@ export default function ScoringFeedback() {
     );
   }
 
-  const currentScores = score.details.map((d) => ({
+  const contentDetails = score.details.filter((d) => (d.category ?? "content") === "content");
+  const displayedOverallScore = combinedReport?.overall_combined_score ?? score.overall_score;
+  const currentScores = contentDetails.map((d) => ({
     dimension: d.dimension,
     score: d.score,
   }));
@@ -120,14 +122,14 @@ export default function ScoringFeedback() {
             <circle
               cx="60" cy="60" r="52"
               fill="none"
-              stroke={score.overall_score >= 80 ? "var(--strength)" : score.overall_score >= 60 ? "var(--chart-3)" : "var(--destructive)"}
+              stroke={displayedOverallScore >= 80 ? "var(--strength)" : displayedOverallScore >= 60 ? "var(--chart-3)" : "var(--destructive)"}
               strokeWidth="8"
               strokeLinecap="round"
-              strokeDasharray={`${(score.overall_score / 100) * 2 * Math.PI * 52} ${2 * Math.PI * 52}`}
+              strokeDasharray={`${(displayedOverallScore / 100) * 2 * Math.PI * 52} ${2 * Math.PI * 52}`}
               transform="rotate(-90 60 60)"
             />
             <text x="60" y="55" textAnchor="middle" className="fill-foreground text-2xl font-bold" fontSize="28" fontWeight="700">
-              {score.overall_score}
+              {Math.round(displayedOverallScore)}
             </text>
             <text x="60" y="75" textAnchor="middle" className="fill-muted-foreground" fontSize="12">
               / 100
@@ -136,7 +138,7 @@ export default function ScoringFeedback() {
         </div>
         <div className="flex-1">
           <ScoreSummary
-            overallScore={score.overall_score}
+            overallScore={Math.round(displayedOverallScore)}
             passed={score.passed}
           />
         </div>
@@ -172,14 +174,14 @@ export default function ScoringFeedback() {
             <RadarChart currentScores={currentScores} previousScores={previousScores} />
           </div>
           <div className="rounded-lg border border-border bg-card p-4">
-            <DimensionBars details={score.details} />
+            <DimensionBars details={contentDetails} />
           </div>
         </div>
 
         {/* Right: Feedback cards */}
         <ScrollArea className="max-h-[600px]">
           <div className="space-y-4">
-            {score.details.map((detail) => (
+            {contentDetails.map((detail) => (
               <FeedbackCard key={detail.dimension} detail={detail} />
             ))}
           </div>
@@ -192,7 +194,7 @@ export default function ScoringFeedback() {
           dimensions={combinedReport.voice_summary.dimensions}
           overallVoiceScore={combinedReport.voice_summary.overall_voice_score}
           voiceScoreStatus={combinedReport.voice_summary.voice_score_status}
-          audioUrl={combinedReport.audio_url}
+          audioUrl={combinedReport.audio_url ? `/sessions/${sessionId}/audio` : null}
           sessionId={sessionId}
         />
       )}

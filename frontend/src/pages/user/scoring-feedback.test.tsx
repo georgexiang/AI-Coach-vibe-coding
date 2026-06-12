@@ -33,6 +33,7 @@ const mockScore = {
       dimension: "Communication",
       score: 85,
       weight: 30,
+      category: "content",
       strengths: ["clear"],
       weaknesses: ["speed"],
       suggestions: ["slow down"],
@@ -41,9 +42,19 @@ const mockScore = {
       dimension: "Product Knowledge",
       score: 78,
       weight: 25,
+      category: "content",
       strengths: ["detail"],
       weaknesses: [],
       suggestions: ["study more"],
+    },
+    {
+      dimension: "fluency",
+      score: 95,
+      weight: 25,
+      category: "voice",
+      strengths: [],
+      weaknesses: [],
+      suggestions: [],
     },
   ],
 };
@@ -71,6 +82,12 @@ vi.mock("@/hooks/use-reports", () => ({
   useSessionReport: () => ({ data: reportData, isLoading: false }),
 }));
 
+let combinedReportData: unknown = undefined;
+
+vi.mock("@/hooks/use-combined-score", () => ({
+  useCombinedScore: () => ({ data: combinedReportData, isLoading: false }),
+}));
+
 // Mock child scoring components to simplify
 vi.mock("@/components/scoring/score-summary", () => ({
   ScoreSummary: (props: { overallScore: number; passed: boolean }) => (
@@ -78,12 +95,18 @@ vi.mock("@/components/scoring/score-summary", () => ({
   ),
 }));
 vi.mock("@/components/scoring/radar-chart", () => ({
-  RadarChart: (props: { previousScores?: unknown }) => (
-    <div data-testid="radar-chart" data-has-previous={props.previousScores ? "true" : "false"} />
+  RadarChart: (props: { currentScores: Array<{ dimension: string }>; previousScores?: unknown }) => (
+    <div
+      data-testid="radar-chart"
+      data-has-previous={props.previousScores ? "true" : "false"}
+      data-current-dimensions={props.currentScores.map((s) => s.dimension).join(",")}
+    />
   ),
 }));
 vi.mock("@/components/scoring/dimension-bars", () => ({
-  DimensionBars: () => <div data-testid="dimension-bars" />,
+  DimensionBars: (props: { details: Array<{ dimension: string }> }) => (
+    <div data-testid="dimension-bars" data-dimensions={props.details.map((d) => d.dimension).join(",")} />
+  ),
 }));
 vi.mock("@/components/scoring/feedback-card", () => ({
   FeedbackCard: (props: { detail: { dimension: string } }) => (
@@ -124,6 +147,7 @@ describe("ScoringFeedback", () => {
     reportData = undefined;
     historyData = undefined;
     messagesData = undefined;
+    combinedReportData = undefined;
     // Mock window.print
     Object.defineProperty(window, "print", { value: mockPrint, writable: true });
   });
@@ -158,6 +182,37 @@ describe("ScoringFeedback", () => {
     expect(cards).toHaveLength(2);
     expect(cards[0]).toHaveTextContent("Communication");
     expect(cards[1]).toHaveTextContent("Product Knowledge");
+    expect(screen.queryByText("fluency")).not.toBeInTheDocument();
+  });
+
+  it("keeps voice dimensions out of the main radar and dimension bars", () => {
+    renderPage();
+    expect(screen.getByTestId("radar-chart")).toHaveAttribute(
+      "data-current-dimensions",
+      "Communication,Product Knowledge",
+    );
+    expect(screen.getByTestId("dimension-bars")).toHaveAttribute(
+      "data-dimensions",
+      "Communication,Product Knowledge",
+    );
+  });
+
+  it("uses combined overall score when the combined report is available", () => {
+    combinedReportData = {
+      overall_combined_score: 88,
+      content_total: 82,
+      content_weight: 60,
+      voice_total: 95,
+      voice_weight: 40,
+      voice_summary: {
+        overall_voice_score: 95,
+        voice_score_status: "completed",
+        dimensions: [],
+      },
+      audio_url: "https://example.test/audio.wav",
+    };
+    renderPage();
+    expect(screen.getByTestId("score-summary")).toHaveTextContent("Score: 88 PASS");
   });
 
   it("renders action buttons", () => {

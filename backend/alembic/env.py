@@ -28,6 +28,8 @@ from app.models import (  # noqa: F401
     TrainingMaterial,
     User,
     VoiceLiveInstance,
+    VoiceScore,
+    VoiceScoreDetail,
 )
 
 settings = get_settings()

@@ -224,8 +224,8 @@ resource backendApp 'Microsoft.App/containerApps@2023-05-01' = {
             }
           ]
           resources: {
-            cpu: json('0.5')
-            memory: '1Gi'
+            cpu: json('1.0')
+            memory: '2Gi'
           }
         }
       ]
@@ -276,8 +276,8 @@ resource frontendApp 'Microsoft.App/containerApps@2023-05-01' = {
             }
           ]
           resources: {
-            cpu: json('0.25')
-            memory: '0.5Gi'
+            cpu: json('0.5')
+            memory: '1Gi'
           }
         }
       ]
@@ -423,8 +423,8 @@ resource backendBootstrapJob 'Microsoft.App/jobs@2023-05-01' = {
             }
           ]
           resources: {
-            cpu: json('0.5')
-            memory: '1Gi'
+            cpu: json('1.0')
+            memory: '2Gi'
           }
         }
       ]

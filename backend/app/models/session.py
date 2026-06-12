@@ -74,6 +74,7 @@ class CoachingSession(Base, TimestampMixin):
     user = relationship("User")
     messages = relationship("SessionMessage", back_populates="session")
     score = relationship("SessionScore", back_populates="session", uselist=False)
+    voice_score = relationship("VoiceScore", back_populates="session", uselist=False)
     skill = relationship("Skill", foreign_keys=[skill_id])
 
     @property

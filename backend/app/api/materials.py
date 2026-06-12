@@ -25,7 +25,7 @@ from app.utils.pagination import PaginatedResponse
 router = APIRouter(prefix="/materials", tags=["materials"])
 
 ALLOWED_EXTENSIONS = {".pdf", ".docx", ".xlsx"}
-MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
+MAX_FILE_SIZE = 4 * 1024 * 1024  # 4MB, constrained by Container Apps ingress
 
 # MIME type mapping for content type detection
 EXTENSION_MIME_MAP = {

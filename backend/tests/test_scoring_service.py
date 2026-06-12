@@ -1,22 +1,28 @@
 """Tests for the scoring service: LLM scoring integration and DB operations."""
 
 import json
+from datetime import datetime
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from sqlalchemy import select
 
 from app.models.hcp_profile import HcpProfile
 from app.models.message import SessionMessage
 from app.models.scenario import Scenario
+from app.models.score import ScoreDetail, SessionScore
 from app.models.scoring_rubric import ScoringRubric
 from app.models.session import CoachingSession
 from app.models.user import User
+from app.models.voice_score import VoiceScore, VoiceScoreDetail
 from app.services.auth import get_password_hash
 from app.services.scoring_service import (
     _extract_skill_criteria,
+    get_score_history,
     get_session_score,
     score_session,
 )
+from app.services.voice_scoring_service import save_voice_score_details
 from app.utils.exceptions import AppException, NotFoundException
 
 DEFAULT_RUBRIC_DIMENSIONS = [
@@ -162,9 +168,7 @@ class TestScoreSessionIntegration:
     """DB integration tests for score_session and get_session_score."""
 
     @patch("app.services.scoring_service.score_with_llm", new_callable=AsyncMock)
-    async def test_score_session_creates_score_and_details(
-        self, mock_llm, db_session
-    ):
+    async def test_score_session_creates_score_and_details(self, mock_llm, db_session):
         mock_llm.return_value = MOCK_LLM_RESULT
         _, session_id, _ = await _seed_completed_session(db_session)
         score = await score_session(db_session, session_id)
@@ -176,9 +180,89 @@ class TestScoreSessionIntegration:
         assert len(score.details) == 5
 
     @patch("app.services.scoring_service.score_with_llm", new_callable=AsyncMock)
-    async def test_score_session_updates_session_status_to_scored(
+    async def test_score_session_creates_content_score_after_voice_score(
         self, mock_llm, db_session
     ):
+        """Voice scoring finishing first must not block content scoring."""
+        mock_llm.return_value = MOCK_LLM_RESULT
+        _, session_id, _ = await _seed_completed_session(db_session)
+
+        await save_voice_score_details(
+            db_session,
+            session_id,
+            {
+                "overall_voice_score": 81.25,
+                "dimensions": [
+                    {"name": "fluency", "score": 85, "weight": 25},
+                    {"name": "tone", "score": 78, "weight": 25},
+                    {"name": "pace", "score": 90, "weight": 25},
+                    {"name": "pronunciation", "score": 72, "weight": 25},
+                ],
+            },
+        )
+        await db_session.commit()
+
+        score = await score_session(db_session, session_id)
+        await db_session.flush()
+
+        assert score.overall_score == 75.0
+        assert {detail.category for detail in score.details} == {"content"}
+        assert len(score.details) == 5
+
+        voice_result = await db_session.execute(
+            select(VoiceScore).where(VoiceScore.session_id == session_id)
+        )
+        voice_score = voice_result.scalar_one()
+        voice_detail_result = await db_session.execute(
+            select(VoiceScoreDetail).where(VoiceScoreDetail.voice_score_id == voice_score.id)
+        )
+        assert len(voice_detail_result.scalars().all()) == 4
+
+    async def test_score_history_excludes_voice_dimensions(self, db_session):
+        user_id, session_id, _ = await _seed_completed_session(db_session)
+
+        session = await db_session.get(CoachingSession, session_id)
+        session.status = "scored"
+        session.completed_at = datetime(2026, 6, 10, 12, 0, 0)
+
+        score = SessionScore(
+            session_id=session_id,
+            overall_score=40,
+            passed=False,
+            feedback_summary="Needs improvement",
+        )
+        db_session.add(score)
+        await db_session.flush()
+
+        db_session.add_all(
+            [
+                ScoreDetail(
+                    score_id=score.id,
+                    dimension="客户问题管理",
+                    score=40,
+                    weight=20,
+                    category="content",
+                ),
+                ScoreDetail(
+                    score_id=score.id,
+                    dimension="fluency",
+                    score=85,
+                    weight=25,
+                    category="voice",
+                ),
+            ]
+        )
+        await db_session.flush()
+
+        history = await get_score_history(db_session, user_id)
+
+        assert len(history) == 1
+        assert history[0]["dimensions"] == [
+            {"dimension": "客户问题管理", "score": 40, "weight": 20, "improvement_pct": None}
+        ]
+
+    @patch("app.services.scoring_service.score_with_llm", new_callable=AsyncMock)
+    async def test_score_session_updates_session_status_to_scored(self, mock_llm, db_session):
         from sqlalchemy import select
 
         mock_llm.return_value = MOCK_LLM_RESULT
@@ -197,9 +281,7 @@ class TestScoreSessionIntegration:
             await score_session(db_session, "nonexistent-id")
 
     @patch("app.services.scoring_service.score_with_llm", new_callable=AsyncMock)
-    async def test_score_session_raises_for_already_scored(
-        self, mock_llm, db_session
-    ):
+    async def test_score_session_raises_for_already_scored(self, mock_llm, db_session):
         mock_llm.return_value = MOCK_LLM_RESULT
         _, session_id, _ = await _seed_completed_session(db_session)
         await score_session(db_session, session_id)
@@ -207,6 +289,57 @@ class TestScoreSessionIntegration:
         with pytest.raises(AppException) as exc_info:
             await score_session(db_session, session_id)
         assert exc_info.value.code == "ALREADY_SCORED"
+
+    @patch("app.services.scoring_service.score_with_llm", new_callable=AsyncMock)
+    async def test_score_session_returns_existing_score_for_completed_orphan(
+        self, mock_llm, db_session
+    ):
+        """Existing score with completed session is repaired instead of duplicated."""
+        from sqlalchemy import func, select
+
+        _, session_id, _ = await _seed_completed_session(db_session)
+        existing_score = SessionScore(
+            session_id=session_id,
+            overall_score=88.0,
+            passed=True,
+            feedback_summary="Already scored.",
+        )
+        db_session.add(existing_score)
+        await db_session.flush()
+        db_session.add(
+            ScoreDetail(
+                score_id=existing_score.id,
+                dimension="communication",
+                score=88,
+                weight=100,
+                strengths="[]",
+                weaknesses="[]",
+                suggestions="[]",
+            )
+        )
+        await db_session.flush()
+
+        score = await score_session(db_session, session_id)
+
+        assert score.id == existing_score.id
+        assert score.overall_score == 88.0
+        assert len(score.details) == 1
+        mock_llm.assert_not_awaited()
+
+        session_result = await db_session.execute(
+            select(CoachingSession).where(CoachingSession.id == session_id)
+        )
+        session = session_result.scalar_one()
+        assert session.status == "scored"
+        assert session.overall_score == 88.0
+        assert session.passed is True
+
+        count_result = await db_session.execute(
+            select(func.count())
+            .select_from(SessionScore)
+            .where(SessionScore.session_id == session_id)
+        )
+        assert count_result.scalar_one() == 1
 
     async def test_score_session_raises_for_in_progress_session(self, db_session):
         user = User(
@@ -259,9 +392,7 @@ class TestScoreSessionIntegration:
         assert exc_info.value.code == "INVALID_STATUS"
 
     @patch("app.services.scoring_service.score_with_llm", new_callable=AsyncMock)
-    async def test_score_session_propagates_503_on_llm_failure(
-        self, mock_llm, db_session
-    ):
+    async def test_score_session_propagates_503_on_llm_failure(self, mock_llm, db_session):
         from app.utils.exceptions import ScoringUnavailableException
 
         mock_llm.side_effect = ScoringUnavailableException("LLM unavailable")
@@ -276,9 +407,7 @@ class TestScoreSessionIntegration:
         assert score is None
 
     @patch("app.services.scoring_service.score_with_llm", new_callable=AsyncMock)
-    async def test_get_session_score_returns_score_after_scoring(
-        self, mock_llm, db_session
-    ):
+    async def test_get_session_score_returns_score_after_scoring(self, mock_llm, db_session):
         mock_llm.return_value = MOCK_LLM_RESULT
         _, session_id, _ = await _seed_completed_session(db_session)
         await score_session(db_session, session_id)

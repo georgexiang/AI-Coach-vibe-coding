@@ -365,7 +365,7 @@
     "description": "Manage training documents for AI knowledge base",
     "upload": "Upload Material",
     "uploadDescription": "Drag and drop files here, or click to browse",
-    "uploadHint": "Supported formats: PDF, Word (.docx), Excel (.xlsx). Max 50MB.",
+    "uploadHint": "Supported formats: PDF, Word (.docx), Excel (.xlsx). Max 4MB.",
     "name": "Material Name",
     "namePlaceholder": "Enter material name",
     "product": "Product",

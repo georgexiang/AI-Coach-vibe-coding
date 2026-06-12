@@ -15,6 +15,7 @@ from app.models.skill import Skill, SkillResource, SkillSourceMaterial, SkillVer
 from app.models.system_enum import SystemEnum
 from app.models.user import User
 from app.models.voice_live_instance import VoiceLiveInstance
+from app.models.voice_score import VoiceScore, VoiceScoreDetail
 
 __all__ = [
     "Base",
@@ -25,6 +26,8 @@ __all__ = [
     "HcpKnowledgeConfig",
     "HcpProfile",
     "VoiceLiveInstance",
+    "VoiceScore",
+    "VoiceScoreDetail",
     "Scenario",
     "CoachingSession",
     "ConferenceAudienceHcp",
