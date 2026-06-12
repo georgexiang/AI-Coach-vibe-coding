@@ -22,6 +22,7 @@ export interface StartSessionOptions {
   hcpProfileId?: string;
   systemPrompt?: string;
   vlInstanceId?: string;
+  avatarEnabled?: boolean;
   /** Called when mic permission is denied. */
   onMicDenied?: () => void;
   /** Called when AudioWorklet fails to load. */
@@ -87,6 +88,7 @@ export function useVoiceSessionLifecycle(deps: VoiceSessionLifecycleDeps) {
           options.hcpProfileId,
           options.systemPrompt,
           options.vlInstanceId,
+          options.avatarEnabled,
         );
 
         if (abortController.signal.aborted) {
@@ -95,6 +97,7 @@ export function useVoiceSessionLifecycle(deps: VoiceSessionLifecycleDeps) {
         }
 
         // 4. Connect avatar WebRTC if available
+        let effectiveAvatarEnabled = result.avatarEnabled;
         if (result.avatarEnabled) {
           try {
             await avatarStream.connect(
@@ -107,6 +110,7 @@ export function useVoiceSessionLifecycle(deps: VoiceSessionLifecycleDeps) {
               },
             );
           } catch {
+            effectiveAvatarEnabled = false;
             options.onAvatarFailed?.();
             // Continue in voice-only mode
           }
@@ -125,9 +129,9 @@ export function useVoiceSessionLifecycle(deps: VoiceSessionLifecycleDeps) {
         });
 
         return {
-          avatarEnabled: result.avatarEnabled,
+          avatarEnabled: effectiveAvatarEnabled,
           model: result.model,
-          mode: result.mode,
+          mode: result.mode ?? "model",
         };
       } catch (error) {
         options.onConnectionFailed?.(error);

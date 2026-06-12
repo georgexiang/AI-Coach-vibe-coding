@@ -91,6 +91,7 @@
   "startPrompt": "点击「开始」按钮开始语音对话",
   "waitingForResponse": "正在聆听语音...",
   "connectingAvatar": "正在连接数字人...",
+  "connectingVoice": "正在连接语音通话...",
   "micButton": {
     "idle": "开始说话",
     "listening": "正在聆听 - 点击静音",

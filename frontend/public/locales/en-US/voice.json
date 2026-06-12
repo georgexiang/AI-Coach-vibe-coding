@@ -90,7 +90,8 @@
   "startButton": "Start",
   "startPrompt": "Click Start to begin the voice session",
   "waitingForResponse": "Listening for speech...",
-  "connectingAvatar": "Connecting avatar...",
+  "connectingAvatar": "Connecting digital human...",
+  "connectingVoice": "Connecting voice call...",
   "micButton": {
     "idle": "Start speaking",
     "listening": "Listening - tap to mute",

@@ -115,6 +115,22 @@ describe("ScenarioCard", () => {
     expect(onStart).toHaveBeenCalledWith("sc-1", "text");
   });
 
+  it("lets the user start a digital human session when available", async () => {
+    const onStart = vi.fn();
+    render(
+      <ScenarioCard
+        scenario={mockScenario}
+        onStart={onStart}
+        availableModes={["text", "voice_realtime_model", "digital_human_realtime_model"]}
+      />,
+    );
+
+    await userEvent.click(screen.getByText("scenarioSelection.modeDigitalHuman"));
+    await userEvent.click(screen.getByText("scenarioSelection.startButton"));
+
+    expect(onStart).toHaveBeenCalledWith("sc-1", "digital_human_realtime_model");
+  });
+
   it("hides mode selector when only one mode is available", () => {
     render(
       <ScenarioCard

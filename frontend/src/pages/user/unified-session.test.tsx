@@ -9,6 +9,7 @@ const mockSession = {
   id: "session-1",
   scenario_id: "scenario-1",
   status: "in_progress",
+  mode: "voice_realtime_model",
   key_messages_status: JSON.stringify([
     { message: "Key point 1", delivered: false, detected_at: null },
     { message: "Key point 2", delivered: false, detected_at: null },
@@ -84,6 +85,12 @@ const mockVoiceLive = {
   avatarSdpCallbackRef: { current: null },
 };
 
+const mockStartSession = vi.fn().mockResolvedValue({
+  avatarEnabled: true,
+  model: "gpt-4o-realtime",
+  mode: "model",
+});
+
 vi.mock("@/hooks/use-voice-live", () => ({
   useVoiceLive: () => mockVoiceLive,
 }));
@@ -102,6 +109,7 @@ vi.mock("@/hooks/use-audio-handler", () => ({
     initialize: vi.fn().mockResolvedValue(undefined),
     startRecording: vi.fn(),
     cleanup: vi.fn(),
+    streamRef: { current: null },
   }),
 }));
 
@@ -114,13 +122,20 @@ vi.mock("@/hooks/use-audio-player", () => ({
 
 vi.mock("@/hooks/use-voice-session-lifecycle", () => ({
   useVoiceSessionLifecycle: () => ({
-    startSession: vi.fn().mockResolvedValue({
-      avatarEnabled: true,
-      model: "gpt-4o-realtime",
-      mode: "model",
-    }),
+    startSession: mockStartSession,
     stopSession: vi.fn().mockResolvedValue(undefined),
     isBusy: false,
+  }),
+}));
+
+vi.mock("@/hooks/use-config", () => ({
+  useFeatureFlags: () => ({
+    data: {
+      features: {
+        voice_live_enabled: true,
+        avatar_enabled: true,
+      },
+    },
   }),
 }));
 
@@ -148,17 +163,37 @@ vi.mock("@/lib/voice-logger", () => ({
 }));
 
 vi.mock("@/components/voice/voice-session-header", () => ({
-  VoiceSessionHeader: ({ scenarioTitle, onEndSession }: { scenarioTitle: string; onEndSession: () => void }) => (
+  VoiceSessionHeader: ({
+    scenarioTitle,
+    currentMode,
+    availableModes,
+    onEndSession,
+  }: {
+    scenarioTitle: string;
+    currentMode: string;
+    availableModes?: string[];
+    onEndSession: () => void;
+  }) => (
     <header data-testid="voice-session-header">
       <span>{scenarioTitle}</span>
+      <span data-testid="current-mode">{currentMode}</span>
+      <span data-testid="available-modes">{availableModes?.join(",")}</span>
       <button data-testid="end-session-btn" onClick={onEndSession}>End</button>
     </header>
   ),
 }));
 
 vi.mock("@/components/voice/avatar-view", () => ({
-  AvatarView: ({ hcpName }: { hcpName: string }) => (
-    <div data-testid="avatar-view">{hcpName}</div>
+  AvatarView: ({
+    hcpName,
+    isDigitalHumanMode,
+  }: {
+    hcpName: string;
+    isDigitalHumanMode: boolean;
+  }) => (
+    <div data-testid="avatar-view" data-digital-human={String(isDigitalHumanMode)}>
+      {hcpName}
+    </div>
   ),
 }));
 
@@ -206,6 +241,12 @@ function renderWithProviders(searchParams = "?id=session-1") {
 describe("UnifiedSession", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockSession.mode = "voice_realtime_model";
+    mockStartSession.mockResolvedValue({
+      avatarEnabled: true,
+      model: "gpt-4o-realtime",
+      mode: "model",
+    });
   });
 
   it("renders the voice session header with scenario title", () => {
@@ -238,6 +279,43 @@ describe("UnifiedSession", () => {
   it("renders start session button before session starts", () => {
     renderWithProviders();
     expect(screen.getByTestId("start-session-btn")).toBeInTheDocument();
+  });
+
+  it("offers text, voice, and digital human modes in the session header", () => {
+    renderWithProviders();
+    expect(screen.getByTestId("available-modes")).toHaveTextContent(
+      "text,voice_realtime_model,digital_human_realtime_model",
+    );
+  });
+
+  it("starts voice mode with avatar disabled", async () => {
+    mockSession.mode = "voice_realtime_model";
+    renderWithProviders();
+
+    fireEvent.click(screen.getByTestId("start-session-btn"));
+
+    await waitFor(() => {
+      expect(mockStartSession).toHaveBeenCalledWith(
+        expect.objectContaining({ avatarEnabled: false }),
+      );
+    });
+  });
+
+  it("starts digital human mode with avatar enabled", async () => {
+    mockSession.mode = "digital_human_realtime_model";
+    renderWithProviders();
+
+    fireEvent.click(screen.getByTestId("start-session-btn"));
+
+    await waitFor(() => {
+      expect(mockStartSession).toHaveBeenCalledWith(
+        expect.objectContaining({ avatarEnabled: true }),
+      );
+      expect(screen.getByTestId("avatar-view")).toHaveAttribute(
+        "data-digital-human",
+        "true",
+      );
+    });
   });
 
   it("hides start button after clicking start", async () => {

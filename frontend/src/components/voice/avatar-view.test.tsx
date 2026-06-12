@@ -67,6 +67,18 @@ describe("AvatarView", () => {
     expect(screen.getByText("connectingAvatar")).toBeInTheDocument();
   });
 
+  it("shows voice connection copy when connecting in voice-only mode", () => {
+    render(
+      <AvatarView
+        {...defaultProps}
+        isConnecting={true}
+        isDigitalHumanMode={false}
+      />,
+    );
+    expect(screen.getByTestId("skeleton")).toBeInTheDocument();
+    expect(screen.getByText("connectingVoice")).toBeInTheDocument();
+  });
+
   it("shows video element when avatar connected", () => {
     render(
       <AvatarView {...defaultProps} isAvatarConnected={true} />,

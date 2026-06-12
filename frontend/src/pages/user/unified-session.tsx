@@ -37,6 +37,30 @@ import type {
 import type { KeyMessageStatus, CoachingHint } from "@/types/session";
 import type { Scenario } from "@/types/scenario";
 
+function normalizeSessionMode(mode: string | undefined): SessionMode {
+  if (
+    mode === "text" ||
+    mode === "voice_realtime_model" ||
+    mode === "digital_human_realtime_model" ||
+    mode === "voice_realtime_agent" ||
+    mode === "digital_human_realtime_agent"
+  ) {
+    return mode;
+  }
+  return "voice_realtime_model";
+}
+
+function isDigitalHumanMode(mode: SessionMode): boolean {
+  return mode.startsWith("digital_human_");
+}
+
+function resolveConnectedMode(requestedMode: SessionMode, agentMode: boolean, avatarEnabled: boolean): SessionMode {
+  if (avatarEnabled && isDigitalHumanMode(requestedMode)) {
+    return agentMode ? "digital_human_realtime_agent" : "digital_human_realtime_model";
+  }
+  return agentMode ? "voice_realtime_agent" : "voice_realtime_model";
+}
+
 /**
  * Unified training session page — reuses voice-session components with
  * additional text input and coaching panels for MR training.
@@ -102,6 +126,9 @@ export default function UnifiedSession() {
     const modes: SessionMode[] = ["text"];
     if (config?.features.voice_live_enabled) {
       modes.push("voice_realtime_model");
+      if (config.features.avatar_enabled) {
+        modes.push("digital_human_realtime_model");
+      }
     }
     return modes;
   }, [config]);
@@ -225,6 +252,14 @@ export default function UnifiedSession() {
   );
   const { sendMessage: sendSSEMessage, isStreaming } = useSSEStream(sseCallbacks);
 
+  // Initialize display mode from the persisted session mode.
+  useEffect(() => {
+    if (!session?.mode || sessionStarted) return;
+    const mode = normalizeSessionMode(session.mode);
+    setCurrentMode(mode);
+    initialModeRef.current = mode;
+  }, [session?.mode, sessionStarted]);
+
   // Initialize key messages from scenario
   useEffect(() => {
     if (scenario && keyMessagesStatus.length === 0) {
@@ -257,18 +292,18 @@ export default function UnifiedSession() {
     }
 
     try {
+      const requestedMode = normalizeSessionMode(session?.mode);
       const hcpProfileId = scenario?.hcp_profile_id ?? "";
       const result = await startVoiceSession({
         hcpProfileId,
         systemPrompt: "",
+        avatarEnabled: isDigitalHumanMode(requestedMode),
         onMicDenied: () => toast.error(t("micDenied")),
         onAudioWorkletFailed: () => toast.error(tv("error.audioWorkletFailed")),
         onAvatarFailed: () => {
           log.error("Avatar WebRTC failed");
           toast.error(tv("error.avatarFailed"));
-          setCurrentMode((prev) =>
-            prev.includes("agent") ? "voice_realtime_agent" : "voice_realtime_model",
-          );
+          setCurrentMode("voice_realtime_model");
         },
         onConnectionFailed: (error) => {
           log.error("Connection failed: %o", error);
@@ -278,7 +313,11 @@ export default function UnifiedSession() {
 
       if (result) {
         const isAgent = result.mode === "agent";
-        const resolvedMode: SessionMode = isAgent ? "voice_realtime_agent" : "voice_realtime_model";
+        const resolvedMode = resolveConnectedMode(
+          requestedMode,
+          isAgent,
+          result.avatarEnabled,
+        );
         setCurrentMode(resolvedMode);
         initialModeRef.current = resolvedMode;
 
@@ -342,6 +381,7 @@ export default function UnifiedSession() {
           const result = await startVoiceSession({
             hcpProfileId,
             systemPrompt: "",
+            avatarEnabled: isDigitalHumanMode(newMode),
             onMicDenied: () => toast.error(t("micDenied")),
             onAudioWorkletFailed: () => toast.error(tv("error.audioWorkletFailed")),
             onAvatarFailed: () => {
@@ -358,7 +398,7 @@ export default function UnifiedSession() {
             },
           });
           if (result) {
-            setCurrentMode(newMode);
+            setCurrentMode(resolveConnectedMode(newMode, result.mode === "agent", result.avatarEnabled));
           }
         } finally {
           setIsConnecting(false);
@@ -366,10 +406,34 @@ export default function UnifiedSession() {
         return;
       }
 
-      // Switching between voice and digital human (both are voice-connected)
-      // voice -> digital_human: avatar will be handled by the connection
-      // digital_human -> voice: just update mode (avatar stream remains but is cosmetic)
-      setCurrentMode(newMode);
+      // Switching between voice and digital human requires reconnecting with
+      // the requested avatar setting so Voice cannot accidentally keep avatar on.
+      setIsConnecting(true);
+      try {
+        await stopVoiceSession();
+        const hcpProfileId = scenario?.hcp_profile_id ?? "";
+        const result = await startVoiceSession({
+          hcpProfileId,
+          systemPrompt: "",
+          avatarEnabled: isDigitalHumanMode(newMode),
+          onMicDenied: () => toast.error(t("micDenied")),
+          onAudioWorkletFailed: () => toast.error(tv("error.audioWorkletFailed")),
+          onAvatarFailed: () => {
+            log.error("Avatar WebRTC failed during mode switch");
+            toast.error(tv("error.avatarFailed"));
+            setCurrentMode("voice_realtime_model");
+          },
+          onConnectionFailed: (error) => {
+            log.error("Connection failed during mode switch: %o", error);
+            toast.error(tv("error.connectionFailed"));
+          },
+        });
+        if (result) {
+          setCurrentMode(resolveConnectedMode(newMode, result.mode === "agent", result.avatarEnabled));
+        }
+      } finally {
+        setIsConnecting(false);
+      }
     },
     [currentMode, scenario?.hcp_profile_id, startVoiceSession, stopVoiceSession, t, tv, log],
   );
@@ -525,6 +589,7 @@ export default function UnifiedSession() {
             isSessionActive={sessionStarted && voiceLive.connectionState === "connected"}
             audioState={voiceLive.audioState}
             isConnecting={isConnecting}
+            isDigitalHumanMode={isDigitalHumanMode(currentMode)}
             hcpName={hcpName}
             isFullScreen={false}
             avatarCharacter={scenario?.hcp_profile?.avatar_character}

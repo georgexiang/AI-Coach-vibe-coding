@@ -41,6 +41,9 @@ export default function ScenarioSelection() {
     const modes: string[] = ["text"]; // text is always available
     if (config?.features.voice_live_enabled) {
       modes.push("voice_realtime_model");
+      if (config.features.avatar_enabled) {
+        modes.push("digital_human_realtime_model");
+      }
     }
     return modes;
   }, [config]);
