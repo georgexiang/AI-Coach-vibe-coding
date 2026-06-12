@@ -121,6 +121,7 @@ class TestPutAnalyzer:
 
             async def put(self, url, headers, json):
                 captured["url"] = url
+                captured["body"] = json
                 return FakeResponse()
 
         with (
@@ -145,6 +146,8 @@ class TestPutAnalyzer:
         assert captured["url"].endswith(
             "/contentunderstanding/analyzers/rubricVoice12345678?api-version=2025-11-01"
         )
+        assert captured["body"]["baseAnalyzerId"] == "prebuilt-audio"
+        assert captured["body"]["fieldSchema"] == {"name": "VoiceScoring", "fields": {}}
 
 
 class TestScoreVoiceWithCu:
@@ -203,11 +206,11 @@ class TestScoreVoiceWithCu:
                 audio_data=b"audio-bytes",
             )
 
-        assert captured_body == {"data": "YXVkaW8tYnl0ZXM=", "mimeType": "audio/webm"}
+        assert captured_body == {"inputs": [{"data": "YXVkaW8tYnl0ZXM=", "mimeType": "audio/webm"}]}
         assert result == {"transcript": {"valueString": "hi"}}
 
     @pytest.mark.asyncio
-    async def test_audio_data_can_be_submitted_with_analyze_binary(self):
+    async def test_audio_data_uses_stable_inputs_shape_when_binary_requested(self):
         captured = {}
 
         class FakePostResponse:
@@ -232,10 +235,10 @@ class TestScoreVoiceWithCu:
             async def __aexit__(self, exc_type, exc, tb):
                 return None
 
-            async def post(self, url, headers, content):
+            async def post(self, url, headers, json):
                 captured["url"] = url
                 captured["headers"] = headers
-                captured["content"] = content
+                captured["body"] = json
                 return FakePostResponse()
 
             async def get(self, url, headers):
@@ -260,11 +263,10 @@ class TestScoreVoiceWithCu:
             )
 
         assert captured["url"].endswith(
-            "/contentunderstanding/analyzers/rubricVoice12345678:analyzeBinary"
-            "?api-version=2025-11-01"
+            "/contentunderstanding/analyzers/rubricVoice12345678:analyze?api-version=2025-11-01"
         )
-        assert captured["headers"]["Content-Type"] == "audio/wav"
-        assert captured["content"] == b"wav-bytes"
+        assert captured["headers"]["Content-Type"] == "application/json"
+        assert captured["body"] == {"inputs": [{"data": "d2F2LWJ5dGVz", "mimeType": "audio/wav"}]}
         assert result == {"transcript": {"valueString": "hi"}}
 
 
