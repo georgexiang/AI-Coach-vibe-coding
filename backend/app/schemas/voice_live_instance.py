@@ -127,6 +127,7 @@ class VoiceLiveInstanceSummary(BaseModel):
     voice_name: str
     avatar_character: str
     avatar_style: str
+    avatar_enabled: bool = True
     hcp_count: int = 0
 
     model_config = ConfigDict(from_attributes=True)

@@ -61,6 +61,27 @@ function resolveConnectedMode(requestedMode: SessionMode, agentMode: boolean, av
   return agentMode ? "voice_realtime_agent" : "voice_realtime_model";
 }
 
+function getAvailableModesForScenario(
+  scenario: Scenario | undefined,
+  features: { voice_live_enabled?: boolean; avatar_enabled?: boolean } | undefined,
+): SessionMode[] {
+  const modes: SessionMode[] = ["text"];
+  const hcp = scenario?.hcp_profile;
+  const voiceAvailable = Boolean(features?.voice_live_enabled && hcp?.voice_live_enabled);
+  const avatarAvailable = Boolean(
+    voiceAvailable && features?.avatar_enabled && hcp?.avatar_enabled,
+  );
+
+  if (voiceAvailable) {
+    modes.push("voice_realtime_model");
+    if (avatarAvailable) {
+      modes.push("digital_human_realtime_model");
+    }
+  }
+
+  return modes;
+}
+
 /**
  * Unified training session page — reuses voice-session components with
  * additional text input and coaching panels for MR training.
@@ -123,15 +144,8 @@ export default function UnifiedSession() {
   // Feature flags for mode availability
   const { data: config } = useFeatureFlags(true);
   const availableModes = useMemo((): SessionMode[] => {
-    const modes: SessionMode[] = ["text"];
-    if (config?.features.voice_live_enabled) {
-      modes.push("voice_realtime_model");
-      if (config.features.avatar_enabled) {
-        modes.push("digital_human_realtime_model");
-      }
-    }
-    return modes;
-  }, [config]);
+    return getAvailableModesForScenario(scenario, config?.features);
+  }, [scenario, config]);
 
   // Hooks
   const endSessionMutation = useEndSession();
@@ -357,6 +371,7 @@ export default function UnifiedSession() {
   const handleModeSwitch = useCallback(
     async (newMode: SessionMode) => {
       if (newMode === currentMode) return;
+      if (!availableModes.includes(newMode)) return;
       log.info("handleModeSwitch: %s -> %s", currentMode, newMode);
 
       const isCurrentVoice = currentMode !== "text";
@@ -435,7 +450,7 @@ export default function UnifiedSession() {
         setIsConnecting(false);
       }
     },
-    [currentMode, scenario?.hcp_profile_id, startVoiceSession, stopVoiceSession, t, tv, log],
+    [currentMode, availableModes, scenario?.hcp_profile_id, startVoiceSession, stopVoiceSession, t, tv, log],
   );
 
   // End session handler

@@ -101,6 +101,20 @@ describe("ScenarioCard", () => {
     expect(onStart).toHaveBeenCalledWith("sc-1", "voice_realtime_model");
   });
 
+  it("uses the provided default mode when it is available", async () => {
+    const onStart = vi.fn();
+    render(
+      <ScenarioCard
+        scenario={mockScenario}
+        onStart={onStart}
+        availableModes={["text", "voice_realtime_model", "digital_human_realtime_model"]}
+        defaultMode="digital_human_realtime_model"
+      />,
+    );
+    await userEvent.click(screen.getByText("scenarioSelection.startButton"));
+    expect(onStart).toHaveBeenCalledWith("sc-1", "digital_human_realtime_model");
+  });
+
   it("calls onStart with first available mode when default is unavailable", async () => {
     const onStart = vi.fn();
     render(
@@ -131,7 +145,7 @@ describe("ScenarioCard", () => {
     expect(onStart).toHaveBeenCalledWith("sc-1", "digital_human_realtime_model");
   });
 
-  it("hides mode selector when only one mode is available", () => {
+  it("shows unavailable modes as disabled", () => {
     render(
       <ScenarioCard
         scenario={mockScenario}
@@ -139,8 +153,10 @@ describe("ScenarioCard", () => {
         availableModes={["text"]}
       />,
     );
-    // Mode selector label should not render
-    expect(screen.queryByText("scenarioSelection.modeLabel")).not.toBeInTheDocument();
+    expect(screen.getByText("scenarioSelection.modeVoice").closest("button")).toBeDisabled();
+    expect(
+      screen.getByText("scenarioSelection.modeDigitalHuman").closest("button"),
+    ).toBeDisabled();
   });
 
   it("renders product badge", () => {

@@ -76,15 +76,18 @@ vi.mock("@/components/coach", () => ({
     scenario,
     onStart,
     availableModes,
+    defaultMode,
   }: {
     scenario: { id: string; name: string };
     onStart: (id: string, mode: string) => void;
     availableModes?: string[];
+    defaultMode?: string;
   }) => (
     <div data-testid="scenario-card">
       <span>{scenario.name}</span>
       <span data-testid={`modes-${scenario.id}`}>{availableModes?.join(",")}</span>
-      <button onClick={() => onStart(scenario.id, "voice_realtime_model")}>Start</button>
+      <span data-testid={`default-mode-${scenario.id}`}>{defaultMode}</span>
+      <button onClick={() => onStart(scenario.id, defaultMode ?? "text")}>Start</button>
     </div>
   ),
 }));
@@ -176,12 +179,45 @@ describe("ScenarioSelection (Training) Page", () => {
         mode: "f2f",
         difficulty: "medium",
         status: "active",
+        hcp_profile: {
+          voice_live_enabled: true,
+          avatar_enabled: true,
+        },
       },
     ];
     renderPage();
 
     expect(screen.getByTestId("modes-sc-1")).toHaveTextContent(
       "text,voice_realtime_model,digital_human_realtime_model",
+    );
+    expect(screen.getByTestId("default-mode-sc-1")).toHaveTextContent(
+      "digital_human_realtime_model",
+    );
+  });
+
+  it("disables digital human when the HCP Voice Live instance has avatar off", () => {
+    scenarioData = [
+      {
+        id: "sc-1",
+        name: "F2F Scenario",
+        description: "Test",
+        product: "Brukinsa",
+        mode: "f2f",
+        difficulty: "medium",
+        status: "active",
+        hcp_profile: {
+          voice_live_enabled: true,
+          avatar_enabled: false,
+        },
+      },
+    ];
+    renderPage();
+
+    expect(screen.getByTestId("modes-sc-1")).toHaveTextContent(
+      "text,voice_realtime_model",
+    );
+    expect(screen.getByTestId("default-mode-sc-1")).toHaveTextContent(
+      "voice_realtime_model",
     );
   });
 
@@ -222,6 +258,10 @@ describe("ScenarioSelection Filters and Actions", () => {
       mode: "f2f",
       difficulty: "medium",
       status: "active",
+      hcp_profile: {
+        voice_live_enabled: true,
+        avatar_enabled: false,
+      },
     },
     {
       id: "sc-2",
@@ -231,6 +271,10 @@ describe("ScenarioSelection Filters and Actions", () => {
       mode: "conference",
       difficulty: "hard",
       status: "active",
+      hcp_profile: {
+        voice_live_enabled: true,
+        avatar_enabled: false,
+      },
     },
   ];
 

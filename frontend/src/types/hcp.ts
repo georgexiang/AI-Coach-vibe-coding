@@ -24,8 +24,10 @@ export interface HcpProfile {
   agent_sync_error: string;
   // Voice Live Instance reference
   voice_live_instance_id: string | null;
+  voice_live_instance?: VoiceLiveInstanceSummary | null;
   // Voice Live agent metadata toggle
   voice_live_enabled: boolean;
+  avatar_enabled?: boolean;
   // Voice Live model selection (Phase 13)
   voice_live_model: string;
   // Voice settings (D-01)
@@ -47,6 +49,17 @@ export interface HcpProfile {
   agent_instructions_override: string;
   // Knowledge Base config count (Phase 17)
   knowledge_config_count: number;
+}
+
+export interface VoiceLiveInstanceSummary {
+  id: string;
+  name: string;
+  voice_live_model: string;
+  enabled: boolean;
+  voice_name: string;
+  avatar_character: string;
+  avatar_style: string;
+  avatar_enabled?: boolean;
 }
 
 export interface HcpProfileCreate {

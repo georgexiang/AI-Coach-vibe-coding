@@ -31,6 +31,8 @@ const mockScenario = {
     personality_type: "friendly",
     avatar_character: "lisa",
     avatar_style: "casual-sitting",
+    voice_live_enabled: true,
+    avatar_enabled: true,
   },
   key_messages: ["Key point 1", "Key point 2"],
   skill_id: "skill-1",
@@ -242,6 +244,8 @@ describe("UnifiedSession", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockSession.mode = "voice_realtime_model";
+    mockScenario.hcp_profile.voice_live_enabled = true;
+    mockScenario.hcp_profile.avatar_enabled = true;
     mockStartSession.mockResolvedValue({
       avatarEnabled: true,
       model: "gpt-4o-realtime",
@@ -285,6 +289,14 @@ describe("UnifiedSession", () => {
     renderWithProviders();
     expect(screen.getByTestId("available-modes")).toHaveTextContent(
       "text,voice_realtime_model,digital_human_realtime_model",
+    );
+  });
+
+  it("does not offer digital human when the HCP Voice Live instance has avatar off", () => {
+    mockScenario.hcp_profile.avatar_enabled = false;
+    renderWithProviders();
+    expect(screen.getByTestId("available-modes")).toHaveTextContent(
+      "text,voice_realtime_model",
     );
   });
 
