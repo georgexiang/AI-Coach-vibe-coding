@@ -101,13 +101,25 @@ class TestPutAnalyzer:
     """Test CU analyzer create/update behavior."""
 
     @pytest.mark.asyncio
-    async def test_model_exists_conflict_is_reused(self):
-        """Deterministic analyzer IDs can already exist; 409 ModelExists is success."""
+    async def test_create_replace_uses_allow_replace_and_waits_until_ready(self):
+        """Deterministic analyzer IDs are replaced and must be ready before reuse."""
         captured = {}
+        get_urls = []
 
-        class FakeResponse:
-            status_code = 409
-            text = '{"error":{"code":"ModelExists"}}'
+        class FakePutResponse:
+            status_code = 201
+            text = ""
+            headers = {"Operation-Location": "https://example.test/operations/create-1"}
+
+        class FakeGetResponse:
+            status_code = 200
+            text = ""
+
+            def __init__(self, body):
+                self.body = body
+
+            def json(self):
+                return self.body
 
         class FakeClient:
             def __init__(self, timeout: float) -> None:
@@ -122,14 +134,21 @@ class TestPutAnalyzer:
             async def put(self, url, headers, json):
                 captured["url"] = url
                 captured["body"] = json
-                return FakeResponse()
+                return FakePutResponse()
+
+            async def get(self, url, headers):
+                get_urls.append(url)
+                if "operations" in url:
+                    return FakeGetResponse({"status": "Succeeded"})
+                return FakeGetResponse({"status": "ready"})
 
         with (
             patch(
                 "app.services.cu_evaluation_service._get_auth_headers",
-                AsyncMock(return_value={}),
+                AsyncMock(return_value={"Content-Type": "application/json"}),
             ),
             patch("app.services.cu_evaluation_service.httpx.AsyncClient", FakeClient),
+            patch("app.services.cu_evaluation_service.asyncio.sleep", AsyncMock()),
             patch(
                 "app.services.cu_evaluation_service._get_cu_api_version",
                 return_value="2025-11-01",
@@ -144,10 +163,58 @@ class TestPutAnalyzer:
             )
 
         assert captured["url"].endswith(
-            "/contentunderstanding/analyzers/rubricVoice12345678?api-version=2025-11-01"
+            "/contentunderstanding/analyzers/rubricVoice12345678"
+            "?api-version=2025-11-01&allowReplace=true"
         )
         assert captured["body"]["baseAnalyzerId"] == "prebuilt-audio"
         assert captured["body"]["fieldSchema"] == {"name": "VoiceScoring", "fields": {}}
+        assert get_urls == [
+            "https://example.test/operations/create-1",
+            "https://example.cognitiveservices.azure.com/contentunderstanding/analyzers/"
+            "rubricVoice12345678?api-version=2025-11-01",
+        ]
+
+    @pytest.mark.asyncio
+    async def test_model_exists_conflict_raises_instead_of_reusing(self):
+        """A 409 is not a usable analyzer and must be surfaced to the caller."""
+
+        class FakeResponse:
+            status_code = 409
+            text = '{"error":{"code":"ModelExists"}}'
+            headers = {}
+
+        class FakeClient:
+            def __init__(self, timeout: float) -> None:
+                self.timeout = timeout
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc, tb):
+                return None
+
+            async def put(self, url, headers, json):
+                return FakeResponse()
+
+        with (
+            patch(
+                "app.services.cu_evaluation_service._get_auth_headers",
+                AsyncMock(return_value={}),
+            ),
+            patch("app.services.cu_evaluation_service.httpx.AsyncClient", FakeClient),
+            patch(
+                "app.services.cu_evaluation_service._get_cu_api_version",
+                return_value="2025-11-01",
+            ),
+        ):
+            with pytest.raises(RuntimeError, match="CU analyzer creation failed: HTTP 409"):
+                await _put_analyzer(
+                    "https://example.cognitiveservices.azure.com",
+                    "",
+                    "rubricVoice12345678",
+                    {"name": "VoiceScoring", "fields": {}},
+                    "voice",
+                )
 
 
 class TestScoreVoiceWithCu:
