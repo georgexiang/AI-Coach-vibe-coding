@@ -9,6 +9,7 @@ services:
       - DEBUG=true
       - DATABASE_URL=sqlite+aiosqlite:///./data/ai_coach.db
       - CORS_ORIGINS=http://localhost:5173,http://localhost:80
+      - CONTENT_UNDERSTANDING_API_VERSION=2025-11-01
     command: uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
   frontend:

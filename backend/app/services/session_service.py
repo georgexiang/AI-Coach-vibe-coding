@@ -15,7 +15,7 @@ from app.utils.exceptions import AppException, NotFoundException
 
 
 async def create_session(
-    db: AsyncSession, scenario_id: str, user_id: str, mode: str = "digital_human_realtime_model"
+    db: AsyncSession, scenario_id: str, user_id: str, mode: str = "text"
 ) -> CoachingSession:
     """Create a new coaching session for a scenario.
 

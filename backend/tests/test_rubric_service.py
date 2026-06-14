@@ -1,6 +1,7 @@
 """Tests for rubric_service: CRUD operations and default rubric management."""
 
 import json
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -233,6 +234,25 @@ class TestUpdateRubric:
         await update_rubric(db_session, r2.id, RubricUpdate(is_default=True))
         await db_session.refresh(r1)
         assert r1.is_default is False
+
+    async def test_update_rubric_surfaces_analyzer_sync_failure(self, db_session):
+        user = await _create_user(db_session)
+        created = await create_rubric(
+            db_session,
+            RubricCreate(name="Original", dimensions=_make_dimensions()),
+            user.id,
+        )
+
+        with patch(
+            "app.services.rubric_service.sync_rubric_analyzers",
+            AsyncMock(side_effect=RuntimeError("CU analyzer creation failed")),
+        ):
+            with pytest.raises(RuntimeError, match="CU analyzer creation failed"):
+                await update_rubric(
+                    db_session,
+                    created.id,
+                    RubricUpdate(name="Updated Name"),
+                )
 
 
 class TestDeleteRubric:

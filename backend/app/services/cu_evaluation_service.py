@@ -22,13 +22,14 @@ import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import get_settings
 from app.models.scoring_rubric import ScoringRubric
 from app.services import config_service
 
 logger = logging.getLogger(__name__)
 
 # CU API configuration
-CU_API_VERSION = "2025-05-01-preview"
+DEFAULT_CU_API_VERSION = "2025-11-01"
 MAX_POLL_ATTEMPTS = 60
 POLL_INTERVAL_SECONDS = 2.0
 REQUEST_TIMEOUT = 30.0
@@ -43,6 +44,11 @@ _AUDIO_MIME_TYPES = {
     ".m4a": "audio/mp4",
     ".mp4": "video/mp4",
 }
+
+
+def _get_cu_api_version() -> str:
+    """Return configured CU API version, falling back to the current stable default."""
+    return get_settings().content_understanding_api_version or DEFAULT_CU_API_VERSION
 
 
 def _mime_type_for_audio_path(audio_url: str) -> str:
@@ -152,11 +158,12 @@ async def _put_analyzer(
     analyzer_type: str,
 ) -> None:
     """PUT a CU custom analyzer definition. Creates or updates."""
-    url = f"{endpoint}/contentunderstanding/analyzers/{analyzer_id}?api-version={CU_API_VERSION}"
+    api_version = _get_cu_api_version()
+    analyzer_url = f"{endpoint}/contentunderstanding/analyzers/{analyzer_id}"
+    put_url = f"{analyzer_url}?api-version={api_version}&allowReplace=true"
+    get_url = f"{analyzer_url}?api-version={api_version}"
     headers = await _get_auth_headers(api_key)
-    base_analyzer = (
-        "prebuilt-audioAnalyzer" if analyzer_type == "voice" else "prebuilt-documentAnalyzer"
-    )
+    base_analyzer = "prebuilt-audio" if analyzer_type == "voice" else "prebuilt-document"
     body = {
         "description": f"Auto-generated {analyzer_type} scoring analyzer",
         "baseAnalyzerId": base_analyzer,
@@ -164,13 +171,9 @@ async def _put_analyzer(
     }
 
     async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT) as client:
-        response = await client.put(url, headers=headers, json=body)
+        response = await client.put(put_url, headers=headers, json=body)
 
-        if response.status_code in (200, 201):
-            logger.info("CU analyzer %s created/updated successfully", analyzer_id)
-        elif response.status_code == 409 and "ModelExists" in response.text:
-            logger.info("CU analyzer %s already exists; reusing it", analyzer_id)
-        else:
+        if response.status_code not in (200, 201, 202):
             logger.error(
                 "CU analyzer PUT failed for %s: HTTP %d - %s",
                 analyzer_id,
@@ -180,6 +183,90 @@ async def _put_analyzer(
             raise RuntimeError(
                 f"CU analyzer creation failed: HTTP {response.status_code} - {response.text[:500]}"
             )
+
+        operation_url = response.headers.get("Operation-Location", "")
+        if operation_url:
+            await _poll_analyzer_operation(client, operation_url, headers, analyzer_id)
+        await _wait_for_analyzer_ready(client, get_url, headers, analyzer_id)
+        logger.info("CU analyzer %s created/replaced and ready", analyzer_id)
+
+
+async def _poll_analyzer_operation(
+    client: httpx.AsyncClient,
+    operation_url: str,
+    auth_headers: dict[str, str],
+    analyzer_id: str,
+) -> None:
+    """Poll CU analyzer create/replace operation until it reaches a terminal state."""
+    poll_headers = _poll_headers(auth_headers)
+
+    for _attempt in range(MAX_POLL_ATTEMPTS):
+        await asyncio.sleep(POLL_INTERVAL_SECONDS)
+        poll_response = await client.get(operation_url, headers=poll_headers)
+        if poll_response.status_code >= 400:
+            raise RuntimeError(
+                "CU analyzer operation poll failed for "
+                f"{analyzer_id}: HTTP {poll_response.status_code} - {poll_response.text[:500]}"
+            )
+        poll_data = poll_response.json()
+
+        status = str(poll_data.get("status", "")).lower()
+        if status == "succeeded":
+            return
+        if status in ("failed", "cancelled", "canceled"):
+            error = poll_data.get("error", {})
+            error_msg = error.get("message", "Unknown error")
+            logger.error(
+                "CU analyzer operation %s for %s: %s",
+                status,
+                analyzer_id,
+                json.dumps(error, ensure_ascii=False),
+            )
+            raise RuntimeError(f"CU analyzer operation {status}: {error_msg}")
+
+    raise RuntimeError(
+        f"CU analyzer operation timed out after {MAX_POLL_ATTEMPTS * POLL_INTERVAL_SECONDS}s"
+    )
+
+
+async def _wait_for_analyzer_ready(
+    client: httpx.AsyncClient,
+    analyzer_url: str,
+    auth_headers: dict[str, str],
+    analyzer_id: str,
+) -> None:
+    """Confirm the analyzer resource is visible and ready before storing its ID."""
+    poll_headers = _poll_headers(auth_headers)
+
+    for _attempt in range(MAX_POLL_ATTEMPTS):
+        response = await client.get(analyzer_url, headers=poll_headers)
+        if response.status_code == 404:
+            await asyncio.sleep(POLL_INTERVAL_SECONDS)
+            continue
+        if response.status_code >= 400:
+            raise RuntimeError(
+                "CU analyzer readiness check failed for "
+                f"{analyzer_id}: HTTP {response.status_code} - {response.text[:500]}"
+            )
+
+        data = response.json()
+        status = str(data.get("status") or data.get("provisioningState") or "").lower()
+        if not status or status in ("ready", "succeeded"):
+            return
+        if status in ("failed", "cancelled", "canceled"):
+            raise RuntimeError(f"CU analyzer {analyzer_id} is {status}: {response.text[:500]}")
+
+        await asyncio.sleep(POLL_INTERVAL_SECONDS)
+
+    raise RuntimeError(
+        f"CU analyzer {analyzer_id} was not ready after "
+        f"{MAX_POLL_ATTEMPTS * POLL_INTERVAL_SECONDS}s"
+    )
+
+
+def _poll_headers(auth_headers: dict[str, str]) -> dict[str, str]:
+    """Return headers suitable for CU polling/read requests."""
+    return {k: v for k, v in auth_headers.items() if k != "Content-Type"}
 
 
 async def score_voice_with_cu(
@@ -199,38 +286,37 @@ async def score_voice_with_cu(
     """
     endpoint = endpoint.rstrip("/")
     headers = await _get_auth_headers(api_key)
+    api_version = _get_cu_api_version()
 
-    if audio_data is not None and use_binary_upload:
-        url = (
-            f"{endpoint}/contentunderstanding/analyzers/{analyzer_id}:analyzeBinary"
-            f"?api-version={CU_API_VERSION}"
-        )
-        binary_headers = {
-            **headers,
-            "Content-Type": mime_type or _mime_type_for_audio_path(audio_url),
-        }
-        body = audio_data
-    else:
-        url = (
-            f"{endpoint}/contentunderstanding/analyzers/{analyzer_id}:analyze"
-            f"?api-version={CU_API_VERSION}"
-        )
-        binary_headers = None
-        body = None
+    url = (
+        f"{endpoint}/contentunderstanding/analyzers/{analyzer_id}:analyze?api-version={api_version}"
+    )
+    body = None
 
-    if audio_data is not None and not use_binary_upload:
+    if audio_data is not None:
         b64_audio = base64.b64encode(audio_data).decode("utf-8")
-        body = {"data": b64_audio, "mimeType": mime_type or _mime_type_for_audio_path(audio_url)}
+        body = {
+            "inputs": [
+                {
+                    "data": b64_audio,
+                    "mimeType": mime_type or _mime_type_for_audio_path(audio_url),
+                }
+            ]
+        }
     elif audio_data is None and audio_url.startswith(("http://", "https://")):
-        body = {"url": audio_url}
+        body = {"inputs": [{"url": audio_url}]}
     elif audio_data is None:
         try:
             with open(audio_url, "rb") as f:
                 audio_bytes = f.read()
             b64_audio = base64.b64encode(audio_bytes).decode("utf-8")
             body = {
-                "data": b64_audio,
-                "mimeType": mime_type or _mime_type_for_audio_path(audio_url),
+                "inputs": [
+                    {
+                        "data": b64_audio,
+                        "mimeType": mime_type or _mime_type_for_audio_path(audio_url),
+                    }
+                ]
             }
         except (FileNotFoundError, OSError) as e:
             raise RuntimeError(f"Failed to read local audio file: {e}") from e
@@ -238,10 +324,7 @@ async def score_voice_with_cu(
     logger.info("Submitting voice scoring to CU analyzer %s", analyzer_id)
 
     async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT) as client:
-        if use_binary_upload:
-            response = await client.post(url, headers=binary_headers, content=body)
-        else:
-            response = await client.post(url, headers=headers, json=body)
+        response = await client.post(url, headers=headers, json=body)
 
         if response.status_code != 202:
             logger.error(
@@ -262,7 +345,7 @@ async def _poll_result(
     client: httpx.AsyncClient, operation_url: str, auth_headers: dict[str, str]
 ) -> dict:
     """Poll CU operation until Succeeded, Failed, or timeout."""
-    poll_headers = {k: v for k, v in auth_headers.items() if k != "Content-Type"}
+    poll_headers = _poll_headers(auth_headers)
 
     for _attempt in range(MAX_POLL_ATTEMPTS):
         await asyncio.sleep(POLL_INTERVAL_SECONDS)

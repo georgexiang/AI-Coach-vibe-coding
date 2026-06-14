@@ -43,6 +43,9 @@ class HcpProfileSummary(BaseModel):
     specialty: str
     avatar_character: str = "lori"
     avatar_style: str = "casual"
+    voice_live_enabled: bool = False
+    voice_live_instance_id: str | None = None
+    avatar_enabled: bool = False
 
     model_config = ConfigDict(from_attributes=True)
 

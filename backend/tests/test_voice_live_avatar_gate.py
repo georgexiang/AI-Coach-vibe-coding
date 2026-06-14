@@ -81,6 +81,18 @@ async def test_vl_instance_avatar_toggle_still_disables_avatar(voice_live_only_d
     assert cfg["avatar_enabled"] is False
 
 
+async def test_avatar_override_wins_for_training_mode(voice_live_only_db):
+    """Training mode choice can force avatar on or off for this connection."""
+    cfg_voice = await _load_connection_config(voice_live_only_db, avatar_enabled=False)
+    cfg_digital_human = await _load_connection_config(
+        voice_live_only_db,
+        avatar_enabled=True,
+    )
+
+    assert cfg_voice["avatar_enabled"] is False
+    assert cfg_digital_human["avatar_enabled"] is True
+
+
 async def test_voice_live_status_reports_avatar_available_from_voice_live(
     voice_live_only_db,
 ):

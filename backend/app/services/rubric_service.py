@@ -1,7 +1,6 @@
 """Rubric CRUD service: manage scoring rubrics with dimension configurations."""
 
 import json
-import logging
 
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,8 +9,6 @@ from app.models.scoring_rubric import ScoringRubric
 from app.schemas.scoring_rubric import RubricCreate, RubricUpdate
 from app.services.cu_evaluation_service import sync_rubric_analyzers
 from app.utils.exceptions import NotFoundException
-
-logger = logging.getLogger(__name__)
 
 
 async def create_rubric(db: AsyncSession, data: RubricCreate, user_id: str) -> ScoringRubric:
@@ -35,11 +32,8 @@ async def create_rubric(db: AsyncSession, data: RubricCreate, user_id: str) -> S
     db.add(rubric)
     await db.flush()
 
-    # D-09: Pre-create CU analyzers for this rubric
-    try:
-        await sync_rubric_analyzers(db, rubric)
-    except Exception as e:
-        logger.warning("CU analyzer sync failed on create (non-blocking): %s", e)
+    # D-09: Pre-create CU analyzers for this rubric when CU is configured.
+    await sync_rubric_analyzers(db, rubric)
 
     await db.refresh(rubric)
     return rubric
@@ -90,11 +84,8 @@ async def update_rubric(db: AsyncSession, rubric_id: str, data: RubricUpdate) ->
 
     await db.flush()
 
-    # D-09: Update CU analyzers when rubric changes
-    try:
-        await sync_rubric_analyzers(db, rubric)
-    except Exception as e:
-        logger.warning("CU analyzer sync failed on update (non-blocking): %s", e)
+    # D-09: Update CU analyzers when rubric changes.
+    await sync_rubric_analyzers(db, rubric)
 
     await db.refresh(rubric)
     return rubric

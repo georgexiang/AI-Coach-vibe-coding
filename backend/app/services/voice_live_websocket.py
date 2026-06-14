@@ -73,6 +73,7 @@ async def _load_connection_config(
     hcp_profile_id: str | None = None,
     system_prompt: str | None = None,
     vl_instance_id: str | None = None,
+    avatar_enabled: bool | None = None,
 ) -> dict[str, Any]:
     """Load all config needed for Azure Voice Live connection from DB.
 
@@ -291,6 +292,9 @@ async def _load_connection_config(
         if _hosted_agent_endpoint:
             result["endpoint"] = _hosted_agent_endpoint.rstrip("/")
 
+    if avatar_enabled is not None:
+        result["avatar_enabled"] = avatar_enabled
+
     return result
 
 
@@ -321,12 +325,15 @@ async def handle_voice_live_websocket(ws: WebSocket, db: AsyncSession) -> None:
         hcp_profile_id = session_data.get("hcp_profile_id")
         system_prompt = session_data.get("system_prompt")
         vl_instance_id = session_data.get("vl_instance_id")
+        avatar_enabled = session_data.get("avatar_enabled")
+        avatar_enabled_override = avatar_enabled if isinstance(avatar_enabled, bool) else None
 
         session_log.info(
-            "Session started: sid=%s, hcp=%s, vl_instance=%s",
+            "Session started: sid=%s, hcp=%s, vl_instance=%s, avatar_override=%s",
             sid,
             hcp_profile_id,
             vl_instance_id,
+            avatar_enabled_override,
         )
 
         # Step 2a: Check voice_live_enabled on the HCP profile (if provided)
@@ -352,6 +359,7 @@ async def handle_voice_live_websocket(ws: WebSocket, db: AsyncSession) -> None:
                 hcp_profile_id,
                 system_prompt,
                 vl_instance_id,
+                avatar_enabled_override,
             )
         except ValueError as e:
             await _send_error(ws, str(e))

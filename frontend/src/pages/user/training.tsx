@@ -20,8 +20,36 @@ import { ScenarioCard } from "@/components/coach";
 import { useActiveScenarios } from "@/hooks/use-scenarios";
 import { useCreateSession } from "@/hooks/use-session";
 import { useFeatureFlags } from "@/hooks/use-config";
+import type { Scenario } from "@/types/scenario";
 
 const ALL_VALUE = "__all__";
+
+function getScenarioModes(
+  scenario: Scenario,
+  features: { voice_live_enabled?: boolean; avatar_enabled?: boolean } | undefined,
+) {
+  const modes = ["text"];
+  const hcp = scenario.hcp_profile;
+  const voiceAvailable = Boolean(features?.voice_live_enabled && hcp?.voice_live_enabled);
+  const avatarAvailable = Boolean(
+    voiceAvailable && features?.avatar_enabled && hcp?.avatar_enabled,
+  );
+
+  if (voiceAvailable) {
+    modes.push("voice_realtime_model");
+    if (avatarAvailable) {
+      modes.push("digital_human_realtime_model");
+    }
+  }
+
+  const defaultMode = avatarAvailable
+    ? "digital_human_realtime_model"
+    : voiceAvailable
+      ? "voice_realtime_model"
+      : "text";
+
+  return { modes, defaultMode };
+}
 
 export default function ScenarioSelection() {
   const { t } = useTranslation("coach");
@@ -35,15 +63,6 @@ export default function ScenarioSelection() {
   const { data, isLoading } = useActiveScenarios();
   const createSession = useCreateSession();
   const { data: config } = useFeatureFlags(true);
-
-  // Compute available training modes from feature flags
-  const availableModes = useMemo(() => {
-    const modes: string[] = ["text"]; // text is always available
-    if (config?.features.voice_live_enabled) {
-      modes.push("voice_realtime_model");
-    }
-    return modes;
-  }, [config]);
 
   const scenarios = data ?? [];
 
@@ -167,14 +186,18 @@ export default function ScenarioSelection() {
 
     return (
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {modeScenarios.map((scenario) => (
-          <ScenarioCard
-            key={scenario.id}
-            scenario={scenario}
-            onStart={onStart}
-            availableModes={availableModes}
-          />
-        ))}
+        {modeScenarios.map((scenario) => {
+          const { modes, defaultMode } = getScenarioModes(scenario, config?.features);
+          return (
+            <ScenarioCard
+              key={scenario.id}
+              scenario={scenario}
+              onStart={onStart}
+              availableModes={modes}
+              defaultMode={defaultMode}
+            />
+          );
+        })}
       </div>
     );
   };
