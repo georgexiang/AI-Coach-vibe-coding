@@ -32,6 +32,7 @@ def _args() -> argparse.Namespace:
         "--backend-object-type",
         default=os.getenv("DATABASE_USER_OBJECT_TYPE", "service"),
     )
+    parser.add_argument("--admin-token", default=os.getenv("POSTGRES_ENTRA_ADMIN_TOKEN"))
     parser.add_argument("--schema", default=os.getenv("DATABASE_SCHEMA", "public"))
     parser.add_argument("--port", type=int, default=int(os.getenv("DATABASE_PORT", "5432")))
     return parser.parse_args()
@@ -43,8 +44,11 @@ def _require(value: str | None, name: str) -> str:
     raise SystemExit(f"{name} is required")
 
 
-def _get_postgres_token() -> str:
+def _get_postgres_token(admin_token: str | None = None) -> str:
     """Get a PostgreSQL Entra token, falling back to Azure CLI for local deploys."""
+    if admin_token:
+        return admin_token
+
     credential = DefaultAzureCredential()
     try:
         return credential.get_token(POSTGRES_SCOPE).token
@@ -100,7 +104,7 @@ def main() -> int:
         print("psycopg2 is required. Install backend with the [postgresql] extra.", file=sys.stderr)
         return 1
 
-    token = _get_postgres_token()
+    token = _get_postgres_token(args.admin_token)
 
     admin_conn = psycopg2.connect(
         host=host,

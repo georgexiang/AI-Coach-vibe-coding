@@ -24,7 +24,7 @@ param networkProfile string = 'publicDemo'
 var serverName = toLower('${namePrefix}-${environmentName}-pg-${uniqueString(resourceGroup().id, location)}')
 var usePrivateBackend = networkProfile == 'privateBackend'
 
-resource server 'Microsoft.DBforPostgreSQL/flexibleServers@2022-12-01' = {
+resource server 'Microsoft.DBforPostgreSQL/flexibleServers@2024-08-01' = {
   name: serverName
   location: location
   tags: tags
@@ -58,7 +58,7 @@ resource server 'Microsoft.DBforPostgreSQL/flexibleServers@2022-12-01' = {
   } : {})
 }
 
-resource database 'Microsoft.DBforPostgreSQL/flexibleServers/databases@2022-12-01' = {
+resource database 'Microsoft.DBforPostgreSQL/flexibleServers/databases@2024-08-01' = {
   parent: server
   name: databaseName
   properties: {
@@ -67,7 +67,7 @@ resource database 'Microsoft.DBforPostgreSQL/flexibleServers/databases@2022-12-0
   }
 }
 
-resource allowAzureServices 'Microsoft.DBforPostgreSQL/flexibleServers/firewallRules@2022-12-01' = if (!usePrivateBackend) {
+resource allowAzureServices 'Microsoft.DBforPostgreSQL/flexibleServers/firewallRules@2024-08-01' = if (!usePrivateBackend) {
   parent: server
   name: 'AllowAzureServices'
   properties: {

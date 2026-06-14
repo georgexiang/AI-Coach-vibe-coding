@@ -294,6 +294,12 @@ Azure 部署资产位于 `infra\azure\`，入口脚本是：
 .\infra\azure\scripts\deploy.ps1
 ```
 
+部署权限、本地工具要求和故障前检查见 [`infra\azure\docs\azure-deployment-permissions-and-tools.md`](infra/azure/docs/azure-deployment-permissions-and-tools.md)。可用配套检查脚本 `infra\azure\scripts\check-azure-deploy-prereqs.ps1` 快速确认 Azure CLI、Bicep、登录账号和可选 RBAC 信息：
+
+```powershell
+.\infra\azure\scripts\check-azure-deploy-prereqs.ps1 -CheckAzureRoles
+```
+
 部署前先登录并确认订阅：
 
 ```powershell
@@ -305,6 +311,8 @@ az account show -o table
 
 | 配置 | 默认值 |
 |---|---|
+| 应用/通用资源区域 | `-Location`，默认 `swedencentral` |
+| Foundry/AI Services 区域 | 默认跟随 `-Location`，可用 `-FoundryLocation` 单独指定 |
 | `DeploymentMode` | `foundryOnly` |
 | `NetworkProfile` | `publicDemo` |
 | 数据库认证 | PostgreSQL Entra ID + backend Managed Identity |
@@ -336,12 +344,14 @@ az account show -o table
 
 ### 方式二：Private backend 部署
 
-`privateBackend` 用于更接近生产安全边界的云端验证：
+`privateBackend` 用于更接近生产安全边界的云端验证。应用、数据库、存储、Key Vault、Container Apps、VNet/PE 等通用资源使用 `-Location`；Azure AI Foundry / AI Services / model deployment 可用 `-FoundryLocation` 放到模型可用区域。例如应用资源部署到 East Asia，Foundry 部署到 Sweden Central：
 
 ```powershell
 .\infra\azure\scripts\deploy.ps1 `
   -NetworkProfile privateBackend `
-  -ResourceGroupName ai-coach-private-rg `
+  -ResourceGroupName ai-coach-privatesandbox01-rg `
+  -Location eastasia `
+  -FoundryLocation swedencentral `
   -DeployApp
 ```
 

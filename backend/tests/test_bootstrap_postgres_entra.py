@@ -25,6 +25,14 @@ def test_get_postgres_token_uses_default_credential():
     mock_credential.get_token.assert_called_once_with(bootstrap_postgres_entra.POSTGRES_SCOPE)
 
 
+def test_get_postgres_token_uses_explicit_admin_token():
+    with patch.object(bootstrap_postgres_entra, "DefaultAzureCredential") as credential:
+        token = bootstrap_postgres_entra._get_postgres_token("admin-token")
+
+    assert token == "admin-token"
+    credential.assert_not_called()
+
+
 def test_get_postgres_token_falls_back_to_azure_cli():
     mock_credential = MagicMock()
     mock_credential.get_token.side_effect = ClientAuthenticationError("no local credential")

@@ -15,6 +15,9 @@ param environmentName string = 'demo'
 @description('Azure region for resource deployment.')
 param location string = 'eastus2'
 
+@description('Optional Azure region for Azure AI Foundry / AI Services resources. Leave empty to use location.')
+param foundryLocation string = ''
+
 @description('Optional resource group name. Leave empty to use rg-{namePrefix}-{environmentName}-{location}.')
 param resourceGroupName string = ''
 
@@ -122,6 +125,18 @@ param postgresEntraAdminPrincipalType string = 'User'
 @description('Manage first-deployment bootstrap secrets in Key Vault and PostgreSQL admin password. Set false for later updates that should not rotate existing secrets.')
 param manageBootstrapSecrets bool = true
 
+@description('Whether to create or update the JWT signing secret in Key Vault.')
+param manageJwtSecret bool = true
+
+@description('Whether to create or update the application encryption key in Key Vault.')
+param manageEncryptionKey bool = true
+
+@description('Whether to create or update the PostgreSQL administrator password secret in Key Vault.')
+param managePostgresPasswordSecret bool = true
+
+@description('Whether to set the PostgreSQL administrator password. Required when creating a new PostgreSQL Flexible Server.')
+param managePostgresAdminPassword bool = true
+
 @description('Allow backend startup to create missing tables. Keep false for production/migration-governed deployments; use true for first-pass demo initialization.')
 param databaseAutoCreateTables bool = false
 
@@ -160,6 +175,7 @@ param enableContentUnderstanding bool = false
 param enableAiSearch bool = false
 
 var locationToken = replace(toLower(location), ' ', '')
+var effectiveFoundryLocation = empty(foundryLocation) ? location : foundryLocation
 var effectiveResourceGroupName = empty(resourceGroupName) ? 'rg-${namePrefix}-${environmentName}-${locationToken}' : resourceGroupName
 var deploymentName = '${namePrefix}-${environmentName}-${locationToken}'
 var isFullLegacyDeployment = deploymentMode == 'fullLegacy'
@@ -231,6 +247,9 @@ module keyVault './modules/key-vault.bicep' = {
     encryptionKey: encryptionKey
     postgresAdminPassword: postgresAdminPassword
     manageBootstrapSecrets: manageBootstrapSecrets
+    manageJwtSecret: manageJwtSecret
+    manageEncryptionKey: manageEncryptionKey
+    managePostgresPasswordSecret: managePostgresPasswordSecret
     networkProfile: networkProfile
   }
 }
@@ -245,7 +264,7 @@ module postgresql './modules/postgresql.bicep' = {
     tags: commonTags
     administratorLogin: postgresAdminLogin
     administratorPassword: postgresAdminPassword
-    manageAdministratorPassword: manageBootstrapSecrets
+    manageAdministratorPassword: managePostgresAdminPassword
     activeDirectoryAuthEnabled: useAzureAdDatabaseAuth
     networkProfile: networkProfile
   }
@@ -289,9 +308,9 @@ module network './modules/network.bicep' = {
    vnetAddressPrefix: vnetAddressPrefix
    containerAppsSubnetPrefix: containerAppsSubnetPrefix
    privateEndpointsSubnetPrefix: privateEndpointsSubnetPrefix
-   storageAccountId: storage.outputs.summary.storageAccountId
-   keyVaultId: keyVault.outputs.summary.vaultId
-   postgresqlServerId: postgresql.outputs.summary.serverId
+  storageAccountId: storage.outputs.summary.storageAccountId
+  keyVaultId: keyVault.outputs.summary.vaultId
+  postgresqlServerId: postgresql.outputs.summary.serverId
    foundryAccountId: deployAzureAi ? aiFoundry!.outputs.foundryAccountId : ''
  }
 }
@@ -334,7 +353,7 @@ module aiFoundry './modules/ai-foundry.bicep' = if (deployAzureAi) {
   params: {
     namePrefix: namePrefix
     environmentName: environmentName
-    location: location
+    location: effectiveFoundryLocation
     tags: commonTags
     projectName: '${namePrefix}-${environmentName}'
     chatDeploymentName: chatDeploymentName
@@ -351,7 +370,7 @@ module aiOpenAi './modules/ai-openai.bicep' = if (deployLegacyOpenAi) {
   params: {
     namePrefix: namePrefix
     environmentName: environmentName
-    location: location
+    location: effectiveFoundryLocation
     tags: commonTags
     chatDeploymentName: chatDeploymentName
     chatModelName: chatModelName
@@ -378,7 +397,7 @@ module contentUnderstanding './modules/content-understanding.bicep' = if (deploy
   params: {
     namePrefix: namePrefix
     environmentName: environmentName
-    location: location
+    location: effectiveFoundryLocation
     tags: commonTags
   }
 }
@@ -427,6 +446,7 @@ module roleAssignments './modules/role-assignments.bicep' = {
 
 output resourceGroupName string = effectiveResourceGroupName
 output location string = location
+output foundryLocation string = effectiveFoundryLocation
 output tenantId string = tenant().tenantId
 output containerRegistryName string = containerRegistry.outputs.summary.registryName
 output containerRegistryLoginServer string = containerRegistry.outputs.registryLoginServer
@@ -454,6 +474,8 @@ output deployment object = {
     deploymentMode: deploymentMode
     networkProfile: networkProfile
     knowledgeBaseMode: knowledgeBaseMode
+    location: location
+    foundryLocation: effectiveFoundryLocation
     enableAzureAi: deployAzureAi
     enableVoiceAndAvatar: deployVoiceAndAvatar
     enableContentUnderstanding: deployContentUnderstanding
