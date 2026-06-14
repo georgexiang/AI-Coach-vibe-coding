@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
     [string]$Location = "swedencentral",
+    [string]$FoundryLocation = "",
     [string]$EnvironmentName = "demo",
     [string]$NamePrefix = "aicoach",
     [string]$ResourceGroupName = "",
@@ -67,6 +68,25 @@ function New-FernetKey {
     $bytes = [byte[]]::new(32)
     [System.Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
     return [Convert]::ToBase64String($bytes).Replace("+", "-").Replace("/", "_")
+}
+
+function Test-KeyVaultSecretExists {
+    param(
+        [Parameter(Mandatory = $true)][string]$VaultResourceId,
+        [Parameter(Mandatory = $true)][string]$SecretName
+    )
+
+    if ([string]::IsNullOrWhiteSpace($VaultResourceId)) {
+        return $false
+    }
+
+    az resource show `
+        --ids "$VaultResourceId/secrets/$SecretName" `
+        --api-version 2023-07-01 `
+        --query "id" `
+        --output tsv 1>$null 2>$null
+
+    return $LASTEXITCODE -eq 0
 }
 
 function Get-ContainerAppImage {
@@ -201,6 +221,97 @@ function Invoke-ContainerAppBootstrapJob {
     throw "Backend bootstrap job did not complete within 15 minutes."
 }
 
+function Get-PostgresEntraAccessToken {
+    $token = az account get-access-token `
+        --resource "https://ossrdbms-aad.database.windows.net" `
+        --query "accessToken" `
+        --output tsv
+
+    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($token)) {
+        throw "Could not get a PostgreSQL Entra access token from Azure CLI."
+    }
+
+    return $token
+}
+
+function Invoke-PostgresEntraBootstrapJob {
+    param(
+        [Parameter(Mandatory = $true)][string]$ResourceGroupName,
+        [Parameter(Mandatory = $true)][string]$JobName,
+        [Parameter(Mandatory = $true)][string]$PostgresHost,
+        [Parameter(Mandatory = $true)][string]$PostgresDatabase,
+        [Parameter(Mandatory = $true)][string]$AdminUser,
+        [Parameter(Mandatory = $true)][string]$AdminToken,
+        [Parameter(Mandatory = $true)][string]$BackendUser,
+        [Parameter(Mandatory = $true)][string]$BackendObjectId
+    )
+
+    $jobImage = az containerapp job show `
+        --name $JobName `
+        --resource-group $ResourceGroupName `
+        --query "properties.template.containers[0].image" `
+        --output tsv
+    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($jobImage)) {
+        throw "Could not resolve backend bootstrap Container Apps Job image."
+    }
+
+    $executionJson = az containerapp job start `
+        --name $JobName `
+        --resource-group $ResourceGroupName `
+        --container-name "backend-bootstrap" `
+        --image $jobImage `
+        --command "python" `
+        --args "scripts/bootstrap_postgres_entra.py" `
+        --env-vars `
+            "DATABASE_HOST=$PostgresHost" `
+            "DATABASE_NAME=$PostgresDatabase" `
+            "POSTGRES_ENTRA_ADMIN_USER=$AdminUser" `
+            "POSTGRES_ENTRA_ADMIN_TOKEN=$AdminToken" `
+            "DATABASE_USER=$BackendUser" `
+            "DATABASE_USER_OBJECT_ID=$BackendObjectId" `
+            "DATABASE_USER_OBJECT_TYPE=service" `
+        --output json
+    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($executionJson)) {
+        throw "Could not start PostgreSQL Entra bootstrap Container Apps Job."
+    }
+
+    $execution = $executionJson | ConvertFrom-Json
+    $executionName = $execution.name
+    if ([string]::IsNullOrWhiteSpace($executionName)) {
+        throw "PostgreSQL Entra bootstrap Container Apps Job did not return an execution name."
+    }
+
+    Write-Host "Started PostgreSQL Entra bootstrap job execution: $executionName" -ForegroundColor Cyan
+    for ($attempt = 1; $attempt -le 90; $attempt++) {
+        Start-Sleep -Seconds 10
+        $statusJson = az containerapp job execution show `
+            --name $JobName `
+            --resource-group $ResourceGroupName `
+            --job-execution-name $executionName `
+            --output json
+        if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($statusJson)) {
+            throw "Could not read PostgreSQL Entra bootstrap job execution status."
+        }
+
+        $statusObject = $statusJson | ConvertFrom-Json
+        $status = $statusObject.properties.status
+        if ([string]::IsNullOrWhiteSpace($status)) {
+            $status = $statusObject.status
+        }
+
+        Write-Host "PostgreSQL Entra bootstrap job status: $status"
+        if ($status -in @("Succeeded", "Completed")) {
+            Write-Host "PostgreSQL Entra bootstrap job completed." -ForegroundColor Green
+            return
+        }
+        if ($status -in @("Failed", "Canceled", "Cancelled")) {
+            throw "PostgreSQL Entra bootstrap job failed with status '$status'. Check Container Apps Job logs for execution '$executionName'."
+        }
+    }
+
+    throw "PostgreSQL Entra bootstrap job did not complete within 15 minutes."
+}
+
 $ScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $AzureRoot = Split-Path -Parent $ScriptRoot
 $RepoRoot = Split-Path -Parent (Split-Path -Parent $AzureRoot)
@@ -213,6 +324,12 @@ $account = az account show --output json | ConvertFrom-Json
 $subscriptionId = $account.id
 $subscriptionSuffix = (($subscriptionId -replace "-", "").Substring(0, 6)).ToLowerInvariant()
 $regionToken = ($Location -replace "[^a-zA-Z0-9]", "").ToLowerInvariant()
+$effectiveFoundryLocation = if ([string]::IsNullOrWhiteSpace($FoundryLocation)) {
+    $Location
+}
+else {
+    $FoundryLocation.Trim()
+}
 
 if ($BackendDatabaseAuthMode -eq "azureAd" -and (
         [string]::IsNullOrWhiteSpace($PostgresEntraAdminLogin) -or
@@ -265,24 +382,49 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 $keyVaultName = ""
+$keyVaultResourceId = ""
+$postgresServerName = ""
 if ($resourceGroupExists -eq "true") {
-    $keyVaultName = az resource list `
+    $keyVault = az resource list `
         --resource-group $resourceGroupName `
         --resource-type "Microsoft.KeyVault/vaults" `
-        --query "[0].name" `
-        --output tsv
+        --query "[0].{name:name,id:id}" `
+        --output json | ConvertFrom-Json
     if ($LASTEXITCODE -ne 0) {
         throw "Failed to list Key Vault resources in '$resourceGroupName'."
     }
+    if ($keyVault) {
+        $keyVaultName = $keyVault.name
+        $keyVaultResourceId = $keyVault.id
+    }
+
+    $postgresServerName = az resource list `
+        --resource-group $resourceGroupName `
+        --resource-type "Microsoft.DBforPostgreSQL/flexibleServers" `
+        --query "[0].name" `
+        --output tsv
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to list PostgreSQL Flexible Server resources in '$resourceGroupName'."
+    }
 }
+$managePostgresAdminPassword = [string]::IsNullOrWhiteSpace($postgresServerName) -or $null -ne $PostgresAdminPassword
+$jwtSecretExists = Test-KeyVaultSecretExists -VaultResourceId $keyVaultResourceId -SecretName "jwt-secret-key"
+$encryptionKeyExists = Test-KeyVaultSecretExists -VaultResourceId $keyVaultResourceId -SecretName "encryption-key"
+$postgresPasswordSecretExists = Test-KeyVaultSecretExists -VaultResourceId $keyVaultResourceId -SecretName "postgres-admin-password"
+$manageJwtSecret = $null -ne $JwtSecret -or -not $jwtSecretExists
+$manageEncryptionKey = $null -ne $EncryptionKey -or -not $encryptionKeyExists
+$managePostgresPasswordSecret = $null -ne $PostgresAdminPassword -or -not $postgresPasswordSecretExists
+$manageBootstrapSecrets = $manageJwtSecret -or $manageEncryptionKey -or $managePostgresPasswordSecret
 
 if ($keyVaultName) {
-    Write-Host "Existing Key Vault '$keyVaultName' found. The script will not read or rotate bootstrap secrets." -ForegroundColor Cyan
-    $manageBootstrapSecrets = $false
+    Write-Host "Existing Key Vault '$keyVaultName' found. Existing secrets will not be overwritten unless explicitly supplied or missing." -ForegroundColor Cyan
 
     if ($BackendDatabaseAuthMode -eq "password") {
         if ($PostgresAdminPassword) {
             $postgresAdminPasswordValue = Convert-SecureStringToPlainText $PostgresAdminPassword
+        }
+        elseif ($managePostgresAdminPassword -or $managePostgresPasswordSecret) {
+            $postgresAdminPasswordValue = Convert-SecureStringToPlainText (Read-Host "PostgreSQL admin password" -AsSecureString)
         }
         else {
             $postgresAdminPasswordValue = Convert-SecureStringToPlainText (Read-Host "Existing PostgreSQL admin password for DATABASE_URL" -AsSecureString)
@@ -296,11 +438,30 @@ if ($keyVaultName) {
             New-RandomSecret
         }
     }
-    $jwtSecretValue = if ($JwtSecret) { Convert-SecureStringToPlainText $JwtSecret } else { New-RandomSecret }
-    $encryptionKeyValue = if ($EncryptionKey) { Convert-SecureStringToPlainText $EncryptionKey } else { New-FernetKey }
+    $jwtSecretValue = if ($JwtSecret) {
+        Convert-SecureStringToPlainText $JwtSecret
+    }
+    elseif ($manageJwtSecret) {
+        New-RandomSecret
+    }
+    else {
+        "existing-jwt-secret-not-managed"
+    }
+    $encryptionKeyValue = if ($EncryptionKey) {
+        Convert-SecureStringToPlainText $EncryptionKey
+    }
+    elseif ($manageEncryptionKey) {
+        New-FernetKey
+    }
+    else {
+        "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+    }
 }
 else {
     Write-Host "No existing Key Vault found. Generating first-deployment secrets locally..." -ForegroundColor Cyan
+    $manageJwtSecret = $true
+    $manageEncryptionKey = $true
+    $managePostgresPasswordSecret = $true
     $manageBootstrapSecrets = $true
     if ($BackendDatabaseAuthMode -eq "password") {
         $postgresAdminPasswordValue = if ($PostgresAdminPassword) {
@@ -338,6 +499,7 @@ $parameters = [ordered]@{
         namePrefix = @{ value = $NamePrefix }
         environmentName = @{ value = $EnvironmentName }
         location = @{ value = $Location }
+        foundryLocation = @{ value = $effectiveFoundryLocation }
         resourceGroupName = @{ value = $resourceGroupName }
         deploymentMode = @{ value = $DeploymentMode }
         networkProfile = @{ value = $NetworkProfile }
@@ -354,6 +516,10 @@ $parameters = [ordered]@{
         jwtSecret = @{ value = $jwtSecretValue }
         encryptionKey = @{ value = $encryptionKeyValue }
         manageBootstrapSecrets = @{ value = $manageBootstrapSecrets }
+        manageJwtSecret = @{ value = $manageJwtSecret }
+        manageEncryptionKey = @{ value = $manageEncryptionKey }
+        managePostgresPasswordSecret = @{ value = $managePostgresPasswordSecret }
+        managePostgresAdminPassword = @{ value = $managePostgresAdminPassword }
         databaseAutoCreateTables = @{ value = [bool]$EnableDatabaseAutoCreateTables }
         backendDatabaseAuthMode = @{ value = $BackendDatabaseAuthMode }
         azureServiceKeyStorage = @{ value = $AzureServiceKeyStorage }
@@ -432,33 +598,6 @@ Write-Host "Frontend URL: $($outputs.frontendUrl.value)"
 Write-Host "Backend URL:  $($outputs.backendUrl.value)"
 Write-Host "ACR:          $($outputs.containerRegistryLoginServer.value)"
 
-if ($BackendDatabaseAuthMode -eq "azureAd" -and -not $SkipDbBootstrap) {
-    Write-Host "Bootstrapping PostgreSQL Entra role for backend Managed Identity..." -ForegroundColor Cyan
-    $bootstrapScript = Join-Path $RepoRoot "backend\scripts\bootstrap_postgres_entra.py"
-    $bootstrapArgs = @(
-        $bootstrapScript,
-        "--host", $outputs.postgresServerFqdn.value,
-        "--database", $outputs.postgresDatabaseName.value,
-        "--admin-user", $PostgresEntraAdminLogin,
-        "--backend-user", $outputs.backendIdentityName.value,
-        "--backend-object-id", $outputs.backendIdentityPrincipalId.value,
-        "--backend-object-type", "service"
-    )
-    Push-Location (Join-Path $RepoRoot "backend")
-    try {
-        python @bootstrapArgs
-        if ($LASTEXITCODE -ne 0) {
-            throw "PostgreSQL Entra bootstrap failed."
-        }
-    }
-    finally {
-        Pop-Location
-    }
-}
-elseif ($BackendDatabaseAuthMode -eq "azureAd") {
-    Write-Host "Skipping PostgreSQL Entra DB bootstrap because -SkipDbBootstrap was specified." -ForegroundColor Yellow
-}
-
 if ($DeployApp -and -not $SkipImageBuild) {
     & (Join-Path $ScriptRoot "build-and-push.ps1") `
         -ResourceGroupName $outputs.resourceGroupName.value `
@@ -473,6 +612,51 @@ elseif (-not $DeployApp) {
 }
 else {
     Write-Host "Skipping app image build/update because -SkipImageBuild was specified." -ForegroundColor Yellow
+}
+
+if ($BackendDatabaseAuthMode -eq "azureAd" -and -not $SkipDbBootstrap) {
+    Write-Host "Bootstrapping PostgreSQL Entra role for backend Managed Identity..." -ForegroundColor Cyan
+    if ($NetworkProfile -eq "privateBackend") {
+        if ((-not $DeployApp -or $SkipImageBuild) -and $backendImage -eq $defaultBackendImage) {
+            throw "privateBackend PostgreSQL Entra bootstrap runs inside the backend Container Apps Job and requires a real backend image. Pass -DeployApp to build one, or pass -SkipDbBootstrap for an infra-only run."
+        }
+
+        $adminToken = Get-PostgresEntraAccessToken
+        Invoke-PostgresEntraBootstrapJob `
+            -ResourceGroupName $outputs.resourceGroupName.value `
+            -JobName $outputs.backendBootstrapJobName.value `
+            -PostgresHost $outputs.postgresServerFqdn.value `
+            -PostgresDatabase $outputs.postgresDatabaseName.value `
+            -AdminUser $PostgresEntraAdminLogin `
+            -AdminToken $adminToken `
+            -BackendUser $outputs.backendIdentityName.value `
+            -BackendObjectId $outputs.backendIdentityPrincipalId.value
+    }
+    else {
+        $bootstrapScript = Join-Path $RepoRoot "backend\scripts\bootstrap_postgres_entra.py"
+        $bootstrapArgs = @(
+            $bootstrapScript,
+            "--host", $outputs.postgresServerFqdn.value,
+            "--database", $outputs.postgresDatabaseName.value,
+            "--admin-user", $PostgresEntraAdminLogin,
+            "--backend-user", $outputs.backendIdentityName.value,
+            "--backend-object-id", $outputs.backendIdentityPrincipalId.value,
+            "--backend-object-type", "service"
+        )
+        Push-Location (Join-Path $RepoRoot "backend")
+        try {
+            python @bootstrapArgs
+            if ($LASTEXITCODE -ne 0) {
+                throw "PostgreSQL Entra bootstrap failed."
+            }
+        }
+        finally {
+            Pop-Location
+        }
+    }
+}
+elseif ($BackendDatabaseAuthMode -eq "azureAd") {
+    Write-Host "Skipping PostgreSQL Entra DB bootstrap because -SkipDbBootstrap was specified." -ForegroundColor Yellow
 }
 
 if ($DeployApp -and -not $SkipAppBootstrap) {

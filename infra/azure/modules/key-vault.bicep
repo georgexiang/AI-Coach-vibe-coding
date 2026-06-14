@@ -16,6 +16,9 @@ param encryptionKey string
 param postgresAdminPassword string
 
 param manageBootstrapSecrets bool = true
+param manageJwtSecret bool = true
+param manageEncryptionKey bool = true
+param managePostgresPasswordSecret bool = true
 
 @allowed([
   'publicDemo'
@@ -50,7 +53,7 @@ resource vault 'Microsoft.KeyVault/vaults@2023-07-01' = {
   }
 }
 
-resource jwtSecretResource 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = if (manageBootstrapSecrets) {
+resource jwtSecretResource 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = if (manageJwtSecret) {
   parent: vault
   name: 'jwt-secret-key'
   properties: {
@@ -58,7 +61,7 @@ resource jwtSecretResource 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = if (
   }
 }
 
-resource encryptionKeyResource 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = if (manageBootstrapSecrets) {
+resource encryptionKeyResource 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = if (manageEncryptionKey) {
   parent: vault
   name: 'encryption-key'
   properties: {
@@ -66,7 +69,7 @@ resource encryptionKeyResource 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = 
   }
 }
 
-resource postgresPasswordSecretResource 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = if (manageBootstrapSecrets) {
+resource postgresPasswordSecretResource 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = if (managePostgresPasswordSecret) {
   parent: vault
   name: 'postgres-admin-password'
   properties: {
@@ -85,6 +88,11 @@ output summary object = {
     'postgres-admin-password'
   ]
   manageBootstrapSecrets: manageBootstrapSecrets
+  managedSecrets: {
+    jwtSecret: manageJwtSecret
+    encryptionKey: manageEncryptionKey
+    postgresAdminPassword: managePostgresPasswordSecret
+  }
   environmentName: environmentName
   location: location
 }

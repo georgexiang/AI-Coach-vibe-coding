@@ -11,6 +11,9 @@
     "location": {
       "value": "swedencentral"
     },
+    "foundryLocation": {
+      "value": ""
+    },
     "resourceGroupName": {
       "value": ""
     },
@@ -84,6 +87,18 @@
       "value": "User"
     },
     "manageBootstrapSecrets": {
+      "value": true
+    },
+    "manageJwtSecret": {
+      "value": true
+    },
+    "manageEncryptionKey": {
+      "value": true
+    },
+    "managePostgresPasswordSecret": {
+      "value": true
+    },
+    "managePostgresAdminPassword": {
       "value": true
     },
     "githubOwner": {

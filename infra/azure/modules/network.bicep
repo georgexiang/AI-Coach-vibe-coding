@@ -343,6 +343,12 @@ output summary object = {
   infrastructureSubnetId: infrastructureSubnetId
   runtimeSubnetId: runtimeSubnetId
   privateEndpointsSubnetId: privateEndpointsSubnetId
+  privateEndpoints: {
+    storage: usePrivateBackend && !empty(storageAccountId) ? storagePrivateEndpoint.name : ''
+    keyVault: usePrivateBackend && !empty(keyVaultId) ? keyVaultPrivateEndpoint.name : ''
+    postgresql: usePrivateBackend && !empty(postgresqlServerId) ? postgresPrivateEndpoint.name : ''
+    foundry: usePrivateBackend && !empty(foundryAccountId) ? foundryPrivateEndpoint.name : ''
+  }
 }
 
 output vnetName string = usePrivateBackend ? (useExistingVnet ? existingVnet.name : createdVnet.name) : ''
