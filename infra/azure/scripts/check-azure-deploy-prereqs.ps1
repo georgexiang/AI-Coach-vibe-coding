@@ -34,6 +34,12 @@ function Test-CommandExists {
     return $null -ne (Get-Command $Command -ErrorAction SilentlyContinue)
 }
 
+function ConvertTo-DetailString {
+    param([object]$Value)
+
+    return (@($Value) | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) }) -join " "
+}
+
 Write-Host "Azure deployment prerequisite check" -ForegroundColor Cyan
 Write-Host "===================================" -ForegroundColor Cyan
 Write-Host ""
@@ -47,17 +53,29 @@ Write-Check `
     -Detail "Current: $($PSVersionTable.PSEdition) $($PSVersionTable.PSVersion). Recommended install: winget install --id Microsoft.PowerShell --source winget"
 
 $hasAz = Test-CommandExists "az"
+$azCliVersion = if ($hasAz) {
+    ConvertTo-DetailString (& az version --query '"azure-cli"' --output tsv 2>$null)
+}
+else {
+    "Install: winget install --id Microsoft.AzureCLI --source winget"
+}
 Write-Check `
     -Name "Azure CLI" `
     -Passed $hasAz `
-    -Detail $(if ($hasAz) { (& az version --query '"azure-cli"' --output tsv 2>$null) } else { "Install: winget install --id Microsoft.AzureCLI --source winget" })
+    -Detail $azCliVersion
 
 if ($hasAz) {
     $bicepVersion = & az bicep version 2>$null
+    $bicepVersionDetail = if ($LASTEXITCODE -eq 0) {
+        ConvertTo-DetailString $bicepVersion
+    }
+    else {
+        "Install/upgrade: az bicep install; az bicep upgrade"
+    }
     Write-Check `
         -Name "Azure CLI Bicep" `
         -Passed ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($bicepVersion)) `
-        -Detail $(if ($LASTEXITCODE -eq 0) { $bicepVersion } else { "Install/upgrade: az bicep install; az bicep upgrade" })
+        -Detail $bicepVersionDetail
 
     $accountJson = & az account show --output json 2>$null
     $accountOk = $LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($accountJson)
