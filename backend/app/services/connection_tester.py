@@ -191,7 +191,10 @@ async def test_ai_foundry_endpoint(
                     data = response.json()
                     count = len(data.get("data", []))
                     auth_mode = "Entra ID" if not api_key else "API key"
-                    return (True, f"Connection successful ({count} deployment(s) found, auth: {auth_mode})")
+                    return (
+                        True,
+                        f"Connection successful ({count} deployment(s) found, auth: {auth_mode})",
+                    )
                 elif response.status_code in (401, 403):
                     return (False, f"Authentication failed: HTTP {response.status_code}")
                 last_status = response.status_code
@@ -210,7 +213,7 @@ async def test_azure_openai(endpoint: str, api_key: str, deployment: str) -> tup
     if not valid:
         return (False, msg)
     try:
-        from app.services.azure_auth import get_azure_openai_client
+        from openai import AsyncAzureOpenAI
 
         if api_key:
             client = AsyncAzureOpenAI(
@@ -221,10 +224,18 @@ async def test_azure_openai(endpoint: str, api_key: str, deployment: str) -> tup
             )
         else:
             # Keyless auth via DefaultAzureCredential
-            from azure.identity.aio import DefaultAzureCredential as AsyncDefaultAzureCredential, get_bearer_token_provider as async_get_bearer_token_provider
+            from azure.identity.aio import (
+                DefaultAzureCredential as AsyncDefaultAzureCredential,
+            )
+            from azure.identity.aio import (
+                get_bearer_token_provider as async_get_bearer_token_provider,
+            )
 
             credential = AsyncDefaultAzureCredential()
-            token_provider = async_get_bearer_token_provider(credential, "https://cognitiveservices.azure.com/.default")
+            token_provider = async_get_bearer_token_provider(
+                credential,
+                "https://cognitiveservices.azure.com/.default",
+            )
             client = AsyncAzureOpenAI(
                 azure_endpoint=endpoint,
                 azure_ad_token_provider=token_provider,
@@ -268,7 +279,7 @@ async def test_azure_speech(key: str, region: str, endpoint: str = "") -> tuple[
     4. DefaultAzureCredential bearer token when no key is provided
     """
     if not key and not endpoint:
-        return (False, "API key or endpoint is required")
+        return (False, "API key is required")
     if not region and not endpoint:
         return (False, "Region or endpoint is required")
 
@@ -373,7 +384,7 @@ async def test_azure_avatar(api_key: str, region: str, endpoint: str = "") -> tu
     Avatar uses the same Speech service credentials.
     """
     if not api_key and not endpoint:
-        return (False, "API key or endpoint is required for Avatar service")
+        return (False, "API key is required for Avatar service")
     if not endpoint and not region:
         return (False, "Region or endpoint is required for Avatar service")
 

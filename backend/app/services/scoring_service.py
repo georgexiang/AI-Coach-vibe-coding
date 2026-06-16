@@ -8,6 +8,7 @@ import json
 import logging
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -16,6 +17,7 @@ from app.models.scenario import Scenario
 from app.models.score import ScoreDetail, SessionScore
 from app.models.session import CoachingSession
 from app.models.skill import Skill
+from app.models.voice_score import VoiceScore
 from app.services.rubric_service import get_rubric
 from app.services.scoring_engine import score_with_llm
 from app.utils.exceptions import AppException, NotFoundException
@@ -59,6 +61,15 @@ async def score_session(db: AsyncSession, session_id: str) -> SessionScore:
             code="ALREADY_SCORED",
             message="Session has already been scored",
         )
+
+    existing_score = await get_session_score(db, session_id)
+    if existing_score is not None and session.status == "completed":
+        session.status = "scored"
+        session.overall_score = existing_score.overall_score
+        session.passed = existing_score.passed
+        await db.flush()
+        return existing_score
+
     if session.status != "completed":
         raise AppException(
             status_code=409,
@@ -132,7 +143,23 @@ async def score_session(db: AsyncSession, session_id: str) -> SessionScore:
         feedback_summary=scores["feedback_summary"],
     )
     db.add(session_score)
-    await db.flush()
+    try:
+        await db.flush()
+    except IntegrityError:
+        await db.rollback()
+        existing_score = await get_session_score(db, session_id)
+        if existing_score is None:
+            raise
+        session_result = await db.execute(
+            select(CoachingSession).where(CoachingSession.id == session_id)
+        )
+        existing_session = session_result.scalar_one_or_none()
+        if existing_session is not None:
+            existing_session.status = "scored"
+            existing_session.overall_score = existing_score.overall_score
+            existing_session.passed = existing_score.passed
+            await db.flush()
+        return existing_score
 
     # Create ScoreDetail records
     for dim_data in scores["dimensions"]:
@@ -276,6 +303,7 @@ async def get_score_history(db: AsyncSession, user_id: str, limit: int = 10) -> 
                 "weight": detail.weight,
             }
             for detail in score.details
+            if detail.category == "content"
         ]
 
         history.append(
@@ -321,6 +349,7 @@ async def get_combined_score_report(db: AsyncSession, session_id: str, user_id: 
         select(CoachingSession)
         .options(
             selectinload(CoachingSession.score).selectinload(SessionScore.details),
+            selectinload(CoachingSession.voice_score).selectinload(VoiceScore.details),
             selectinload(CoachingSession.scenario),
         )
         .where(CoachingSession.id == session_id)
@@ -341,11 +370,17 @@ async def get_combined_score_report(db: AsyncSession, session_id: str, user_id: 
     voice_weight = rubric.voice_weight
 
     content_dims = [d for d in score.details if d.category == "content"]
-    voice_dims = [d for d in score.details if d.category == "voice"]
+    voice_dims = (
+        list(session.voice_score.details)
+        if session.voice_score
+        else [d for d in score.details if d.category == "voice"]
+    )
 
     content_score = score.overall_score or 0
     voice_score = 0.0
-    if voice_dims:
+    if session.voice_score:
+        voice_score = session.voice_score.overall_voice_score
+    elif voice_dims:
         total_w = sum(d.weight for d in voice_dims)
         if total_w > 0:
             voice_score = sum(d.score * d.weight for d in voice_dims) / total_w

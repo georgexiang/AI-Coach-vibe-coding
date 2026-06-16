@@ -28,6 +28,7 @@ interface CenterPanelProps {
   hcpInitials: string;
   isTyping: boolean;
   inputMode: "text" | "audio";
+  onInputModeChange?: (mode: "text" | "audio") => void;
   onMicClick: () => void;
   recordingState: "idle" | "recording" | "processing";
 }
@@ -42,6 +43,7 @@ export function CenterPanel({
   hcpInitials,
   isTyping,
   inputMode,
+  onInputModeChange,
   onMicClick,
   recordingState,
 }: CenterPanelProps) {
@@ -161,6 +163,7 @@ export function CenterPanel({
         <ChatInput
           onSend={onSendMessage}
           inputMode={inputMode}
+          onInputModeChange={onInputModeChange}
           onMicClick={onMicClick}
           recordingState={recordingState}
         />

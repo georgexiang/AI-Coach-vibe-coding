@@ -5,6 +5,7 @@ param(
     [Parameter(Mandatory = $true)][string]$BackendContainerAppName,
     [Parameter(Mandatory = $true)][string]$FrontendContainerAppName,
     [Parameter(Mandatory = $true)][string]$BackendUrl,
+    [string]$BackendBootstrapJobName = "",
     [string]$ImageTag = (Get-Date -Format "yyyyMMddHHmmss")
 )
 
@@ -49,6 +50,16 @@ Invoke-Az -FailureMessage "Backend Container App update failed." -Arguments @(
     "--resource-group", $ResourceGroupName,
     "--image", "$ContainerRegistryName.azurecr.io/$backendImage"
 )
+
+if (-not [string]::IsNullOrWhiteSpace($BackendBootstrapJobName)) {
+    Write-Host "Updating backend bootstrap Container Apps Job..." -ForegroundColor Cyan
+    Invoke-Az -FailureMessage "Backend bootstrap job update failed." -Arguments @(
+        "containerapp", "job", "update",
+        "--name", $BackendBootstrapJobName,
+        "--resource-group", $ResourceGroupName,
+        "--image", "$ContainerRegistryName.azurecr.io/$backendImage"
+    )
+}
 
 Write-Host "Building frontend image in ACR..." -ForegroundColor Cyan
 Invoke-Az -FailureMessage "Frontend ACR build failed." -Arguments @(

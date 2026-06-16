@@ -15,7 +15,7 @@ from app.utils.exceptions import AppException, NotFoundException
 
 
 async def create_session(
-    db: AsyncSession, scenario_id: str, user_id: str, mode: str = "digital_human_realtime_model"
+    db: AsyncSession, scenario_id: str, user_id: str, mode: str = "text"
 ) -> CoachingSession:
     """Create a new coaching session for a scenario.
 
@@ -99,7 +99,7 @@ async def update_sop_progress(
     endpoint = await config_service.get_effective_endpoint(db, "azure_openai")
     api_key = await config_service.get_effective_key(db, "azure_openai")
 
-    if endpoint and api_key:
+    if endpoint:
         new_step = await detect_sop_step(messages, sop_steps, endpoint, api_key)
         session.sop_current_step = new_step
     else:

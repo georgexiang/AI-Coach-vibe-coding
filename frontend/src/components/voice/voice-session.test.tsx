@@ -163,6 +163,32 @@ vi.mock("@/components/ui", () => ({
   TabsContent: ({ children, value, className, ...rest }: { children: React.ReactNode; value: string; className?: string; [key: string]: unknown }) => (
     <div data-testid={`tab-content-${value}`} className={className} {...rest}>{children}</div>
   ),
+  Select: ({
+    children,
+    value,
+    onValueChange,
+    disabled,
+  }: {
+    children: React.ReactNode;
+    value?: string;
+    onValueChange?: (value: string) => void;
+    disabled?: boolean;
+  }) => (
+    <select
+      data-testid="transport-select"
+      value={value}
+      disabled={disabled}
+      onChange={(event) => onValueChange?.(event.target.value)}
+    >
+      {children}
+    </select>
+  ),
+  SelectContent: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  SelectItem: ({ children, value }: { children: React.ReactNode; value: string }) => (
+    <option value={value}>{children}</option>
+  ),
+  SelectTrigger: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  SelectValue: () => null,
 }));
 
 // ---- Hook mocks ----
@@ -368,8 +394,7 @@ describe("VoiceSession", () => {
 
     it("passes mode to header", () => {
       renderSession();
-      // Default mode is digital_human_realtime_model (no text fallback)
-      expect(screen.getByTestId("header-mode")).toHaveTextContent("digital_human_realtime_model");
+      expect(screen.getByTestId("header-mode")).toHaveTextContent("voice_realtime_model");
     });
 
     it("passes hcpName to avatar view", () => {
@@ -934,7 +959,7 @@ describe("VoiceSession", () => {
       });
     });
 
-    it("sets digital_human_realtime_agent when mode=agent and avatar enabled", async () => {
+    it("sets voice_realtime_agent when mode=agent and avatar enabled", async () => {
       mockConnect.mockResolvedValueOnce({
         model: "gpt-4o",
         mode: "agent",
@@ -948,7 +973,7 @@ describe("VoiceSession", () => {
       await user.click(screen.getByTestId("start-session-btn"));
 
       await waitFor(() => {
-        expect(screen.getByTestId("header-mode")).toHaveTextContent("digital_human_realtime_agent");
+        expect(screen.getByTestId("header-mode")).toHaveTextContent("voice_realtime_agent");
       });
     });
 

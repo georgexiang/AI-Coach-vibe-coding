@@ -1,6 +1,7 @@
 """Tests for rubric_service: CRUD operations and default rubric management."""
 
 import json
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -61,6 +62,8 @@ class TestCreateRubric:
             scenario_type="f2f",
             dimensions=dims,
             is_default=False,
+            content_weight=70,
+            voice_weight=30,
         )
         rubric = await create_rubric(db_session, data, user.id)
 
@@ -69,6 +72,8 @@ class TestCreateRubric:
         assert rubric.description == "A test rubric"
         assert rubric.scenario_type == "f2f"
         assert rubric.created_by == user.id
+        assert rubric.content_weight == 70
+        assert rubric.voice_weight == 30
 
         # Dimensions stored as JSON
         parsed = json.loads(rubric.dimensions)
@@ -177,6 +182,23 @@ class TestUpdateRubric:
         assert updated.name == "Updated Name"
         assert updated.description == "Old desc"  # unchanged
 
+    async def test_update_rubric_updates_category_weights(self, db_session):
+        user = await _create_user(db_session)
+        created = await create_rubric(
+            db_session,
+            RubricCreate(name="Weighted", dimensions=_make_dimensions()),
+            user.id,
+        )
+
+        updated = await update_rubric(
+            db_session,
+            created.id,
+            RubricUpdate(content_weight=65, voice_weight=35),
+        )
+
+        assert updated.content_weight == 65
+        assert updated.voice_weight == 35
+
     async def test_update_rubric_dimensions_reserializes_json(self, db_session):
         user = await _create_user(db_session)
         created = await create_rubric(
@@ -212,6 +234,25 @@ class TestUpdateRubric:
         await update_rubric(db_session, r2.id, RubricUpdate(is_default=True))
         await db_session.refresh(r1)
         assert r1.is_default is False
+
+    async def test_update_rubric_surfaces_analyzer_sync_failure(self, db_session):
+        user = await _create_user(db_session)
+        created = await create_rubric(
+            db_session,
+            RubricCreate(name="Original", dimensions=_make_dimensions()),
+            user.id,
+        )
+
+        with patch(
+            "app.services.rubric_service.sync_rubric_analyzers",
+            AsyncMock(side_effect=RuntimeError("CU analyzer creation failed")),
+        ):
+            with pytest.raises(RuntimeError, match="CU analyzer creation failed"):
+                await update_rubric(
+                    db_session,
+                    created.id,
+                    RubricUpdate(name="Updated Name"),
+                )
 
 
 class TestDeleteRubric:

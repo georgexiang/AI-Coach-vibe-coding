@@ -11,7 +11,7 @@ from app.dependencies import get_current_user
 from app.main import app
 from app.models.session import CoachingSession
 from app.models.user import User
-from tests.conftest import TestSessionLocal, override_get_db
+from tests.conftest import override_get_db
 
 
 @pytest.fixture
@@ -69,9 +69,7 @@ class TestUploadSessionAudioEndpoint:
             new_callable=AsyncMock,
         ) as mock_get:
             mock_session = AsyncMock()
-            mock_session.user_id = (
-                app.dependency_overrides[get_current_user]().id
-            )
+            mock_session.user_id = app.dependency_overrides[get_current_user]().id
             mock_session.audio_url = None
             mock_session.voice_score_status = "none"
             mock_get.return_value = mock_session
@@ -102,9 +100,7 @@ class TestUploadSessionAudioEndpoint:
             new_callable=AsyncMock,
         ) as mock_get:
             mock_session = AsyncMock()
-            mock_session.user_id = (
-                app.dependency_overrides[get_current_user]().id
-            )
+            mock_session.user_id = app.dependency_overrides[get_current_user]().id
             mock_get.return_value = mock_session
 
             # 51MB file
@@ -116,9 +112,7 @@ class TestUploadSessionAudioEndpoint:
 
         assert response.status_code == 413
 
-    async def test_upload_rejects_other_users_session(
-        self, auth_client, seeded_session
-    ):
+    async def test_upload_rejects_other_users_session(self, auth_client, seeded_session):
         """Upload returns 403 for sessions owned by another user."""
         with patch(
             "app.api.sessions.session_service.get_session",
@@ -146,16 +140,12 @@ class TestGetVoiceScoreStatusEndpoint:
             new_callable=AsyncMock,
         ) as mock_get:
             mock_session = AsyncMock()
-            mock_session.user_id = (
-                app.dependency_overrides[get_current_user]().id
-            )
+            mock_session.user_id = app.dependency_overrides[get_current_user]().id
             mock_session.voice_score_status = "completed"
             mock_session.audio_url = "audio/sessions/test/recording.webm"
             mock_get.return_value = mock_session
 
-            response = await auth_client.get(
-                f"/api/v1/sessions/{seeded_session}/voice-score"
-            )
+            response = await auth_client.get(f"/api/v1/sessions/{seeded_session}/voice-score")
 
         assert response.status_code == 200
         data = response.json()
@@ -163,34 +153,26 @@ class TestGetVoiceScoreStatusEndpoint:
         assert data["audio_url"] == "audio/sessions/test/recording.webm"
         assert data["session_id"] == seeded_session
 
-    async def test_returns_none_status_when_no_audio(
-        self, auth_client, seeded_session
-    ):
+    async def test_returns_none_status_when_no_audio(self, auth_client, seeded_session):
         """Returns 'none' status when no audio uploaded."""
         with patch(
             "app.api.sessions.session_service.get_session",
             new_callable=AsyncMock,
         ) as mock_get:
             mock_session = AsyncMock()
-            mock_session.user_id = (
-                app.dependency_overrides[get_current_user]().id
-            )
+            mock_session.user_id = app.dependency_overrides[get_current_user]().id
             mock_session.voice_score_status = "none"
             mock_session.audio_url = None
             mock_get.return_value = mock_session
 
-            response = await auth_client.get(
-                f"/api/v1/sessions/{seeded_session}/voice-score"
-            )
+            response = await auth_client.get(f"/api/v1/sessions/{seeded_session}/voice-score")
 
         assert response.status_code == 200
         data = response.json()
         assert data["voice_score_status"] == "none"
         assert data["audio_url"] is None
 
-    async def test_rejects_other_users_session(
-        self, auth_client, seeded_session
-    ):
+    async def test_rejects_other_users_session(self, auth_client, seeded_session):
         """Returns 403 for sessions owned by another user."""
         with patch(
             "app.api.sessions.session_service.get_session",
@@ -200,8 +182,61 @@ class TestGetVoiceScoreStatusEndpoint:
             mock_session.user_id = "other-user-id"
             mock_get.return_value = mock_session
 
-            response = await auth_client.get(
-                f"/api/v1/sessions/{seeded_session}/voice-score"
-            )
+            response = await auth_client.get(f"/api/v1/sessions/{seeded_session}/voice-score")
+
+        assert response.status_code == 403
+
+
+class TestDownloadSessionAudioEndpoint:
+    """Tests for GET /api/v1/sessions/{id}/audio endpoint."""
+
+    async def test_streams_audio_for_session_owner(self, auth_client, seeded_session):
+        """Download streams audio bytes through backend-owned storage access."""
+        with patch(
+            "app.api.sessions.session_service.get_session",
+            new_callable=AsyncMock,
+        ) as mock_get:
+            mock_session = AsyncMock()
+            mock_session.user_id = app.dependency_overrides[get_current_user]().id
+            mock_session.audio_url = "audio/sessions/test/recording.webm"
+            mock_get.return_value = mock_session
+
+            mock_storage = AsyncMock()
+            mock_storage.read.return_value = b"fake-audio"
+            with patch("app.services.storage.get_storage", return_value=mock_storage):
+                response = await auth_client.get(f"/api/v1/sessions/{seeded_session}/audio")
+
+        assert response.status_code == 200
+        assert response.content == b"fake-audio"
+        assert response.headers["content-type"] == "audio/webm"
+        mock_storage.read.assert_awaited_once_with("audio/sessions/test/recording.webm")
+
+    async def test_returns_404_when_session_has_no_audio(self, auth_client, seeded_session):
+        """Download returns 404 when no recording is attached."""
+        with patch(
+            "app.api.sessions.session_service.get_session",
+            new_callable=AsyncMock,
+        ) as mock_get:
+            mock_session = AsyncMock()
+            mock_session.user_id = app.dependency_overrides[get_current_user]().id
+            mock_session.audio_url = None
+            mock_get.return_value = mock_session
+
+            response = await auth_client.get(f"/api/v1/sessions/{seeded_session}/audio")
+
+        assert response.status_code == 404
+
+    async def test_rejects_other_users_session_audio(self, auth_client, seeded_session):
+        """Download returns 403 for sessions owned by another user."""
+        with patch(
+            "app.api.sessions.session_service.get_session",
+            new_callable=AsyncMock,
+        ) as mock_get:
+            mock_session = AsyncMock()
+            mock_session.user_id = "other-user-id"
+            mock_session.audio_url = "audio/sessions/test/recording.webm"
+            mock_get.return_value = mock_session
+
+            response = await auth_client.get(f"/api/v1/sessions/{seeded_session}/audio")
 
         assert response.status_code == 403

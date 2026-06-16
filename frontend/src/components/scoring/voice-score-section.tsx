@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useQueryClient } from "@tanstack/react-query";
 import { Mic, TrendingUp, RefreshCw } from "lucide-react";
 import { AudioEvidencePlayer } from "./audio-evidence-player";
 import type { ScoreDimension } from "@/hooks/use-combined-score";
@@ -25,25 +26,34 @@ export function VoiceScoreSection({
   sessionId,
 }: VoiceScoreSectionProps) {
   const { t } = useTranslation("scoring");
+  const queryClient = useQueryClient();
   const [retrying, setRetrying] = useState(false);
   const [retryError, setRetryError] = useState<string | null>(null);
+  const [localStatus, setLocalStatus] = useState(voiceScoreStatus);
+
+  useEffect(() => {
+    setLocalStatus(voiceScoreStatus);
+  }, [voiceScoreStatus]);
 
   const handleRetry = async () => {
     if (!sessionId) return;
     setRetrying(true);
     setRetryError(null);
     try {
-      await apiClient.post(`/api/v1/sessions/${sessionId}/voice-score/retry`);
-      window.location.reload();
+      await apiClient.post(`/sessions/${sessionId}/voice-score/retry`);
+      setLocalStatus("processing");
+      await queryClient.invalidateQueries({ queryKey: ["combined-score", sessionId] });
+      await queryClient.invalidateQueries({ queryKey: ["voice-score", sessionId] });
+      setRetrying(false);
     } catch {
       setRetryError(t("voiceScore.retryFailed"));
       setRetrying(false);
     }
   };
 
-  if (voiceScoreStatus === "none") return null;
+  if (localStatus === "none") return null;
 
-  if (voiceScoreStatus === "pending" || voiceScoreStatus === "processing") {
+  if (localStatus === "pending" || localStatus === "processing") {
     return (
       <div className="rounded-lg border p-6" data-testid="voice-score-section">
         <div className="mb-4 flex items-center gap-2">
@@ -53,8 +63,9 @@ export function VoiceScoreSection({
         <p className="animate-pulse text-sm text-muted-foreground">
           {t("voiceScore.processing")}
         </p>
-        {voiceScoreStatus === "pending" && sessionId && (
+        {localStatus === "pending" && sessionId && (
           <button
+            type="button"
             onClick={handleRetry}
             disabled={retrying}
             className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-white hover:bg-primary/90 disabled:opacity-50"
@@ -69,7 +80,7 @@ export function VoiceScoreSection({
     );
   }
 
-  if (voiceScoreStatus === "failed") {
+  if (localStatus === "failed") {
     return (
       <div className="rounded-lg border p-6" data-testid="voice-score-section">
         <div className="mb-4 flex items-center gap-2">
@@ -79,6 +90,7 @@ export function VoiceScoreSection({
         <p className="text-sm text-destructive">{t("voiceScore.failed")}</p>
         {sessionId && (
           <button
+            type="button"
             onClick={handleRetry}
             disabled={retrying}
             className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-white hover:bg-primary/90 disabled:opacity-50"

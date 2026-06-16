@@ -8,8 +8,10 @@ import type { Scenario } from "@/types/scenario";
 interface ScenarioCardProps {
   scenario: Scenario;
   onStart: (scenarioId: string, mode: string) => void;
-  /** Modes the user is allowed to select (filtered by feature flags). Defaults to all modes. */
+  /** Modes the user is allowed to select. Unavailable modes are shown disabled. */
   availableModes?: string[];
+  /** Preferred initial mode when it is available. */
+  defaultMode?: string;
 }
 
 const difficultyStyles = {
@@ -21,32 +23,46 @@ const difficultyStyles = {
 const TRAINING_MODES = [
   { value: "text", icon: MessageSquareText, labelKey: "scenarioSelection.modeText" },
   { value: "voice_realtime_model", icon: Mic, labelKey: "scenarioSelection.modeVoice" },
-  { value: "digital_human_realtime_model", icon: User, labelKey: "scenarioSelection.modeDigitalHuman" },
+  {
+    value: "digital_human_realtime_model",
+    icon: User,
+    labelKey: "scenarioSelection.modeDigitalHuman",
+  },
 ] as const;
 
-const DEFAULT_MODE = "digital_human_realtime_model";
+const DEFAULT_MODE = "voice_realtime_model";
 
-export function ScenarioCard({ scenario, onStart, availableModes }: ScenarioCardProps) {
+export function ScenarioCard({
+  scenario,
+  onStart,
+  availableModes,
+  defaultMode = DEFAULT_MODE,
+}: ScenarioCardProps) {
   const { t } = useTranslation("coach");
 
-  // Filter modes based on availability
-  const filteredModes = availableModes
+  const selectableModes = availableModes
     ? TRAINING_MODES.filter((m) => availableModes.includes(m.value))
     : TRAINING_MODES;
+  const visibleModes = availableModes ? TRAINING_MODES : selectableModes;
 
-  // Default to DEFAULT_MODE if available, otherwise first available mode
-  const defaultMode = (!availableModes || availableModes.includes(DEFAULT_MODE))
-    ? DEFAULT_MODE
-    : (filteredModes[0]?.value ?? "text");
+  const initialMode = (!availableModes || availableModes.includes(defaultMode))
+    ? defaultMode
+    : (selectableModes[0]?.value ?? "text");
 
-  const [selectedMode, setSelectedMode] = useState(defaultMode);
+  const [selectedMode, setSelectedMode] = useState(initialMode);
 
   // If selected mode becomes unavailable (e.g., feature flags changed), auto-select first available
   useEffect(() => {
     if (availableModes && !availableModes.includes(selectedMode)) {
-      setSelectedMode(filteredModes[0]?.value ?? "text");
+      setSelectedMode(selectableModes[0]?.value ?? "text");
     }
-  }, [availableModes, selectedMode, filteredModes]);
+  }, [availableModes, selectedMode, selectableModes]);
+
+  useEffect(() => {
+    if (!availableModes || availableModes.includes(defaultMode)) {
+      setSelectedMode(defaultMode);
+    }
+  }, [defaultMode]);
 
   const hcpInitials = scenario.hcp_profile?.name
     ? scenario.hcp_profile.name
@@ -106,24 +122,32 @@ export function ScenarioCard({ scenario, onStart, availableModes }: ScenarioCard
         {scenario.description}
       </p>
 
-      {/* Mode selector — only show if more than one mode available */}
-      {filteredModes.length > 1 && (
+      {/* Mode selector — unavailable modes remain visible but disabled. */}
+      {visibleModes.length > 1 && (
         <div className="mt-4">
           <p className="mb-1.5 text-center text-xs font-medium text-muted-foreground">
             {t("scenarioSelection.modeLabel")}
           </p>
           <div className="flex items-center gap-1 rounded-lg border border-border bg-muted/50 p-1">
-            {filteredModes.map((mode) => {
+            {visibleModes.map((mode) => {
               const Icon = mode.icon;
               const isSelected = selectedMode === mode.value;
+              const isDisabled = Boolean(availableModes && !availableModes.includes(mode.value));
               return (
                 <button
                   key={mode.value}
                   type="button"
-                  onClick={() => setSelectedMode(mode.value)}
+                  disabled={isDisabled}
+                  onClick={() => {
+                    if (!isDisabled) {
+                      setSelectedMode(mode.value);
+                    }
+                  }}
                   className={cn(
                     "flex flex-1 items-center justify-center gap-1 rounded-md px-2 py-1.5 text-xs font-medium transition-colors",
-                    isSelected
+                    isDisabled
+                      ? "cursor-not-allowed text-muted-foreground/40"
+                      : isSelected
                       ? "bg-background text-foreground shadow-sm"
                       : "text-muted-foreground hover:text-foreground"
                   )}

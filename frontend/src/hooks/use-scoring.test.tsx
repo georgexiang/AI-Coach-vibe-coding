@@ -133,7 +133,10 @@ describe("useTriggerScoring", () => {
       queryKey: ["scoring", "sess1"],
     });
     expect(invalidateSpy).toHaveBeenCalledWith({
-      queryKey: ["sessions", "sess1"],
+      queryKey: ["scoring", "history"],
+    });
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: ["sessions"],
     });
   });
 });

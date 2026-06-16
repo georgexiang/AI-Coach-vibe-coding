@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 import { useSpeechInput } from "@/hooks/use-speech";
-import { useConfig } from "@/contexts/config-context";
 import {
   Dialog,
   DialogContent,
@@ -71,8 +71,7 @@ export default function ConferenceSession() {
   const [currentSpeaker, setCurrentSpeaker] = useState("");
   const [leftCollapsed, setLeftCollapsed] = useState(false);
   const [rightCollapsed, setRightCollapsed] = useState(false);
-  const [voiceEnabled, setVoiceEnabled] = useState(false);
-  const config = useConfig();
+  const [inputMode, setInputMode] = useState<"text" | "audio">("text");
   const [showEndDialog, setShowEndDialog] = useState(false);
   const [keyTopics, setKeyTopics] = useState<
     Array<{ message: string; delivered: boolean }>
@@ -246,7 +245,14 @@ export default function ConferenceSession() {
     startRecording,
     stopRecording,
     recordingState,
+    error: speechError,
   } = useSpeechInput(handleSpeechTranscribed);
+
+  useEffect(() => {
+    if (speechError) {
+      toast.error(speechError);
+    }
+  }, [speechError]);
 
   const handleConferenceMicClick = useCallback(() => {
     if (recordingState === "recording") {
@@ -283,15 +289,11 @@ export default function ConferenceSession() {
     setShowEndDialog(false);
     try {
       await endSessionMutation.mutateAsync(sessionId);
-      navigate(`/user/scoring?id=${sessionId}`);
+      navigate(`/user/scoring/${sessionId}`);
     } catch {
       // Error handled by mutation
     }
   }, [sessionId, endSessionMutation, navigate]);
-
-  const handleVoiceToggle = useCallback((enabled: boolean) => {
-    setVoiceEnabled(enabled);
-  }, []);
 
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-background">
@@ -300,9 +302,6 @@ export default function ConferenceSession() {
         session={session}
         subState={subState}
         onEndSession={handleEndSession}
-        onVoiceToggle={handleVoiceToggle}
-        voiceEnabled={voiceEnabled}
-        featureVoiceEnabled={config.voice_enabled}
         sessionTime={sessionTime}
       />
 
@@ -324,7 +323,8 @@ export default function ConferenceSession() {
           avatarEnabled={true}
           featureAvatarEnabled={false}
           messages={messages}
-          inputMode={voiceEnabled ? "audio" : "text"}
+          inputMode={inputMode}
+          onInputModeChange={setInputMode}
           onMicClick={handleConferenceMicClick}
           recordingState={recordingState}
           disabled={session?.status === "completed"}

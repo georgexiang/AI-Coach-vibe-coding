@@ -45,6 +45,17 @@ vi.mock("@/hooks/use-session", () => ({
   }),
 }));
 
+vi.mock("@/hooks/use-config", () => ({
+  useFeatureFlags: () => ({
+    data: {
+      features: {
+        voice_live_enabled: true,
+        avatar_enabled: true,
+      },
+    },
+  }),
+}));
+
 vi.mock("@/components/shared", () => ({
   EmptyState: ({
     title,
@@ -64,13 +75,19 @@ vi.mock("@/components/coach", () => ({
   ScenarioCard: ({
     scenario,
     onStart,
+    availableModes,
+    defaultMode,
   }: {
     scenario: { id: string; name: string };
-    onStart: (id: string) => void;
+    onStart: (id: string, mode: string) => void;
+    availableModes?: string[];
+    defaultMode?: string;
   }) => (
     <div data-testid="scenario-card">
       <span>{scenario.name}</span>
-      <button onClick={() => onStart(scenario.id)}>Start</button>
+      <span data-testid={`modes-${scenario.id}`}>{availableModes?.join(",")}</span>
+      <span data-testid={`default-mode-${scenario.id}`}>{defaultMode}</span>
+      <button onClick={() => onStart(scenario.id, defaultMode ?? "text")}>Start</button>
     </div>
   ),
 }));
@@ -152,6 +169,58 @@ describe("ScenarioSelection (Training) Page", () => {
     expect(cards.length).toBeGreaterThanOrEqual(1);
   });
 
+  it("passes text, voice, and digital human modes to F2F scenario cards", () => {
+    scenarioData = [
+      {
+        id: "sc-1",
+        name: "F2F Scenario",
+        description: "Test",
+        product: "Brukinsa",
+        mode: "f2f",
+        difficulty: "medium",
+        status: "active",
+        hcp_profile: {
+          voice_live_enabled: true,
+          avatar_enabled: true,
+        },
+      },
+    ];
+    renderPage();
+
+    expect(screen.getByTestId("modes-sc-1")).toHaveTextContent(
+      "text,voice_realtime_model,digital_human_realtime_model",
+    );
+    expect(screen.getByTestId("default-mode-sc-1")).toHaveTextContent(
+      "digital_human_realtime_model",
+    );
+  });
+
+  it("disables digital human when the HCP Voice Live instance has avatar off", () => {
+    scenarioData = [
+      {
+        id: "sc-1",
+        name: "F2F Scenario",
+        description: "Test",
+        product: "Brukinsa",
+        mode: "f2f",
+        difficulty: "medium",
+        status: "active",
+        hcp_profile: {
+          voice_live_enabled: true,
+          avatar_enabled: false,
+        },
+      },
+    ];
+    renderPage();
+
+    expect(screen.getByTestId("modes-sc-1")).toHaveTextContent(
+      "text,voice_realtime_model",
+    );
+    expect(screen.getByTestId("default-mode-sc-1")).toHaveTextContent(
+      "voice_realtime_model",
+    );
+  });
+
   it("renders search input", () => {
     renderPage();
     // The mock t() returns the key directly
@@ -189,6 +258,10 @@ describe("ScenarioSelection Filters and Actions", () => {
       mode: "f2f",
       difficulty: "medium",
       status: "active",
+      hcp_profile: {
+        voice_live_enabled: true,
+        avatar_enabled: false,
+      },
     },
     {
       id: "sc-2",
@@ -198,6 +271,10 @@ describe("ScenarioSelection Filters and Actions", () => {
       mode: "conference",
       difficulty: "hard",
       status: "active",
+      hcp_profile: {
+        voice_live_enabled: true,
+        avatar_enabled: false,
+      },
     },
   ];
 
@@ -231,7 +308,10 @@ describe("ScenarioSelection Filters and Actions", () => {
     const startBtns = screen.getAllByText("Start");
     await userEvent.setup().click(startBtns[0]!);
 
-    expect(mockMutateAsync).toHaveBeenCalledWith({ scenarioId: "sc-1" });
+    expect(mockMutateAsync).toHaveBeenCalledWith({
+      scenarioId: "sc-1",
+      mode: "voice_realtime_model",
+    });
     expect(mockNavigate).toHaveBeenCalledWith("/user/training/session?id=new-session-1");
   });
 
@@ -248,7 +328,10 @@ describe("ScenarioSelection Filters and Actions", () => {
     const startBtns = screen.getAllByText("Start");
     await userEvent.setup().click(startBtns[0]!);
 
-    expect(mockMutateAsync).toHaveBeenCalledWith({ scenarioId: "sc-2" });
+    expect(mockMutateAsync).toHaveBeenCalledWith({
+      scenarioId: "sc-2",
+      mode: "voice_realtime_model",
+    });
     expect(mockNavigate).toHaveBeenCalledWith("/user/training/conference?id=conf-session-1");
   });
 

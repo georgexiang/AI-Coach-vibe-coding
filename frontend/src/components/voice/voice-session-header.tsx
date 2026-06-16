@@ -20,7 +20,11 @@ import type { SessionMode, VoiceConnectionState } from "@/types/voice-live";
 const SESSION_SWITCH_MODES: { value: SessionMode; icon: typeof MessageSquareText; labelKey: string }[] = [
   { value: "text", icon: MessageSquareText, labelKey: "mode.text" },
   { value: "voice_realtime_model", icon: Mic, labelKey: "mode.voice_realtime_model" },
-  { value: "digital_human_realtime_model", icon: User, labelKey: "mode.digital_human_realtime_model" },
+  {
+    value: "digital_human_realtime_model",
+    icon: User,
+    labelKey: "mode.digital_human_realtime_model",
+  },
 ];
 
 interface VoiceSessionHeaderProps {

@@ -216,6 +216,29 @@ describe("useVoiceLive (backend WebSocket proxy)", () => {
     expect(result.current.connectionState).toBe("connected");
   });
 
+  it("connect() sends avatar override when provided", async () => {
+    const { result } = renderHook(() => useVoiceLive(defaultOptions));
+
+    await act(async () => {
+      const promise = result.current.connect("hcp-123", "Test prompt", undefined, false);
+      await vi.waitFor(() => expect(MockWebSocket.instances.length).toBe(1));
+      const ws = getLastWs();
+      await vi.waitFor(() => expect(ws.sentMessages.length).toBe(1));
+
+      const sent = JSON.parse(ws.sentMessages[0]!);
+      expect(sent.session.avatar_enabled).toBe(false);
+
+      ws.simulateMessage({
+        type: "proxy.connected",
+        model: "gpt-4o",
+        avatar_enabled: false,
+      });
+      ws.simulateMessage({ type: "session.updated", session: {} });
+
+      return promise;
+    });
+  });
+
   it("connect() returns ICE servers from session.updated avatar config", async () => {
     const { result } = renderHook(() => useVoiceLive(defaultOptions));
 

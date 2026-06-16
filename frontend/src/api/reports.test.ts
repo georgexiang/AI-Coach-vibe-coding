@@ -19,7 +19,7 @@ beforeEach(() => vi.clearAllMocks());
 
 describe("Reports API client", () => {
   describe("getSessionReport", () => {
-    it("calls GET /scoring/sessions/:id/report", async () => {
+    it("calls GET /sessions/:id/report", async () => {
       const report = {
         session_id: "sess-1",
         overall_score: 85,
@@ -35,7 +35,7 @@ describe("Reports API client", () => {
       const result = await getSessionReport("sess-1");
 
       expect(mockClient.get).toHaveBeenCalledWith(
-        "/scoring/sessions/sess-1/report",
+        "/sessions/sess-1/report",
       );
       expect(result.overall_score).toBe(85);
       expect(result.passed).toBe(true);
@@ -49,7 +49,7 @@ describe("Reports API client", () => {
   });
 
   describe("getSessionSuggestions", () => {
-    it("calls GET /scoring/sessions/:id/suggestions", async () => {
+    it("calls GET /sessions/:id/suggestions", async () => {
       const suggestions = [
         { id: "s1", dimension: "Knowledge", suggestion: "Study more", priority: "high" },
         { id: "s2", dimension: "Communication", suggestion: "Be clearer", priority: "medium" },
@@ -59,7 +59,7 @@ describe("Reports API client", () => {
       const result = await getSessionSuggestions("sess-1");
 
       expect(mockClient.get).toHaveBeenCalledWith(
-        "/scoring/sessions/sess-1/suggestions",
+        "/sessions/sess-1/suggestions",
       );
       expect(result).toHaveLength(2);
       expect(result[0]?.dimension).toBe("Knowledge");

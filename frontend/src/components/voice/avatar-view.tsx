@@ -25,6 +25,7 @@ interface AvatarViewProps {
   /** Normalised volume level 0–1 for AudioOrb pulsation. */
   volumeLevel?: number;
   isConnecting: boolean;
+  isDigitalHumanMode?: boolean;
   hcpName: string;
   isFullScreen: boolean;
   /** Azure TTS Avatar character ID (e.g. "lisa", "lori"). */
@@ -52,6 +53,7 @@ export function AvatarView({
   audioState,
   volumeLevel,
   isConnecting,
+  isDigitalHumanMode = true,
   hcpName,
   isFullScreen,
   avatarCharacter,
@@ -119,7 +121,9 @@ export function AvatarView({
       {isConnecting && (
         <div className="z-20 flex flex-col items-center gap-3">
           <Skeleton className="h-32 w-32 rounded-full" />
-          <p className="text-sm text-muted-foreground">{t("connectingAvatar")}</p>
+          <p className="text-sm text-muted-foreground">
+            {t(isDigitalHumanMode ? "connectingAvatar" : "connectingVoice")}
+          </p>
         </div>
       )}
 

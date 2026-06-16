@@ -50,6 +50,7 @@ import { downloadVersion } from "@/api/materials";
 import { cn } from "@/lib/utils";
 
 const ALL_PRODUCTS = "__all__";
+const MAX_MATERIAL_FILE_SIZE = 4 * 1024 * 1024;
 
 function getFileTypeBadge(name: string): { label: string; className: string } | null {
   const ext = name.split(".").pop()?.toLowerCase() ?? "";
@@ -163,8 +164,13 @@ export default function TrainingMaterialsPage() {
     }
   }, []);
 
+  const onDropRejected = useCallback(() => {
+    toast.error(t("errors.materialUploadFailed"));
+  }, [t]);
+
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
+    onDropRejected,
     accept: {
       "application/pdf": [".pdf"],
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
@@ -173,6 +179,7 @@ export default function TrainingMaterialsPage() {
         ".xlsx",
       ],
     },
+    maxSize: MAX_MATERIAL_FILE_SIZE,
     maxFiles: 1,
     multiple: false,
   });

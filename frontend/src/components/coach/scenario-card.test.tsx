@@ -98,6 +98,20 @@ describe("ScenarioCard", () => {
     const onStart = vi.fn();
     render(<ScenarioCard scenario={mockScenario} onStart={onStart} />);
     await userEvent.click(screen.getByText("scenarioSelection.startButton"));
+    expect(onStart).toHaveBeenCalledWith("sc-1", "voice_realtime_model");
+  });
+
+  it("uses the provided default mode when it is available", async () => {
+    const onStart = vi.fn();
+    render(
+      <ScenarioCard
+        scenario={mockScenario}
+        onStart={onStart}
+        availableModes={["text", "voice_realtime_model", "digital_human_realtime_model"]}
+        defaultMode="digital_human_realtime_model"
+      />,
+    );
+    await userEvent.click(screen.getByText("scenarioSelection.startButton"));
     expect(onStart).toHaveBeenCalledWith("sc-1", "digital_human_realtime_model");
   });
 
@@ -107,15 +121,31 @@ describe("ScenarioCard", () => {
       <ScenarioCard
         scenario={mockScenario}
         onStart={onStart}
-        availableModes={["text", "voice_realtime_model"]}
+        availableModes={["text"]}
       />,
     );
     await userEvent.click(screen.getByText("scenarioSelection.startButton"));
-    // digital_human_realtime_model is not available, so falls back to first available: text
+    // voice_realtime_model is not available, so falls back to first available: text
     expect(onStart).toHaveBeenCalledWith("sc-1", "text");
   });
 
-  it("hides mode selector when only one mode is available", () => {
+  it("lets the user start a digital human session when available", async () => {
+    const onStart = vi.fn();
+    render(
+      <ScenarioCard
+        scenario={mockScenario}
+        onStart={onStart}
+        availableModes={["text", "voice_realtime_model", "digital_human_realtime_model"]}
+      />,
+    );
+
+    await userEvent.click(screen.getByText("scenarioSelection.modeDigitalHuman"));
+    await userEvent.click(screen.getByText("scenarioSelection.startButton"));
+
+    expect(onStart).toHaveBeenCalledWith("sc-1", "digital_human_realtime_model");
+  });
+
+  it("shows unavailable modes as disabled", () => {
     render(
       <ScenarioCard
         scenario={mockScenario}
@@ -123,8 +153,10 @@ describe("ScenarioCard", () => {
         availableModes={["text"]}
       />,
     );
-    // Mode selector label should not render
-    expect(screen.queryByText("scenarioSelection.modeLabel")).not.toBeInTheDocument();
+    expect(screen.getByText("scenarioSelection.modeVoice").closest("button")).toBeDisabled();
+    expect(
+      screen.getByText("scenarioSelection.modeDigitalHuman").closest("button"),
+    ).toBeDisabled();
   });
 
   it("renders product badge", () => {

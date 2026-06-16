@@ -3,7 +3,7 @@
 import asyncio
 import json
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 from sse_starlette.sse import EventSourceResponse
 
@@ -342,6 +342,30 @@ async def upload_session_audio_endpoint(
     return {"audio_url": audio_url, "voice_score_status": "pending"}
 
 
+@router.get("/{session_id}/audio")
+async def download_session_audio_endpoint(
+    session_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Stream the recorded session audio through the backend after ownership check."""
+    from app.services.storage import get_storage
+
+    session = await session_service.get_session(db, session_id, user.id)
+    if session.user_id != user.id:
+        raise HTTPException(status_code=403, detail="Not your session")
+    if not session.audio_url:
+        raise HTTPException(status_code=404, detail="No session audio available")
+
+    audio_content = await get_storage().read(session.audio_url)
+    media_type = "audio/wav" if session.audio_url.lower().endswith(".wav") else "audio/webm"
+    return Response(
+        content=audio_content,
+        media_type=media_type,
+        headers={"Content-Disposition": 'inline; filename="session-recording.webm"'},
+    )
+
+
 @router.get("/{session_id}/voice-score")
 async def get_voice_score_status(
     session_id: str,
@@ -375,8 +399,7 @@ async def retry_voice_scoring(
 
     if session.voice_score_status not in ("pending", "failed"):
         raise HTTPException(
-            status_code=400,
-            detail=f"Cannot retry: status is '{session.voice_score_status}'"
+            status_code=400, detail=f"Cannot retry: status is '{session.voice_score_status}'"
         )
 
     if not session.audio_url:

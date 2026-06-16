@@ -18,7 +18,7 @@ class SessionCreate(BaseModel):
         "digital_human_realtime_model",
         "voice_realtime_agent",
         "digital_human_realtime_agent",
-    ] = "digital_human_realtime_model"
+    ] = "text"
 
 
 class SendMessageRequest(BaseModel):
