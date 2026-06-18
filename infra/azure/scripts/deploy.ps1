@@ -72,7 +72,7 @@ function New-FernetKey {
 
 function Test-KeyVaultSecretExists {
     param(
-        [Parameter(Mandatory = $true)][string]$VaultResourceId,
+        [Parameter(Mandatory = $false)][AllowEmptyString()][string]$VaultResourceId,
         [Parameter(Mandatory = $true)][string]$SecretName
     )
 
