@@ -102,7 +102,6 @@ class TestHcpProfileSchemas:
         data = HcpProfileCreate(
             name="Dr. Zhang",
             specialty="Oncology",
-
         )
         assert data.personality_type == "friendly"
         assert data.emotional_state == 50
@@ -115,7 +114,6 @@ class TestHcpProfileSchemas:
         data = HcpProfileCreate(
             name="Dr. Li",
             specialty="Cardiology",
-
             hospital="Beijing Hospital",
             title="Chief Physician",
             personality_type="skeptical",

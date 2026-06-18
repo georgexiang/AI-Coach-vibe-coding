@@ -49,9 +49,7 @@ async def list_dry_runs(
     _user: User = Depends(require_role("admin")),
 ):
     """List dry runs for a skill with pagination. Admin only."""
-    items, total = await dry_run_service.list_dry_runs(
-        db, skill_id, page=page, page_size=page_size
-    )
+    items, total = await dry_run_service.list_dry_runs(db, skill_id, page=page, page_size=page_size)
     return PaginatedResponse.create(
         items=[DryRunListOut.model_validate(item) for item in items],
         total=total,

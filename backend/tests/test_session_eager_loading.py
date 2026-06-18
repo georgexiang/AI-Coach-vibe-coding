@@ -109,9 +109,7 @@ class TestSessionResponseEagerLoading:
         assert data["scenario_name"] == "Eager Load Scenario"
         assert data["message_count"] == 0
 
-    async def test_get_session_returns_scenario_name_and_message_count(
-        self, client: AsyncClient
-    ):
+    async def test_get_session_returns_scenario_name_and_message_count(self, client: AsyncClient):
         """GET /sessions/{id} must return scenario_name and message_count without 500."""
         _, _, session_id, token = await _create_test_data(status="in_progress")
 
@@ -140,9 +138,7 @@ class TestSessionResponseEagerLoading:
         assert data["scenario_name"] == "Eager Load Scenario"
         assert data["message_count"] == 2
 
-    async def test_list_sessions_returns_scenario_name_and_message_count(
-        self, client: AsyncClient
-    ):
+    async def test_list_sessions_returns_scenario_name_and_message_count(self, client: AsyncClient):
         """GET /sessions must return scenario_name and message_count for each session."""
         _, _, _, token = await _create_test_data(status="in_progress")
 
@@ -157,9 +153,7 @@ class TestSessionResponseEagerLoading:
         assert session_data["scenario_name"] == "Eager Load Scenario"
         assert session_data["message_count"] == 2
 
-    async def test_end_session_returns_scenario_name_and_message_count(
-        self, client: AsyncClient
-    ):
+    async def test_end_session_returns_scenario_name_and_message_count(self, client: AsyncClient):
         """POST /sessions/{id}/end must return scenario_name and message_count without 500."""
         _, _, session_id, token = await _create_test_data(status="in_progress")
 

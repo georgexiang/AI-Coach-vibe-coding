@@ -185,15 +185,20 @@ class TestNoTrailingSlashRedirect:
             await session.flush()
 
             skill = Skill(
-                id="redirect-test-skill", name="Redirect Skill",
-                status="published", created_by=user_id,
+                id="redirect-test-skill",
+                name="Redirect Skill",
+                status="published",
+                created_by=user_id,
             )
             session.add(skill)
             await session.flush()
 
             skill_ver = SkillVersion(
-                skill_id=skill.id, version_number=1, content="test",
-                is_published=True, created_by=user_id,
+                skill_id=skill.id,
+                version_number=1,
+                content="test",
+                is_published=True,
+                created_by=user_id,
             )
             session.add(skill_ver)
             await session.commit()

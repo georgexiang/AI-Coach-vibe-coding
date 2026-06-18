@@ -95,7 +95,9 @@ class TestLoadConnectionConfig:
 
         with patch("app.services.voice_live_websocket.config_service") as mock_cs:
             mock_cs.get_config = AsyncMock(
-                side_effect=lambda db, name: mock_vl_config if name == "azure_voice_live" else mock_avatar_config
+                side_effect=lambda db, name: (
+                    mock_vl_config if name == "azure_voice_live" else mock_avatar_config
+                )
             )
             mock_cs.get_effective_key = AsyncMock(return_value="test-key")
             mock_cs.get_effective_endpoint = AsyncMock(
@@ -135,19 +137,33 @@ class TestLoadConnectionConfig:
 
         with (
             patch("app.services.voice_live_websocket.config_service") as mock_cs,
-            patch("app.services.hcp_profile_service.get_hcp_profile", new_callable=AsyncMock, return_value=mock_profile),
-            patch("app.services.voice_live_instance_service.resolve_voice_config", return_value=mock_voice_config),
-            patch("app.services.avatar_characters.validate_avatar_style", return_value="casual-sitting"),
+            patch(
+                "app.services.hcp_profile_service.get_hcp_profile",
+                new_callable=AsyncMock,
+                return_value=mock_profile,
+            ),
+            patch(
+                "app.services.voice_live_instance_service.resolve_voice_config",
+                return_value=mock_voice_config,
+            ),
+            patch(
+                "app.services.avatar_characters.validate_avatar_style",
+                return_value="casual-sitting",
+            ),
         ):
             mock_cs.get_config = AsyncMock(
-                side_effect=lambda db, name: mock_vl_config if name == "azure_voice_live" else mock_avatar_config
+                side_effect=lambda db, name: (
+                    mock_vl_config if name == "azure_voice_live" else mock_avatar_config
+                )
             )
             mock_cs.get_effective_key = AsyncMock(return_value="key")
-            mock_cs.get_effective_endpoint = AsyncMock(return_value="https://ep.services.ai.azure.com")
+            mock_cs.get_effective_endpoint = AsyncMock(
+                return_value="https://ep.services.ai.azure.com"
+            )
 
             result = await _load_connection_config(db_session, hcp_profile_id="hcp-1")
 
-        # Model should fall back to default because "unsupported-model-xyz" is not in VOICE_LIVE_MODELS
+        # Model should fall back because "unsupported-model-xyz" is not in VOICE_LIVE_MODELS
         assert result["model"] != "unsupported-model-xyz"
 
     async def test_hcp_profile_with_override_instructions(self, db_session):
@@ -176,15 +192,29 @@ class TestLoadConnectionConfig:
 
         with (
             patch("app.services.voice_live_websocket.config_service") as mock_cs,
-            patch("app.services.hcp_profile_service.get_hcp_profile", new_callable=AsyncMock, return_value=mock_profile),
-            patch("app.services.voice_live_instance_service.resolve_voice_config", return_value=mock_voice_config),
-            patch("app.services.avatar_characters.validate_avatar_style", return_value="casual-sitting"),
+            patch(
+                "app.services.hcp_profile_service.get_hcp_profile",
+                new_callable=AsyncMock,
+                return_value=mock_profile,
+            ),
+            patch(
+                "app.services.voice_live_instance_service.resolve_voice_config",
+                return_value=mock_voice_config,
+            ),
+            patch(
+                "app.services.avatar_characters.validate_avatar_style",
+                return_value="casual-sitting",
+            ),
         ):
             mock_cs.get_config = AsyncMock(
-                side_effect=lambda db, name: mock_vl_config if name == "azure_voice_live" else mock_avatar_config
+                side_effect=lambda db, name: (
+                    mock_vl_config if name == "azure_voice_live" else mock_avatar_config
+                )
             )
             mock_cs.get_effective_key = AsyncMock(return_value="key")
-            mock_cs.get_effective_endpoint = AsyncMock(return_value="https://ep.services.ai.azure.com")
+            mock_cs.get_effective_endpoint = AsyncMock(
+                return_value="https://ep.services.ai.azure.com"
+            )
 
             result = await _load_connection_config(db_session, hcp_profile_id="hcp-1")
 
@@ -203,13 +233,21 @@ class TestLoadConnectionConfig:
 
         with (
             patch("app.services.voice_live_websocket.config_service") as mock_cs,
-            patch("app.services.hcp_profile_service.get_hcp_profile", new_callable=AsyncMock, side_effect=Exception("DB error")),
+            patch(
+                "app.services.hcp_profile_service.get_hcp_profile",
+                new_callable=AsyncMock,
+                side_effect=Exception("DB error"),
+            ),
         ):
             mock_cs.get_config = AsyncMock(
-                side_effect=lambda db, name: mock_vl_config if name == "azure_voice_live" else mock_avatar_config
+                side_effect=lambda db, name: (
+                    mock_vl_config if name == "azure_voice_live" else mock_avatar_config
+                )
             )
             mock_cs.get_effective_key = AsyncMock(return_value="key")
-            mock_cs.get_effective_endpoint = AsyncMock(return_value="https://ep.services.ai.azure.com")
+            mock_cs.get_effective_endpoint = AsyncMock(
+                return_value="https://ep.services.ai.azure.com"
+            )
 
             result = await _load_connection_config(db_session, hcp_profile_id="bad-id")
 
@@ -239,14 +277,25 @@ class TestLoadConnectionConfig:
 
         with (
             patch("app.services.voice_live_websocket.config_service") as mock_cs,
-            patch("app.services.voice_live_instance_service.get_instance", new_callable=AsyncMock, return_value=mock_instance),
-            patch("app.services.avatar_characters.validate_avatar_style", return_value="casual-sitting"),
+            patch(
+                "app.services.voice_live_instance_service.get_instance",
+                new_callable=AsyncMock,
+                return_value=mock_instance,
+            ),
+            patch(
+                "app.services.avatar_characters.validate_avatar_style",
+                return_value="casual-sitting",
+            ),
         ):
             mock_cs.get_config = AsyncMock(
-                side_effect=lambda db, name: mock_vl_config if name == "azure_voice_live" else mock_avatar_config
+                side_effect=lambda db, name: (
+                    mock_vl_config if name == "azure_voice_live" else mock_avatar_config
+                )
             )
             mock_cs.get_effective_key = AsyncMock(return_value="key")
-            mock_cs.get_effective_endpoint = AsyncMock(return_value="https://ep.services.ai.azure.com")
+            mock_cs.get_effective_endpoint = AsyncMock(
+                return_value="https://ep.services.ai.azure.com"
+            )
 
             result = await _load_connection_config(db_session, vl_instance_id="vl-1")
 
@@ -276,14 +325,25 @@ class TestLoadConnectionConfig:
 
         with (
             patch("app.services.voice_live_websocket.config_service") as mock_cs,
-            patch("app.services.voice_live_instance_service.get_instance", new_callable=AsyncMock, return_value=mock_instance),
-            patch("app.services.avatar_characters.validate_avatar_style", return_value="casual-sitting"),
+            patch(
+                "app.services.voice_live_instance_service.get_instance",
+                new_callable=AsyncMock,
+                return_value=mock_instance,
+            ),
+            patch(
+                "app.services.avatar_characters.validate_avatar_style",
+                return_value="casual-sitting",
+            ),
         ):
             mock_cs.get_config = AsyncMock(
-                side_effect=lambda db, name: mock_vl_config if name == "azure_voice_live" else mock_avatar_config
+                side_effect=lambda db, name: (
+                    mock_vl_config if name == "azure_voice_live" else mock_avatar_config
+                )
             )
             mock_cs.get_effective_key = AsyncMock(return_value="key")
-            mock_cs.get_effective_endpoint = AsyncMock(return_value="https://ep.services.ai.azure.com")
+            mock_cs.get_effective_endpoint = AsyncMock(
+                return_value="https://ep.services.ai.azure.com"
+            )
 
             result = await _load_connection_config(db_session, vl_instance_id="vl-2")
 
@@ -302,13 +362,21 @@ class TestLoadConnectionConfig:
 
         with (
             patch("app.services.voice_live_websocket.config_service") as mock_cs,
-            patch("app.services.voice_live_instance_service.get_instance", new_callable=AsyncMock, side_effect=Exception("Not found")),
+            patch(
+                "app.services.voice_live_instance_service.get_instance",
+                new_callable=AsyncMock,
+                side_effect=Exception("Not found"),
+            ),
         ):
             mock_cs.get_config = AsyncMock(
-                side_effect=lambda db, name: mock_vl_config if name == "azure_voice_live" else mock_avatar_config
+                side_effect=lambda db, name: (
+                    mock_vl_config if name == "azure_voice_live" else mock_avatar_config
+                )
             )
             mock_cs.get_effective_key = AsyncMock(return_value="key")
-            mock_cs.get_effective_endpoint = AsyncMock(return_value="https://ep.services.ai.azure.com")
+            mock_cs.get_effective_endpoint = AsyncMock(
+                return_value="https://ep.services.ai.azure.com"
+            )
 
             result = await _load_connection_config(db_session, vl_instance_id="bad-vl")
 
@@ -340,15 +408,29 @@ class TestLoadConnectionConfig:
 
         with (
             patch("app.services.voice_live_websocket.config_service") as mock_cs,
-            patch("app.services.hcp_profile_service.get_hcp_profile", new_callable=AsyncMock, return_value=mock_profile),
-            patch("app.services.voice_live_instance_service.resolve_voice_config", return_value=mock_voice_config),
-            patch("app.services.avatar_characters.validate_avatar_style", return_value="casual-sitting"),
+            patch(
+                "app.services.hcp_profile_service.get_hcp_profile",
+                new_callable=AsyncMock,
+                return_value=mock_profile,
+            ),
+            patch(
+                "app.services.voice_live_instance_service.resolve_voice_config",
+                return_value=mock_voice_config,
+            ),
+            patch(
+                "app.services.avatar_characters.validate_avatar_style",
+                return_value="casual-sitting",
+            ),
         ):
             mock_cs.get_config = AsyncMock(
-                side_effect=lambda db, name: mock_vl_config if name == "azure_voice_live" else mock_avatar_config
+                side_effect=lambda db, name: (
+                    mock_vl_config if name == "azure_voice_live" else mock_avatar_config
+                )
             )
             mock_cs.get_effective_key = AsyncMock(return_value="key")
-            mock_cs.get_effective_endpoint = AsyncMock(return_value="https://ep.services.ai.azure.com")
+            mock_cs.get_effective_endpoint = AsyncMock(
+                return_value="https://ep.services.ai.azure.com"
+            )
 
             result = await _load_connection_config(db_session, hcp_profile_id="hcp-1")
 
@@ -386,7 +468,7 @@ class TestHandleVoiceLiveWebsocket:
 
         ws = AsyncMock()
         ws.query_params = {}
-        ws.receive_text = AsyncMock(side_effect=asyncio.TimeoutError())
+        ws.receive_text = AsyncMock(side_effect=TimeoutError())
         db = AsyncMock()
 
         await handle_voice_live_websocket(ws, db)
@@ -413,10 +495,12 @@ class TestHandleVoiceLiveWebsocket:
 
         ws = AsyncMock()
         ws.query_params = {"sid": "test"}
-        session_update = json.dumps({
-            "type": "session.update",
-            "session": {"hcp_profile_id": None, "system_prompt": "Hi"},
-        })
+        session_update = json.dumps(
+            {
+                "type": "session.update",
+                "session": {"hcp_profile_id": None, "system_prompt": "Hi"},
+            }
+        )
         ws.receive_text = AsyncMock(return_value=session_update)
         db = AsyncMock()
 
@@ -436,10 +520,12 @@ class TestHandleVoiceLiveWebsocket:
 
         ws = AsyncMock()
         ws.query_params = {"sid": "test"}
-        session_update = json.dumps({
-            "type": "session.update",
-            "session": {"hcp_profile_id": "hcp-123", "system_prompt": "Hi"},
-        })
+        session_update = json.dumps(
+            {
+                "type": "session.update",
+                "session": {"hcp_profile_id": "hcp-123", "system_prompt": "Hi"},
+            }
+        )
         ws.receive_text = AsyncMock(return_value=session_update)
         db = AsyncMock()
 
@@ -462,10 +548,12 @@ class TestHandleVoiceLiveWebsocket:
 
         ws = AsyncMock()
         ws.query_params = {"sid": "test"}
-        session_update = json.dumps({
-            "type": "session.update",
-            "session": {"system_prompt": "Hi"},
-        })
+        session_update = json.dumps(
+            {
+                "type": "session.update",
+                "session": {"system_prompt": "Hi"},
+            }
+        )
         ws.receive_text = AsyncMock(return_value=session_update)
         db = AsyncMock()
 
@@ -501,10 +589,12 @@ class TestHandleVoiceLiveWebsocket:
 
         ws = AsyncMock()
         ws.query_params = {"sid": "test"}
-        session_update = json.dumps({
-            "type": "session.update",
-            "session": {"system_prompt": "Hi"},
-        })
+        session_update = json.dumps(
+            {
+                "type": "session.update",
+                "session": {"system_prompt": "Hi"},
+            }
+        )
         ws.receive_text = AsyncMock(return_value=session_update)
         db = AsyncMock()
 
@@ -545,7 +635,9 @@ class TestHandleVoiceLiveWebsocket:
         session_log = MagicMock()
         event_counts: dict[str, int] = {}
 
-        await _forward_client_to_azure(ws, azure_conn, WebSocketDisconnect, session_log, event_counts)
+        await _forward_client_to_azure(
+            ws, azure_conn, WebSocketDisconnect, session_log, event_counts
+        )
 
         assert azure_conn.send.call_count == 2
         assert "c2a:input_audio_buffer.append" in event_counts
@@ -721,9 +813,7 @@ class TestConnectionTester:
     def test_derive_endpoint_variants_cognitive(self):
         from app.services.connection_tester import _derive_endpoint_variants
 
-        result = _derive_endpoint_variants(
-            "https://my-resource.cognitiveservices.azure.com"
-        )
+        result = _derive_endpoint_variants("https://my-resource.cognitiveservices.azure.com")
         assert len(result) == 2
         assert "cognitiveservices.azure.com" in result[0]
         assert "services.ai.azure.com" in result[1]
@@ -731,9 +821,7 @@ class TestConnectionTester:
     def test_derive_endpoint_variants_ai_foundry(self):
         from app.services.connection_tester import _derive_endpoint_variants
 
-        result = _derive_endpoint_variants(
-            "https://my-resource.services.ai.azure.com/"
-        )
+        result = _derive_endpoint_variants("https://my-resource.services.ai.azure.com/")
         assert len(result) == 2
         assert "services.ai.azure.com" in result[0]
 
@@ -821,9 +909,7 @@ class TestConnectionTester:
     async def test_ai_foundry_endpoint_no_key(self):
         from app.services.connection_tester import test_ai_foundry_endpoint
 
-        ok, msg = await test_ai_foundry_endpoint(
-            "https://test.cognitiveservices.azure.com", ""
-        )
+        ok, msg = await test_ai_foundry_endpoint("https://test.cognitiveservices.azure.com", "")
         assert ok is False
         assert "key" in msg.lower()
 
@@ -984,9 +1070,7 @@ class TestConnectionTester:
             mock_client.__aexit__ = AsyncMock(return_value=None)
             MockClient.return_value = mock_client
 
-            ok, msg = await test_azure_speech(
-                "key", "", "https://test.cognitiveservices.azure.com"
-            )
+            ok, msg = await test_azure_speech("key", "", "https://test.cognitiveservices.azure.com")
             assert ok is True
 
     async def test_azure_speech_auth_failed(self):
@@ -1089,9 +1173,7 @@ class TestConnectionTester:
             mock_client.__aexit__ = AsyncMock(return_value=None)
             MockClient.return_value = mock_client
 
-            ok, msg = await test_azure_avatar(
-                "key", "", "https://test.cognitiveservices.azure.com"
-            )
+            ok, msg = await test_azure_avatar("key", "", "https://test.cognitiveservices.azure.com")
             assert ok is False
             assert "Authentication" in msg
 
@@ -1125,7 +1207,9 @@ class TestConnectionTester:
             mock_client.__aexit__ = AsyncMock(return_value=None)
             MockClient.return_value = mock_client
 
-            ok, msg = await test_azure_avatar("key", "eastus", "https://test.cognitiveservices.azure.com")
+            ok, msg = await test_azure_avatar(
+                "key", "eastus", "https://test.cognitiveservices.azure.com"
+            )
             assert ok is False
             assert "503" in msg
 
@@ -1133,9 +1217,7 @@ class TestConnectionTester:
         from app.services.connection_tester import test_azure_avatar
 
         with patch("httpx.AsyncClient") as MockClient:
-            MockClient.return_value.__aenter__ = AsyncMock(
-                side_effect=Exception("Total failure")
-            )
+            MockClient.return_value.__aenter__ = AsyncMock(side_effect=Exception("Total failure"))
             MockClient.return_value.__aexit__ = AsyncMock(return_value=None)
 
             ok, msg = await test_azure_avatar("key", "eastus")
@@ -1397,7 +1479,11 @@ class TestConnectionTester:
             return_value=(True, "OK"),
         ):
             ok, msg = await test_service_connection(
-                "azure_openai", "", "", "gpt-4o", "",
+                "azure_openai",
+                "",
+                "",
+                "gpt-4o",
+                "",
                 master_endpoint="https://ep.cognitiveservices.azure.com",
                 master_key="key",
             )
@@ -1411,9 +1497,7 @@ class TestConnectionTester:
             new_callable=AsyncMock,
             return_value=(True, "OK"),
         ):
-            ok, msg = await test_service_connection(
-                "azure_speech_tts", "", "key", "", "eastus"
-            )
+            ok, msg = await test_service_connection("azure_speech_tts", "", "key", "", "eastus")
             assert ok is True
 
     async def test_service_connection_routing_avatar(self):
@@ -1424,9 +1508,7 @@ class TestConnectionTester:
             new_callable=AsyncMock,
             return_value=(True, "OK"),
         ):
-            ok, msg = await test_service_connection(
-                "azure_avatar", "", "key", "", "eastus"
-            )
+            ok, msg = await test_service_connection("azure_avatar", "", "key", "", "eastus")
             assert ok is True
 
     async def test_service_connection_routing_voice_live(self):
@@ -1438,7 +1520,11 @@ class TestConnectionTester:
             return_value=(True, "OK"),
         ):
             ok, msg = await test_service_connection(
-                "azure_voice_live", "https://ep.cognitiveservices.azure.com", "key", "", "swedencentral"
+                "azure_voice_live",
+                "https://ep.cognitiveservices.azure.com",
+                "key",
+                "",
+                "swedencentral",
             )
             assert ok is True
 
@@ -1464,7 +1550,11 @@ class TestConnectionTester:
             return_value=(True, "OK"),
         ):
             ok, msg = await test_service_connection(
-                "azure_openai_realtime", "https://ep.cognitiveservices.azure.com", "key", "gpt-4o", ""
+                "azure_openai_realtime",
+                "https://ep.cognitiveservices.azure.com",
+                "key",
+                "gpt-4o",
+                "",
             )
             assert ok is True
 
@@ -1484,7 +1574,11 @@ class TestConnectionTester:
             return_value=(True, "OK"),
         ):
             ok, msg = await test_service_connection(
-                "ai_foundry", "", "", "", "",
+                "ai_foundry",
+                "",
+                "",
+                "",
+                "",
                 master_endpoint="https://master.cognitiveservices.azure.com",
                 master_key="master-key",
                 master_model="gpt-4o",
@@ -1633,7 +1727,9 @@ class TestStartupSeed:
         mock_settings_obj.azure_foundry_endpoint = ""
 
         with (
-            patch.dict("sys.modules", {"seed_phase2": mock_seed2, "seed_materials": mock_seed_materials}),
+            patch.dict(
+                "sys.modules", {"seed_phase2": mock_seed2, "seed_materials": mock_seed_materials}
+            ),
             patch("app.config.get_settings", return_value=mock_settings_obj),
         ):
             from app.startup_seed import seed_all
@@ -1673,8 +1769,10 @@ class TestHcpProfileServiceCascade:
 
         # Create a user
         user = User(
-            username="testdel", email="del@test.com",
-            hashed_password="hash", role="admin",
+            username="testdel",
+            email="del@test.com",
+            hashed_password="hash",
+            role="admin",
         )
         db_session.add(user)
         await db_session.flush()
@@ -1686,16 +1784,22 @@ class TestHcpProfileServiceCascade:
 
         # Create scenario linked to profile
         scenario = Scenario(
-            name="Test Scenario", tags='["product:TestDrug"]', mode="f2f",
-            hcp_profile_id=profile.id, created_by=user.id,
-            rubric_id="test-rubric-id", skill_id="test-skill-id",
+            name="Test Scenario",
+            tags='["product:TestDrug"]',
+            mode="f2f",
+            hcp_profile_id=profile.id,
+            created_by=user.id,
+            rubric_id="test-rubric-id",
+            skill_id="test-skill-id",
         )
         db_session.add(scenario)
         await db_session.flush()
 
         # Create coaching session
         session = CoachingSession(
-            scenario_id=scenario.id, user_id=user.id, status="completed",
+            scenario_id=scenario.id,
+            user_id=user.id,
+            status="completed",
         )
         db_session.add(session)
         await db_session.commit()
@@ -1711,9 +1815,7 @@ class TestHcpProfileServiceCascade:
             await db_session.commit()
 
         # Verify HCP profile is gone
-        result = await db_session.execute(
-            select(HcpProfile).where(HcpProfile.id == profile_id)
-        )
+        result = await db_session.execute(select(HcpProfile).where(HcpProfile.id == profile_id))
         assert result.scalar_one_or_none() is None
 
     async def test_delete_hcp_agent_failure_continues(self, db_session):
@@ -1721,15 +1823,19 @@ class TestHcpProfileServiceCascade:
         from app.services.hcp_profile_service import delete_hcp_profile
 
         user = User(
-            username="testdel2", email="del2@test.com",
-            hashed_password="hash", role="admin",
+            username="testdel2",
+            email="del2@test.com",
+            hashed_password="hash",
+            role="admin",
         )
         db_session.add(user)
         await db_session.flush()
 
         profile = HcpProfile(
-            name="Dr. AgentFail", specialty="General",
-            created_by=user.id, agent_id="agent-123",
+            name="Dr. AgentFail",
+            specialty="General",
+            created_by=user.id,
+            agent_id="agent-123",
         )
         db_session.add(profile)
         await db_session.commit()
@@ -1744,9 +1850,7 @@ class TestHcpProfileServiceCascade:
             await delete_hcp_profile(db_session, profile_id)
             await db_session.commit()
 
-        result = await db_session.execute(
-            select(HcpProfile).where(HcpProfile.id == profile_id)
-        )
+        result = await db_session.execute(select(HcpProfile).where(HcpProfile.id == profile_id))
         assert result.scalar_one_or_none() is None
 
     async def test_retry_agent_sync_success(self, db_session):
@@ -1754,15 +1858,19 @@ class TestHcpProfileServiceCascade:
         from app.services.hcp_profile_service import retry_agent_sync
 
         user = User(
-            username="testretrysync", email="retry@test.com",
-            hashed_password="hash", role="admin",
+            username="testretrysync",
+            email="retry@test.com",
+            hashed_password="hash",
+            role="admin",
         )
         db_session.add(user)
         await db_session.flush()
 
         profile = HcpProfile(
-            name="Dr. Retry", specialty="Oncology",
-            created_by=user.id, agent_sync_status="failed",
+            name="Dr. Retry",
+            specialty="Oncology",
+            created_by=user.id,
+            agent_sync_status="failed",
         )
         db_session.add(profile)
         await db_session.commit()
@@ -1789,15 +1897,19 @@ class TestHcpProfileServiceCascade:
         from app.services.hcp_profile_service import retry_agent_sync
 
         user = User(
-            username="testretryfail", email="retryfail@test.com",
-            hashed_password="hash", role="admin",
+            username="testretryfail",
+            email="retryfail@test.com",
+            hashed_password="hash",
+            role="admin",
         )
         db_session.add(user)
         await db_session.flush()
 
         profile = HcpProfile(
-            name="Dr. RetryFail", specialty="General",
-            created_by=user.id, agent_sync_status="failed",
+            name="Dr. RetryFail",
+            specialty="General",
+            created_by=user.id,
+            agent_sync_status="failed",
         )
         db_session.add(profile)
         await db_session.commit()
@@ -1824,18 +1936,26 @@ class TestHcpProfileServiceCascade:
         from app.services.hcp_profile_service import batch_sync_agents
 
         user = User(
-            username="testbatch", email="batch@test.com",
-            hashed_password="hash", role="admin",
+            username="testbatch",
+            email="batch@test.com",
+            hashed_password="hash",
+            role="admin",
         )
         db_session.add(user)
         await db_session.flush()
 
         # Create profiles needing sync
         p1 = HcpProfile(
-            name="Dr. Batch1", specialty="General", created_by=user.id, agent_id="",
+            name="Dr. Batch1",
+            specialty="General",
+            created_by=user.id,
+            agent_id="",
         )
         p2 = HcpProfile(
-            name="Dr. Batch2", specialty="General", created_by=user.id, agent_sync_status="failed",
+            name="Dr. Batch2",
+            specialty="General",
+            created_by=user.id,
+            agent_sync_status="failed",
         )
         db_session.add_all([p1, p2])
         await db_session.commit()
@@ -1891,7 +2011,11 @@ class TestAgentSyncService:
         mock_client.agents.create_version = MagicMock(return_value=mock_result)
 
         with (
-            patch("app.services.agent_sync_service.get_project_endpoint", new_callable=AsyncMock, return_value=("https://ep.services.ai.azure.com/api/projects/proj", "key")),
+            patch(
+                "app.services.agent_sync_service.get_project_endpoint",
+                new_callable=AsyncMock,
+                return_value=("https://ep.services.ai.azure.com/api/projects/proj", "key"),
+            ),
             patch("app.services.agent_sync_service._get_project_client", return_value=mock_client),
             patch("asyncio.to_thread", new_callable=AsyncMock, return_value=mock_result),
         ):
@@ -1915,7 +2039,9 @@ class TestAgentSyncService:
             patch("asyncio.to_thread", new_callable=AsyncMock, return_value=mock_result),
         ):
             result = await create_agent(
-                db_session, "Dr. Override", "Instructions",
+                db_session,
+                "Dr. Override",
+                "Instructions",
                 endpoint_override="https://ep.services.ai.azure.com/api/projects/proj",
                 key_override="override-key",
             )
@@ -1928,7 +2054,11 @@ class TestAgentSyncService:
         mock_client = MagicMock()
 
         with (
-            patch("app.services.agent_sync_service.get_project_endpoint", new_callable=AsyncMock, return_value=("https://ep.services.ai.azure.com/api/projects/proj", "key")),
+            patch(
+                "app.services.agent_sync_service.get_project_endpoint",
+                new_callable=AsyncMock,
+                return_value=("https://ep.services.ai.azure.com/api/projects/proj", "key"),
+            ),
             patch("app.services.agent_sync_service._get_project_client", return_value=mock_client),
             patch("asyncio.to_thread", new_callable=AsyncMock, side_effect=Exception("API error")),
         ):
@@ -1945,11 +2075,17 @@ class TestAgentSyncService:
         mock_client = MagicMock()
 
         with (
-            patch("app.services.agent_sync_service.get_project_endpoint", new_callable=AsyncMock, return_value=("https://ep.services.ai.azure.com/api/projects/proj", "key")),
+            patch(
+                "app.services.agent_sync_service.get_project_endpoint",
+                new_callable=AsyncMock,
+                return_value=("https://ep.services.ai.azure.com/api/projects/proj", "key"),
+            ),
             patch("app.services.agent_sync_service._get_project_client", return_value=mock_client),
             patch("asyncio.to_thread", new_callable=AsyncMock, return_value=mock_result),
         ):
-            result = await update_agent(db_session, "Dr-Update", "Dr. Update", "New instructions", "gpt-4o")
+            result = await update_agent(
+                db_session, "Dr-Update", "Dr. Update", "New instructions", "gpt-4o"
+            )
 
         assert result["version"] == "2"
 
@@ -1959,7 +2095,11 @@ class TestAgentSyncService:
         mock_client = MagicMock()
 
         with (
-            patch("app.services.agent_sync_service.get_project_endpoint", new_callable=AsyncMock, return_value=("https://ep/api/projects/p", "key")),
+            patch(
+                "app.services.agent_sync_service.get_project_endpoint",
+                new_callable=AsyncMock,
+                return_value=("https://ep/api/projects/p", "key"),
+            ),
             patch("app.services.agent_sync_service._get_project_client", return_value=mock_client),
             patch("asyncio.to_thread", new_callable=AsyncMock, side_effect=Exception("API error")),
         ):
@@ -1972,7 +2112,11 @@ class TestAgentSyncService:
         mock_client = MagicMock()
 
         with (
-            patch("app.services.agent_sync_service.get_project_endpoint", new_callable=AsyncMock, return_value=("https://ep/api/projects/p", "key")),
+            patch(
+                "app.services.agent_sync_service.get_project_endpoint",
+                new_callable=AsyncMock,
+                return_value=("https://ep/api/projects/p", "key"),
+            ),
             patch("app.services.agent_sync_service._get_project_client", return_value=mock_client),
             patch("asyncio.to_thread", new_callable=AsyncMock, return_value=None),
         ):
@@ -1986,9 +2130,15 @@ class TestAgentSyncService:
         mock_client = MagicMock()
 
         with (
-            patch("app.services.agent_sync_service.get_project_endpoint", new_callable=AsyncMock, return_value=("https://ep/api/projects/p", "key")),
+            patch(
+                "app.services.agent_sync_service.get_project_endpoint",
+                new_callable=AsyncMock,
+                return_value=("https://ep/api/projects/p", "key"),
+            ),
             patch("app.services.agent_sync_service._get_project_client", return_value=mock_client),
-            patch("asyncio.to_thread", new_callable=AsyncMock, side_effect=Exception("Delete failed")),
+            patch(
+                "asyncio.to_thread", new_callable=AsyncMock, side_effect=Exception("Delete failed")
+            ),
         ):
             result = await delete_agent(db_session, "agent-1")
 
@@ -2001,13 +2151,21 @@ class TestAgentSyncService:
         asm._portal_url_cache = None
 
         mock_conn = {
-            "id": "/subscriptions/12345678-1234-1234-1234-123456789012/resourceGroups/rg-test/providers/Microsoft.MachineLearningServices/accounts/my-account/projects/my-project/connections/conn1"
+            "id": (
+                "/subscriptions/12345678-1234-1234-1234-123456789012/resourceGroups/"
+                "rg-test/providers/Microsoft.MachineLearningServices/accounts/my-account/"
+                "projects/my-project/connections/conn1"
+            )
         }
         mock_client = MagicMock()
         mock_client.connections.list = MagicMock(return_value=[mock_conn])
 
         with (
-            patch("app.services.agent_sync_service.get_project_endpoint", new_callable=AsyncMock, return_value=("https://ep/api/projects/p", "key")),
+            patch(
+                "app.services.agent_sync_service.get_project_endpoint",
+                new_callable=AsyncMock,
+                return_value=("https://ep/api/projects/p", "key"),
+            ),
             patch("app.services.agent_sync_service._get_project_client", return_value=mock_client),
             patch("asyncio.to_thread", new_callable=AsyncMock, return_value=[mock_conn]),
         ):
@@ -2028,7 +2186,11 @@ class TestAgentSyncService:
         mock_client.connections.list = MagicMock(return_value=[])
 
         with (
-            patch("app.services.agent_sync_service.get_project_endpoint", new_callable=AsyncMock, return_value=("https://ep/api/projects/p", "key")),
+            patch(
+                "app.services.agent_sync_service.get_project_endpoint",
+                new_callable=AsyncMock,
+                return_value=("https://ep/api/projects/p", "key"),
+            ),
             patch("app.services.agent_sync_service._get_project_client", return_value=mock_client),
             patch("asyncio.to_thread", new_callable=AsyncMock, return_value=[]),
         ):
@@ -2061,7 +2223,11 @@ class TestAgentSyncService:
         mock_client = MagicMock()
 
         with (
-            patch("app.services.agent_sync_service.get_project_endpoint", new_callable=AsyncMock, return_value=("https://ep/api/projects/p", "key")),
+            patch(
+                "app.services.agent_sync_service.get_project_endpoint",
+                new_callable=AsyncMock,
+                return_value=("https://ep/api/projects/p", "key"),
+            ),
             patch("app.services.agent_sync_service._get_project_client", return_value=mock_client),
             patch("asyncio.to_thread", new_callable=AsyncMock, return_value=mock_agent),
         ):
@@ -2159,17 +2325,24 @@ class TestVoiceLiveService:
                 await get_voice_live_token(db_session)
 
     async def test_get_voice_live_token_no_key(self, db_session):
-        """get_voice_live_token raises when no API key."""
+        """get_voice_live_token supports keyless bearer mode when endpoint exists."""
         from app.services.voice_live_service import get_voice_live_token
 
         mock_config = MagicMock()
         mock_config.is_active = True
+        mock_config.region = "eastus2"
+        mock_config.model_or_deployment = "gpt-4o-realtime-preview"
 
         with patch("app.services.voice_live_service.config_service") as mock_cs:
             mock_cs.get_config = AsyncMock(return_value=mock_config)
             mock_cs.get_effective_key = AsyncMock(return_value=None)
-            with pytest.raises(ValueError, match="API key not set"):
-                await get_voice_live_token(db_session)
+            mock_cs.get_effective_endpoint = AsyncMock(return_value="https://test.openai.azure.com")
+            mock_cs.get_master_config = AsyncMock(return_value=None)
+
+            token = await get_voice_live_token(db_session)
+
+        assert token.auth_type == "bearer"
+        assert token.token == "***configured***"
 
     async def test_get_voice_live_token_no_endpoint(self, db_session):
         """get_voice_live_token raises when no endpoint."""
@@ -2278,8 +2451,8 @@ class TestEncryptionPersist:
             mock_env = MagicMock()
             mock_env.exists.return_value = False
             mock_env.open.side_effect = OSError("Permission denied")
-            mock_path.return_value.resolve.return_value.parents.__getitem__ = (
-                lambda self, idx: MagicMock(__truediv__=lambda s, o: mock_env)
+            mock_path.return_value.resolve.return_value.parents.__getitem__ = lambda self, idx: (
+                MagicMock(__truediv__=lambda s, o: mock_env)
             )
 
             # Should not raise
@@ -2417,24 +2590,32 @@ class TestVoiceLiveAPI:
         )
         assert resp.status_code == 307
 
-    async def test_create_list_get_update_delete_instance(self, client, admin_client_vl, db_session):
+    async def test_create_list_get_update_delete_instance(
+        self, client, admin_client_vl, db_session
+    ):
         """Full CRUD cycle for VL instances via API."""
         from app.models.user import User
 
         # Seed admin user for FK constraint
         admin = User(
-            id=ADMIN_ID, username="cov_admin", email="cov@test.com",
-            hashed_password="fake", role="admin",
+            id=ADMIN_ID,
+            username="cov_admin",
+            email="cov@test.com",
+            hashed_password="fake",
+            role="admin",
         )
         db_session.add(admin)
         await db_session.commit()
 
         # Create
-        resp = await client.post("/api/v1/voice-live/instances", json={
-            "name": "API Test Instance",
-            "voice_live_model": "gpt-4o",
-            "model_instruction": "Test",
-        })
+        resp = await client.post(
+            "/api/v1/voice-live/instances",
+            json={
+                "name": "API Test Instance",
+                "voice_live_model": "gpt-4o",
+                "model_instruction": "Test",
+            },
+        )
         assert resp.status_code == 201
         inst_id = resp.json()["id"]
 
@@ -2449,9 +2630,12 @@ class TestVoiceLiveAPI:
         assert resp.json()["name"] == "API Test Instance"
 
         # Update
-        resp = await client.put(f"/api/v1/voice-live/instances/{inst_id}", json={
-            "name": "Updated Name",
-        })
+        resp = await client.put(
+            f"/api/v1/voice-live/instances/{inst_id}",
+            json={
+                "name": "Updated Name",
+            },
+        )
         assert resp.status_code == 200
         assert resp.json()["name"] == "Updated Name"
 
@@ -2465,22 +2649,30 @@ class TestVoiceLiveAPI:
         from app.models.user import User
 
         admin = User(
-            id=ADMIN_ID, username="cov_admin", email="cov@test.com",
-            hashed_password="fake", role="admin",
+            id=ADMIN_ID,
+            username="cov_admin",
+            email="cov@test.com",
+            hashed_password="fake",
+            role="admin",
         )
         db_session.add(admin)
         await db_session.commit()
 
         # Create instance
-        resp = await client.post("/api/v1/voice-live/instances", json={
-            "name": "Assign Test",
-            "voice_live_model": "gpt-4o",
-        })
+        resp = await client.post(
+            "/api/v1/voice-live/instances",
+            json={
+                "name": "Assign Test",
+                "voice_live_model": "gpt-4o",
+            },
+        )
         inst_id = resp.json()["id"]
 
         # Create HCP profile
         profile = HcpProfile(
-            name="Dr. API", specialty="Oncology", created_by=ADMIN_ID,
+            name="Dr. API",
+            specialty="Oncology",
+            created_by=ADMIN_ID,
         )
         db_session.add(profile)
         await db_session.commit()
@@ -2532,7 +2724,7 @@ class TestDatabaseGetDb:
         from app.database import get_db
 
         gen = get_db()
-        session = await gen.__anext__()
+        await gen.__anext__()
         # Simulate an error — throw into the generator
         with pytest.raises(ValueError, match="test error"):
             await gen.athrow(ValueError("test error"))

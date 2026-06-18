@@ -204,8 +204,8 @@ class TestBuildScoringPrompt:
 
         assert "Dr. Test" in result
         assert "Oncology" in result
-        assert "MR: Hello doctor" in result
-        assert "HCP: Hello, how can I help?" in result
+        assert ">>> MR (EVALUATE THIS PERSON) <<<: Hello doctor" in result
+        assert ">>> HCP (DO NOT EVALUATE) <<<: Hello, how can I help?" in result
         assert "DELIVERED" in result
         assert "NOT DELIVERED" in result
         assert "key_message" in result

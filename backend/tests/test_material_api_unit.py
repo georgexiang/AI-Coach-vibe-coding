@@ -4,6 +4,7 @@ Bypasses ASGI transport to cover return statement lines that
 coverage.py does not track through httpx ASGITransport.
 """
 
+from datetime import UTC
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -158,7 +159,7 @@ class TestGetMaterialEndpoint:
     @patch("app.api.materials.material_service")
     async def test_get_returns_material(self, mock_svc, _mock_derived):
         """get_material returns MaterialOut validated from service result."""
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         mock_material = MagicMock()
         mock_material.id = "m1"
@@ -169,8 +170,8 @@ class TestGetMaterialEndpoint:
         mock_material.is_archived = False
         mock_material.current_version = 1
         mock_material.created_by = "admin-user-id"
-        mock_material.created_at = datetime(2026, 1, 1, tzinfo=timezone.utc)
-        mock_material.updated_at = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        mock_material.created_at = datetime(2026, 1, 1, tzinfo=UTC)
+        mock_material.updated_at = datetime(2026, 1, 1, tzinfo=UTC)
         mock_material.versions = []
         mock_svc.get_material = AsyncMock(return_value=mock_material)
 
@@ -244,5 +245,3 @@ class TestListVersionsEndpoint:
 
         result = await list_versions(material_id="m1", db=db, _user=user)
         assert result == mock_versions
-
-

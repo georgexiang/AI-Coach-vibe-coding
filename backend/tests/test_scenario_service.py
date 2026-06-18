@@ -198,8 +198,10 @@ class TestGetScenarios:
         await create_scenario(
             db_session,
             ScenarioCreate(
-                name="Draft", hcp_profile_id=hcp_id,
-                rubric_id="test-rubric-id", skill_id=skill_id,
+                name="Draft",
+                hcp_profile_id=hcp_id,
+                rubric_id="test-rubric-id",
+                skill_id=skill_id,
             ),
             user_id,
         )
@@ -207,8 +209,10 @@ class TestGetScenarios:
         active = await create_scenario(
             db_session,
             ScenarioCreate(
-                name="Active", hcp_profile_id=hcp_id,
-                rubric_id="test-rubric-id", skill_id=skill_id,
+                name="Active",
+                hcp_profile_id=hcp_id,
+                rubric_id="test-rubric-id",
+                skill_id=skill_id,
             ),
             user_id,
         )
@@ -242,16 +246,20 @@ class TestGetScenarios:
         await create_scenario(
             db_session,
             ScenarioCreate(
-                name="Brukinsa F2F", hcp_profile_id=hcp_id,
-                rubric_id="test-rubric-id", skill_id=skill_id,
+                name="Brukinsa F2F",
+                hcp_profile_id=hcp_id,
+                rubric_id="test-rubric-id",
+                skill_id=skill_id,
             ),
             user_id,
         )
         await create_scenario(
             db_session,
             ScenarioCreate(
-                name="Other", hcp_profile_id=hcp_id,
-                rubric_id="test-rubric-id", skill_id=skill_id,
+                name="Other",
+                hcp_profile_id=hcp_id,
+                rubric_id="test-rubric-id",
+                skill_id=skill_id,
             ),
             user_id,
         )
@@ -266,8 +274,10 @@ class TestGetScenarios:
             await create_scenario(
                 db_session,
                 ScenarioCreate(
-                    name=f"S{i}", hcp_profile_id=hcp_id,
-                    rubric_id="test-rubric-id", skill_id=skill_id,
+                    name=f"S{i}",
+                    hcp_profile_id=hcp_id,
+                    rubric_id="test-rubric-id",
+                    skill_id=skill_id,
                 ),
                 user_id,
             )
@@ -625,9 +635,7 @@ class TestArchivedGuard:
 
         user_id, hcp_id = await _seed_user_and_hcp(db_session)
         skill_id = await _seed_skill(db_session, user_id)
-        data = ScenarioCreate(
-            name="Arch", hcp_profile_id=hcp_id, rubric_id="r1", skill_id=skill_id
-        )
+        data = ScenarioCreate(name="Arch", hcp_profile_id=hcp_id, rubric_id="r1", skill_id=skill_id)
         scenario = await create_scenario(db_session, data, user_id)
         await transition_scenario_status(db_session, scenario.id, "active")
         await transition_scenario_status(db_session, scenario.id, "archived")

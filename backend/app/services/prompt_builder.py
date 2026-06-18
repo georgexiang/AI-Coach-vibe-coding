@@ -190,14 +190,14 @@ def build_scoring_prompt(
     dim_json_examples = []
     for dim in rubric_dimensions:
         dim_json_examples.append(
-            f'    {{\n'
+            f"    {{\n"
             f'      "dimension": "{dim["name"]}",\n'
             f'      "score": <0-100>,\n'
             f'      "weight": {dim["weight"]},\n'
             f'      "strengths": [{{"text": "description", "quote": "quote or null"}}],\n'
             f'      "weaknesses": [{{"text": "description", "quote": "quote or null"}}],\n'
             f'      "suggestions": ["actionable suggestion"]\n'
-            f'    }}'
+            f"    }}"
         )
     dim_json_block = ",\n".join(dim_json_examples)
 

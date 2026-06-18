@@ -157,9 +157,7 @@ async def delete_instance(db: AsyncSession, instance_id: str) -> None:
             if profile.agent_id and profile.agent_sync_status == "synced":
                 try:
                     cleared = build_cleared_voice_metadata()
-                    new_version = await update_agent_metadata_only(
-                        db, profile.agent_id, cleared
-                    )
+                    new_version = await update_agent_metadata_only(db, profile.agent_id, cleared)
                     # Use Foundry-returned version as authoritative source
                     if new_version:
                         profile.agent_version = new_version
@@ -214,9 +212,7 @@ async def assign_to_hcp(
 
             vl_metadata = build_voice_live_metadata(profile)
             if vl_metadata:
-                new_version = await update_agent_metadata_only(
-                    db, profile.agent_id, vl_metadata
-                )
+                new_version = await update_agent_metadata_only(db, profile.agent_id, vl_metadata)
                 # Use Foundry-returned version as authoritative source
                 if new_version:
                     profile.agent_version = new_version

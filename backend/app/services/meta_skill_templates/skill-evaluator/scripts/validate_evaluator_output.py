@@ -11,8 +11,13 @@ Returns a JSON report with validation results.
 import json
 import sys
 
-
-REQUIRED_FIELDS = ["overall_score", "overall_verdict", "dimensions", "summary", "top_3_improvements"]
+REQUIRED_FIELDS = [
+    "overall_score",
+    "overall_verdict",
+    "dimensions",
+    "summary",
+    "top_3_improvements",
+]
 
 VALID_VERDICTS = {"PASS", "NEEDS_REVIEW", "FAIL"}
 
@@ -35,8 +40,13 @@ DIMENSION_WEIGHTS = {
 }
 
 DIMENSION_REQUIRED_FIELDS = [
-    "name", "score", "verdict", "strengths", "improvements",
-    "critical_issues", "rationale",
+    "name",
+    "score",
+    "verdict",
+    "strengths",
+    "improvements",
+    "critical_issues",
+    "rationale",
 ]
 
 
@@ -61,9 +71,7 @@ def validate(data: dict) -> dict:
     # --- overall_verdict ---
     verdict = data.get("overall_verdict")
     if verdict is not None and verdict not in VALID_VERDICTS:
-        errors.append(
-            f"overall_verdict '{verdict}' not in {sorted(VALID_VERDICTS)}"
-        )
+        errors.append(f"overall_verdict '{verdict}' not in {sorted(VALID_VERDICTS)}")
 
     # --- Verdict / score consistency ---
     if isinstance(score, (int, float)) and verdict in VALID_VERDICTS:
@@ -96,9 +104,7 @@ def validate(data: dict) -> dict:
             # Check dimension name
             name = dim.get("name", "")
             if name and name not in CANONICAL_DIMENSIONS:
-                warnings.append(
-                    f"dimensions[{i}] name '{name}' not in canonical dimensions"
-                )
+                warnings.append(f"dimensions[{i}] name '{name}' not in canonical dimensions")
             if name in seen_names:
                 errors.append(f"dimensions[{i}] duplicate name '{name}'")
             seen_names.add(name)
@@ -107,29 +113,19 @@ def validate(data: dict) -> dict:
             dim_score = dim.get("score")
             if dim_score is not None:
                 if not isinstance(dim_score, (int, float)):
-                    errors.append(
-                        f"dimensions[{i}] score must be a number"
-                    )
+                    errors.append(f"dimensions[{i}] score must be a number")
                 elif not 0 <= dim_score <= 100:
-                    errors.append(
-                        f"dimensions[{i}] score {dim_score} out of range [0, 100]"
-                    )
+                    errors.append(f"dimensions[{i}] score {dim_score} out of range [0, 100]")
 
             # Check verdict
             dim_verdict = dim.get("verdict")
             if dim_verdict is not None and dim_verdict not in VALID_VERDICTS:
-                errors.append(
-                    f"dimensions[{i}] verdict '{dim_verdict}' invalid"
-                )
+                errors.append(f"dimensions[{i}] verdict '{dim_verdict}' invalid")
 
             # Check per-dimension verdict/score consistency
-            if (
-                isinstance(dim_score, (int, float))
-                and dim_verdict in VALID_VERDICTS
-            ):
+            if isinstance(dim_score, (int, float)) and dim_verdict in VALID_VERDICTS:
                 expected_v = (
-                    "PASS" if dim_score >= 70
-                    else ("NEEDS_REVIEW" if dim_score >= 50 else "FAIL")
+                    "PASS" if dim_score >= 70 else ("NEEDS_REVIEW" if dim_score >= 50 else "FAIL")
                 )
                 if dim_verdict != expected_v:
                     warnings.append(
@@ -176,9 +172,7 @@ def validate(data: dict) -> dict:
         if len(improvements) == 0:
             warnings.append("top_3_improvements is empty")
         elif len(improvements) > 3:
-            warnings.append(
-                f"top_3_improvements has {len(improvements)} items, expected <= 3"
-            )
+            warnings.append(f"top_3_improvements has {len(improvements)} items, expected <= 3")
     elif improvements is not None:
         errors.append("top_3_improvements must be a list")
 

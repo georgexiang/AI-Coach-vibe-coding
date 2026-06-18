@@ -20,7 +20,6 @@ import re
 import sys
 from pathlib import PurePosixPath
 
-
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
@@ -32,9 +31,7 @@ SOP_STEP_RE = re.compile(r"^#{2,3}\s+(?:Step|步骤)\s*\d", re.MULTILINE | re.IG
 ASSESSMENT_HEADING_RE = re.compile(
     r"^#{1,4}\s+.*(?:Assessment|考核|Rubric|评估)", re.MULTILINE | re.IGNORECASE
 )
-KNOWLEDGE_HEADING_RE = re.compile(
-    r"^#{1,4}\s+.*(?:Knowledge|知识)", re.MULTILINE | re.IGNORECASE
-)
+KNOWLEDGE_HEADING_RE = re.compile(r"^#{1,4}\s+.*(?:Knowledge|知识)", re.MULTILINE | re.IGNORECASE)
 
 METADATA_REQUIRED = ["name", "description", "product", "therapeutic_area"]
 
@@ -107,15 +104,11 @@ def validate(data: dict) -> dict:
                     "start/end with alphanumeric"
                 )
             if len(name) > 63:
-                errors.append(
-                    f"metadata.name '{name}' exceeds 63 character limit ({len(name)})"
-                )
+                errors.append(f"metadata.name '{name}' exceeds 63 character limit ({len(name)})")
 
         desc = metadata.get("description", "")
         if isinstance(desc, str) and len(desc) > 1024:
-            warnings.append(
-                f"metadata.description is {len(desc)} chars, recommended <= 1024"
-            )
+            warnings.append(f"metadata.description is {len(desc)} chars, recommended <= 1024")
 
     # --- skill_md ---
     skill_md = data.get("skill_md", "")
@@ -130,8 +123,7 @@ def validate(data: dict) -> dict:
         sop_matches = SOP_STEP_RE.findall(skill_md)
         if len(sop_matches) < MIN_SOP_STEPS:
             warnings.append(
-                f"skill_md has {len(sop_matches)} SOP step headings, "
-                f"expected >= {MIN_SOP_STEPS}"
+                f"skill_md has {len(sop_matches)} SOP step headings, expected >= {MIN_SOP_STEPS}"
             )
 
         if not ASSESSMENT_HEADING_RE.search(skill_md):
@@ -151,9 +143,7 @@ def validate(data: dict) -> dict:
             if not _safe_filename(filename):
                 errors.append(f"references: unsafe filename '{filename}'")
             elif not _check_extension(filename, SAFE_REFERENCE_EXTENSIONS):
-                warnings.append(
-                    f"references: '{filename}' has non-standard extension"
-                )
+                warnings.append(f"references: '{filename}' has non-standard extension")
             if not isinstance(content, str) or len(content) < 50:
                 warnings.append(
                     f"references['{filename}'] content is too short "
@@ -171,9 +161,7 @@ def validate(data: dict) -> dict:
             if not _safe_filename(filename):
                 errors.append(f"scripts: unsafe filename '{filename}'")
             elif not _check_extension(filename, SAFE_SCRIPT_EXTENSIONS):
-                warnings.append(
-                    f"scripts: '{filename}' has non-standard extension"
-                )
+                warnings.append(f"scripts: '{filename}' has non-standard extension")
             if not isinstance(content, str) or len(content) < 50:
                 warnings.append(
                     f"scripts['{filename}'] content is too short "
@@ -191,9 +179,7 @@ def validate(data: dict) -> dict:
             if not _safe_filename(filename):
                 errors.append(f"assets: unsafe filename '{filename}'")
             elif not _check_extension(filename, SAFE_ASSET_EXTENSIONS):
-                warnings.append(
-                    f"assets: '{filename}' has non-standard extension"
-                )
+                warnings.append(f"assets: '{filename}' has non-standard extension")
 
     # --- summary ---
     summary = data.get("summary", "")

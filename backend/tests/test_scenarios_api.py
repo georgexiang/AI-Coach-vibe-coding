@@ -250,6 +250,7 @@ class TestListActiveScenariosEndpoint:
 
         from app.models.scenario import Scenario
         from tests.conftest import TestSessionLocal
+
         async with TestSessionLocal() as session:
             result = await session.execute(select(Scenario).where(Scenario.id == scn_id))
             scn = result.scalar_one()

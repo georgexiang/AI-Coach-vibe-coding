@@ -15,9 +15,7 @@ from app.services.storage.local import LocalStorageBackend
 def mock_storage(tmp_path, monkeypatch):
     """Patch get_storage to return a temp-backed LocalStorageBackend."""
     storage = LocalStorageBackend(base_path=str(tmp_path))
-    monkeypatch.setattr(
-        "app.services.audio_storage_service.get_storage", lambda: storage
-    )
+    monkeypatch.setattr("app.services.audio_storage_service.get_storage", lambda: storage)
     return storage
 
 
@@ -33,24 +31,18 @@ class TestUploadSessionAudio:
     async def test_upload_stores_content(self, mock_storage):
         """upload_session_audio saves the actual audio bytes."""
         await upload_session_audio("session-456", b"test-audio-bytes")
-        content = await mock_storage.read(
-            f"{AUDIO_BASE_PATH}/session-456/recording.webm"
-        )
+        content = await mock_storage.read(f"{AUDIO_BASE_PATH}/session-456/recording.webm")
         assert content == b"test-audio-bytes"
 
     async def test_upload_custom_filename(self, mock_storage):
         """upload_session_audio respects custom filename."""
-        result = await upload_session_audio(
-            "session-789", b"data", "custom.ogg"
-        )
+        result = await upload_session_audio("session-789", b"data", "custom.ogg")
         assert "custom.ogg" in result
 
     async def test_upload_creates_directory_structure(self, mock_storage):
         """upload_session_audio creates nested directories."""
         await upload_session_audio("new-session", b"data")
-        assert await mock_storage.exists(
-            f"{AUDIO_BASE_PATH}/new-session/recording.webm"
-        )
+        assert await mock_storage.exists(f"{AUDIO_BASE_PATH}/new-session/recording.webm")
 
 
 class TestGetAudioUrl:

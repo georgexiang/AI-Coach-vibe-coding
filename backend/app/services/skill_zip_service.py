@@ -70,8 +70,7 @@ def validate_zip_security(zip_bytes: bytes) -> list[str]:
     # Check compressed size
     if len(zip_bytes) > MAX_ZIP_SIZE_BYTES:
         errors.append(
-            f"ZIP file size ({len(zip_bytes)} bytes) exceeds maximum "
-            f"of {MAX_ZIP_SIZE_BYTES} bytes"
+            f"ZIP file size ({len(zip_bytes)} bytes) exceeds maximum of {MAX_ZIP_SIZE_BYTES} bytes"
         )
         return errors  # Don't even try to open if too large
 
@@ -85,9 +84,7 @@ def validate_zip_security(zip_bytes: bytes) -> list[str]:
 
     # Check entry count
     if len(entries) > MAX_ZIP_ENTRIES:
-        errors.append(
-            f"ZIP contains {len(entries)} entries, maximum is {MAX_ZIP_ENTRIES}"
-        )
+        errors.append(f"ZIP contains {len(entries)} entries, maximum is {MAX_ZIP_ENTRIES}")
 
     total_uncompressed = 0
 
@@ -113,8 +110,7 @@ def validate_zip_security(zip_bytes: bytes) -> list[str]:
         parts = PurePosixPath(name).parts
         if len(parts) > MAX_PATH_DEPTH:
             errors.append(
-                f"Path too deep ({len(parts)} levels): '{name}', "
-                f"maximum is {MAX_PATH_DEPTH}"
+                f"Path too deep ({len(parts)} levels): '{name}', maximum is {MAX_PATH_DEPTH}"
             )
 
         # File size check
@@ -219,9 +215,7 @@ async def export_skill_zip(db: AsyncSession, skill_id: str) -> bytes:
 # ---------------------------------------------------------------------------
 
 
-async def import_skill_zip(
-    db: AsyncSession, zip_bytes: bytes, created_by: str = "admin"
-) -> Skill:
+async def import_skill_zip(db: AsyncSession, zip_bytes: bytes, created_by: str = "admin") -> Skill:
     """Import a Skill from a ZIP archive.
 
     Validates security, parses SKILL.md frontmatter, creates Skill + resources.
@@ -242,8 +236,8 @@ async def import_skill_zip(
     skill_md_content = zf.read("SKILL.md").decode("utf-8")
 
     # Parse YAML frontmatter
-    name, description, product, therapeutic_area, compatibility, tags, content = (
-        _parse_skill_md(skill_md_content)
+    name, description, product, therapeutic_area, compatibility, tags, content = _parse_skill_md(
+        skill_md_content
     )
 
     # Conflict check: reject duplicate names

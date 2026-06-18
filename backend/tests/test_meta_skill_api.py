@@ -1,11 +1,9 @@
 """API endpoint tests for /meta-skills router."""
 
-from tests.conftest import TestSessionLocal
-
 from app.models.meta_skill import MetaSkill
 from app.models.user import User
 from app.services.auth import create_access_token, get_password_hash
-
+from tests.conftest import TestSessionLocal
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -153,9 +151,19 @@ class TestGetMetaSkill:
         data = resp.json()
         # Verify all expected fields exist
         expected_fields = {
-            "id", "name", "display_name", "skill_type", "agent_id",
-            "agent_version", "model", "template_content", "template_language",
-            "is_active", "last_synced_at", "created_at", "updated_at",
+            "id",
+            "name",
+            "display_name",
+            "skill_type",
+            "agent_id",
+            "agent_version",
+            "model",
+            "template_content",
+            "template_language",
+            "is_active",
+            "last_synced_at",
+            "created_at",
+            "updated_at",
         }
         assert set(data.keys()) >= expected_fields
 

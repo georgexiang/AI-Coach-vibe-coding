@@ -1,14 +1,12 @@
 """Tests for meta-skill resource listing and download endpoints."""
 
-from tests.conftest import TestSessionLocal
-
 from app.models.user import User
 from app.services.auth import create_access_token, get_password_hash
 from app.services.meta_skill_service import (
     get_meta_skill_resource_content,
     list_meta_skill_resources,
 )
-
+from tests.conftest import TestSessionLocal
 
 # ---------------------------------------------------------------------------
 # Helpers
