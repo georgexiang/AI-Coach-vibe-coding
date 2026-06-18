@@ -141,8 +141,10 @@ class TestGetUserSessions:
 
     async def test_returns_sessions_with_total(self, db_session):
         user_id, scenario_id = await _seed_user_and_scenario(db_session)
-        await create_session(db_session, scenario_id, user_id)
-        await create_session(db_session, scenario_id, user_id)
+        session1 = await create_session(db_session, scenario_id, user_id)
+        session2 = await create_session(db_session, scenario_id, user_id)
+        await save_message(db_session, session1.id, "user", "hello")
+        await save_message(db_session, session2.id, "user", "hello again")
 
         sessions, total = await get_user_sessions(db_session, user_id)
         assert total == 2
@@ -151,7 +153,8 @@ class TestGetUserSessions:
     async def test_pagination_limits_results(self, db_session):
         user_id, scenario_id = await _seed_user_and_scenario(db_session)
         for _ in range(5):
-            await create_session(db_session, scenario_id, user_id)
+            session = await create_session(db_session, scenario_id, user_id)
+            await save_message(db_session, session.id, "user", "hello")
 
         sessions, total = await get_user_sessions(db_session, user_id, page=1, page_size=2)
         assert total == 5
@@ -252,13 +255,14 @@ class TestEndSession:
             await end_session(db_session, session.id, "other-user")
         assert exc_info.value.status_code == 403
 
-    async def test_raises_for_created_status(self, db_session):
+    async def test_allows_created_status(self, db_session):
         user_id, scenario_id = await _seed_user_and_scenario(db_session)
         session = await create_session(db_session, scenario_id, user_id)
 
-        with pytest.raises(AppException) as exc_info:
-            await end_session(db_session, session.id, user_id)
-        assert exc_info.value.code == "INVALID_STATUS"
+        ended = await end_session(db_session, session.id, user_id)
+
+        assert ended.status == "completed"
+        assert ended.duration_seconds == 0
 
     async def test_raises_for_nonexistent_session(self, db_session):
         with pytest.raises(NotFoundException):

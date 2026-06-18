@@ -78,11 +78,7 @@ async def _reload_with_hcp(db: AsyncSession, scenario_id: str) -> Scenario:
     """Re-load a scenario with eagerly-loaded HCP profile after a mutation."""
     result = await db.execute(
         select(Scenario)
-        .options(
-            selectinload(Scenario.hcp_profile).selectinload(
-                HcpProfile.voice_live_instance
-            )
-        )
+        .options(selectinload(Scenario.hcp_profile).selectinload(HcpProfile.voice_live_instance))
         .where(Scenario.id == scenario_id)
     )
     return result.scalar_one()
@@ -172,11 +168,7 @@ async def get_scenario(db: AsyncSession, scenario_id: str) -> Scenario:
     """Get a single scenario with eager-loaded HCP profile. Raises 404 if not found."""
     result = await db.execute(
         select(Scenario)
-        .options(
-            selectinload(Scenario.hcp_profile).selectinload(
-                HcpProfile.voice_live_instance
-            )
-        )
+        .options(selectinload(Scenario.hcp_profile).selectinload(HcpProfile.voice_live_instance))
         .where(Scenario.id == scenario_id)
     )
     scenario = result.scalar_one_or_none()

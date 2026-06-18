@@ -959,9 +959,7 @@ class TestHandleVoiceLiveWebsocket:
 
         events = [session_created_event, session_updated_event, audio_delta_event]
         event_iter = AsyncMock()
-        event_iter.__anext__ = AsyncMock(
-            side_effect=[*events, StopAsyncIteration()]
-        )
+        event_iter.__anext__ = AsyncMock(side_effect=[*events, StopAsyncIteration()])
         mock_conn.__aiter__ = MagicMock(return_value=event_iter)
 
         mock_ctx = AsyncMock()
@@ -1592,7 +1590,7 @@ class TestLoadConnectionConfigErrors:
     """Tests for error paths in _load_connection_config."""
 
     async def test_missing_api_key_returns_none_key(self, seeded_db):
-        """_load_connection_config returns empty api_key when key is not set (DefaultAzureCredential will be used)."""
+        """_load_connection_config returns empty api_key when key is not set."""
         from unittest.mock import patch as _patch
 
         # Patch get_effective_key to return empty
@@ -2371,9 +2369,6 @@ class TestWebSocketHandlerErrorPaths:
 # ===========================================================================
 
 
-import asyncio as _asyncio
-
-
 async def _connect_with_retry(connect_fn, *, max_retries=5, delay=3.0):
     """Retry Voice Live connections — Azure sometimes resets under rapid reconnect."""
     last_err = None
@@ -2383,7 +2378,7 @@ async def _connect_with_retry(connect_fn, *, max_retries=5, delay=3.0):
         except Exception as e:
             last_err = e
             if attempt < max_retries - 1:
-                await _asyncio.sleep(delay)
+                await asyncio.sleep(delay)
     raise last_err  # type: ignore[misc]
 
 

@@ -29,9 +29,7 @@ class TestAudioStorageService:
     """Tests for audio storage service functions."""
 
     async def test_upload_session_audio(self):
-        with patch(
-            "app.services.audio_storage_service.get_storage"
-        ) as mock_get_storage:
+        with patch("app.services.audio_storage_service.get_storage") as mock_get_storage:
             mock_backend = AsyncMock()
             mock_backend.save.return_value = "audio/sessions/test-id/recording.webm"
             mock_get_storage.return_value = mock_backend
@@ -43,9 +41,7 @@ class TestAudioStorageService:
             )
 
     async def test_get_audio_url_when_exists(self):
-        with patch(
-            "app.services.audio_storage_service.get_storage"
-        ) as mock_get_storage:
+        with patch("app.services.audio_storage_service.get_storage") as mock_get_storage:
             mock_backend = AsyncMock()
             mock_backend.exists.return_value = True
             mock_get_storage.return_value = mock_backend
@@ -54,9 +50,7 @@ class TestAudioStorageService:
             assert url == "audio/sessions/test-id/recording.webm"
 
     async def test_get_audio_url_returns_none_when_not_exists(self):
-        with patch(
-            "app.services.audio_storage_service.get_storage"
-        ) as mock_get_storage:
+        with patch("app.services.audio_storage_service.get_storage") as mock_get_storage:
             mock_backend = AsyncMock()
             mock_backend.exists.return_value = False
             mock_get_storage.return_value = mock_backend

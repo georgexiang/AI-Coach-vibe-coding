@@ -244,9 +244,7 @@ async def test_resolve_config_fallback_to_inline(db_session, seed_hcp):
 
 
 @pytest.mark.asyncio
-async def test_unassign_instance_from_hcp(
-    admin_client, seed_instance, seed_hcp, db_session
-):
+async def test_unassign_instance_from_hcp(admin_client, seed_instance, seed_hcp, db_session):
     """POST /voice-live/instances/unassign removes the VL instance from HCP."""
     # Pre-assign
     seed_hcp.voice_live_instance_id = seed_instance.id
@@ -314,9 +312,7 @@ async def test_hcp_detail_returns_voice_live_instance_id(
 
 
 @pytest.mark.asyncio
-async def test_assign_then_list_shows_updated_hcp_count(
-    admin_client, seed_instance, seed_hcp
-):
+async def test_assign_then_list_shows_updated_hcp_count(admin_client, seed_instance, seed_hcp):
     """After assigning HCP to instance, listing should show hcp_count = 1."""
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         # Assign

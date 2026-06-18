@@ -382,6 +382,7 @@ class TestVersions:
         versions = response.json()
         assert len(versions) == 2
 
+
 class TestAuthGuard:
     """Tests for admin-only access control."""
 
@@ -401,5 +402,3 @@ class TestAuthGuard:
         """Request without auth token returns 401."""
         response = await client.get("/api/v1/materials")
         assert response.status_code == 401
-
-

@@ -380,8 +380,7 @@ def _get_project_client(endpoint: str, api_key: str = ""):
         )
 
     raise ValueError(
-        "No valid credential available. Either run 'az login' for Entra ID "
-        "or provide an API key."
+        "No valid credential available. Either run 'az login' for Entra ID or provide an API key."
     )
 
 
@@ -525,11 +524,15 @@ async def create_agent(
                 or "ConnectionResetError" in err_str
             )
             if is_transient and attempt < max_retries:
-                wait = 2 ** attempt  # 2s, 4s
+                wait = 2**attempt  # 2s, 4s
                 logger.warning(
                     "create_agent: transient error on attempt %d/%d for '%s': %s. "
                     "Retrying in %ds...",
-                    attempt, max_retries, agent_name, e, wait,
+                    attempt,
+                    max_retries,
+                    agent_name,
+                    e,
+                    wait,
                 )
                 await asyncio.sleep(wait)
                 continue
@@ -546,9 +549,7 @@ async def create_agent(
                     agent_name,
                 )
                 try:
-                    existing = await asyncio.to_thread(
-                        client.agents.get, agent_name=agent_name
-                    )
+                    existing = await asyncio.to_thread(client.agents.get, agent_name=agent_name)
                     if existing:
                         logger.info(
                             "create_agent: agent '%s' exists in Foundry (pre-created). "
@@ -577,7 +578,8 @@ async def create_agent(
                     "before they can be updated via API Key. "
                     "Please create agent '%s' in Azure AI Foundry Portal first, "
                     "then retry sync.",
-                    agent_name, agent_name,
+                    agent_name,
+                    agent_name,
                 )
                 raise RuntimeError(
                     f"Agent creation failed: Azure AI Foundry does not support "
@@ -588,11 +590,12 @@ async def create_agent(
 
             logger.error(
                 "create_agent failed: endpoint=%s, agent_name=%s, attempt=%d, error=%s",
-                project_endpoint, agent_name, attempt, e,
+                project_endpoint,
+                agent_name,
+                attempt,
+                e,
             )
-            raise RuntimeError(
-                f"Agent creation failed (endpoint: {project_endpoint}): {e}"
-            ) from e
+            raise RuntimeError(f"Agent creation failed (endpoint: {project_endpoint}): {e}") from e
 
     raise RuntimeError(
         f"Agent creation failed after {max_retries} attempts "

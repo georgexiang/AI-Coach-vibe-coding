@@ -1,10 +1,7 @@
 """Unit tests for skill_creator_service — agent-based skill creation."""
 
 import json
-
 from unittest.mock import patch
-
-from tests.conftest import TestSessionLocal
 
 from app.models.meta_skill import MetaSkill
 from app.models.skill import Skill, SkillResource
@@ -16,7 +13,7 @@ from app.services.skill_creator_service import (
     _build_package_manifest,
     _parse_raw_json,
 )
-
+from tests.conftest import TestSessionLocal
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -119,7 +116,12 @@ class TestParseRawJson:
 class TestBuildPackageManifest:
     def test_v3_format_with_skill_md(self):
         parsed = {
-            "metadata": {"name": "test", "description": "desc", "product": "P", "therapeutic_area": "Onc"},
+            "metadata": {
+                "name": "test",
+                "description": "desc",
+                "product": "P",
+                "therapeutic_area": "Onc",
+            },
             "skill_md": "# Skill\n\n## SOP Steps\n\n### Step 1: Opening",
             "references": {"kb.md": "# Knowledge"},
             "scripts": {"validate.py": "def validate(): pass"},
@@ -141,7 +143,12 @@ class TestBuildPackageManifest:
             "product": "LegacyP",
             "therapeutic_area": "Hematology",
             "sop_steps": [
-                {"title": "Opening", "description": "Greet", "key_points": ["Hi"], "assessment_criteria": ["Tone"]},
+                {
+                    "title": "Opening",
+                    "description": "Greet",
+                    "key_points": ["Hi"],
+                    "assessment_criteria": ["Tone"],
+                },
             ],
             "modules": [],
             "scoring": {"pass_threshold": 70, "weights": {}},
@@ -258,9 +265,7 @@ class TestCreateSkillViaAgent:
         assert "not configured" in result.error_detail
 
     @patch("app.services.skill_creator_service._call_direct_openai")
-    async def test_fallback_to_direct_openai_when_no_agent_id(
-        self, mock_direct, db_session
-    ):
+    async def test_fallback_to_direct_openai_when_no_agent_id(self, mock_direct, db_session):
         """When meta skill has no agent_id, falls back to direct OpenAI."""
         user_id = await _seed_user()
         skill_id = await _seed_skill_with_resources(user_id)
@@ -269,13 +274,21 @@ class TestCreateSkillViaAgent:
         mock_direct.return_value = CreationResult(
             status="success",
             model_used="gpt-4o",
-            raw_response=json.dumps({
-                "metadata": {"name": "generated-skill", "description": "Gen desc",
-                             "product": "P", "therapeutic_area": "Onc"},
-                "skill_md": "# Generated\n\n## SOP Steps\n\n### Step 1: Opening\nContent.",
-                "references": {}, "scripts": {}, "assets": {},
-                "summary": "Generated skill.",
-            }),
+            raw_response=json.dumps(
+                {
+                    "metadata": {
+                        "name": "generated-skill",
+                        "description": "Gen desc",
+                        "product": "P",
+                        "therapeutic_area": "Onc",
+                    },
+                    "skill_md": "# Generated\n\n## SOP Steps\n\n### Step 1: Opening\nContent.",
+                    "references": {},
+                    "scripts": {},
+                    "assets": {},
+                    "summary": "Generated skill.",
+                }
+            ),
         )
 
         result = await skill_creator_service.create_skill_via_agent(db_session, skill_id)
@@ -283,9 +296,7 @@ class TestCreateSkillViaAgent:
         assert result.status == "success"
 
     @patch("app.services.skill_creator_service._call_creator_agent")
-    async def test_uses_agent_when_agent_id_set(
-        self, mock_agent, db_session
-    ):
+    async def test_uses_agent_when_agent_id_set(self, mock_agent, db_session):
         """When meta skill has agent_id, uses agent path."""
         user_id = await _seed_user()
         skill_id = await _seed_skill_with_resources(user_id)
@@ -296,13 +307,21 @@ class TestCreateSkillViaAgent:
             agent_id="agent-xyz",
             agent_version="1",
             model_used="gpt-4o",
-            raw_response=json.dumps({
-                "metadata": {"name": "agent-skill", "description": "From agent",
-                             "product": "P", "therapeutic_area": "Onc"},
-                "skill_md": "# Agent Skill\n\nContent.",
-                "references": {}, "scripts": {}, "assets": {},
-                "summary": "From agent.",
-            }),
+            raw_response=json.dumps(
+                {
+                    "metadata": {
+                        "name": "agent-skill",
+                        "description": "From agent",
+                        "product": "P",
+                        "therapeutic_area": "Onc",
+                    },
+                    "skill_md": "# Agent Skill\n\nContent.",
+                    "references": {},
+                    "scripts": {},
+                    "assets": {},
+                    "summary": "From agent.",
+                }
+            ),
         )
 
         result = await skill_creator_service.create_skill_via_agent(db_session, skill_id)
@@ -320,19 +339,21 @@ class TestCreateSkillViaAgent:
         mock_direct.return_value = CreationResult(
             status="success",
             model_used="gpt-4o",
-            raw_response=json.dumps({
-                "metadata": {
-                    "name": "Updated Name",
-                    "description": "Updated desc",
-                    "product": "ProductX",
-                    "therapeutic_area": "Immunology",
-                },
-                "skill_md": "# Updated Skill\n\n## SOP Steps\n\nFull content.",
-                "references": {"kb.md": "# Knowledge base content here."},
-                "scripts": {"validate.py": "def validate(): pass"},
-                "assets": {},
-                "summary": "Updated skill summary.",
-            }),
+            raw_response=json.dumps(
+                {
+                    "metadata": {
+                        "name": "Updated Name",
+                        "description": "Updated desc",
+                        "product": "ProductX",
+                        "therapeutic_area": "Immunology",
+                    },
+                    "skill_md": "# Updated Skill\n\n## SOP Steps\n\nFull content.",
+                    "references": {"kb.md": "# Knowledge base content here."},
+                    "scripts": {"validate.py": "def validate(): pass"},
+                    "assets": {},
+                    "summary": "Updated skill summary.",
+                }
+            ),
         )
 
         result = await skill_creator_service.create_skill_via_agent(db_session, skill_id)
@@ -342,11 +363,8 @@ class TestCreateSkillViaAgent:
         async with TestSessionLocal() as s:
             from sqlalchemy import select
             from sqlalchemy.orm import selectinload
-            stmt = (
-                select(Skill)
-                .options(selectinload(Skill.resources))
-                .where(Skill.id == skill_id)
-            )
+
+            stmt = select(Skill).options(selectinload(Skill.resources)).where(Skill.id == skill_id)
             res = await s.execute(stmt)
             skill = res.scalar_one()
             assert skill.name == "Updated Name"
@@ -383,6 +401,7 @@ class TestCreateSkillViaAgent:
         # Verify skill conversion_status set to failed
         async with TestSessionLocal() as s:
             from sqlalchemy import select
+
             stmt = select(Skill).where(Skill.id == skill_id)
             res = await s.execute(stmt)
             skill = res.scalar_one()

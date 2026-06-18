@@ -348,7 +348,7 @@ class TestRescoreServiceMethod:
         _, session_id, _ = await _setup_scored_session()
 
         async with TestSessionLocal() as db:
-            new_score = await rescore_session(db, session_id)
+            await rescore_session(db, session_id)
             await db.commit()
 
         # Check ScoreDetail records

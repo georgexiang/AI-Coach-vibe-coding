@@ -291,11 +291,14 @@ async def seed_all(session: AsyncSession) -> None:
 
     existing_mat = await session.execute(select(TrainingMaterial).limit(1))
     if existing_mat.scalar_one_or_none() is None:
-        from seed_materials import seed_materials  # type: ignore[import-not-found]
+        try:
+            from seed_materials import seed_materials  # type: ignore[import-not-found]
 
-        material_seed_result = seed_materials(session)
-        if isawaitable(material_seed_result):
-            await material_seed_result
+            material_seed_result = seed_materials(session)
+            if isawaitable(material_seed_result):
+                await material_seed_result
+        except Exception:
+            logger.exception("Training material seed failed; continuing startup seed")
 
     # --- 6. Azure AI Foundry config from env vars ---
     try:

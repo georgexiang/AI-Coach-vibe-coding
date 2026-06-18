@@ -1,7 +1,5 @@
 """Tests for skill directory loading (SKILL.md + references/ composition)."""
 
-import pytest
-
 from app.services.meta_skill_service import (
     _load_default_template,
     _load_skill_directory,

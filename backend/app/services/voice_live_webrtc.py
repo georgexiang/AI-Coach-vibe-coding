@@ -21,9 +21,7 @@ logger = logging.getLogger(__name__)
 
 WEBRTC_API_VERSION = "2026-01-01-preview"
 
-AVATAR_WARNING = (
-    "Avatar (digital human) is not supported with WebRTC audio transport in preview."
-)
+AVATAR_WARNING = "Avatar (digital human) is not supported with WebRTC audio transport in preview."
 
 
 async def create_webrtc_session_config(
@@ -67,9 +65,7 @@ async def create_webrtc_session_config(
     agent_id = mode_info.get("agent_id") if config_is_agent else None
     master = await config_service.get_master_config(db)
     default_project = master.default_project if master else ""
-    project_name_val = (
-        mode_info.get("project_name") or default_project if config_is_agent else None
-    )
+    project_name_val = mode_info.get("project_name") or default_project if config_is_agent else None
 
     # Default session settings
     voice_name = "zh-CN-XiaoxiaoMultilingualNeural"

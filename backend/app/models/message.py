@@ -10,9 +10,7 @@ class SessionMessage(Base, TimestampMixin):
     """Individual message within a coaching session conversation."""
 
     __tablename__ = "session_messages"
-    __table_args__ = (
-        Index("ix_messages_session_index", "session_id", "message_index"),
-    )
+    __table_args__ = (Index("ix_messages_session_index", "session_id", "message_index"),)
 
     session_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("coaching_sessions.id"), nullable=False, index=True
