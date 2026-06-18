@@ -140,7 +140,7 @@ export default function ScenarioEditorPage() {
     if (isNew) {
       createMutation.mutate(data, {
         onSuccess: () => {
-          toast.success(t("admin:scenarios.save"));
+          toast.success(t("admin:scenarios.saved"));
           navigate("/admin/scenarios");
         },
         onError: () => toast.error(t("scenarios.saveFailed")),
@@ -154,7 +154,7 @@ export default function ScenarioEditorPage() {
         { id, data: updateData },
         {
           onSuccess: () => {
-            toast.success(t("admin:scenarios.save"));
+            toast.success(t("admin:scenarios.saved"));
             navigate("/admin/scenarios");
           },
           onError: () => toast.error(t("scenarios.saveFailed")),

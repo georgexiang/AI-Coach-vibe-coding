@@ -117,7 +117,7 @@ export default function RubricEditorPage() {
     if (isNew) {
       createMutation.mutate(payload, {
         onSuccess: () => {
-          toast.success(t("admin:rubrics.save"));
+          toast.success(t("admin:rubrics.saved"));
           navigate("/admin/scoring-rubrics");
         },
         onError: () => toast.error(t("admin:errors.rubricSaveFailed")),
@@ -127,7 +127,7 @@ export default function RubricEditorPage() {
         { id, data: payload as RubricUpdate },
         {
           onSuccess: () => {
-            toast.success(t("admin:rubrics.save"));
+            toast.success(t("admin:rubrics.saved"));
             navigate("/admin/scoring-rubrics");
           },
           onError: () => toast.error(t("admin:errors.rubricSaveFailed")),
