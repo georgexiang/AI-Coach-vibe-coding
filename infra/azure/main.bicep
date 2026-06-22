@@ -8,6 +8,7 @@ param namePrefix string = 'aicoach'
 @allowed([
   'dev'
   'demo'
+  'public'
   'prod'
 ])
 param environmentName string = 'demo'
@@ -141,7 +142,7 @@ param managePostgresAdminPassword bool = true
 param databaseAutoCreateTables bool = false
 
 @description('GitHub repository owner or organization for OIDC federation.')
-param githubOwner string = 'jeromeecho'
+param githubOwner string = 'huqianghui'
 
 @description('GitHub repository name for OIDC federation.')
 param githubRepo string = 'AI-Coach-vibe-coding'
@@ -494,6 +495,10 @@ output githubActions object = {
   AZURE_CLIENT_ID: githubOidc.outputs.githubDeploymentClientId
   AZURE_TENANT_ID: tenant().tenantId
   AZURE_SUBSCRIPTION_ID: subscription().subscriptionId
+  AZURE_RESOURCE_GROUP: effectiveResourceGroupName
   ACR_NAME: containerRegistry.outputs.summary.registryName
   RESOURCE_GROUP: effectiveResourceGroupName
+  BACKEND_APP_NAME: containerApps.outputs.backendAppName
+  BACKEND_BOOTSTRAP_JOB_NAME: containerApps.outputs.backendBootstrapJobName
+  FRONTEND_APP_NAME: containerApps.outputs.frontendAppName
 }

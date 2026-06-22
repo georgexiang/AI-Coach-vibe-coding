@@ -74,6 +74,18 @@ az account set --subscription "<subscription-id-or-name>"
 .\infra\azure\scripts\deploy.ps1
 ```
 
+部署可作为 CD 目标的 public 环境：
+
+```powershell
+.\infra\azure\scripts\deploy.ps1 `
+  -ResourceGroupName "ai-coach-public-rg" `
+  -EnvironmentName "public" `
+  -NetworkProfile publicDemo `
+  -Location eastasia `
+  -FoundryLocation SwedenCentral `
+  -ChatDeploymentCapacity 30
+```
+
 脚本会生成本地忽略文件 `infra\azure\.local\main.parameters.generated.json`，然后执行 Bicep 部署并输出 GitHub OIDC 配置值。云端默认使用 PostgreSQL Entra / Managed Identity 和 Key Vault service-key storage。后续重复运行时，如果资源组里已经有 Key Vault，脚本不会读取 Key Vault secret，也不会默认轮换 bootstrap secrets；只有显式切到 legacy password DB 模式且仍需要生成 `DATABASE_URL` 时，脚本才会提示输入当前 PostgreSQL admin password。
 
 脚本支持失败后重跑：Bicep 负责资源增量部署；脚本只按 Key Vault secret 和 PostgreSQL server 的实际存在状态决定是否补写缺失 secret、是否给新建 PostgreSQL 传 administrator password，避免部分失败后重跑时误轮换已有 secret 或漏传首次创建所需密码。
