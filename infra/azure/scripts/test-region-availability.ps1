@@ -3,7 +3,7 @@ param(
     [string[]]$Locations = @("eastus", "westus3", "centralus", "southcentralus", "swedencentral", "uksouth", "francecentral", "southeastasia", "japaneast"),
     [string]$EnvironmentName = "dev",
     [string]$NamePrefix = "aicoach",
-    [string]$GithubOwner = "jeromeecho",
+    [string]$GithubOwner = "huqianghui",
     [string]$GithubRepo = "AI-Coach-vibe-coding",
     [string]$GithubBranch = "main",
     [string]$ChatDeploymentName = "gpt-4o",

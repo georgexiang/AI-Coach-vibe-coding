@@ -7,7 +7,8 @@ param(
     [Parameter(Mandatory = $true)][string]$ResourceGroupName,
     [Parameter(Mandatory = $true)][string]$AcrName,
     [Parameter(Mandatory = $true)][string]$BackendAppName,
-    [Parameter(Mandatory = $true)][string]$FrontendAppName
+    [Parameter(Mandatory = $true)][string]$FrontendAppName,
+    [string]$BackendBootstrapJobName = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -20,5 +21,9 @@ gh variable set AZURE_RESOURCE_GROUP --repo $Repository --body $ResourceGroupNam
 gh variable set ACR_NAME --repo $Repository --body $AcrName
 gh variable set BACKEND_APP_NAME --repo $Repository --body $BackendAppName
 gh variable set FRONTEND_APP_NAME --repo $Repository --body $FrontendAppName
+
+if (-not [string]::IsNullOrWhiteSpace($BackendBootstrapJobName)) {
+    gh variable set BACKEND_BOOTSTRAP_JOB_NAME --repo $Repository --body $BackendBootstrapJobName
+}
 
 Write-Host "GitHub variables updated." -ForegroundColor Green

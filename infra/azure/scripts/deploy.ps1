@@ -15,7 +15,7 @@ param(
     [string]$PrivateEndpointsSubnetPrefix = "10.60.2.0/24",
     [ValidateSet("none", "azureAiSearch")]
     [string]$KnowledgeBaseMode = "none",
-    [string]$GithubOwner = "jeromeecho",
+    [string]$GithubOwner = "huqianghui",
     [string]$GithubRepo = "AI-Coach-vibe-coding",
     [string]$GithubBranch = "main",
     [string]$ChatDeploymentName = "gpt-4o",
@@ -687,6 +687,7 @@ Write-Host "AZURE_SUBSCRIPTION_ID=$subscriptionId"
 Write-Host "AZURE_RESOURCE_GROUP=$($outputs.resourceGroupName.value)"
 Write-Host "ACR_NAME=$($outputs.containerRegistryName.value)"
 Write-Host "BACKEND_APP_NAME=$($outputs.backendContainerAppName.value)"
+Write-Host "BACKEND_BOOTSTRAP_JOB_NAME=$($outputs.backendBootstrapJobName.value)"
 Write-Host "FRONTEND_APP_NAME=$($outputs.frontendContainerAppName.value)"
 
 if (-not $KeepGeneratedParameters) {
