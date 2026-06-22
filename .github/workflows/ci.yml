@@ -1,8 +1,6 @@
-name: CI/CD Pipeline
+name: PR CI
 
 on:
-  push:
-    branches: [main]
   pull_request:
     branches: [main]
 
@@ -10,7 +8,49 @@ permissions:
   contents: read
 
 jobs:
+  changes:
+    name: Detect changed areas
+    runs-on: ubuntu-latest
+    outputs:
+      app: ${{ steps.filter.outputs.app }}
+      infra: ${{ steps.filter.outputs.infra }}
+      workflow: ${{ steps.filter.outputs.workflow }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: filter
+        name: Classify changed files
+        shell: bash
+        run: |
+          app=false
+          infra=false
+          workflow=false
+
+          while IFS= read -r file; do
+            case "$file" in
+              backend/*|frontend/*|backend/Dockerfile|frontend/Dockerfile|docker-compose.yml)
+                app=true
+                ;;
+              infra/*)
+                infra=true
+                ;;
+              .github/workflows/*)
+                workflow=true
+                ;;
+            esac
+          done < <(git diff --name-only \
+            "${{ github.event.pull_request.base.sha }}" \
+            "${{ github.event.pull_request.head.sha }}")
+
+          echo "app=$app" >> "$GITHUB_OUTPUT"
+          echo "infra=$infra" >> "$GITHUB_OUTPUT"
+          echo "workflow=$workflow" >> "$GITHUB_OUTPUT"
+
   backend-test:
+    name: Backend lint and tests
+    needs: changes
+    if: needs.changes.outputs.app == 'true' || needs.changes.outputs.workflow == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -43,6 +83,9 @@ jobs:
           path: backend/test-results/
 
   frontend-test:
+    name: Frontend typecheck and build
+    needs: changes
+    if: needs.changes.outputs.app == 'true' || needs.changes.outputs.workflow == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -60,78 +103,81 @@ jobs:
       - name: Build
         run: npm run build
 
-  deploy:
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    needs: [backend-test, frontend-test]
+  docker-build:
+    name: Docker build validation
+    needs: [changes, backend-test, frontend-test]
+    if: needs.changes.outputs.app == 'true' || needs.changes.outputs.workflow == 'true'
     runs-on: ubuntu-latest
-    permissions:
-      id-token: write
-      contents: read
     steps:
       - uses: actions/checkout@v4
-      - name: Azure Login (OIDC)
-        uses: azure/login@v2
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build backend image without pushing
+        uses: docker/build-push-action@v6
         with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          context: backend
+          file: backend/Dockerfile
+          push: false
+          tags: ai-coach-backend:pr-${{ github.event.pull_request.number }}
 
-      - name: Build & Push Backend Image
-        run: |
-          az acr build \
-            --registry ${{ vars.ACR_NAME }} \
-            --image ai-coach-backend:${{ github.sha }} \
-            --image ai-coach-backend:latest \
-            --file backend/Dockerfile \
-            backend/
+      - name: Build frontend image without pushing
+        uses: docker/build-push-action@v6
+        with:
+          context: frontend
+          file: frontend/Dockerfile
+          push: false
+          tags: ai-coach-frontend:pr-${{ github.event.pull_request.number }}
 
-      - name: Deploy Backend
+  infra-validation:
+    name: Infra validation
+    needs: changes
+    if: needs.changes.outputs.infra == 'true' || needs.changes.outputs.workflow == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: PowerShell syntax check
+        shell: pwsh
         run: |
-          az containerapp update \
-            --name ai-coach-backend \
-            --resource-group ${{ vars.RESOURCE_GROUP }} \
-            --image ${{ vars.ACR_NAME }}.azurecr.io/ai-coach-backend:${{ github.sha }}
+          $files = @(
+            "infra/azure/scripts/deploy.ps1",
+            "infra/azure/scripts/build-and-push.ps1",
+            "infra/azure/scripts/set-github-vars.ps1",
+            "infra/azure/scripts/test-region-availability.ps1",
+            "infra/azure/scripts/verify-deployment.ps1"
+          )
+          foreach ($file in $files) {
+            [scriptblock]::Create((Get-Content -Path $file -Raw)) > $null
+          }
+      - name: Bicep build
+        run: az bicep build --file infra/azure/main.bicep
 
-      - name: Get Backend FQDN
-        id: backend-fqdn
+  pr-ci-result:
+    name: PR CI result
+    needs: [changes, backend-test, frontend-test, docker-build, infra-validation]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check required jobs for changed areas
+        shell: bash
         run: |
-          FQDN=$(az containerapp show \
-            --name ai-coach-backend \
-            --resource-group ${{ vars.RESOURCE_GROUP }} \
-            --query properties.configuration.ingress.fqdn -o tsv)
-          echo "fqdn=$FQDN" >> "$GITHUB_OUTPUT"
+          app="${{ needs.changes.outputs.app }}"
+          infra="${{ needs.changes.outputs.infra }}"
+          workflow="${{ needs.changes.outputs.workflow }}"
 
-      - name: Build & Push Frontend Image
-        run: |
-          az acr build \
-            --registry ${{ vars.ACR_NAME }} \
-            --image ai-coach-frontend:${{ github.sha }} \
-            --image ai-coach-frontend:latest \
-            --build-arg VITE_API_BASE_URL=https://${{ steps.backend-fqdn.outputs.fqdn }} \
-            --file frontend/Dockerfile \
-            frontend/
-
-      - name: Deploy Frontend
-        run: |
-          az containerapp update \
-            --name ai-coach-frontend \
-            --resource-group ${{ vars.RESOURCE_GROUP }} \
-            --image ${{ vars.ACR_NAME }}.azurecr.io/ai-coach-frontend:${{ github.sha }} \
-            --set-env-vars "BACKEND_URL=https://${{ steps.backend-fqdn.outputs.fqdn }}"
-
-      - name: Verify Deployment
-        run: |
-          FRONTEND_FQDN=$(az containerapp show \
-            --name ai-coach-frontend \
-            --resource-group ${{ vars.RESOURCE_GROUP }} \
-            --query properties.configuration.ingress.fqdn -o tsv)
-          echo "Frontend URL: https://$FRONTEND_FQDN"
-          echo "Backend URL: https://${{ steps.backend-fqdn.outputs.fqdn }}"
-          for i in $(seq 1 10); do
-            if curl -sf "https://${{ steps.backend-fqdn.outputs.fqdn }}/api/health" > /dev/null; then
-              echo "Backend health check passed"
-              break
+          if [[ "$app" == "true" || "$workflow" == "true" ]]; then
+            if [[ "${{ needs.backend-test.result }}" != "success" ||
+                  "${{ needs.frontend-test.result }}" != "success" ||
+                  "${{ needs.docker-build.result }}" != "success" ]]; then
+              echo "::error::App CI failed or did not complete."
+              exit 1
             fi
-            echo "Attempt $i/10 - waiting 10s..."
-            sleep 10
-          done
+          fi
+
+          if [[ "$infra" == "true" || "$workflow" == "true" ]]; then
+            if [[ "${{ needs.infra-validation.result }}" != "success" ]]; then
+              echo "::error::Infra validation failed or did not complete."
+              exit 1
+            fi
+          fi
+
+          echo "Required PR checks passed for changed areas."
