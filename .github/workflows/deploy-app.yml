@@ -1,0 +1,239 @@
+name: Main App Build and Deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - "frontend/**"
+      - "backend/Dockerfile"
+      - "frontend/Dockerfile"
+      - "docker-compose.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  BACKEND_IMAGE_NAME: ai-coach-backend
+  FRONTEND_IMAGE_NAME: ai-coach-frontend
+  IMAGE_TAG: ${{ github.sha }}
+  AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP || vars.RESOURCE_GROUP }}
+
+jobs:
+  backend-test:
+    name: Backend lint and tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -e ".[dev]"
+      - name: Lint
+        run: ruff check .
+      - name: Format check
+        run: ruff format --check .
+      - name: Unit tests
+        run: pytest tests/ -v
+
+  frontend-test:
+    name: Frontend typecheck and build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - name: Build
+        run: npm run build
+
+  deploy:
+    name: Build, push, and deploy app to Azure
+    needs: [backend-test, frontend-test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate deployment configuration
+        env:
+          AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID || secrets.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID || secrets.AZURE_TENANT_ID }}
+          AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID || secrets.AZURE_SUBSCRIPTION_ID }}
+          ACR_NAME: ${{ vars.ACR_NAME }}
+          BACKEND_APP_NAME: ${{ vars.BACKEND_APP_NAME }}
+          FRONTEND_APP_NAME: ${{ vars.FRONTEND_APP_NAME }}
+        run: |
+          missing=0
+          for name in \
+            AZURE_CLIENT_ID \
+            AZURE_TENANT_ID \
+            AZURE_SUBSCRIPTION_ID \
+            AZURE_RESOURCE_GROUP \
+            ACR_NAME \
+            BACKEND_APP_NAME \
+            FRONTEND_APP_NAME
+          do
+            if [ -z "${!name}" ]; then
+              echo "::error::$name repository variable is required for app deployment"
+              missing=1
+            fi
+          done
+          exit "$missing"
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID || secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID || secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID || secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Build and push backend image
+        env:
+          ACR_NAME: ${{ vars.ACR_NAME }}
+        run: |
+          az acr build \
+            --registry "$ACR_NAME" \
+            --image "$BACKEND_IMAGE_NAME:$IMAGE_TAG" \
+            --file backend/Dockerfile \
+            backend/
+
+      - name: Deploy backend Container App
+        env:
+          ACR_NAME: ${{ vars.ACR_NAME }}
+          BACKEND_APP_NAME: ${{ vars.BACKEND_APP_NAME }}
+        run: |
+          az containerapp update \
+            --name "$BACKEND_APP_NAME" \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --image "$ACR_NAME.azurecr.io/$BACKEND_IMAGE_NAME:$IMAGE_TAG"
+
+      - name: Update backend bootstrap job image
+        if: vars.BACKEND_BOOTSTRAP_JOB_NAME != ''
+        env:
+          ACR_NAME: ${{ vars.ACR_NAME }}
+          BACKEND_BOOTSTRAP_JOB_NAME: ${{ vars.BACKEND_BOOTSTRAP_JOB_NAME }}
+        run: |
+          az containerapp job update \
+            --name "$BACKEND_BOOTSTRAP_JOB_NAME" \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --image "$ACR_NAME.azurecr.io/$BACKEND_IMAGE_NAME:$IMAGE_TAG"
+
+      - name: Run backend bootstrap job
+        if: vars.BACKEND_BOOTSTRAP_JOB_NAME != ''
+        shell: pwsh
+        env:
+          BACKEND_BOOTSTRAP_JOB_NAME: ${{ vars.BACKEND_BOOTSTRAP_JOB_NAME }}
+        run: |
+          $executionJson = az containerapp job start `
+            --name $env:BACKEND_BOOTSTRAP_JOB_NAME `
+            --resource-group $env:AZURE_RESOURCE_GROUP `
+            --output json
+          if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($executionJson)) {
+            throw "Could not start backend bootstrap Container Apps Job."
+          }
+
+          $execution = $executionJson | ConvertFrom-Json
+          $executionName = $execution.name
+          if ([string]::IsNullOrWhiteSpace($executionName)) {
+            throw "Backend bootstrap Container Apps Job did not return an execution name."
+          }
+
+          Write-Host "Started backend bootstrap job execution: $executionName"
+          for ($attempt = 1; $attempt -le 90; $attempt++) {
+            Start-Sleep -Seconds 10
+            $statusJson = az containerapp job execution show `
+              --name $env:BACKEND_BOOTSTRAP_JOB_NAME `
+              --resource-group $env:AZURE_RESOURCE_GROUP `
+              --job-execution-name $executionName `
+              --output json
+            if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($statusJson)) {
+              throw "Could not read backend bootstrap job execution status."
+            }
+
+            $statusObject = $statusJson | ConvertFrom-Json
+            $status = $statusObject.properties.status
+            if ([string]::IsNullOrWhiteSpace($status)) {
+              $status = $statusObject.status
+            }
+
+            Write-Host "Backend bootstrap job status: $status"
+            if ($status -in @("Succeeded", "Completed")) {
+              Write-Host "Backend bootstrap job completed."
+              exit 0
+            }
+            if ($status -in @("Failed", "Canceled", "Cancelled")) {
+              throw "Backend bootstrap job failed with status '$status'. Check Container Apps Job logs for execution '$executionName'."
+            }
+          }
+
+          throw "Backend bootstrap job did not complete within 15 minutes."
+
+      - name: Get backend FQDN
+        id: backend-fqdn
+        env:
+          BACKEND_APP_NAME: ${{ vars.BACKEND_APP_NAME }}
+        run: |
+          fqdn=$(az containerapp show \
+            --name "$BACKEND_APP_NAME" \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --query properties.configuration.ingress.fqdn \
+            --output tsv)
+          echo "fqdn=$fqdn" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push frontend image
+        env:
+          ACR_NAME: ${{ vars.ACR_NAME }}
+        run: |
+          az acr build \
+            --registry "$ACR_NAME" \
+            --image "$FRONTEND_IMAGE_NAME:$IMAGE_TAG" \
+            --build-arg "VITE_API_BASE_URL=https://${{ steps.backend-fqdn.outputs.fqdn }}" \
+            --file frontend/Dockerfile \
+            frontend/
+
+      - name: Deploy frontend Container App
+        env:
+          ACR_NAME: ${{ vars.ACR_NAME }}
+          FRONTEND_APP_NAME: ${{ vars.FRONTEND_APP_NAME }}
+        run: |
+          az containerapp update \
+            --name "$FRONTEND_APP_NAME" \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --image "$ACR_NAME.azurecr.io/$FRONTEND_IMAGE_NAME:$IMAGE_TAG" \
+            --set-env-vars "BACKEND_URL=https://${{ steps.backend-fqdn.outputs.fqdn }}"
+
+      - name: Verify deployment
+        env:
+          FRONTEND_APP_NAME: ${{ vars.FRONTEND_APP_NAME }}
+        run: |
+          frontend_fqdn=$(az containerapp show \
+            --name "$FRONTEND_APP_NAME" \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --query properties.configuration.ingress.fqdn \
+            --output tsv)
+          echo "Frontend URL: https://$frontend_fqdn"
+          echo "Backend URL: https://${{ steps.backend-fqdn.outputs.fqdn }}"
+
+          for i in $(seq 1 10); do
+            if curl -sf "https://${{ steps.backend-fqdn.outputs.fqdn }}/api/health" > /dev/null; then
+              echo "Backend health check passed"
+              exit 0
+            fi
+            echo "Attempt $i/10 - waiting 10s..."
+            sleep 10
+          done
+
+          echo "::error::Backend health check failed"
+          exit 1
