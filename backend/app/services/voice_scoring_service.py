@@ -64,8 +64,20 @@ async def _read_audio_for_scoring(audio_url: str) -> bytes:
     storage = get_storage()
     try:
         return await storage.read(audio_url)
-    except Exception as exc:
-        raise RuntimeError(f"Failed to read audio from storage for voice scoring: {exc}") from exc
+    except Exception as first_exc:
+        base_path = getattr(storage, "base_path", "")
+        if base_path:
+            normalized_url = audio_url.replace("\\", "/")
+            normalized_base = str(base_path).replace("\\", "/").rstrip("/")
+            if normalized_url.startswith(f"{normalized_base}/"):
+                relative_path = normalized_url[len(normalized_base) :].lstrip("/")
+                try:
+                    return await storage.read(relative_path)
+                except Exception:
+                    pass
+        raise RuntimeError(
+            f"Failed to read audio from storage for voice scoring: {first_exc}"
+        ) from first_exc
 
 
 async def save_voice_score_details(db: AsyncSession, session_id: str, scores: dict) -> None:
@@ -211,7 +223,11 @@ async def trigger_voice_scoring(session_id: str, language: str = "zh-CN") -> Non
             # Private Blob URLs are read by the backend with Managed Identity.
             audio_data = await _read_audio_for_scoring(session.audio_url)
             settings = get_settings()
-            if audio_data is not None and settings.voice_scoring_transcode_enabled:
+            needs_transcode = (
+                settings.voice_scoring_transcode_enabled
+                or not session.audio_url.lower().split("?", 1)[0].endswith(".wav")
+            )
+            if needs_transcode:
                 audio_data = await transcode_audio_to_wav_pcm(
                     audio_data,
                     timeout_seconds=settings.voice_scoring_transcode_timeout_seconds,

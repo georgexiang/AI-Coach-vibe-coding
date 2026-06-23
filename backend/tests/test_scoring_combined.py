@@ -455,7 +455,7 @@ class TestTriggerVoiceScoringWithPersistence:
             user_id="test-user-1",
             scenario_id=scenario.id,
             status="completed",
-            audio_url="https://blob.core.windows.net/audio/test.webm",
+            audio_url="https://blob.core.windows.net/audio/test.wav",
             voice_score_status="pending",
         )
         db_session.add(session)

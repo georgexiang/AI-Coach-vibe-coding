@@ -3,6 +3,7 @@
 import asyncio
 import json
 import tempfile
+from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -231,7 +232,8 @@ def _assess_pronunciation_sync(
     finally:
         if credential is not None and hasattr(credential, "close"):
             credential.close()
-        Path(tmp_path).unlink(missing_ok=True)
+        with suppress(OSError):
+            Path(tmp_path).unlink(missing_ok=True)
 
 
 def _score_or_default(value: Any, default: float) -> float:

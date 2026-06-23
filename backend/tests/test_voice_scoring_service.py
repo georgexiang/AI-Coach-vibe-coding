@@ -131,7 +131,7 @@ class TestTriggerVoiceScoring:
             user_id="fake-user-id",
             scenario_id="fake-scenario-id",
             status="completed",
-            audio_url="https://blob.core.windows.net/audio/test.webm",
+            audio_url="https://blob.core.windows.net/audio/test.wav",
             voice_score_status="pending",
         )
         db_session.add(session)
@@ -173,7 +173,7 @@ class TestTriggerVoiceScoring:
         ):
             await trigger_voice_scoring(session_id)
 
-        mock_storage.read.assert_awaited_once_with("https://blob.core.windows.net/audio/test.webm")
+        mock_storage.read.assert_awaited_once_with("https://blob.core.windows.net/audio/test.wav")
         assert mock_assess.await_args.kwargs["audio_data"] == b"audio-bytes"
         assert mock_assess.await_args.kwargs["speech_key"] == "test-key"
         assert mock_assess.await_args.kwargs["speech_region"] == "eastus2"
