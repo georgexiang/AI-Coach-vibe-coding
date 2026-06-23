@@ -1,0 +1,11 @@
+{
+  "AZURE_CLIENT_ID": "0712ccf5-7b7d-4608-891e-232ae612d989",
+  "AZURE_TENANT_ID": "358d9069-01ab-4091-a622-bf0ada863f48",
+  "AZURE_SUBSCRIPTION_ID": "a93b1a19-3bf0-4777-9287-350fc2a94710",
+  "AZURE_RESOURCE_GROUP": "ai-coach-public-rg",
+  "ACR_NAME": "aicoachpublica93b1aeastasiaacr",
+  "BACKEND_APP_NAME": "ca-aicoach-public-backend",
+  "BACKEND_BOOTSTRAP_JOB_NAME": "job-aicoach-public-bootstrap",
+  "FRONTEND_APP_NAME": "ca-aicoach-public-frontend",
+  "HEALTH_CHECK": "backend"
+}

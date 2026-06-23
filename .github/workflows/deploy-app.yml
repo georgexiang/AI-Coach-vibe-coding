@@ -66,38 +66,42 @@ jobs:
       matrix:
         target:
           - name: public
-            azure_client_id: 0712ccf5-7b7d-4608-891e-232ae612d989
-            azure_tenant_id: 358d9069-01ab-4091-a622-bf0ada863f48
-            azure_subscription_id: a93b1a19-3bf0-4777-9287-350fc2a94710
-            resource_group: ai-coach-public-rg
-            acr_name: aicoachpublica93b1aeastasiaacr
-            backend_app_name: ca-aicoach-public-backend
-            backend_bootstrap_job_name: job-aicoach-public-bootstrap
-            frontend_app_name: ca-aicoach-public-frontend
-            health_check: backend
+            profile: infra/azure/environments/public.json
           - name: private
-            azure_client_id: 1f7f27d1-777e-4bd6-96b9-f3a7b5ce03d8
-            azure_tenant_id: 358d9069-01ab-4091-a622-bf0ada863f48
-            azure_subscription_id: a93b1a19-3bf0-4777-9287-350fc2a94710
-            resource_group: ai-coach-private-rg
-            acr_name: aicoachprivatea93b1aeastasiaacr
-            backend_app_name: ca-aicoach-private-backend
-            backend_bootstrap_job_name: job-aicoach-private-bootstrap
-            frontend_app_name: ca-aicoach-private-frontend
-            health_check: frontend
+            profile: infra/azure/environments/private.json
     steps:
       - uses: actions/checkout@v4
 
-      - name: Validate deployment configuration
+      - name: Load deployment profile
+        id: profile
         env:
-          AZURE_CLIENT_ID: ${{ matrix.target.azure_client_id }}
-          AZURE_TENANT_ID: ${{ matrix.target.azure_tenant_id }}
-          AZURE_SUBSCRIPTION_ID: ${{ matrix.target.azure_subscription_id }}
-          AZURE_RESOURCE_GROUP: ${{ matrix.target.resource_group }}
-          ACR_NAME: ${{ matrix.target.acr_name }}
-          BACKEND_APP_NAME: ${{ matrix.target.backend_app_name }}
-          BACKEND_BOOTSTRAP_JOB_NAME: ${{ matrix.target.backend_bootstrap_job_name }}
-          FRONTEND_APP_NAME: ${{ matrix.target.frontend_app_name }}
+          PROFILE_PATH: ${{ matrix.target.profile }}
+        run: |
+          if [ ! -f "$PROFILE_PATH" ]; then
+            echo "::error::Deployment profile not found: $PROFILE_PATH"
+            exit 1
+          fi
+
+          for name in \
+            AZURE_CLIENT_ID \
+            AZURE_TENANT_ID \
+            AZURE_SUBSCRIPTION_ID \
+            AZURE_RESOURCE_GROUP \
+            ACR_NAME \
+            BACKEND_APP_NAME \
+            BACKEND_BOOTSTRAP_JOB_NAME \
+            FRONTEND_APP_NAME \
+            HEALTH_CHECK
+          do
+            value=$(jq -r --arg name "$name" '.[$name] // empty' "$PROFILE_PATH")
+            echo "$name=$value" >> "$GITHUB_ENV"
+          done
+
+          echo "azure_client_id=$(jq -r '.AZURE_CLIENT_ID' "$PROFILE_PATH")" >> "$GITHUB_OUTPUT"
+          echo "azure_tenant_id=$(jq -r '.AZURE_TENANT_ID' "$PROFILE_PATH")" >> "$GITHUB_OUTPUT"
+          echo "azure_subscription_id=$(jq -r '.AZURE_SUBSCRIPTION_ID' "$PROFILE_PATH")" >> "$GITHUB_OUTPUT"
+
+      - name: Validate deployment configuration
         run: |
           missing=0
           for name in \
@@ -120,13 +124,11 @@ jobs:
       - name: Azure Login (OIDC)
         uses: azure/login@v2
         with:
-          client-id: ${{ matrix.target.azure_client_id }}
-          tenant-id: ${{ matrix.target.azure_tenant_id }}
-          subscription-id: ${{ matrix.target.azure_subscription_id }}
+          client-id: ${{ steps.profile.outputs.azure_client_id }}
+          tenant-id: ${{ steps.profile.outputs.azure_tenant_id }}
+          subscription-id: ${{ steps.profile.outputs.azure_subscription_id }}
 
       - name: Build and push backend image
-        env:
-          ACR_NAME: ${{ matrix.target.acr_name }}
         run: |
           az acr build \
             --registry "$ACR_NAME" \
@@ -135,10 +137,6 @@ jobs:
             backend/
 
       - name: Deploy backend Container App
-        env:
-          ACR_NAME: ${{ matrix.target.acr_name }}
-          AZURE_RESOURCE_GROUP: ${{ matrix.target.resource_group }}
-          BACKEND_APP_NAME: ${{ matrix.target.backend_app_name }}
         run: |
           az containerapp update \
             --name "$BACKEND_APP_NAME" \
@@ -146,10 +144,6 @@ jobs:
             --image "$ACR_NAME.azurecr.io/$BACKEND_IMAGE_NAME:$IMAGE_TAG"
 
       - name: Update backend bootstrap job image
-        env:
-          ACR_NAME: ${{ matrix.target.acr_name }}
-          AZURE_RESOURCE_GROUP: ${{ matrix.target.resource_group }}
-          BACKEND_BOOTSTRAP_JOB_NAME: ${{ matrix.target.backend_bootstrap_job_name }}
         run: |
           az containerapp job update \
             --name "$BACKEND_BOOTSTRAP_JOB_NAME" \
@@ -158,9 +152,6 @@ jobs:
 
       - name: Run backend bootstrap job
         shell: pwsh
-        env:
-          AZURE_RESOURCE_GROUP: ${{ matrix.target.resource_group }}
-          BACKEND_BOOTSTRAP_JOB_NAME: ${{ matrix.target.backend_bootstrap_job_name }}
         run: |
           $executionJson = az containerapp job start `
             --name $env:BACKEND_BOOTSTRAP_JOB_NAME `
@@ -208,9 +199,6 @@ jobs:
 
       - name: Get backend FQDN
         id: backend-fqdn
-        env:
-          AZURE_RESOURCE_GROUP: ${{ matrix.target.resource_group }}
-          BACKEND_APP_NAME: ${{ matrix.target.backend_app_name }}
         run: |
           fqdn=$(az containerapp show \
             --name "$BACKEND_APP_NAME" \
@@ -220,8 +208,6 @@ jobs:
           echo "fqdn=$fqdn" >> "$GITHUB_OUTPUT"
 
       - name: Build and push frontend image
-        env:
-          ACR_NAME: ${{ matrix.target.acr_name }}
         run: |
           az acr build \
             --registry "$ACR_NAME" \
@@ -231,10 +217,6 @@ jobs:
             frontend/
 
       - name: Deploy frontend Container App
-        env:
-          ACR_NAME: ${{ matrix.target.acr_name }}
-          AZURE_RESOURCE_GROUP: ${{ matrix.target.resource_group }}
-          FRONTEND_APP_NAME: ${{ matrix.target.frontend_app_name }}
         run: |
           az containerapp update \
             --name "$FRONTEND_APP_NAME" \
@@ -244,10 +226,7 @@ jobs:
 
       - name: Verify deployment
         env:
-          AZURE_RESOURCE_GROUP: ${{ matrix.target.resource_group }}
           BACKEND_HEALTH_URL: https://${{ steps.backend-fqdn.outputs.fqdn }}/api/health
-          FRONTEND_APP_NAME: ${{ matrix.target.frontend_app_name }}
-          HEALTH_CHECK: ${{ matrix.target.health_check }}
         run: |
           frontend_fqdn=$(az containerapp show \
             --name "$FRONTEND_APP_NAME" \
