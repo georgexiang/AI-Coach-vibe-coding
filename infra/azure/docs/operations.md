@@ -59,6 +59,19 @@ For existing deployments, the script reads the current backend/frontend Containe
 
 For private backend infrastructure, pass `-NetworkProfile privateBackend`. You can provide an existing VNet with `-VnetName`; otherwise the template creates one using the configured CIDR parameters. This profile keeps frontend public, makes backend ingress internal, and adds private endpoint DNS for Storage, Key Vault, PostgreSQL, and Foundry.
 
+Recommended private network test environment:
+
+```powershell
+.\infra\azure\scripts\deploy.ps1 `
+  -ResourceGroupName "ai-coach-private-rg" `
+  -EnvironmentName "private" `
+  -NetworkProfile privateBackend `
+  -Location eastasia `
+  -FoundryLocation eastus2 `
+  -ChatDeploymentSkuName GlobalStandard `
+  -ChatDeploymentCapacity 120
+```
+
 ## Deploy infrastructure and app images
 
 ```powershell
@@ -126,6 +139,22 @@ After deployment, use the printed values:
 ```powershell
 .\infra\azure\scripts\set-github-vars.ps1 `
   -Repository "huqianghui/AI-Coach-vibe-coding" `
+  -AzureClientId "<AZURE_CLIENT_ID>" `
+  -AzureTenantId "<AZURE_TENANT_ID>" `
+  -AzureSubscriptionId "<AZURE_SUBSCRIPTION_ID>" `
+  -ResourceGroupName "<AZURE_RESOURCE_GROUP>" `
+  -AcrName "<ACR_NAME>" `
+  -BackendAppName "<BACKEND_APP_NAME>" `
+  -FrontendAppName "<FRONTEND_APP_NAME>" `
+  -BackendBootstrapJobName "<BACKEND_BOOTSTRAP_JOB_NAME>"
+```
+
+For the private test environment, write variables to the GitHub Environment instead of overwriting repository-level public variables:
+
+```powershell
+.\infra\azure\scripts\set-github-vars.ps1 `
+  -Repository "huqianghui/AI-Coach-vibe-coding" `
+  -EnvironmentName "private" `
   -AzureClientId "<AZURE_CLIENT_ID>" `
   -AzureTenantId "<AZURE_TENANT_ID>" `
   -AzureSubscriptionId "<AZURE_SUBSCRIPTION_ID>" `
