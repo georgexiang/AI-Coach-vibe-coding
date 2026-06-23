@@ -9,7 +9,6 @@ on:
       - "backend/Dockerfile"
       - "frontend/Dockerfile"
       - "docker-compose.yml"
-  workflow_dispatch:
 
 permissions:
   contents: read
@@ -19,7 +18,6 @@ env:
   BACKEND_IMAGE_NAME: ai-coach-backend
   FRONTEND_IMAGE_NAME: ai-coach-frontend
   IMAGE_TAG: ${{ github.sha }}
-  AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP || vars.RESOURCE_GROUP }}
 
 jobs:
   backend-test:
@@ -60,20 +58,50 @@ jobs:
         run: npm run build
 
   deploy:
-    name: Build, push, and deploy app to Azure
+    name: Deploy ${{ matrix.target.name }} app
     needs: [backend-test, frontend-test]
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - name: public
+            profile: infra/azure/environments/public.json
+          - name: private
+            profile: infra/azure/environments/private.json
     steps:
       - uses: actions/checkout@v4
 
-      - name: Validate deployment configuration
+      - name: Load deployment profile
+        id: profile
         env:
-          AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID || secrets.AZURE_CLIENT_ID }}
-          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID || secrets.AZURE_TENANT_ID }}
-          AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID || secrets.AZURE_SUBSCRIPTION_ID }}
-          ACR_NAME: ${{ vars.ACR_NAME }}
-          BACKEND_APP_NAME: ${{ vars.BACKEND_APP_NAME }}
-          FRONTEND_APP_NAME: ${{ vars.FRONTEND_APP_NAME }}
+          PROFILE_PATH: ${{ matrix.target.profile }}
+        run: |
+          if [ ! -f "$PROFILE_PATH" ]; then
+            echo "::error::Deployment profile not found: $PROFILE_PATH"
+            exit 1
+          fi
+
+          for name in \
+            AZURE_CLIENT_ID \
+            AZURE_TENANT_ID \
+            AZURE_SUBSCRIPTION_ID \
+            AZURE_RESOURCE_GROUP \
+            ACR_NAME \
+            BACKEND_APP_NAME \
+            BACKEND_BOOTSTRAP_JOB_NAME \
+            FRONTEND_APP_NAME \
+            HEALTH_CHECK
+          do
+            value=$(jq -r --arg name "$name" '.[$name] // empty' "$PROFILE_PATH")
+            echo "$name=$value" >> "$GITHUB_ENV"
+          done
+
+          echo "azure_client_id=$(jq -r '.AZURE_CLIENT_ID' "$PROFILE_PATH")" >> "$GITHUB_OUTPUT"
+          echo "azure_tenant_id=$(jq -r '.AZURE_TENANT_ID' "$PROFILE_PATH")" >> "$GITHUB_OUTPUT"
+          echo "azure_subscription_id=$(jq -r '.AZURE_SUBSCRIPTION_ID' "$PROFILE_PATH")" >> "$GITHUB_OUTPUT"
+
+      - name: Validate deployment configuration
         run: |
           missing=0
           for name in \
@@ -83,10 +111,11 @@ jobs:
             AZURE_RESOURCE_GROUP \
             ACR_NAME \
             BACKEND_APP_NAME \
+            BACKEND_BOOTSTRAP_JOB_NAME \
             FRONTEND_APP_NAME
           do
             if [ -z "${!name}" ]; then
-              echo "::error::$name repository variable is required for app deployment"
+              echo "::error::$name is required for ${{ matrix.target.name }} app deployment"
               missing=1
             fi
           done
@@ -95,13 +124,11 @@ jobs:
       - name: Azure Login (OIDC)
         uses: azure/login@v2
         with:
-          client-id: ${{ vars.AZURE_CLIENT_ID || secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ vars.AZURE_TENANT_ID || secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID || secrets.AZURE_SUBSCRIPTION_ID }}
+          client-id: ${{ steps.profile.outputs.azure_client_id }}
+          tenant-id: ${{ steps.profile.outputs.azure_tenant_id }}
+          subscription-id: ${{ steps.profile.outputs.azure_subscription_id }}
 
       - name: Build and push backend image
-        env:
-          ACR_NAME: ${{ vars.ACR_NAME }}
         run: |
           az acr build \
             --registry "$ACR_NAME" \
@@ -110,9 +137,6 @@ jobs:
             backend/
 
       - name: Deploy backend Container App
-        env:
-          ACR_NAME: ${{ vars.ACR_NAME }}
-          BACKEND_APP_NAME: ${{ vars.BACKEND_APP_NAME }}
         run: |
           az containerapp update \
             --name "$BACKEND_APP_NAME" \
@@ -120,10 +144,6 @@ jobs:
             --image "$ACR_NAME.azurecr.io/$BACKEND_IMAGE_NAME:$IMAGE_TAG"
 
       - name: Update backend bootstrap job image
-        if: vars.BACKEND_BOOTSTRAP_JOB_NAME != ''
-        env:
-          ACR_NAME: ${{ vars.ACR_NAME }}
-          BACKEND_BOOTSTRAP_JOB_NAME: ${{ vars.BACKEND_BOOTSTRAP_JOB_NAME }}
         run: |
           az containerapp job update \
             --name "$BACKEND_BOOTSTRAP_JOB_NAME" \
@@ -131,10 +151,7 @@ jobs:
             --image "$ACR_NAME.azurecr.io/$BACKEND_IMAGE_NAME:$IMAGE_TAG"
 
       - name: Run backend bootstrap job
-        if: vars.BACKEND_BOOTSTRAP_JOB_NAME != ''
         shell: pwsh
-        env:
-          BACKEND_BOOTSTRAP_JOB_NAME: ${{ vars.BACKEND_BOOTSTRAP_JOB_NAME }}
         run: |
           $executionJson = az containerapp job start `
             --name $env:BACKEND_BOOTSTRAP_JOB_NAME `
@@ -182,8 +199,6 @@ jobs:
 
       - name: Get backend FQDN
         id: backend-fqdn
-        env:
-          BACKEND_APP_NAME: ${{ vars.BACKEND_APP_NAME }}
         run: |
           fqdn=$(az containerapp show \
             --name "$BACKEND_APP_NAME" \
@@ -193,8 +208,6 @@ jobs:
           echo "fqdn=$fqdn" >> "$GITHUB_OUTPUT"
 
       - name: Build and push frontend image
-        env:
-          ACR_NAME: ${{ vars.ACR_NAME }}
         run: |
           az acr build \
             --registry "$ACR_NAME" \
@@ -204,9 +217,6 @@ jobs:
             frontend/
 
       - name: Deploy frontend Container App
-        env:
-          ACR_NAME: ${{ vars.ACR_NAME }}
-          FRONTEND_APP_NAME: ${{ vars.FRONTEND_APP_NAME }}
         run: |
           az containerapp update \
             --name "$FRONTEND_APP_NAME" \
@@ -216,24 +226,30 @@ jobs:
 
       - name: Verify deployment
         env:
-          FRONTEND_APP_NAME: ${{ vars.FRONTEND_APP_NAME }}
+          BACKEND_HEALTH_URL: https://${{ steps.backend-fqdn.outputs.fqdn }}/api/health
         run: |
           frontend_fqdn=$(az containerapp show \
             --name "$FRONTEND_APP_NAME" \
             --resource-group "$AZURE_RESOURCE_GROUP" \
             --query properties.configuration.ingress.fqdn \
             --output tsv)
+          frontend_health_url="https://$frontend_fqdn/health"
           echo "Frontend URL: https://$frontend_fqdn"
           echo "Backend URL: https://${{ steps.backend-fqdn.outputs.fqdn }}"
+          if [ "$HEALTH_CHECK" = "frontend" ]; then
+            health_url="$frontend_health_url"
+          else
+            health_url="$BACKEND_HEALTH_URL"
+          fi
 
           for i in $(seq 1 10); do
-            if curl -sf "https://${{ steps.backend-fqdn.outputs.fqdn }}/api/health" > /dev/null; then
-              echo "Backend health check passed"
+            if curl -sf "$health_url" > /dev/null; then
+              echo "${{ matrix.target.name }} health check passed: $health_url"
               exit 0
             fi
             echo "Attempt $i/10 - waiting 10s..."
             sleep 10
           done
 
-          echo "::error::Backend health check failed"
+          echo "::error::${{ matrix.target.name }} health check failed: $health_url"
           exit 1
