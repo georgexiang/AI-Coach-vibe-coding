@@ -237,6 +237,23 @@
         "dimensionPreviewEmpty": "选择评分标准以查看维度",
         "manageRubrics": "管理评分标准",
         "passThreshold": "通过阈值"
+      },
+      "audience": {
+        "title": "会议听众 HCP",
+        "description": "为会议培训场景绑定 {{min}}-{{max}} 个 HCP 角色，主讲人将面对多位数字 HCP 进行演讲与问答。",
+        "selectHcp": "选择 HCP",
+        "role": "角色",
+        "roleAudience": "听众",
+        "roleModerator": "主持人",
+        "addHcp": "添加 HCP",
+        "removeHcp": "移除 HCP",
+        "countHint": "已绑定 {{count}} 个 HCP（需 {{min}}-{{max}} 个）",
+        "minHint": "会议场景至少需要 {{min}} 个 HCP",
+        "duplicateHint": "存在重复的 HCP，请确保每个 HCP 唯一",
+        "invalidCount": "会议场景需绑定 {{min}}-{{max}} 个 HCP",
+        "emptyHcp": "请为每一行选择一个 HCP",
+        "duplicate": "存在重复的 HCP，请确保每个 HCP 唯一",
+        "saveFailed": "保存会议听众失败"
       }
     },
     "keyMessages": "关键信息",
