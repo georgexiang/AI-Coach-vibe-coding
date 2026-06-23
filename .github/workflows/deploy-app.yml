@@ -9,7 +9,6 @@ on:
       - "backend/Dockerfile"
       - "frontend/Dockerfile"
       - "docker-compose.yml"
-  workflow_dispatch:
 
 permissions:
   contents: read
@@ -19,7 +18,6 @@ env:
   BACKEND_IMAGE_NAME: ai-coach-backend
   FRONTEND_IMAGE_NAME: ai-coach-frontend
   IMAGE_TAG: ${{ github.sha }}
-  AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP || vars.RESOURCE_GROUP }}
 
 jobs:
   backend-test:
@@ -60,20 +58,46 @@ jobs:
         run: npm run build
 
   deploy:
-    name: Build, push, and deploy app to Azure
+    name: Deploy ${{ matrix.target.name }} app
     needs: [backend-test, frontend-test]
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - name: public
+            azure_client_id: 0712ccf5-7b7d-4608-891e-232ae612d989
+            azure_tenant_id: 358d9069-01ab-4091-a622-bf0ada863f48
+            azure_subscription_id: a93b1a19-3bf0-4777-9287-350fc2a94710
+            resource_group: ai-coach-public-rg
+            acr_name: aicoachpublica93b1aeastasiaacr
+            backend_app_name: ca-aicoach-public-backend
+            backend_bootstrap_job_name: job-aicoach-public-bootstrap
+            frontend_app_name: ca-aicoach-public-frontend
+            health_check: backend
+          - name: private
+            azure_client_id: 1f7f27d1-777e-4bd6-96b9-f3a7b5ce03d8
+            azure_tenant_id: 358d9069-01ab-4091-a622-bf0ada863f48
+            azure_subscription_id: a93b1a19-3bf0-4777-9287-350fc2a94710
+            resource_group: ai-coach-private-rg
+            acr_name: aicoachprivatea93b1aeastasiaacr
+            backend_app_name: ca-aicoach-private-backend
+            backend_bootstrap_job_name: job-aicoach-private-bootstrap
+            frontend_app_name: ca-aicoach-private-frontend
+            health_check: frontend
     steps:
       - uses: actions/checkout@v4
 
       - name: Validate deployment configuration
         env:
-          AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID || secrets.AZURE_CLIENT_ID }}
-          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID || secrets.AZURE_TENANT_ID }}
-          AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID || secrets.AZURE_SUBSCRIPTION_ID }}
-          ACR_NAME: ${{ vars.ACR_NAME }}
-          BACKEND_APP_NAME: ${{ vars.BACKEND_APP_NAME }}
-          FRONTEND_APP_NAME: ${{ vars.FRONTEND_APP_NAME }}
+          AZURE_CLIENT_ID: ${{ matrix.target.azure_client_id }}
+          AZURE_TENANT_ID: ${{ matrix.target.azure_tenant_id }}
+          AZURE_SUBSCRIPTION_ID: ${{ matrix.target.azure_subscription_id }}
+          AZURE_RESOURCE_GROUP: ${{ matrix.target.resource_group }}
+          ACR_NAME: ${{ matrix.target.acr_name }}
+          BACKEND_APP_NAME: ${{ matrix.target.backend_app_name }}
+          BACKEND_BOOTSTRAP_JOB_NAME: ${{ matrix.target.backend_bootstrap_job_name }}
+          FRONTEND_APP_NAME: ${{ matrix.target.frontend_app_name }}
         run: |
           missing=0
           for name in \
@@ -83,10 +107,11 @@ jobs:
             AZURE_RESOURCE_GROUP \
             ACR_NAME \
             BACKEND_APP_NAME \
+            BACKEND_BOOTSTRAP_JOB_NAME \
             FRONTEND_APP_NAME
           do
             if [ -z "${!name}" ]; then
-              echo "::error::$name repository variable is required for app deployment"
+              echo "::error::$name is required for ${{ matrix.target.name }} app deployment"
               missing=1
             fi
           done
@@ -95,13 +120,13 @@ jobs:
       - name: Azure Login (OIDC)
         uses: azure/login@v2
         with:
-          client-id: ${{ vars.AZURE_CLIENT_ID || secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ vars.AZURE_TENANT_ID || secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID || secrets.AZURE_SUBSCRIPTION_ID }}
+          client-id: ${{ matrix.target.azure_client_id }}
+          tenant-id: ${{ matrix.target.azure_tenant_id }}
+          subscription-id: ${{ matrix.target.azure_subscription_id }}
 
       - name: Build and push backend image
         env:
-          ACR_NAME: ${{ vars.ACR_NAME }}
+          ACR_NAME: ${{ matrix.target.acr_name }}
         run: |
           az acr build \
             --registry "$ACR_NAME" \
@@ -111,8 +136,9 @@ jobs:
 
       - name: Deploy backend Container App
         env:
-          ACR_NAME: ${{ vars.ACR_NAME }}
-          BACKEND_APP_NAME: ${{ vars.BACKEND_APP_NAME }}
+          ACR_NAME: ${{ matrix.target.acr_name }}
+          AZURE_RESOURCE_GROUP: ${{ matrix.target.resource_group }}
+          BACKEND_APP_NAME: ${{ matrix.target.backend_app_name }}
         run: |
           az containerapp update \
             --name "$BACKEND_APP_NAME" \
@@ -120,10 +146,10 @@ jobs:
             --image "$ACR_NAME.azurecr.io/$BACKEND_IMAGE_NAME:$IMAGE_TAG"
 
       - name: Update backend bootstrap job image
-        if: vars.BACKEND_BOOTSTRAP_JOB_NAME != ''
         env:
-          ACR_NAME: ${{ vars.ACR_NAME }}
-          BACKEND_BOOTSTRAP_JOB_NAME: ${{ vars.BACKEND_BOOTSTRAP_JOB_NAME }}
+          ACR_NAME: ${{ matrix.target.acr_name }}
+          AZURE_RESOURCE_GROUP: ${{ matrix.target.resource_group }}
+          BACKEND_BOOTSTRAP_JOB_NAME: ${{ matrix.target.backend_bootstrap_job_name }}
         run: |
           az containerapp job update \
             --name "$BACKEND_BOOTSTRAP_JOB_NAME" \
@@ -131,10 +157,10 @@ jobs:
             --image "$ACR_NAME.azurecr.io/$BACKEND_IMAGE_NAME:$IMAGE_TAG"
 
       - name: Run backend bootstrap job
-        if: vars.BACKEND_BOOTSTRAP_JOB_NAME != ''
         shell: pwsh
         env:
-          BACKEND_BOOTSTRAP_JOB_NAME: ${{ vars.BACKEND_BOOTSTRAP_JOB_NAME }}
+          AZURE_RESOURCE_GROUP: ${{ matrix.target.resource_group }}
+          BACKEND_BOOTSTRAP_JOB_NAME: ${{ matrix.target.backend_bootstrap_job_name }}
         run: |
           $executionJson = az containerapp job start `
             --name $env:BACKEND_BOOTSTRAP_JOB_NAME `
@@ -183,7 +209,8 @@ jobs:
       - name: Get backend FQDN
         id: backend-fqdn
         env:
-          BACKEND_APP_NAME: ${{ vars.BACKEND_APP_NAME }}
+          AZURE_RESOURCE_GROUP: ${{ matrix.target.resource_group }}
+          BACKEND_APP_NAME: ${{ matrix.target.backend_app_name }}
         run: |
           fqdn=$(az containerapp show \
             --name "$BACKEND_APP_NAME" \
@@ -194,7 +221,7 @@ jobs:
 
       - name: Build and push frontend image
         env:
-          ACR_NAME: ${{ vars.ACR_NAME }}
+          ACR_NAME: ${{ matrix.target.acr_name }}
         run: |
           az acr build \
             --registry "$ACR_NAME" \
@@ -205,8 +232,9 @@ jobs:
 
       - name: Deploy frontend Container App
         env:
-          ACR_NAME: ${{ vars.ACR_NAME }}
-          FRONTEND_APP_NAME: ${{ vars.FRONTEND_APP_NAME }}
+          ACR_NAME: ${{ matrix.target.acr_name }}
+          AZURE_RESOURCE_GROUP: ${{ matrix.target.resource_group }}
+          FRONTEND_APP_NAME: ${{ matrix.target.frontend_app_name }}
         run: |
           az containerapp update \
             --name "$FRONTEND_APP_NAME" \
@@ -216,24 +244,33 @@ jobs:
 
       - name: Verify deployment
         env:
-          FRONTEND_APP_NAME: ${{ vars.FRONTEND_APP_NAME }}
+          AZURE_RESOURCE_GROUP: ${{ matrix.target.resource_group }}
+          BACKEND_HEALTH_URL: https://${{ steps.backend-fqdn.outputs.fqdn }}/api/health
+          FRONTEND_APP_NAME: ${{ matrix.target.frontend_app_name }}
+          HEALTH_CHECK: ${{ matrix.target.health_check }}
         run: |
           frontend_fqdn=$(az containerapp show \
             --name "$FRONTEND_APP_NAME" \
             --resource-group "$AZURE_RESOURCE_GROUP" \
             --query properties.configuration.ingress.fqdn \
             --output tsv)
+          frontend_health_url="https://$frontend_fqdn/health"
           echo "Frontend URL: https://$frontend_fqdn"
           echo "Backend URL: https://${{ steps.backend-fqdn.outputs.fqdn }}"
+          if [ "$HEALTH_CHECK" = "frontend" ]; then
+            health_url="$frontend_health_url"
+          else
+            health_url="$BACKEND_HEALTH_URL"
+          fi
 
           for i in $(seq 1 10); do
-            if curl -sf "https://${{ steps.backend-fqdn.outputs.fqdn }}/api/health" > /dev/null; then
-              echo "Backend health check passed"
+            if curl -sf "$health_url" > /dev/null; then
+              echo "${{ matrix.target.name }} health check passed: $health_url"
               exit 0
             fi
             echo "Attempt $i/10 - waiting 10s..."
             sleep 10
           done
 
-          echo "::error::Backend health check failed"
+          echo "::error::${{ matrix.target.name }} health check failed: $health_url"
           exit 1
