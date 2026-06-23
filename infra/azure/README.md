@@ -122,8 +122,13 @@ az account set --subscription "<subscription-id-or-name>"
 
 ```powershell
 .\infra\azure\scripts\deploy.ps1 `
+  -ResourceGroupName "ai-coach-private-rg" `
+  -EnvironmentName "private" `
   -NetworkProfile privateBackend `
-  -VnetName "vnet-aicoach-demo"
+  -Location eastasia `
+  -FoundryLocation eastus2 `
+  -ChatDeploymentSkuName GlobalStandard `
+  -ChatDeploymentCapacity 120
 ```
 
 如果不传 `-VnetName`，模板会自动创建 VNet，并使用 `-VnetAddressPrefix`、`-ContainerAppsSubnetPrefix`、`-PrivateEndpointsSubnetPrefix` 的 CIDR 默认值。`privateBackend` 会为 PostgreSQL Flexible Server 创建 private endpoint 并关闭 public access；Foundry Tools private endpoint 会同时关联 `privatelink.cognitiveservices.azure.com`、`privatelink.openai.azure.com` 和 `privatelink.services.ai.azure.com`，匹配 Azure Portal 默认 DNS zone 行为。基础设施更新不需要 `-DeployApp`；如果 backend 是 internal ingress，本地机器不能直接验证 backend URL，只有显式传 `-Verify` 才会运行公网 health check。

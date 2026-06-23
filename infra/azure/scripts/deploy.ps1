@@ -19,6 +19,8 @@ param(
     [string]$GithubRepo = "AI-Coach-vibe-coding",
     [string]$GithubBranch = "main",
     [string]$ChatDeploymentName = "gpt-4o",
+    [ValidateSet("Standard", "GlobalStandard", "DataZoneStandard")]
+    [string]$ChatDeploymentSkuName = "Standard",
     [int]$ChatDeploymentCapacity = 120,
     [ValidateSet("password", "azureAd")]
     [string]$BackendDatabaseAuthMode = "azureAd",
@@ -529,7 +531,9 @@ $parameters = [ordered]@{
         githubOwner = @{ value = $GithubOwner }
         githubRepo = @{ value = $GithubRepo }
         githubBranch = @{ value = $GithubBranch }
+        githubEnvironmentName = @{ value = $EnvironmentName }
         chatDeploymentName = @{ value = $ChatDeploymentName }
+        chatDeploymentSkuName = @{ value = $ChatDeploymentSkuName }
         chatDeploymentCapacity = @{ value = $ChatDeploymentCapacity }
     }
 }
