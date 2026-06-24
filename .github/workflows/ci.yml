@@ -29,7 +29,7 @@ jobs:
 
           while IFS= read -r file; do
             case "$file" in
-              backend/*|frontend/*|backend/Dockerfile|frontend/Dockerfile|docker-compose.yml)
+              backend/*|frontend/*|backend/Dockerfile|frontend/Dockerfile|infra/azure/docker/backend.Dockerfile|docker-compose.yml)
                 app=true
                 ;;
               infra/*)
@@ -116,7 +116,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: backend
-          file: backend/Dockerfile
+          file: infra/azure/docker/backend.Dockerfile
           push: false
           tags: ai-coach-backend:pr-${{ github.event.pull_request.number }}
 
