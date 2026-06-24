@@ -83,6 +83,11 @@ type ScenarioFormValues = z.infer<typeof scenarioSchema>;
 
 const VALID_TABS = new Set(["basic", "linked", "scoring"]);
 
+function isSameStringArray(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false;
+  return a.every((value, index) => value === b[index]);
+}
+
 export default function ScenarioEditorPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -216,11 +221,12 @@ export default function ScenarioEditorPage() {
     const hcpProfileId = isConference
       ? primaryConferenceHcp
       : values.hcp_profile_id;
+    const normalizedKeyMessages = values.key_messages.filter(Boolean);
 
     const data: ScenarioCreate = {
       ...values,
       hcp_profile_id: hcpProfileId,
-      key_messages: values.key_messages.filter(Boolean),
+      key_messages: normalizedKeyMessages,
     };
 
     if (isNew) {
@@ -229,11 +235,44 @@ export default function ScenarioEditorPage() {
         onError: () => toast.error(t("scenarios.saveFailed")),
       });
     } else if (id) {
-      const updateData: ScenarioUpdate = {
-        ...values,
-        hcp_profile_id: hcpProfileId,
-        key_messages: values.key_messages.filter(Boolean),
-      };
+      const updateData: ScenarioUpdate = {};
+
+      if (scenario) {
+        const prevTags = scenario.tags ?? [];
+        const nextTags = values.tags ?? [];
+        const prevKeyMessages = scenario.key_messages ?? [];
+
+        if (values.name !== scenario.name) updateData.name = values.name;
+        if ((values.description ?? "") !== (scenario.description ?? "")) {
+          updateData.description = values.description;
+        }
+        if (!isSameStringArray(nextTags, prevTags)) updateData.tags = nextTags;
+        if (values.mode !== scenario.mode) updateData.mode = values.mode;
+        if (values.difficulty !== scenario.difficulty) {
+          updateData.difficulty = values.difficulty;
+        }
+        if (values.pass_threshold !== scenario.pass_threshold) {
+          updateData.pass_threshold = values.pass_threshold;
+        }
+
+        const prevSkillId = scenario.skill_id ?? "";
+        if ((values.skill_id ?? "") !== prevSkillId) {
+          updateData.skill_id = values.skill_id;
+        }
+        if (values.rubric_id !== scenario.rubric_id) {
+          updateData.rubric_id = values.rubric_id;
+        }
+        if (!isSameStringArray(normalizedKeyMessages, prevKeyMessages)) {
+          updateData.key_messages = normalizedKeyMessages;
+        }
+
+        // Conference mode uses audience bindings as source of truth; keep legacy
+        // scenario.hcp_profile_id unchanged on update to avoid active-field conflicts.
+        if (!isConference && hcpProfileId !== scenario.hcp_profile_id) {
+          updateData.hcp_profile_id = hcpProfileId;
+        }
+      }
+
       updateMutation.mutate(
         { id, data: updateData },
         {

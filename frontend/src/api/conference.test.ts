@@ -101,8 +101,19 @@ describe("Conference API client", () => {
   });
 
   describe("getAudienceHcps", () => {
-    it("calls GET /conference/scenarios/:id/audience", async () => {
-      const hcps = [{ id: "hcp-1", hcpName: "Dr. Smith" }];
+    it("calls GET /conference/scenarios/:id/audience and maps snake_case", async () => {
+      const hcps = [
+        {
+          id: "ah-1",
+          scenario_id: "sc-1",
+          hcp_profile_id: "hcp-1",
+          role_in_conference: "audience",
+          voice_id: "voice-a",
+          sort_order: 0,
+          hcp_name: "Dr. Smith",
+          hcp_specialty: "Oncology",
+        },
+      ];
       mockClient.get.mockResolvedValue({ data: hcps });
 
       const result = await getAudienceHcps("sc-1");
@@ -111,7 +122,10 @@ describe("Conference API client", () => {
         "/conference/scenarios/sc-1/audience",
       );
       expect(result).toHaveLength(1);
+      expect(result[0]?.hcpProfileId).toBe("hcp-1");
       expect(result[0]?.hcpName).toBe("Dr. Smith");
+      expect(result[0]?.hcpSpecialty).toBe("Oncology");
+      expect(result[0]?.roleInConference).toBe("audience");
     });
 
     it("returns empty array when no audience", async () => {
@@ -124,18 +138,46 @@ describe("Conference API client", () => {
   });
 
   describe("setAudienceHcps", () => {
-    it("calls PUT /conference/scenarios/:id/audience with hcps", async () => {
-      const input = [{ hcpProfileId: "hp-1" }];
-      const output = [{ id: "ah-1", hcpProfileId: "hp-1", hcpName: "Dr. X" }];
+    it("calls PUT /conference/scenarios/:id/audience with snake_case payload", async () => {
+      const input = [
+        { hcpProfileId: "hp-1" },
+        { hcpProfileId: "hp-2", roleInConference: "moderator", sortOrder: 1 },
+      ];
+      const output = [
+        {
+          id: "ah-1",
+          scenario_id: "sc-1",
+          hcp_profile_id: "hp-1",
+          role_in_conference: "audience",
+          voice_id: "",
+          sort_order: 0,
+          hcp_name: "Dr. X",
+          hcp_specialty: "",
+        },
+      ];
       mockClient.put.mockResolvedValue({ data: output });
 
       const result = await setAudienceHcps("sc-1", input);
 
       expect(mockClient.put).toHaveBeenCalledWith(
         "/conference/scenarios/sc-1/audience",
-        input,
+        [
+          {
+            hcp_profile_id: "hp-1",
+            role_in_conference: "audience",
+            voice_id: "",
+            sort_order: 0,
+          },
+          {
+            hcp_profile_id: "hp-2",
+            role_in_conference: "moderator",
+            voice_id: "",
+            sort_order: 1,
+          },
+        ],
       );
       expect(result).toHaveLength(1);
+      expect(result[0]?.hcpProfileId).toBe("hp-1");
     });
   });
 });
