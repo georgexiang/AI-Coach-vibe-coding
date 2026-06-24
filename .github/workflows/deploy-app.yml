@@ -7,6 +7,7 @@ on:
       - "backend/**"
       - "frontend/**"
       - "backend/Dockerfile"
+      - "infra/azure/docker/backend.Dockerfile"
       - "frontend/Dockerfile"
       - "docker-compose.yml"
 
@@ -133,7 +134,7 @@ jobs:
           az acr build \
             --registry "$ACR_NAME" \
             --image "$BACKEND_IMAGE_NAME:$IMAGE_TAG" \
-            --file backend/Dockerfile \
+            --file infra/azure/docker/backend.Dockerfile \
             backend/
 
       - name: Deploy backend Container App
