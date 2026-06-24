@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -57,6 +57,7 @@ export default function ConferenceSession() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const sessionId = searchParams.get("id") ?? "";
+  const hasRequestedStartRef = useRef(false);
 
   // Fetch session
   const { data: session } = useConferenceSession(sessionId || undefined);
@@ -219,6 +220,12 @@ export default function ConferenceSession() {
     sseCallbacks,
   );
 
+  useEffect(() => {
+    if (!sessionId || !session || hasRequestedStartRef.current) return;
+    hasRequestedStartRef.current = true;
+    sendMessage("start", "");
+  }, [sessionId, session, sendMessage]);
+
   // Handlers
   const handlePresent = useCallback(
     (text: string) => {
@@ -234,12 +241,38 @@ export default function ConferenceSession() {
     [sendMessage],
   );
 
+  const handleConferenceInput = useCallback(
+    (text: string) => {
+      const pendingQuestion = questionQueue[0];
+      const userMsg: ChatMessage = {
+        id: `mr-${Date.now()}`,
+        sender: "mr",
+        text,
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, userMsg]);
+
+      if (pendingQuestion) {
+        setQuestionQueue((prev) =>
+          prev.map((q, index) =>
+            index === 0 ? { ...q, status: "active" as const } : q,
+          ),
+        );
+        sendMessage("respond", text, pendingQuestion.hcpProfileId);
+        return;
+      }
+
+      sendMessage("present", text);
+    },
+    [questionQueue, sendMessage],
+  );
+
   // Speech input for conference mic
   const handleSpeechTranscribed = useCallback(
     (text: string) => {
-      handlePresent(text);
+      handleConferenceInput(text);
     },
-    [handlePresent],
+    [handleConferenceInput],
   );
   const {
     startRecording,
@@ -316,7 +349,7 @@ export default function ConferenceSession() {
 
         <ConferenceStage
           sessionId={sessionId}
-          onSendMessage={handlePresent}
+          onSendMessage={handleConferenceInput}
           isStreaming={isStreaming}
           streamedText={streamedText}
           currentSpeaker={currentSpeaker}

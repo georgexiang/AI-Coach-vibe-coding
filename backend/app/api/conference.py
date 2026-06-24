@@ -23,12 +23,21 @@ from app.schemas.conference import (
     ConferenceSubStateUpdate,
 )
 from app.services import conference_service
-from app.services.turn_manager import turn_manager
 from app.utils.exceptions import AppException, NotFoundException
 
 settings = get_settings()
 
 router = APIRouter(prefix="/conference", tags=["conference"])
+
+
+def _ensure_conference_session(session: CoachingSession) -> None:
+    """Ensure the requested session is a conference session."""
+    if session.session_type != "conference":
+        raise AppException(
+            status_code=409,
+            code="NOT_CONFERENCE_SESSION",
+            message="Session is not a conference session",
+        )
 
 
 # --- Session endpoints ---
@@ -60,6 +69,7 @@ async def get_conference_session(
         raise AppException(
             status_code=403, code="FORBIDDEN", message="Session does not belong to this user"
         )
+    _ensure_conference_session(session)
     return session
 
 
@@ -73,6 +83,7 @@ async def stream_conference(
     """SSE endpoint for conference interaction.
 
     Supports two actions:
+    - 'start': moderator invites MR to present
     - 'present': MR sends presentation text, receives HCP questions
     - 'respond': MR responds to a specific HCP question, receives follow-up
     """
@@ -85,6 +96,7 @@ async def stream_conference(
         raise AppException(
             status_code=403, code="FORBIDDEN", message="Session does not belong to this user"
         )
+    _ensure_conference_session(session)
     if session.status not in ("created", "in_progress"):
         raise AppException(
             status_code=409, code="SESSION_CLOSED", message="Session is no longer active"
@@ -94,75 +106,19 @@ async def stream_conference(
         heartbeat_task = None
         try:
             # Start heartbeat background task
-            if request.action == "present":
-                # MR is presenting -- save transcription, generate HCP questions
-                await conference_service._save_conference_message(
-                    db, session.id, "user", request.message
-                )
+            if request.action == "start":
+                async for event_data in conference_service.start_conference_round(db, session):
+                    yield event_data
 
-                yield {
-                    "event": "transcription",
-                    "data": json.dumps(
-                        {
-                            "speaker": "MR",
-                            "text": request.message,
-                            "timestamp": _now_iso(),
-                        }
-                    ),
-                }
+                yield {"event": "done", "data": ""}
 
-                # Detect key messages
-                from app.services.session_service import detect_key_messages
-
-                km_status = await detect_key_messages(db, session, request.message)
-                yield {"event": "key_messages", "data": json.dumps(km_status)}
-
-                # Generate HCP questions sequentially
-                questions = await conference_service.generate_hcp_questions(
+            elif request.action == "present":
+                # MR is presenting -- moderator opens, HCPs ask one at a time,
+                # then the moderator closes the Q&A round.
+                async for event_data in conference_service.run_presentation_round(
                     db, session, request.message
-                )
-
-                # Send queue update for each new question
-                if questions:
-                    queue = turn_manager.get_queue(session.id)
-                    yield {
-                        "event": "queue_update",
-                        "data": json.dumps(_serialize_queue(queue)),
-                    }
-
-                    # Send speaker_text events for each question
-                    for q in questions:
-                        yield {
-                            "event": "speaker_text",
-                            "data": json.dumps(
-                                {
-                                    "speaker_id": q.hcp_profile_id,
-                                    "speaker_name": q.hcp_name,
-                                    "content": q.question,
-                                }
-                            ),
-                        }
-
-                        # Save HCP question as message with speaker attribution
-                        await conference_service._save_conference_message(
-                            db,
-                            session.id,
-                            "assistant",
-                            q.question,
-                            speaker_id=q.hcp_profile_id,
-                            speaker_name=q.hcp_name,
-                        )
-
-                        yield {
-                            "event": "transcription",
-                            "data": json.dumps(
-                                {
-                                    "speaker": q.hcp_name,
-                                    "text": q.question,
-                                    "timestamp": _now_iso(),
-                                }
-                            ),
-                        }
+                ):
+                    yield event_data
 
                 yield {"event": "done", "data": ""}
 
@@ -248,6 +204,7 @@ async def update_sub_state(
         raise AppException(
             status_code=403, code="FORBIDDEN", message="Session does not belong to this user"
         )
+    _ensure_conference_session(session)
 
     await conference_service.transition_sub_state(db, session_id, request.sub_state)
     return {"sub_state": request.sub_state}

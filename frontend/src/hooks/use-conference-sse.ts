@@ -142,7 +142,7 @@ function processEvent(
       cb.onSpeakerText?.(JSON.parse(data) as SpeakerTextEvent);
       break;
     case "queue_update":
-      cb.onQueueUpdate?.(JSON.parse(data) as QueuedQuestion[]);
+      cb.onQueueUpdate?.(parseQueue(data));
       break;
     case "turn_change":
       cb.onTurnChange?.(JSON.parse(data) as TurnChangeEvent);
@@ -173,4 +173,23 @@ function processEvent(
       // Heartbeat events keep the connection alive; no action needed
       break;
   }
+}
+
+interface QueuedQuestionApi {
+  hcp_profile_id: string;
+  hcp_name: string;
+  question: string;
+  relevance_score: number;
+  status: QueuedQuestion["status"];
+}
+
+function parseQueue(data: string): QueuedQuestion[] {
+  const raw = JSON.parse(data) as QueuedQuestionApi[];
+  return raw.map((q) => ({
+    hcpProfileId: q.hcp_profile_id,
+    hcpName: q.hcp_name,
+    question: q.question,
+    relevanceScore: q.relevance_score,
+    status: q.status,
+  }));
 }

@@ -37,6 +37,12 @@ class TestExtractProduct:
         product = adapter._extract_product(context)
         assert product == "Tislelizumab"
 
+    async def test_extracts_product_from_conference_prompt_context(self):
+        adapter = MockCoachingAdapter()
+        context = "# Presentation Context\nThe Medical Representative is presenting about: Brukinsa"
+        product = adapter._extract_product(context)
+        assert product == "Brukinsa"
+
 
 class TestDeterminePhase:
     """Tests for _determine_phase helper."""

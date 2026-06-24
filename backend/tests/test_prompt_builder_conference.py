@@ -229,7 +229,7 @@ class TestBuildConferenceAudiencePrompt:
         assert "the product" in prompt
 
     def test_includes_instructions_section(self):
-        """Prompt contains the instructions section for question generation."""
+        """Prompt contains conversational HCP response instructions."""
         hcp_config = {
             "name": "Test",
             "specialty": "General",
@@ -244,7 +244,8 @@ class TestBuildConferenceAudiencePrompt:
             other_hcp_questions=[],
         )
 
-        assert "generate a relevant question" in prompt
+        assert "Respond as this HCP in a natural conference conversation" in prompt
+        assert "React directly to the MR's latest input" in prompt
         assert "Do NOT provide coaching feedback" in prompt
 
 
