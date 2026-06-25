@@ -233,7 +233,7 @@ export default function UserDashboard() {
                 description={t("f2fDescription")}
                 icon={Users}
                 gradient="blue"
-                onStart={() => navigate("/user/training")}
+                onStart={() => navigate("/user/training?mode=f2f")}
               />
 
               <ActionCard
@@ -241,7 +241,7 @@ export default function UserDashboard() {
                 description={t("conferenceDescription")}
                 icon={Mic}
                 gradient="purple"
-                onStart={() => navigate("/user/training")}
+                onStart={() => navigate("/user/training?mode=conference")}
               />
             </CardContent>
           </Card>
@@ -256,7 +256,7 @@ export default function UserDashboard() {
               <RecommendedScenario
                 hcpName={recScenario?.scenario_name ?? "---"}
                 difficulty={recScenario?.difficulty ?? tc("difficultyIntermediate")}
-                onStart={() => navigate("/user/training")}
+                onStart={() => navigate("/user/training?mode=f2f")}
               />
               {recScenario?.reason && (
                 <p className="mt-2 text-xs text-muted-foreground">

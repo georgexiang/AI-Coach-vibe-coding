@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Search } from "lucide-react";
 import {
@@ -56,10 +56,14 @@ export default function ScenarioSelection() {
   const { t } = useTranslation("coach");
   const { t: tc } = useTranslation("common");
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedProduct, setSelectedProduct] = useState(ALL_VALUE);
   const [selectedDifficulty, setSelectedDifficulty] = useState(ALL_VALUE);
+  const [selectedMode, setSelectedMode] = useState<"f2f" | "conference">(
+    searchParams.get("mode") === "conference" ? "conference" : "f2f",
+  );
 
   const { data, isLoading } = useActiveScenarios();
   const createSession = useCreateSession();
@@ -109,6 +113,14 @@ export default function ScenarioSelection() {
     } catch {
       // Error handled by TanStack Query
     }
+  };
+
+  const handleModeChange = (mode: string) => {
+    const nextMode = mode === "conference" ? "conference" : "f2f";
+    setSelectedMode(nextMode);
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set("mode", nextMode);
+    setSearchParams(nextParams, { replace: true });
   };
 
   const filterRow = (
@@ -211,7 +223,7 @@ export default function ScenarioSelection() {
         {t("scenarioSelection.title")}
       </h1>
 
-      <Tabs defaultValue="f2f">
+      <Tabs value={selectedMode} onValueChange={handleModeChange}>
         <TabsList>
           <TabsTrigger value="f2f">
             {t("scenarioSelection.tabF2F")}
