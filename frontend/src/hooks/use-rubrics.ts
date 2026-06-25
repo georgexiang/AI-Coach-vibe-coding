@@ -6,6 +6,8 @@ import {
   updateRubric,
   deleteRubric,
   getCuPortalUrl,
+  getDefaultPromptTemplate,
+  getDefaultRubricTemplate,
 } from "@/api/rubrics";
 import type { RubricCreate, RubricUpdate } from "@/types/rubric";
 
@@ -21,6 +23,20 @@ export function useRubric(id: string | undefined) {
     queryKey: ["rubrics", id],
     queryFn: () => getRubric(id!),
     enabled: !!id,
+  });
+}
+
+export function useDefaultPromptTemplate() {
+  return useQuery({
+    queryKey: ["rubrics", "default-prompt-template"],
+    queryFn: getDefaultPromptTemplate,
+  });
+}
+
+export function useDefaultRubricTemplate() {
+  return useQuery({
+    queryKey: ["rubrics", "default-rubric-template"],
+    queryFn: getDefaultRubricTemplate,
   });
 }
 

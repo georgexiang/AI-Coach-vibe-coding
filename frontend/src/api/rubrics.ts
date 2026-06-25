@@ -1,5 +1,11 @@
 import apiClient from "./client";
-import type { Rubric, RubricCreate, RubricUpdate } from "@/types/rubric";
+import type {
+  DefaultPromptTemplateResponse,
+  DefaultRubricTemplateResponse,
+  Rubric,
+  RubricCreate,
+  RubricUpdate,
+} from "@/types/rubric";
 
 export async function getRubrics(params?: { scenario_type?: string }) {
   const { data } = await apiClient.get<Rubric[]>("/rubrics", {
@@ -10,6 +16,20 @@ export async function getRubrics(params?: { scenario_type?: string }) {
 
 export async function getRubric(id: string) {
   const { data } = await apiClient.get<Rubric>(`/rubrics/${id}`);
+  return data;
+}
+
+export async function getDefaultPromptTemplate() {
+  const { data } = await apiClient.get<DefaultPromptTemplateResponse>(
+    "/rubrics/default-prompt-template",
+  );
+  return data;
+}
+
+export async function getDefaultRubricTemplate() {
+  const { data } = await apiClient.get<DefaultRubricTemplateResponse>(
+    "/rubrics/default-rubric-template",
+  );
   return data;
 }
 

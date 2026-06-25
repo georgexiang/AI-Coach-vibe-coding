@@ -8,11 +8,15 @@ from app.dependencies import get_db, require_role
 from app.models.user import User
 from app.schemas.scoring_rubric import (
     CuPortalUrlResponse,
+    DefaultPromptTemplateResponse,
+    DefaultRubricTemplateResponse,
     RubricCreate,
     RubricResponse,
     RubricUpdate,
 )
 from app.services import rubric_service
+from app.services.default_rubrics import get_default_f2f_rubric_template
+from app.services.scoring_engine import SCORING_PROMPT_TEMPLATE
 
 router = APIRouter(prefix="/rubrics", tags=["rubrics"])
 
@@ -35,6 +39,22 @@ async def list_rubrics(
 ):
     """List scoring rubrics with optional scenario_type filter. Admin only."""
     return await rubric_service.list_rubrics(db, scenario_type)
+
+
+@router.get("/default-prompt-template", response_model=DefaultPromptTemplateResponse)
+async def get_default_prompt_template(
+    user: User = Depends(require_role("admin")),
+):
+    """Return the built-in scoring prompt template for admin editors."""
+    return DefaultPromptTemplateResponse(prompt_template=SCORING_PROMPT_TEMPLATE)
+
+
+@router.get("/default-rubric-template", response_model=DefaultRubricTemplateResponse)
+async def get_default_rubric_template(
+    user: User = Depends(require_role("admin")),
+):
+    """Return the built-in default F2F scoring rubric template for admin editors."""
+    return DefaultRubricTemplateResponse(**get_default_f2f_rubric_template())
 
 
 @router.get("/{rubric_id}", response_model=RubricResponse)

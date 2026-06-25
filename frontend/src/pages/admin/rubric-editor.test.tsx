@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import RubricEditorPage from "./rubric-editor";
@@ -8,6 +8,23 @@ import type { Rubric } from "@/types/rubric";
 const mockNavigate = vi.fn();
 const mockCreateMutate = vi.fn();
 const mockUpdateMutate = vi.fn();
+const defaultPromptTemplate = "Default scoring prompt {transcript}";
+const defaultRubricTemplate = {
+  name: "Default F2F Scoring Rubric",
+  description: "Standard 5-dimension scoring rubric for F2F coaching sessions",
+  scenario_type: "f2f",
+  dimensions: [
+    { name: "key_message", weight: 25, criteria: ["message coverage"], max_score: 100 },
+    { name: "objection_handling", weight: 20, criteria: ["evidence-based response"], max_score: 100 },
+    { name: "communication", weight: 20, criteria: ["active listening"], max_score: 100 },
+    { name: "product_knowledge", weight: 20, criteria: ["product accuracy"], max_score: 100 },
+    { name: "scientific_info", weight: 15, criteria: ["clinical data"], max_score: 100 },
+  ],
+  prompt_template: defaultPromptTemplate,
+  is_default: true,
+  content_weight: 60,
+  voice_weight: 40,
+};
 
 let mockParamsId: string | undefined = undefined;
 
@@ -20,6 +37,8 @@ const mockRubric: Rubric = {
     { name: "Knowledge", weight: 60, criteria: ["accuracy", "depth"], max_score: 100 },
     { name: "Communication", weight: 40, criteria: ["clarity"], max_score: 100 },
   ],
+  prompt_template: "Existing scoring prompt {transcript}",
+  prompt_version: 3,
   is_default: true,
   created_by: "admin",
   created_at: "2024-01-01",
@@ -51,6 +70,14 @@ vi.mock("sonner", () => ({
 vi.mock("@/hooks/use-rubrics", () => ({
   useRubric: (id: string | undefined) => ({
     data: id ? mockRubricResponse : undefined,
+    isLoading: false,
+  }),
+  useDefaultPromptTemplate: () => ({
+    data: { prompt_template: defaultPromptTemplate },
+    isLoading: false,
+  }),
+  useDefaultRubricTemplate: () => ({
+    data: defaultRubricTemplate,
     isLoading: false,
   }),
   useCreateRubric: () => ({
@@ -125,6 +152,34 @@ describe("RubricEditorPage", () => {
       expect(screen.getByText("admin:rubrics.save")).toBeInTheDocument();
     });
 
+    it("prefills the prompt template with the default template", async () => {
+      renderEditor();
+      await waitFor(() => {
+        expect(screen.getByDisplayValue(defaultPromptTemplate)).toBeInTheDocument();
+      });
+    });
+
+    it("prefills the form with the default scoring rubric", async () => {
+      renderEditor();
+      await waitFor(() => {
+        expect(screen.getByDisplayValue("Default F2F Scoring Rubric")).toBeInTheDocument();
+        expect(screen.getByDisplayValue("key_message")).toBeInTheDocument();
+        expect(screen.getByDisplayValue("scientific_info")).toBeInTheDocument();
+        expect(screen.getByText(/100\/100/)).toBeInTheDocument();
+      });
+    });
+
+    it("restores the default prompt template from the prompt card", async () => {
+      const user = userEvent.setup();
+      renderEditor();
+
+      const promptInput = await screen.findByDisplayValue(defaultPromptTemplate);
+      fireEvent.change(promptInput, { target: { value: "Custom prompt" } });
+      await user.click(screen.getByText("admin:rubrics.useDefaultPromptTemplate"));
+
+      expect(screen.getByDisplayValue(defaultPromptTemplate)).toBeInTheDocument();
+    });
+
     it("shows weight sum indicator", () => {
       renderEditor();
       expect(screen.getByText(/100\/100/)).toBeInTheDocument();
@@ -169,6 +224,33 @@ describe("RubricEditorPage", () => {
       await waitFor(() => {
         expect(screen.getByDisplayValue("accuracy, depth")).toBeInTheDocument();
       });
+    });
+
+    it("populates prompt template and version metadata", async () => {
+      renderEditor();
+      await waitFor(() => {
+        expect(screen.getByDisplayValue("Existing scoring prompt {transcript}")).toBeInTheDocument();
+        expect(screen.getByText(/admin:rubrics.promptVersion: 3/)).toBeInTheDocument();
+      });
+    });
+
+    it("submits prompt template when saving an existing rubric", async () => {
+      const user = userEvent.setup();
+      renderEditor();
+
+      const promptInput = await screen.findByDisplayValue("Existing scoring prompt {transcript}");
+      fireEvent.change(promptInput, { target: { value: "Updated prompt {dimensions_config}" } });
+      await user.click(screen.getByText("admin:rubrics.save"));
+
+      expect(mockUpdateMutate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: "r1",
+          data: expect.objectContaining({
+            prompt_template: "Updated prompt {dimensions_config}",
+          }),
+        }),
+        expect.any(Object),
+      );
     });
 
     it("falls back to a default dimension when the loaded rubric has no dimensions", async () => {

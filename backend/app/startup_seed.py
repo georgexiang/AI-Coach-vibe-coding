@@ -88,79 +88,12 @@ async def seed_all(session: AsyncSession) -> None:
         return
     admin_id = admin_user.id
 
-    # --- 2. Default scoring rubric ---
     from app.models.scoring_rubric import ScoringRubric
 
-    existing_rubric = await session.execute(
-        select(ScoringRubric)
-        .where(
-            ScoringRubric.scenario_type == "f2f",
-            ScoringRubric.is_default == True,  # noqa: E712
-        )
-        .limit(1)
-    )
-    if existing_rubric.scalars().first() is None:
-        dimensions = [
-            {
-                "name": "key_message",
-                "weight": 25,
-                "criteria": [
-                    "Consider which key messages were delivered and how naturally",
-                    "Evaluate completeness of message coverage",
-                    "Assess logical flow of message delivery",
-                ],
-                "max_score": 100.0,
-            },
-            {
-                "name": "objection_handling",
-                "weight": 20,
-                "criteria": [
-                    "Evaluate how the MR responded to HCP resistance or concerns",
-                    "Assess use of clinical evidence in responses",
-                    "Evaluate acknowledgment of HCP concerns before countering",
-                ],
-                "max_score": 100.0,
-            },
-            {
-                "name": "communication",
-                "weight": 20,
-                "criteria": [
-                    "Evaluate tone, active listening, professional language",
-                    "Assess adaptation to HCP communication style",
-                    "Evaluate use of reflective listening techniques",
-                ],
-                "max_score": 100.0,
-            },
-            {
-                "name": "product_knowledge",
-                "weight": 20,
-                "criteria": [
-                    "Evaluate accuracy and depth of product information shared",
-                    "Assess dosing and administration knowledge",
-                    "Evaluate competitive product comparison ability",
-                ],
-                "max_score": 100.0,
-            },
-            {
-                "name": "scientific_info",
-                "weight": 15,
-                "criteria": [
-                    "Evaluate use of clinical data, study references, and evidence-based arguments",
-                    "Assess ability to cite specific study names and endpoints",
-                    "Evaluate discussion of patient populations and outcomes",
-                ],
-                "max_score": 100.0,
-            },
-        ]
-        rubric = ScoringRubric(
-            name="Default F2F Scoring Rubric",
-            description="Standard 5-dimension scoring rubric for F2F coaching sessions",
-            scenario_type="f2f",
-            dimensions=json.dumps(dimensions),
-            is_default=True,
-            created_by=admin_id,
-        )
-        session.add(rubric)
+    # --- 2. Default scoring rubric ---
+    from app.services.default_rubrics import ensure_default_f2f_rubric
+
+    if await ensure_default_f2f_rubric(session, admin_id) is not None:
         await session.commit()
 
     # --- 2b. Deduplicate defaults (fix for h21a migration creating duplicate) ---

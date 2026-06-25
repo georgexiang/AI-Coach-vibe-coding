@@ -74,6 +74,8 @@ class TestCreateRubric:
         assert rubric.created_by == user.id
         assert rubric.content_weight == 70
         assert rubric.voice_weight == 30
+        assert rubric.prompt_template == ""
+        assert rubric.prompt_version == 1
 
         # Dimensions stored as JSON
         parsed = json.loads(rubric.dimensions)
@@ -198,6 +200,23 @@ class TestUpdateRubric:
 
         assert updated.content_weight == 65
         assert updated.voice_weight == 35
+
+    async def test_update_rubric_updates_prompt_template_and_version(self, db_session):
+        user = await _create_user(db_session)
+        created = await create_rubric(
+            db_session,
+            RubricCreate(name="Prompted", dimensions=_make_dimensions()),
+            user.id,
+        )
+
+        updated = await update_rubric(
+            db_session,
+            created.id,
+            RubricUpdate(prompt_template="Score with custom prompt: {transcript}"),
+        )
+
+        assert updated.prompt_template == "Score with custom prompt: {transcript}"
+        assert updated.prompt_version == 2
 
     async def test_update_rubric_dimensions_reserializes_json(self, db_session):
         user = await _create_user(db_session)
