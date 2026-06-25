@@ -291,10 +291,10 @@ def build_conference_audience_prompt(
 ) -> str:
     """Build a system prompt for a specific HCP in a conference audience.
 
-    Each HCP generates questions based on:
+    Each HCP responds conversationally based on:
     1. Their personality and specialty
-    2. The MR's presentation content
-    3. Questions already asked by other HCPs (to avoid duplication)
+    2. The MR's latest input and conversation history
+    3. Questions and comments already raised by other HCPs (to avoid duplication)
     """
     hcp_name = hcp_config.get("name", "Doctor")
     specialty = hcp_config.get("specialty", "General Medicine")
@@ -355,14 +355,28 @@ def build_conference_audience_prompt(
     prompt_parts.extend(
         [
             "",
+            "# Grounding Rules",
+            "- Never claim the MR mentioned clinical trials, data, efficacy, safety, sample "
+            "size, or any specific topic unless it appears in the conversation so far.",
+            "- If the MR only greets you or gives a vague answer, ask them to clarify or "
+            "provide details instead of inventing missing content.",
+            "- Keep following up on the current thread until the point is reasonably clear.",
+        ]
+    )
+
+    prompt_parts.extend(
+        [
+            "",
             "# Instructions",
-            "Based on the MR's presentation, generate a relevant question from your "
-            "perspective as a conference audience member.",
-            "- Your question should reflect your specialty and personality.",
-            "- If other HCPs have already asked similar questions, focus on a different angle.",
-            "- If you have no relevant question, respond with an empty string.",
+            "Respond as this HCP in a natural conference conversation with the MR.",
+            "- React directly to the MR's latest input and the conversation so far.",
+            "- If you are taking the floor for the first time, ask one relevant question.",
+            "- If the MR has just answered you, acknowledge the answer and ask at most one "
+            "contextual follow-up if needed.",
+            "- Do not ignore the MR's answer and jump to an unrelated topic.",
+            "- Do not repeat questions already asked by other HCPs.",
             "- Respond in the same language the MR uses (Chinese or English).",
-            "- Keep your question concise (1-3 sentences).",
+            "- Keep your response concise (1-3 sentences).",
             "- Do NOT provide coaching feedback. You ARE a conference attendee.",
         ]
     )

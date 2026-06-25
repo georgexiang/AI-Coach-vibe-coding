@@ -147,8 +147,29 @@ class TestStreamConferenceReturnsSSE:
     """Tests for stream_conference returning EventSourceResponse."""
 
     @patch("app.api.conference.conference_service")
-    @patch("app.api.conference.turn_manager")
-    async def test_present_returns_event_source_response(self, mock_tm, mock_service):
+    async def test_start_returns_event_source_response(self, mock_service):
+        """Start action returns an EventSourceResponse object."""
+        from sse_starlette.sse import EventSourceResponse
+
+        db = AsyncMock()
+        session = _make_session(status="in_progress")
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = session
+        db.execute = AsyncMock(return_value=mock_result)
+        user = _make_user()
+        request = ConferenceMessageSend(action="start", message="")
+
+        async def mock_start(*args, **kwargs):
+            yield {"event": "speaker_text", "data": "{}"}
+
+        mock_service.start_conference_round = mock_start
+
+        result = await stream_conference("sess-1", request, db, user)
+
+        assert isinstance(result, EventSourceResponse)
+
+    @patch("app.api.conference.conference_service")
+    async def test_present_returns_event_source_response(self, mock_service):
         """Present action returns an EventSourceResponse object."""
         from sse_starlette.sse import EventSourceResponse
 
@@ -160,15 +181,12 @@ class TestStreamConferenceReturnsSSE:
         user = _make_user()
         request = ConferenceMessageSend(action="present", message="Hello conference")
 
-        mock_service._save_conference_message = AsyncMock()
-        mock_service.generate_hcp_questions = AsyncMock(return_value=[])
+        async def mock_present(*args, **kwargs):
+            yield {"event": "speaker_text", "data": "{}"}
 
-        # detect_key_messages is imported inside event_generator at runtime
-        with patch(
-            "app.services.session_service.detect_key_messages", new_callable=AsyncMock
-        ) as mock_km:
-            mock_km.return_value = []
-            result = await stream_conference("sess-1", request, db, user)
+        mock_service.run_presentation_round = mock_present
+
+        result = await stream_conference("sess-1", request, db, user)
 
         assert isinstance(result, EventSourceResponse)
 

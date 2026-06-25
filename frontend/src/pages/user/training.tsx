@@ -19,6 +19,7 @@ import { EmptyState } from "@/components/shared";
 import { ScenarioCard } from "@/components/coach";
 import { useActiveScenarios } from "@/hooks/use-scenarios";
 import { useCreateSession } from "@/hooks/use-session";
+import { useCreateConferenceSession } from "@/hooks/use-conference";
 import { useFeatureFlags } from "@/hooks/use-config";
 import type { Scenario } from "@/types/scenario";
 
@@ -62,6 +63,7 @@ export default function ScenarioSelection() {
 
   const { data, isLoading } = useActiveScenarios();
   const createSession = useCreateSession();
+  const createConferenceSession = useCreateConferenceSession();
   const { data: config } = useFeatureFlags(true);
 
   const scenarios = data ?? [];
@@ -100,8 +102,9 @@ export default function ScenarioSelection() {
   };
 
   const handleStartConference = async (scenarioId: string, mode: string) => {
+    void mode;
     try {
-      const session = await createSession.mutateAsync({ scenarioId, mode });
+      const session = await createConferenceSession.mutateAsync(scenarioId);
       navigate(`/user/training/conference?id=${session.id}`);
     } catch {
       // Error handled by TanStack Query

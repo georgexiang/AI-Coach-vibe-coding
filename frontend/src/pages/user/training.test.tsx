@@ -6,6 +6,7 @@ import { MemoryRouter } from "react-router-dom";
 
 const mockNavigate = vi.fn();
 const mockMutateAsync = vi.fn();
+const mockConferenceMutateAsync = vi.fn();
 let scenarioData: unknown[] | undefined;
 let isLoading = false;
 
@@ -41,6 +42,13 @@ vi.mock("@/hooks/use-scenarios", () => ({
 vi.mock("@/hooks/use-session", () => ({
   useCreateSession: () => ({
     mutateAsync: mockMutateAsync,
+    isPending: false,
+  }),
+}));
+
+vi.mock("@/hooks/use-conference", () => ({
+  useCreateConferenceSession: () => ({
+    mutateAsync: mockConferenceMutateAsync,
     isPending: false,
   }),
 }));
@@ -109,6 +117,7 @@ let ScenarioSelection: React.ComponentType;
 
 beforeEach(async () => {
   vi.clearAllMocks();
+  mockConferenceMutateAsync.mockReset();
   scenarioData = [];
   isLoading = false;
   const mod = await import("./training");
@@ -317,7 +326,7 @@ describe("ScenarioSelection Filters and Actions", () => {
 
   it("creates session and navigates to conference on Conference tab start", async () => {
     scenarioData = twoScenarios;
-    mockMutateAsync.mockResolvedValue({ id: "conf-session-1" });
+    mockConferenceMutateAsync.mockResolvedValue({ id: "conf-session-1" });
     renderPage();
 
     // Switch to Conference tab
@@ -328,10 +337,7 @@ describe("ScenarioSelection Filters and Actions", () => {
     const startBtns = screen.getAllByText("Start");
     await userEvent.setup().click(startBtns[0]!);
 
-    expect(mockMutateAsync).toHaveBeenCalledWith({
-      scenarioId: "sc-2",
-      mode: "voice_realtime_model",
-    });
+    expect(mockConferenceMutateAsync).toHaveBeenCalledWith("sc-2");
     expect(mockNavigate).toHaveBeenCalledWith("/user/training/conference?id=conf-session-1");
   });
 
@@ -349,7 +355,7 @@ describe("ScenarioSelection Filters and Actions", () => {
 
   it("handles createSession failure gracefully for conference", async () => {
     scenarioData = twoScenarios;
-    mockMutateAsync.mockRejectedValue(new Error("API error"));
+    mockConferenceMutateAsync.mockRejectedValue(new Error("API error"));
     renderPage();
 
     const confTab = screen.getByText("scenarioSelection.tabConference");

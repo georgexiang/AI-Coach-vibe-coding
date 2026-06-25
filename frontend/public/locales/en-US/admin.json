@@ -237,6 +237,23 @@
         "dimensionPreviewEmpty": "Select a scoring rubric to see dimensions",
         "manageRubrics": "Manage Rubrics",
         "passThreshold": "Pass Threshold"
+      },
+      "audience": {
+        "title": "Conference Audience HCPs",
+        "description": "Bind {{min}}-{{max}} HCP roles for this conference scenario. The presenter faces multiple digital HCPs for the talk and Q&A.",
+        "selectHcp": "Select HCP",
+        "role": "Role",
+        "roleAudience": "Audience",
+        "roleModerator": "Moderator",
+        "addHcp": "Add HCP",
+        "removeHcp": "Remove HCP",
+        "countHint": "{{count}} HCP bound (need {{min}}-{{max}})",
+        "minHint": "A conference scenario needs at least {{min}} HCPs",
+        "duplicateHint": "Duplicate HCP found, make sure each HCP is unique",
+        "invalidCount": "A conference scenario must bind {{min}}-{{max}} HCPs",
+        "emptyHcp": "Please select an HCP for every row",
+        "duplicate": "Duplicate HCP found, make sure each HCP is unique",
+        "saveFailed": "Failed to save conference audience"
       }
     },
     "keyMessages": "Key Messages",

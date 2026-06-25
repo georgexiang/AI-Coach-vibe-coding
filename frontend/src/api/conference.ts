@@ -5,6 +5,52 @@ import type {
   ConferenceSession,
 } from "@/types/conference";
 
+/** Backend audience HCP response shape (snake_case). */
+interface AudienceHcpApi {
+  id: string;
+  scenario_id: string;
+  hcp_profile_id: string;
+  role_in_conference: string;
+  voice_id: string;
+  sort_order: number;
+  hcp_name?: string;
+  hcp_specialty?: string;
+}
+
+/** Backend audience HCP create payload (snake_case). */
+interface AudienceHcpCreateApi {
+  hcp_profile_id: string;
+  role_in_conference: string;
+  voice_id: string;
+  sort_order: number;
+}
+
+function toAudienceHcp(raw: AudienceHcpApi): AudienceHcp {
+  return {
+    id: raw.id,
+    scenarioId: raw.scenario_id,
+    hcpProfileId: raw.hcp_profile_id,
+    hcpName: raw.hcp_name ?? "",
+    hcpSpecialty: raw.hcp_specialty ?? "",
+    roleInConference: raw.role_in_conference,
+    voiceId: raw.voice_id,
+    sortOrder: raw.sort_order,
+    status: "listening",
+  };
+}
+
+function toAudienceHcpCreateApi(
+  hcp: AudienceHcpCreate,
+  index: number,
+): AudienceHcpCreateApi {
+  return {
+    hcp_profile_id: hcp.hcpProfileId,
+    role_in_conference: hcp.roleInConference ?? "audience",
+    voice_id: hcp.voiceId ?? "",
+    sort_order: hcp.sortOrder ?? index,
+  };
+}
+
 export async function createConferenceSession(
   scenarioId: string,
 ): Promise<ConferenceSession> {
@@ -42,19 +88,20 @@ export async function endConferenceSession(
 export async function getAudienceHcps(
   scenarioId: string,
 ): Promise<AudienceHcp[]> {
-  const { data } = await apiClient.get<AudienceHcp[]>(
+  const { data } = await apiClient.get<AudienceHcpApi[]>(
     `/conference/scenarios/${scenarioId}/audience`,
   );
-  return data;
+  return data.map(toAudienceHcp);
 }
 
 export async function setAudienceHcps(
   scenarioId: string,
   hcps: AudienceHcpCreate[],
 ): Promise<AudienceHcp[]> {
-  const { data } = await apiClient.put<AudienceHcp[]>(
+  const payload = hcps.map(toAudienceHcpCreateApi);
+  const { data } = await apiClient.put<AudienceHcpApi[]>(
     `/conference/scenarios/${scenarioId}/audience`,
-    hcps,
+    payload,
   );
-  return data;
+  return data.map(toAudienceHcp);
 }

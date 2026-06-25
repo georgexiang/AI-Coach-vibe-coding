@@ -42,8 +42,8 @@ class TestTurnManagerAddQuestion:
         assert len(queue) == 1
         assert queue[0].hcp_profile_id == "hcp-1"
 
-    def test_add_question_sorts_by_relevance(self, tm: TurnManager):
-        """Questions are sorted descending by relevance_score after each add."""
+    def test_add_question_preserves_insertion_order(self, tm: TurnManager):
+        """Questions keep the HCP speaking order after each add."""
         q_low = _make_question(hcp_id="low", relevance_score=0.3)
         q_mid = _make_question(hcp_id="mid", relevance_score=0.6)
         q_high = _make_question(hcp_id="high", relevance_score=0.9)
@@ -54,9 +54,9 @@ class TestTurnManagerAddQuestion:
 
         queue = tm.get_queue("sess-1")
         assert len(queue) == 3
-        assert queue[0].hcp_profile_id == "high"
+        assert queue[0].hcp_profile_id == "low"
         assert queue[1].hcp_profile_id == "mid"
-        assert queue[2].hcp_profile_id == "low"
+        assert queue[2].hcp_profile_id == "high"
 
 
 class TestTurnManagerGetQueue:

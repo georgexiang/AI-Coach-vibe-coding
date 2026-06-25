@@ -31,14 +31,24 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ObjectionList } from "@/components/admin/objection-list";
 import {
+  ConferenceAudienceConfig,
+  MIN_AUDIENCE,
+  MAX_AUDIENCE,
+} from "@/components/admin/conference-audience-config";
+import {
   useScenario,
   useCreateScenario,
   useUpdateScenario,
 } from "@/hooks/use-scenarios";
+import {
+  useAudienceHcps,
+  useSetAudienceHcps,
+} from "@/hooks/use-conference-audience";
 import { useHcpProfiles } from "@/hooks/use-hcp-profiles";
 import { usePublishedSkills } from "@/hooks/use-skills";
 import { useRubrics } from "@/hooks/use-rubrics";
 import type { ScenarioCreate, ScenarioUpdate } from "@/types/scenario";
+import type { AudienceHcpCreate } from "@/types/conference";
 import type { HcpProfile } from "@/types/hcp";
 import type { Rubric } from "@/types/rubric";
 
@@ -54,16 +64,29 @@ const scenarioSchema = z.object({
   tags: z.array(z.string()),
   mode: z.enum(["f2f", "conference"]),
   difficulty: z.enum(["easy", "medium", "hard"]),
-  hcp_profile_id: z.string().min(1, "HCP profile is required"),
+  hcp_profile_id: z.string().default(""),
   skill_id: z.string().min(1, "Skill is required"),
   key_messages: z.array(z.string()),
   rubric_id: z.string().min(1, "Scoring rubric is required"),
   pass_threshold: z.number().min(0).max(100),
+}).superRefine((values, ctx) => {
+  if (values.mode === "f2f" && !values.hcp_profile_id) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "HCP profile is required",
+      path: ["hcp_profile_id"],
+    });
+  }
 });
 
 type ScenarioFormValues = z.infer<typeof scenarioSchema>;
 
 const VALID_TABS = new Set(["basic", "linked", "scoring"]);
+
+function isSameStringArray(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false;
+  return a.every((value, index) => value === b[index]);
+}
 
 export default function ScenarioEditorPage() {
   const { id } = useParams<{ id: string }>();
@@ -74,6 +97,8 @@ export default function ScenarioEditorPage() {
   const { data: scenario, isLoading: scenarioLoading } = useScenario(id);
   const createMutation = useCreateScenario();
   const updateMutation = useUpdateScenario();
+  const { data: audienceData } = useAudienceHcps(id);
+  const setAudienceMutation = useSetAudienceHcps();
 
   const { data: profilesData } = useHcpProfiles();
   const { data: publishedSkillsData } = usePublishedSkills();
@@ -95,6 +120,8 @@ export default function ScenarioEditorPage() {
   };
 
   const [customTagInput, setCustomTagInput] = useState("");
+
+  const [audience, setAudience] = useState<AudienceHcpCreate[]>([]);
 
   const isArchived = scenario?.status === "archived";
 
@@ -131,32 +158,125 @@ export default function ScenarioEditorPage() {
     }
   }, [scenario, form]);
 
+  useEffect(() => {
+    if (audienceData) {
+      setAudience(
+        audienceData.map((a) => ({
+          hcpProfileId: a.hcpProfileId,
+          roleInConference: a.roleInConference,
+          voiceId: a.voiceId,
+          sortOrder: a.sortOrder,
+        })),
+      );
+    }
+  }, [audienceData]);
+
+  const validateAudience = (): boolean => {
+    if (audience.length < MIN_AUDIENCE || audience.length > MAX_AUDIENCE) {
+      toast.error(
+        t("admin:scenarios.editor.audience.invalidCount", {
+          min: MIN_AUDIENCE,
+          max: MAX_AUDIENCE,
+        }),
+      );
+      return false;
+    }
+    const ids = audience.map((a) => a.hcpProfileId);
+    if (ids.some((x) => !x)) {
+      toast.error(t("admin:scenarios.editor.audience.emptyHcp"));
+      return false;
+    }
+    if (new Set(ids).size !== ids.length) {
+      toast.error(t("admin:scenarios.editor.audience.duplicate"));
+      return false;
+    }
+    return true;
+  };
+
+  const saveAudienceThenFinish = (scenarioId: string, isConference: boolean) => {
+    const finish = () => {
+      toast.success(t("admin:scenarios.saved"));
+      navigate("/admin/scenarios");
+    };
+    if (!isConference) {
+      finish();
+      return;
+    }
+    setAudienceMutation.mutate(
+      { scenarioId, hcps: audience },
+      {
+        onSuccess: finish,
+        onError: () =>
+          toast.error(t("admin:scenarios.editor.audience.saveFailed")),
+      },
+    );
+  };
+
   const handleSubmit = (values: ScenarioFormValues) => {
+    const isConference = values.mode === "conference";
+
+    if (isConference && !validateAudience()) return;
+
+    const primaryConferenceHcp = isConference ? audience[0]?.hcpProfileId ?? "" : "";
+    const hcpProfileId = isConference
+      ? primaryConferenceHcp
+      : values.hcp_profile_id;
+    const normalizedKeyMessages = values.key_messages.filter(Boolean);
+
     const data: ScenarioCreate = {
       ...values,
-      key_messages: values.key_messages.filter(Boolean),
+      hcp_profile_id: hcpProfileId,
+      key_messages: normalizedKeyMessages,
     };
 
     if (isNew) {
       createMutation.mutate(data, {
-        onSuccess: () => {
-          toast.success(t("admin:scenarios.saved"));
-          navigate("/admin/scenarios");
-        },
+        onSuccess: (created) => saveAudienceThenFinish(created.id, isConference),
         onError: () => toast.error(t("scenarios.saveFailed")),
       });
     } else if (id) {
-      const updateData: ScenarioUpdate = {
-        ...values,
-        key_messages: values.key_messages.filter(Boolean),
-      };
+      const updateData: ScenarioUpdate = {};
+
+      if (scenario) {
+        const prevTags = scenario.tags ?? [];
+        const nextTags = values.tags ?? [];
+        const prevKeyMessages = scenario.key_messages ?? [];
+
+        if (values.name !== scenario.name) updateData.name = values.name;
+        if ((values.description ?? "") !== (scenario.description ?? "")) {
+          updateData.description = values.description;
+        }
+        if (!isSameStringArray(nextTags, prevTags)) updateData.tags = nextTags;
+        if (values.mode !== scenario.mode) updateData.mode = values.mode;
+        if (values.difficulty !== scenario.difficulty) {
+          updateData.difficulty = values.difficulty;
+        }
+        if (values.pass_threshold !== scenario.pass_threshold) {
+          updateData.pass_threshold = values.pass_threshold;
+        }
+
+        const prevSkillId = scenario.skill_id ?? "";
+        if ((values.skill_id ?? "") !== prevSkillId) {
+          updateData.skill_id = values.skill_id;
+        }
+        if (values.rubric_id !== scenario.rubric_id) {
+          updateData.rubric_id = values.rubric_id;
+        }
+        if (!isSameStringArray(normalizedKeyMessages, prevKeyMessages)) {
+          updateData.key_messages = normalizedKeyMessages;
+        }
+
+        // Conference mode uses audience bindings as source of truth; keep legacy
+        // scenario.hcp_profile_id unchanged on update to avoid active-field conflicts.
+        if (!isConference && hcpProfileId !== scenario.hcp_profile_id) {
+          updateData.hcp_profile_id = hcpProfileId;
+        }
+      }
+
       updateMutation.mutate(
         { id, data: updateData },
         {
-          onSuccess: () => {
-            toast.success(t("admin:scenarios.saved"));
-            navigate("/admin/scenarios");
-          },
+          onSuccess: () => saveAudienceThenFinish(id, isConference),
           onError: () => toast.error(t("scenarios.saveFailed")),
         },
       );
@@ -453,53 +573,81 @@ export default function ScenarioEditorPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  {/* HCP Profile Selector */}
-                  <div className="grid gap-2">
-                    <Label>{t("scenarios.editor.fields.hcpProfile")}</Label>
-                    <Controller
-                      control={form.control}
-                      name="hcp_profile_id"
-                      render={({ field }) => (
-                        <Select value={field.value} onValueChange={field.onChange}>
-                          <SelectTrigger>
-                            <SelectValue placeholder={t("scenarios.editor.fields.selectHcp")}>
-                              {selectedProfile && (
-                                <div className="flex items-center gap-2">
-                                  <Avatar className="size-5">
-                                    <AvatarImage src={selectedProfile.avatar_url} />
-                                    <AvatarFallback className="bg-blue-100 text-blue-700 text-[10px]">
-                                      {getInitials(selectedProfile.name)}
-                                    </AvatarFallback>
-                                  </Avatar>
-                                  <span>{selectedProfile.name}</span>
-                                </div>
-                              )}
-                            </SelectValue>
-                          </SelectTrigger>
-                          <SelectContent>
-                            {profiles.map((p) => (
-                              <SelectItem key={p.id} value={p.id}>
-                                <div className="flex items-center gap-2">
-                                  <Avatar className="size-5">
-                                    <AvatarImage src={p.avatar_url} />
-                                    <AvatarFallback className="bg-blue-100 text-blue-700 text-[10px]">
-                                      {getInitials(p.name)}
-                                    </AvatarFallback>
-                                  </Avatar>
-                                  {p.name}
-                                </div>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                  {/* HCP Profile Selector (F2F only) */}
+                  {form.watch("mode") !== "conference" && (
+                    <div className="grid gap-2">
+                      <Label>{t("scenarios.editor.fields.hcpProfile")}</Label>
+                      <Controller
+                        control={form.control}
+                        name="hcp_profile_id"
+                        render={({ field }) => (
+                          <Select value={field.value} onValueChange={field.onChange}>
+                            <SelectTrigger>
+                              <SelectValue placeholder={t("scenarios.editor.fields.selectHcp")}>
+                                {selectedProfile && (
+                                  <div className="flex items-center gap-2">
+                                    <Avatar className="size-5">
+                                      <AvatarImage src={selectedProfile.avatar_url} />
+                                      <AvatarFallback className="bg-blue-100 text-blue-700 text-[10px]">
+                                        {getInitials(selectedProfile.name)}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                    <span>{selectedProfile.name}</span>
+                                  </div>
+                                )}
+                              </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent>
+                              {profiles.map((p) => (
+                                <SelectItem key={p.id} value={p.id}>
+                                  <div className="flex items-center gap-2">
+                                    <Avatar className="size-5">
+                                      <AvatarImage src={p.avatar_url} />
+                                      <AvatarFallback className="bg-blue-100 text-blue-700 text-[10px]">
+                                        {getInitials(p.name)}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                    {p.name}
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      />
+                      {form.formState.errors.hcp_profile_id && (
+                        <p className="text-destructive text-sm">
+                          {t("scenarios.editor.fields.hcpProfile")}
+                        </p>
                       )}
+                    </div>
+                  )}
+
+                  {/* Conference Audience (multi-HCP) */}
+                  {form.watch("mode") === "conference" && (
+                    <ConferenceAudienceConfig
+                      value={audience}
+                      onChange={setAudience}
+                      profiles={profiles}
+                      labels={{
+                        title: t("scenarios.editor.audience.title"),
+                        description: t("scenarios.editor.audience.description"),
+                        selectHcp: t("scenarios.editor.audience.selectHcp"),
+                        role: t("scenarios.editor.audience.role"),
+                        roleAudience: t("scenarios.editor.audience.roleAudience"),
+                        roleModerator: t(
+                          "scenarios.editor.audience.roleModerator",
+                        ),
+                        addHcp: t("scenarios.editor.audience.addHcp"),
+                        removeHcp: t("scenarios.editor.audience.removeHcp"),
+                        countHint: t("scenarios.editor.audience.countHint"),
+                        minHint: t("scenarios.editor.audience.minHint"),
+                        duplicateHint: t(
+                          "scenarios.editor.audience.duplicateHint",
+                        ),
+                      }}
                     />
-                    {form.formState.errors.hcp_profile_id && (
-                      <p className="text-destructive text-sm">
-                        {t("scenarios.editor.fields.hcpProfile")}
-                      </p>
-                    )}
-                  </div>
+                  )}
 
                   {/* Skill Selector */}
                   <div className="grid gap-2">

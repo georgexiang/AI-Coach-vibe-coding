@@ -332,13 +332,43 @@ describe("ConferenceSession", () => {
     expect(mockNavigate).not.toHaveBeenCalled();
   });
 
-  // ── handlePresent / sendMessage ──
+  // ── conference input routing ──
+  it("requests moderator start once when session loads", async () => {
+    renderConferenceSession();
+
+    await waitFor(() => {
+      expect(mockSendMessage).toHaveBeenCalledWith("start", "");
+    });
+  });
+
   it("adds user message and calls sendMessage when presenting", async () => {
     const user = userEvent.setup();
     renderConferenceSession();
+    mockSendMessage.mockClear();
 
     await user.click(screen.getByText("Send"));
     expect(mockSendMessage).toHaveBeenCalledWith("present", "Hello HCP");
+  });
+
+  it("routes stage input to respond when a queued HCP is waiting", async () => {
+    const user = userEvent.setup();
+    renderConferenceSession();
+    mockSendMessage.mockClear();
+
+    act(() => {
+      capturedCallbacks.onQueueUpdate?.([
+        {
+          hcpProfileId: "hp-1",
+          hcpName: "Dr. Smith",
+          question: "What about side effects?",
+          relevanceScore: 0.9,
+          status: "waiting",
+        },
+      ]);
+    });
+
+    await user.click(screen.getByText("Send"));
+    expect(mockSendMessage).toHaveBeenCalledWith("respond", "Hello HCP", "hp-1");
   });
 
   // ── SSE callback: onSpeakerText ──
@@ -564,6 +594,7 @@ describe("ConferenceSession", () => {
   it("responds to a question from the queue", async () => {
     const user = userEvent.setup();
     renderConferenceSession();
+    mockSendMessage.mockClear();
 
     // First set up the question queue via SSE
     act(() => {
@@ -587,6 +618,7 @@ describe("ConferenceSession", () => {
   it("does not respond if no matching waiting question in queue", async () => {
     const user = userEvent.setup();
     renderConferenceSession();
+    mockSendMessage.mockClear();
 
     // Queue with already active question
     act(() => {
