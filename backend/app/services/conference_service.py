@@ -346,8 +346,7 @@ def _fallback_hcp_question(hcp_config: dict, mr_text: str) -> str:
     specialty = hcp_config.get("specialty") or "临床"
     if not mr_text or _contains_cjk(mr_text):
         return (
-            f"从{specialty}医生的角度，我想请你先说明一下这次主题的"
-            "核心患者人群和临床价值是什么？"
+            f"从{specialty}医生的角度，我想请你先说明一下这次主题的核心患者人群和临床价值是什么？"
         )
     return (
         f"From a {specialty} perspective, could you clarify the core patient population "
@@ -707,9 +706,7 @@ async def _release_next_hcp_or_close(
 
     if moderator is not None:
         await asyncio.sleep(SPEAKER_PACING_SECONDS)
-        async for event_data in _emit_moderator_remark(
-            db, session, mr_text, moderator, "closing"
-        ):
+        async for event_data in _emit_moderator_remark(db, session, mr_text, moderator, "closing"):
             yield event_data
 
     yield {

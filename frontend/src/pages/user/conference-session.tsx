@@ -227,20 +227,6 @@ export default function ConferenceSession() {
   }, [sessionId, session, sendMessage]);
 
   // Handlers
-  const handlePresent = useCallback(
-    (text: string) => {
-      const userMsg: ChatMessage = {
-        id: `mr-${Date.now()}`,
-        sender: "mr",
-        text,
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, userMsg]);
-      sendMessage("present", text);
-    },
-    [sendMessage],
-  );
-
   const handleConferenceInput = useCallback(
     (text: string) => {
       const pendingQuestion = questionQueue[0];

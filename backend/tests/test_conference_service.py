@@ -340,18 +340,14 @@ class TestRunPresentationRound:
         from app.services.conference_service import start_conference_round
 
         async with TestSessionLocal() as db:
-            data = await _seed_conference_fixture(
-                db, roles=["moderator", "audience", "audience"]
-            )
+            data = await _seed_conference_fixture(db, roles=["moderator", "audience", "audience"])
             session = await create_conference_session(db, data["scenario"].id, data["user"].id)
 
             events = []
             async for event in start_conference_round(db, session):
                 events.append(event)
 
-            speaker_events = [
-                json.loads(e["data"]) for e in events if e["event"] == "speaker_text"
-            ]
+            speaker_events = [json.loads(e["data"]) for e in events if e["event"] == "speaker_text"]
             assert len(speaker_events) == 1
             assert speaker_events[0]["speaker_name"] == "Dr. HCP-0"
             assert "请先进行你的主题演讲" in speaker_events[0]["content"]
@@ -361,16 +357,12 @@ class TestRunPresentationRound:
         """Present phase emits moderator opening and the first HCP question only."""
         monkeypatch.setattr("app.services.conference_service.SPEAKER_PACING_SECONDS", 0)
         async with TestSessionLocal() as db:
-            data = await _seed_conference_fixture(
-                db, roles=["moderator", "audience", "audience"]
-            )
+            data = await _seed_conference_fixture(db, roles=["moderator", "audience", "audience"])
             session = await create_conference_session(db, data["scenario"].id, data["user"].id)
 
             events = await self._run(db, session, "我们的药物数据展示")
 
-            speaker_events = [
-                json.loads(e["data"]) for e in events if e["event"] == "speaker_text"
-            ]
+            speaker_events = [json.loads(e["data"]) for e in events if e["event"] == "speaker_text"]
             # Moderator opening + first audience question only.
             assert len(speaker_events) == 2
             assert speaker_events[0]["speaker_name"] == "Dr. HCP-0"
@@ -381,9 +373,7 @@ class TestRunPresentationRound:
         """Moderator messages do not count as released audience HCP questions."""
         monkeypatch.setattr("app.services.conference_service.SPEAKER_PACING_SECONDS", 0)
         async with TestSessionLocal() as db:
-            data = await _seed_conference_fixture(
-                db, roles=["moderator", "audience", "audience"]
-            )
+            data = await _seed_conference_fixture(db, roles=["moderator", "audience", "audience"])
             session = await create_conference_session(db, data["scenario"].id, data["user"].id)
 
             events = await self._run(db, session, "我们的药物数据展示")
@@ -406,9 +396,7 @@ class TestRunPresentationRound:
         mock_adapter.execute = mock_execute
 
         async with TestSessionLocal() as db:
-            data = await _seed_conference_fixture(
-                db, roles=["moderator", "audience", "audience"]
-            )
+            data = await _seed_conference_fixture(db, roles=["moderator", "audience", "audience"])
             session = await create_conference_session(db, data["scenario"].id, data["user"].id)
 
             fresh_tm = TurnManager()
@@ -423,9 +411,7 @@ class TestRunPresentationRound:
                 async for event in run_presentation_round(db, session, "我想聊聊泽布替尼"):
                     events.append(event)
 
-            speaker_events = [
-                json.loads(e["data"]) for e in events if e["event"] == "speaker_text"
-            ]
+            speaker_events = [json.loads(e["data"]) for e in events if e["event"] == "speaker_text"]
             assert len(speaker_events) == 2
             assert speaker_events[1]["speaker_name"] == "Dr. HCP-1"
             assert "临床价值" in speaker_events[1]["content"]
@@ -440,9 +426,7 @@ class TestRunPresentationRound:
 
             events = await self._run(db, session, "Our drug efficacy data")
 
-            speaker_events = [
-                json.loads(e["data"]) for e in events if e["event"] == "speaker_text"
-            ]
+            speaker_events = [json.loads(e["data"]) for e in events if e["event"] == "speaker_text"]
             assert len(speaker_events) == 1
             assert speaker_events[0]["speaker_name"] == "Dr. HCP-0"
 
@@ -450,9 +434,7 @@ class TestRunPresentationRound:
         """Queue exposes only the active HCP after their question is emitted."""
         monkeypatch.setattr("app.services.conference_service.SPEAKER_PACING_SECONDS", 0)
         async with TestSessionLocal() as db:
-            data = await _seed_conference_fixture(
-                db, roles=["moderator", "audience", "audience"]
-            )
+            data = await _seed_conference_fixture(db, roles=["moderator", "audience", "audience"])
             session = await create_conference_session(db, data["scenario"].id, data["user"].id)
 
             events = await self._run(db, session, "我们的数据")
@@ -467,9 +449,7 @@ class TestRunPresentationRound:
     async def test_generate_questions_skips_moderator(self, monkeypatch):
         """generate_hcp_questions excludes moderator-role HCPs."""
         async with TestSessionLocal() as db:
-            data = await _seed_conference_fixture(
-                db, roles=["moderator", "audience", "audience"]
-            )
+            data = await _seed_conference_fixture(db, roles=["moderator", "audience", "audience"])
             session = await create_conference_session(db, data["scenario"].id, data["user"].id)
 
             fresh_tm = TurnManager()
@@ -487,9 +467,7 @@ class TestRunPresentationRound:
         """Answering an initial HCP question emits only that HCP follow-up."""
         monkeypatch.setattr("app.services.conference_service.SPEAKER_PACING_SECONDS", 0)
         async with TestSessionLocal() as db:
-            data = await _seed_conference_fixture(
-                db, roles=["moderator", "audience", "audience"]
-            )
+            data = await _seed_conference_fixture(db, roles=["moderator", "audience", "audience"])
             session = await create_conference_session(db, data["scenario"].id, data["user"].id)
 
             from app.services.conference_service import handle_respond, run_presentation_round
@@ -519,9 +497,7 @@ class TestRunPresentationRound:
         """The current HCP follows up for multiple turns before another HCP speaks."""
         monkeypatch.setattr("app.services.conference_service.SPEAKER_PACING_SECONDS", 0)
         async with TestSessionLocal() as db:
-            data = await _seed_conference_fixture(
-                db, roles=["moderator", "audience", "audience"]
-            )
+            data = await _seed_conference_fixture(db, roles=["moderator", "audience", "audience"])
             session = await create_conference_session(db, data["scenario"].id, data["user"].id)
 
             from app.services.conference_service import handle_respond, run_presentation_round
@@ -553,9 +529,7 @@ class TestRunPresentationRound:
         """After the follow-up limit, the next HCP waits until the MR replies."""
         monkeypatch.setattr("app.services.conference_service.SPEAKER_PACING_SECONDS", 0)
         async with TestSessionLocal() as db:
-            data = await _seed_conference_fixture(
-                db, roles=["moderator", "audience", "audience"]
-            )
+            data = await _seed_conference_fixture(db, roles=["moderator", "audience", "audience"])
             session = await create_conference_session(db, data["scenario"].id, data["user"].id)
 
             from app.services.conference_service import handle_respond, run_presentation_round
@@ -616,9 +590,7 @@ class TestRunPresentationRound:
         """MR can explicitly move the floor to the next HCP."""
         monkeypatch.setattr("app.services.conference_service.SPEAKER_PACING_SECONDS", 0)
         async with TestSessionLocal() as db:
-            data = await _seed_conference_fixture(
-                db, roles=["moderator", "audience", "audience"]
-            )
+            data = await _seed_conference_fixture(db, roles=["moderator", "audience", "audience"])
             session = await create_conference_session(db, data["scenario"].id, data["user"].id)
 
             from app.services.conference_service import handle_respond, run_presentation_round
