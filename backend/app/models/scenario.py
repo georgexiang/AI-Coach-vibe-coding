@@ -23,6 +23,7 @@ class Scenario(Base, TimestampMixin):
         String(36), ForeignKey("hcp_profiles.id"), nullable=False, index=True
     )
     key_messages: Mapped[str] = mapped_column(Text, default="[]")  # JSON array of strings
+    conference_prompt_config: Mapped[str] = mapped_column(Text, default="{}")
 
     # Skill association — version-pinned for deterministic agent behavior (D-21, D-22)
     skill_id: Mapped[str] = mapped_column(

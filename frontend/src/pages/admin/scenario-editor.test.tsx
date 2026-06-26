@@ -100,6 +100,16 @@ const MOCK_ACTIVE_SCENARIO: Scenario = {
   status: "active",
   hcp_profile_id: "hcp-1",
   key_messages: ["msg-1"],
+  conference_prompt_config: {
+    speaker_order_policy: "Default policy",
+    audience_prompt_template: "Default template",
+    moderator_remarks: {
+      invite: { zh: "invite zh", en: "invite en" },
+      opening: { zh: "opening zh", en: "opening en" },
+      handoff: { zh: "handoff zh", en: "handoff en" },
+      closing: { zh: "closing zh", en: "closing en" },
+    },
+  },
   skill_id: "sk-1",
   skill_version_id: "v1",
   rubric_id: "rb-1",

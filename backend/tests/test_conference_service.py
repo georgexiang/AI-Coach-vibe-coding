@@ -101,6 +101,30 @@ class TestCreateConferenceSession:
             config = json.loads(session.audience_config)
             assert len(config) == 3
             assert config[0]["name"] == "Dr. HCP-0"
+            assert config[0]["speaker_priority"] == "primary"
+            assert config[1]["speaker_priority"] == "secondary"
+            assert "conference_prompt_config" in config[0]
+
+    async def test_custom_conference_prompt_config_is_snapshotted(self):
+        """Creates session with scenario-level conference prompt config."""
+        async with TestSessionLocal() as db:
+            data = await _seed_conference_fixture(db, roles=["moderator", "audience", "audience"])
+            custom_config = {
+                "speaker_order_policy": "Dr. HCP-1 asks first as primary; others are secondary.",
+                "moderator_remarks": {"invite": {"zh": "自定义开场", "en": "Custom invite"}},
+                "audience_prompt_template": "{hcp_name}|{speaker_priority}|{speaker_order_policy}",
+            }
+            data["scenario"].conference_prompt_config = json.dumps(custom_config)
+            await db.flush()
+
+            session = await create_conference_session(db, data["scenario"].id, data["user"].id)
+            config = json.loads(session.audience_config)
+
+            invite_remark = config[0]["conference_prompt_config"]["moderator_remarks"]["invite"][
+                "zh"
+            ]
+            assert invite_remark == "自定义开场"
+            assert config[1]["speaker_order_policy"] == custom_config["speaker_order_policy"]
 
     async def test_non_conference_scenario_raises_409(self):
         """Scenario with mode='f2f' raises 409."""
@@ -352,6 +376,26 @@ class TestRunPresentationRound:
             assert speaker_events[0]["speaker_name"] == "Dr. HCP-0"
             assert "请先进行你的主题演讲" in speaker_events[0]["content"]
             assert not any(e["event"] == "queue_update" for e in events)
+
+    async def test_start_conference_uses_custom_moderator_invite(self, monkeypatch):
+        """Start phase uses configured moderator remarks from the session snapshot."""
+        monkeypatch.setattr("app.services.conference_service.SPEAKER_PACING_SECONDS", 0)
+        from app.services.conference_service import start_conference_round
+
+        async with TestSessionLocal() as db:
+            data = await _seed_conference_fixture(db, roles=["moderator", "audience", "audience"])
+            data["scenario"].conference_prompt_config = json.dumps(
+                {"moderator_remarks": {"invite": {"zh": "请主讲人先发言", "en": "Please present"}}}
+            )
+            await db.flush()
+            session = await create_conference_session(db, data["scenario"].id, data["user"].id)
+
+            events = []
+            async for event in start_conference_round(db, session):
+                events.append(event)
+
+            speaker_events = [json.loads(e["data"]) for e in events if e["event"] == "speaker_text"]
+            assert speaker_events[0]["content"] == "请主讲人先发言"
 
     async def test_present_opens_and_releases_only_first_hcp(self, monkeypatch):
         """Present phase emits moderator opening and the first HCP question only."""

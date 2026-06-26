@@ -23,6 +23,10 @@ const labels = {
   roleModerator: "Moderator",
   addHcp: "Add HCP",
   removeHcp: "Remove HCP",
+  moveUp: "Move up",
+  moveDown: "Move down",
+  primarySpeaker: "Primary",
+  secondarySpeaker: "Secondary",
   countHint: "{{count}} bound (need {{min}}-{{max}})",
   minHint: "Need at least {{min}} HCPs",
   duplicateHint: "Duplicate HCP found",
@@ -54,6 +58,18 @@ describe("ConferenceAudienceConfig", () => {
     ]);
     expect(screen.getAllByLabelText("Select HCP")).toHaveLength(2);
     expect(screen.getAllByLabelText("Remove HCP")).toHaveLength(2);
+  });
+
+  it("moves members and reindexes sortOrder", () => {
+    const onChange = renderConfig([
+      { hcpProfileId: "hcp-1", sortOrder: 0 },
+      { hcpProfileId: "hcp-2", sortOrder: 1 },
+    ]);
+    fireEvent.click(screen.getAllByLabelText("Move up")[1]!);
+    expect(onChange).toHaveBeenCalledWith([
+      { hcpProfileId: "hcp-2", sortOrder: 0 },
+      { hcpProfileId: "hcp-1", sortOrder: 1 },
+    ]);
   });
 
   it("adds a new empty member when Add HCP clicked", () => {

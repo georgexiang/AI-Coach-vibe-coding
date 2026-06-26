@@ -247,6 +247,10 @@
         "roleModerator": "Moderator",
         "addHcp": "Add HCP",
         "removeHcp": "Remove HCP",
+        "moveUp": "Move speaking order up",
+        "moveDown": "Move speaking order down",
+        "primarySpeaker": "Primary",
+        "secondarySpeaker": "Secondary",
         "countHint": "{{count}} HCP bound (need {{min}}-{{max}})",
         "minHint": "A conference scenario needs at least {{min}} HCPs",
         "duplicateHint": "Duplicate HCP found, make sure each HCP is unique",
@@ -254,6 +258,18 @@
         "emptyHcp": "Please select an HCP for every row",
         "duplicate": "Duplicate HCP found, make sure each HCP is unique",
         "saveFailed": "Failed to save conference audience"
+      },
+      "conferencePrompt": {
+        "title": "Conference Prompt Orchestration",
+        "description": "Configure the meeting start, moderator remarks, and HCP question prompt. Speaking order is controlled by the HCP order above.",
+        "useDefault": "Restore Default Template",
+        "speakerOrderPolicy": "Speaking Order and Priority Policy",
+        "audiencePromptTemplate": "HCP Question Prompt Template",
+        "placeholders": "Available placeholders: {hcp_name}, {specialty}, {role}, {speaker_order}, {speaker_priority}, {speaker_order_policy}, {product}, {therapeutic_area}, {presentation_topic}, {conversation_history}, {other_hcp_questions}.",
+        "invite": "Meeting Start Remark",
+        "opening": "Q&A Opening Remark",
+        "handoff": "Next Speaker Handoff",
+        "closing": "Meeting Closing Remark"
       }
     },
     "keyMessages": "Key Messages",

@@ -247,6 +247,10 @@
         "roleModerator": "主持人",
         "addHcp": "添加 HCP",
         "removeHcp": "移除 HCP",
+        "moveUp": "上移发言顺序",
+        "moveDown": "下移发言顺序",
+        "primarySpeaker": "主要提问",
+        "secondarySpeaker": "次要提问",
         "countHint": "已绑定 {{count}} 个 HCP（需 {{min}}-{{max}} 个）",
         "minHint": "会议场景至少需要 {{min}} 个 HCP",
         "duplicateHint": "存在重复的 HCP，请确保每个 HCP 唯一",
@@ -254,6 +258,18 @@
         "emptyHcp": "请为每一行选择一个 HCP",
         "duplicate": "存在重复的 HCP，请确保每个 HCP 唯一",
         "saveFailed": "保存会议听众失败"
+      },
+      "conferencePrompt": {
+        "title": "会议 Prompt 编排",
+        "description": "配置会议发起、主持串场和 HCP 提问的默认 Prompt。发言先后由上方 HCP 顺序决定。",
+        "useDefault": "恢复默认模板",
+        "speakerOrderPolicy": "发言顺序与主次策略",
+        "audiencePromptTemplate": "HCP 提问 Prompt 模板",
+        "placeholders": "可使用 {hcp_name}、{specialty}、{role}、{speaker_order}、{speaker_priority}、{speaker_order_policy}、{product}、{therapeutic_area}、{presentation_topic}、{conversation_history}、{other_hcp_questions}。",
+        "invite": "会议开始主持词",
+        "opening": "问答开始主持词",
+        "handoff": "下一位串场词",
+        "closing": "会议结束主持词"
       }
     },
     "keyMessages": "关键信息",

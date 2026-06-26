@@ -1,4 +1,4 @@
-import { Plus, X, Users } from "lucide-react";
+import { ArrowDown, ArrowUp, Plus, X, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
@@ -23,6 +23,10 @@ export interface ConferenceAudienceConfigLabels {
   roleModerator: string;
   addHcp: string;
   removeHcp: string;
+  moveUp: string;
+  moveDown: string;
+  primarySpeaker: string;
+  secondarySpeaker: string;
   countHint: string;
   minHint: string;
   duplicateHint: string;
@@ -71,6 +75,28 @@ export function ConferenceAudienceConfig({
     onChange(value.map((a, i) => (i === index ? { ...a, ...patch } : a)));
   };
 
+  const handleMove = (index: number, direction: -1 | 1) => {
+    const targetIndex = index + direction;
+    if (targetIndex < 0 || targetIndex >= value.length) return;
+    const next = [...value];
+    const current = next[index];
+    const target = next[targetIndex];
+    if (!current || !target) return;
+    next[index] = target;
+    next[targetIndex] = current;
+    onChange(next.map((a, i) => ({ ...a, sortOrder: i })));
+  };
+
+  const getAudiencePriority = (index: number) => {
+    const audienceBefore = value
+      .slice(0, index + 1)
+      .filter((member) => member.roleInConference !== "moderator");
+    if (value[index]?.roleInConference === "moderator") return labels.roleModerator;
+    return audienceBefore.length === 1
+      ? labels.primarySpeaker
+      : labels.secondarySpeaker;
+  };
+
   return (
     <div className="grid gap-3" data-testid="conference-audience-config">
       <div className="flex items-center gap-2">
@@ -82,6 +108,29 @@ export function ConferenceAudienceConfig({
       <div className="space-y-2">
         {value.map((member, index) => (
           <div key={index} className="flex items-center gap-2">
+            <div className="flex items-center gap-1 shrink-0">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => handleMove(index, -1)}
+                disabled={index === 0}
+                aria-label={labels.moveUp}
+              >
+                <ArrowUp className="size-4" />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => handleMove(index, 1)}
+                disabled={index === value.length - 1}
+                aria-label={labels.moveDown}
+              >
+                <ArrowDown className="size-4" />
+              </Button>
+            </div>
+
             <Select
               value={member.hcpProfileId}
               onValueChange={(v) => handleChange(index, { hcpProfileId: v })}
@@ -117,6 +166,10 @@ export function ConferenceAudienceConfig({
                 ))}
               </SelectContent>
             </Select>
+
+            <span className="w-24 shrink-0 text-xs text-muted-foreground">
+              {getAudiencePriority(index)}
+            </span>
 
             <Button
               type="button"

@@ -47,7 +47,7 @@ import {
 import { useHcpProfiles } from "@/hooks/use-hcp-profiles";
 import { usePublishedSkills } from "@/hooks/use-skills";
 import { useRubrics } from "@/hooks/use-rubrics";
-import type { ScenarioCreate, ScenarioUpdate } from "@/types/scenario";
+import type { ConferencePromptConfig, ScenarioCreate, ScenarioUpdate } from "@/types/scenario";
 import type { AudienceHcpCreate } from "@/types/conference";
 import type { HcpProfile } from "@/types/hcp";
 import type { Rubric } from "@/types/rubric";
@@ -58,6 +58,71 @@ const PREDEFINED_TAGS: Record<string, string[]> = {
   therapeutic_area: ["Oncology", "Hematology", "Immunology", "Solid Tumors"],
 };
 
+const DEFAULT_CONFERENCE_PROMPT_CONFIG: ConferencePromptConfig = {
+  speaker_order_policy:
+    "Use the configured audience order as the speaking order. The first non-moderator HCP is the primary questioner and should ask the most strategically important question. Later HCPs are secondary questioners and should cover different angles.",
+  moderator_remarks: {
+    invite: {
+      zh: "欢迎参加本次会议。请先进行你的主题演讲，演讲结束后我会组织各位专家依次提问。",
+      en: "Welcome to the meeting. Please begin your presentation first; afterward, I will invite each expert to ask questions in turn.",
+    },
+    opening: {
+      zh: "感谢刚才的精彩演讲。下面进入问答环节，有请在座的各位专家依次提问。",
+      en: "Thank you for the presentation. Let us now open the floor for questions from our panel.",
+    },
+    handoff: {
+      zh: "感谢刚才的交流。下面有请下一位专家继续提问。",
+      en: "Thank you for that exchange. I will now invite the next expert to ask a question.",
+    },
+    closing: {
+      zh: "感谢各位专家的提问与精彩讨论，本次问答环节到此结束，谢谢大家。",
+      en: "Thank you all for your questions and the insightful discussion. This concludes our Q&A session.",
+    },
+  },
+  audience_prompt_template: `# Conference Audience Role
+You are Dr. {hcp_name}, a {specialty} specialist attending a medical conference.
+You are a {role} member in the audience.
+Audience order: {speaker_order}. Speaker priority: {speaker_priority}.
+
+# Speaking Policy
+{speaker_order_policy}
+
+# Personality
+{personality_instruction}
+
+# Presentation Context
+The Medical Representative is presenting about: {product}
+Therapeutic area: {therapeutic_area}
+Presentation topic: {presentation_topic}
+
+# Conversation So Far
+{conversation_history}
+
+# Questions Already Asked by Other Audience Members
+{other_hcp_questions}
+
+# Instructions
+Respond as this HCP in a natural conference conversation with the MR.
+- If you are taking the floor for the first time, ask one relevant question.
+- If the MR has just answered you, acknowledge the answer and ask at most one contextual follow-up if needed.
+- Do not repeat questions already asked by other HCPs.
+- Respond in the same language the MR uses.
+- Keep your response concise.
+- Do NOT provide coaching feedback.`,
+};
+
+const moderatorRemarkSchema = z.object({ zh: z.string(), en: z.string() });
+const conferencePromptConfigSchema = z.object({
+  speaker_order_policy: z.string(),
+  audience_prompt_template: z.string(),
+  moderator_remarks: z.object({
+    invite: moderatorRemarkSchema,
+    opening: moderatorRemarkSchema,
+    handoff: moderatorRemarkSchema,
+    closing: moderatorRemarkSchema,
+  }),
+});
+
 const scenarioSchema = z.object({
   name: z.string().min(1, "Name is required"),
   description: z.string().default(""),
@@ -67,6 +132,7 @@ const scenarioSchema = z.object({
   hcp_profile_id: z.string().default(""),
   skill_id: z.string().min(1, "Skill is required"),
   key_messages: z.array(z.string()),
+  conference_prompt_config: conferencePromptConfigSchema,
   rubric_id: z.string().min(1, "Scoring rubric is required"),
   pass_threshold: z.number().min(0).max(100),
 }).superRefine((values, ctx) => {
@@ -136,6 +202,7 @@ export default function ScenarioEditorPage() {
       hcp_profile_id: "",
       skill_id: "",
       key_messages: [],
+      conference_prompt_config: DEFAULT_CONFERENCE_PROMPT_CONFIG,
       rubric_id: "",
       pass_threshold: 70,
     },
@@ -152,6 +219,8 @@ export default function ScenarioEditorPage() {
         hcp_profile_id: scenario.hcp_profile_id,
         skill_id: scenario.skill_id ?? "",
         key_messages: scenario.key_messages,
+        conference_prompt_config:
+          scenario.conference_prompt_config ?? DEFAULT_CONFERENCE_PROMPT_CONFIG,
         rubric_id: scenario.rubric_id,
         pass_threshold: scenario.pass_threshold,
       });
@@ -228,6 +297,9 @@ export default function ScenarioEditorPage() {
       hcp_profile_id: hcpProfileId,
       key_messages: normalizedKeyMessages,
     };
+    if (!isConference) {
+      delete data.conference_prompt_config;
+    }
 
     if (isNew) {
       createMutation.mutate(data, {
@@ -264,6 +336,13 @@ export default function ScenarioEditorPage() {
         }
         if (!isSameStringArray(normalizedKeyMessages, prevKeyMessages)) {
           updateData.key_messages = normalizedKeyMessages;
+        }
+        if (
+          isConference &&
+          JSON.stringify(values.conference_prompt_config) !==
+            JSON.stringify(scenario.conference_prompt_config)
+        ) {
+          updateData.conference_prompt_config = values.conference_prompt_config;
         }
 
         // Conference mode uses audience bindings as source of truth; keep legacy
@@ -640,6 +719,10 @@ export default function ScenarioEditorPage() {
                         ),
                         addHcp: t("scenarios.editor.audience.addHcp"),
                         removeHcp: t("scenarios.editor.audience.removeHcp"),
+                        moveUp: t("scenarios.editor.audience.moveUp"),
+                        moveDown: t("scenarios.editor.audience.moveDown"),
+                        primarySpeaker: t("scenarios.editor.audience.primarySpeaker"),
+                        secondarySpeaker: t("scenarios.editor.audience.secondarySpeaker"),
                         countHint: t("scenarios.editor.audience.countHint"),
                         minHint: t("scenarios.editor.audience.minHint"),
                         duplicateHint: t(
@@ -647,6 +730,74 @@ export default function ScenarioEditorPage() {
                         ),
                       }}
                     />
+                  )}
+
+                  {form.watch("mode") === "conference" && (
+                    <div className="grid gap-4 border rounded-md p-4 bg-muted/20">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="grid gap-1">
+                          <Label className="font-semibold">
+                            {t("scenarios.editor.conferencePrompt.title")}
+                          </Label>
+                          <p className="text-sm text-muted-foreground">
+                            {t("scenarios.editor.conferencePrompt.description")}
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            form.setValue(
+                              "conference_prompt_config",
+                              DEFAULT_CONFERENCE_PROMPT_CONFIG,
+                            )
+                          }
+                        >
+                          {t("scenarios.editor.conferencePrompt.useDefault")}
+                        </Button>
+                      </div>
+
+                      <div className="grid gap-2">
+                        <Label>{t("scenarios.editor.conferencePrompt.speakerOrderPolicy")}</Label>
+                        <Textarea
+                          rows={3}
+                          {...form.register("conference_prompt_config.speaker_order_policy")}
+                        />
+                      </div>
+
+                      <div className="grid gap-2">
+                        <Label>{t("scenarios.editor.conferencePrompt.audiencePromptTemplate")}</Label>
+                        <Textarea
+                          rows={10}
+                          className="font-mono text-xs"
+                          {...form.register("conference_prompt_config.audience_prompt_template")}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          {t("scenarios.editor.conferencePrompt.placeholders")}
+                        </p>
+                      </div>
+
+                      <div className="grid gap-3 md:grid-cols-2">
+                        {(["invite", "opening", "handoff", "closing"] as const).map((phase) => (
+                          <div key={phase} className="grid gap-2">
+                            <Label>{t(`scenarios.editor.conferencePrompt.${phase}`)}</Label>
+                            <Textarea
+                              rows={2}
+                              {...form.register(
+                                `conference_prompt_config.moderator_remarks.${phase}.zh`,
+                              )}
+                            />
+                            <Textarea
+                              rows={2}
+                              {...form.register(
+                                `conference_prompt_config.moderator_remarks.${phase}.en`,
+                              )}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   )}
 
                   {/* Skill Selector */}

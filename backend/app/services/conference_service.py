@@ -15,6 +15,7 @@ from app.models.scenario import Scenario
 from app.models.session import CoachingSession
 from app.services.agents.base import CoachEventType, CoachRequest
 from app.services.agents.registry import registry
+from app.services.conference_prompt_config import normalize_conference_prompt_config
 from app.services.prompt_builder import build_conference_audience_prompt
 from app.services.turn_manager import QueuedQuestion, turn_manager
 from app.utils.datetime import as_utc_aware, utc_now_naive
@@ -27,35 +28,6 @@ SPEAKER_PACING_SECONDS = 0.6
 # Number of contextual follow-up replies an HCP can make before the floor moves
 # to the next HCP. Users can still move on earlier by saying "下一位" / "next".
 HCP_FOLLOWUPS_BEFORE_NEXT = 3
-
-# Scripted moderator remarks that bookend the conference flow.
-_MODERATOR_REMARKS = {
-    "invite": {
-        "zh": "欢迎参加本次会议。请先进行你的主题演讲，演讲结束后我会组织各位专家依次提问。",
-        "en": (
-            "Welcome to the meeting. Please begin your presentation first; "
-            "afterward, I will invite each expert to ask questions in turn."
-        ),
-    },
-    "opening": {
-        "zh": "感谢刚才的精彩演讲。下面进入问答环节，有请在座的各位专家依次提问。",
-        "en": (
-            "Thank you for the presentation. Let us now open the floor for "
-            "questions from our panel."
-        ),
-    },
-    "handoff": {
-        "zh": "感谢刚才的交流。下面有请下一位专家继续提问。",
-        "en": "Thank you for that exchange. I will now invite the next expert to ask a question.",
-    },
-    "closing": {
-        "zh": "感谢各位专家的提问与精彩讨论，本次问答环节到此结束，谢谢大家。",
-        "en": (
-            "Thank you all for your questions and the insightful discussion. "
-            "This concludes our Q&A session."
-        ),
-    },
-}
 
 
 async def create_conference_session(
@@ -92,6 +64,10 @@ async def create_conference_session(
             message="Conference scenario needs at least 2 HCP audience members",
         )
 
+    conference_prompt_config = normalize_conference_prompt_config(scenario.conference_prompt_config)
+    asking_audience = [ah for ah in audience_hcps if ah.role_in_conference != "moderator"]
+    primary_hcp_id = asking_audience[0].hcp_profile_id if asking_audience else ""
+
     # Build audience config JSON from HCP profiles
     audience_config = [
         {
@@ -101,9 +77,14 @@ async def create_conference_session(
             "personality_type": ah.hcp_profile.personality_type,
             "role": ah.role_in_conference,
             "voice_id": ah.voice_id,
+            "sort_order": ah.sort_order,
+            "speaker_priority": "primary" if ah.hcp_profile_id == primary_hcp_id else "secondary",
+            "speaker_order_policy": conference_prompt_config["speaker_order_policy"],
         }
         for ah in audience_hcps
     ]
+    if audience_config:
+        audience_config[0]["conference_prompt_config"] = conference_prompt_config
 
     # Initialize key messages tracking
     key_messages = json.loads(scenario.key_messages)
@@ -204,7 +185,7 @@ async def _emit_moderator_remark(
     phase: str,
 ) -> AsyncIterator[dict]:
     """Emit a moderator opening/closing remark as a single sequential speaker turn."""
-    text = _moderator_remark(mr_text, phase)
+    text = _moderator_remark_from_session(session, mr_text, phase)
     if not text:
         return
     hcp_id = moderator.get("hcp_profile_id", "")
@@ -309,7 +290,28 @@ def _contains_cjk(text: str) -> bool:
 def _moderator_remark(mr_text: str, phase: str) -> str:
     """Pick a scripted moderator remark matching the presentation language."""
     lang = "zh" if not mr_text or _contains_cjk(mr_text) else "en"
-    return _MODERATOR_REMARKS.get(phase, {}).get(lang, "")
+    return (
+        normalize_conference_prompt_config(None)
+        .get("moderator_remarks", {})
+        .get(phase, {})
+        .get(lang, "")
+    )
+
+
+def _conference_prompt_config_from_session(session: CoachingSession) -> dict:
+    """Read the prompt config snapshot stored in audience_config."""
+    audience_config = json.loads(session.audience_config or "[]")
+    for member in audience_config:
+        if isinstance(member, dict) and member.get("conference_prompt_config"):
+            return normalize_conference_prompt_config(member.get("conference_prompt_config"))
+    return normalize_conference_prompt_config(None)
+
+
+def _moderator_remark_from_session(session: CoachingSession, mr_text: str, phase: str) -> str:
+    """Pick a configured moderator remark matching the presentation language."""
+    config = _conference_prompt_config_from_session(session)
+    lang = "zh" if not mr_text or _contains_cjk(mr_text) else "en"
+    return config.get("moderator_remarks", {}).get(phase, {}).get(lang, "")
 
 
 def _normalize_generated_text(text: str) -> str:
@@ -402,6 +404,7 @@ async def generate_hcp_questions(
             presentation_topic=session.presentation_topic or "",
             conversation_history=conversation_history,
             other_hcp_questions=other_hcp_questions,
+            prompt_config=_conference_prompt_config_from_session(session),
         )
 
         question_text = ""
@@ -494,6 +497,7 @@ async def _generate_next_hcp_question(
         presentation_topic=session.presentation_topic or "",
         conversation_history=conversation_history,
         other_hcp_questions=other_hcp_questions,
+        prompt_config=_conference_prompt_config_from_session(session),
     )
 
     from app.config import get_settings
@@ -560,6 +564,7 @@ async def _generate_hcp_response_text(
         presentation_topic=session.presentation_topic or "",
         conversation_history=conversation_history,
         other_hcp_questions=[],
+        prompt_config=_conference_prompt_config_from_session(session),
     )
 
     from app.config import get_settings
