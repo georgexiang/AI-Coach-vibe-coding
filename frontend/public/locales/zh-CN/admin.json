@@ -253,10 +253,12 @@
         "secondarySpeaker": "次要提问",
         "countHint": "已绑定 {{count}} 个 HCP（需 {{min}}-{{max}} 个）",
         "minHint": "会议场景至少需要 {{min}} 个 HCP",
+        "moderatorRequiredHint": "会议场景必须设置 1 位主持人",
         "duplicateHint": "存在重复的 HCP，请确保每个 HCP 唯一",
         "invalidCount": "会议场景需绑定 {{min}}-{{max}} 个 HCP",
         "emptyHcp": "请为每一行选择一个 HCP",
         "duplicate": "存在重复的 HCP，请确保每个 HCP 唯一",
+        "moderatorRequired": "会议场景必须设置 1 位主持人",
         "saveFailed": "保存会议听众失败"
       },
       "conferencePrompt": {

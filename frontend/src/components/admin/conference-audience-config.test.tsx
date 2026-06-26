@@ -29,6 +29,7 @@ const labels = {
   secondarySpeaker: "Secondary",
   countHint: "{{count}} bound (need {{min}}-{{max}})",
   minHint: "Need at least {{min}} HCPs",
+  moderatorRequiredHint: "Need one moderator",
   duplicateHint: "Duplicate HCP found",
 };
 
@@ -119,6 +120,19 @@ describe("ConferenceAudienceConfig", () => {
     expect(
       screen.queryByText(`Need at least ${MIN_AUDIENCE} HCPs`),
     ).not.toBeInTheDocument();
+  });
+
+  it("shows moderator required hint when no moderator is selected", () => {
+    renderConfig([{ hcpProfileId: "hcp-1" }, { hcpProfileId: "hcp-2" }]);
+    expect(screen.getByText("Need one moderator")).toBeInTheDocument();
+  });
+
+  it("hides moderator required hint when a moderator is selected", () => {
+    renderConfig([
+      { hcpProfileId: "hcp-1", roleInConference: "moderator" },
+      { hcpProfileId: "hcp-2", roleInConference: "audience" },
+    ]);
+    expect(screen.queryByText("Need one moderator")).not.toBeInTheDocument();
   });
 
   it("shows duplicate hint when HCPs repeat", () => {

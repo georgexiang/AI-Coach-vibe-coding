@@ -23,7 +23,7 @@ from app.schemas.conference import (
     ConferenceSubStateUpdate,
 )
 from app.services import conference_service
-from app.utils.exceptions import AppException, NotFoundException
+from app.utils.exceptions import AppException, NotFoundException, ValidationException
 
 settings = get_settings()
 
@@ -267,6 +267,9 @@ async def set_scenario_audience(
 
     Replaces all existing audience HCPs with the new list.
     """
+    if not any(hcp.role_in_conference == "moderator" for hcp in audience):
+        raise ValidationException("Conference scenario must include 1 moderator")
+
     # Delete existing audience
     existing = await db.execute(
         select(ConferenceAudienceHcp).where(ConferenceAudienceHcp.scenario_id == scenario_id)

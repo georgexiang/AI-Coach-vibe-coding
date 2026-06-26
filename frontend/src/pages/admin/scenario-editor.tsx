@@ -259,6 +259,10 @@ export default function ScenarioEditorPage() {
       toast.error(t("admin:scenarios.editor.audience.duplicate"));
       return false;
     }
+    if (!audience.some((member) => member.roleInConference === "moderator")) {
+      toast.error(t("admin:scenarios.editor.audience.moderatorRequired"));
+      return false;
+    }
     return true;
   };
 
@@ -710,7 +714,10 @@ export default function ScenarioEditorPage() {
                       profiles={profiles}
                       labels={{
                         title: t("scenarios.editor.audience.title"),
-                        description: t("scenarios.editor.audience.description"),
+                        description: t("scenarios.editor.audience.description", {
+                          min: MIN_AUDIENCE,
+                          max: MAX_AUDIENCE,
+                        }),
                         selectHcp: t("scenarios.editor.audience.selectHcp"),
                         role: t("scenarios.editor.audience.role"),
                         roleAudience: t("scenarios.editor.audience.roleAudience"),
@@ -725,6 +732,9 @@ export default function ScenarioEditorPage() {
                         secondarySpeaker: t("scenarios.editor.audience.secondarySpeaker"),
                         countHint: t("scenarios.editor.audience.countHint"),
                         minHint: t("scenarios.editor.audience.minHint"),
+                        moderatorRequiredHint: t(
+                          "scenarios.editor.audience.moderatorRequiredHint",
+                        ),
                         duplicateHint: t(
                           "scenarios.editor.audience.duplicateHint",
                         ),

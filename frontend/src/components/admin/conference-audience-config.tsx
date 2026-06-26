@@ -29,6 +29,7 @@ export interface ConferenceAudienceConfigLabels {
   secondarySpeaker: string;
   countHint: string;
   minHint: string;
+  moderatorRequiredHint: string;
   duplicateHint: string;
 }
 
@@ -54,6 +55,7 @@ export function ConferenceAudienceConfig({
     hcpIds.filter(Boolean).length !==
     new Set(hcpIds.filter(Boolean)).size;
   const belowMin = value.length < MIN_AUDIENCE;
+  const hasModerator = value.some((member) => member.roleInConference === "moderator");
 
   const handleAdd = () => {
     if (!canAdd) return;
@@ -205,6 +207,11 @@ export function ConferenceAudienceConfig({
       {belowMin && (
         <p className="text-xs text-destructive" role="alert">
           {labels.minHint.replace("{{min}}", String(MIN_AUDIENCE))}
+        </p>
+      )}
+      {!hasModerator && (
+        <p className="text-xs text-destructive" role="alert">
+          {labels.moderatorRequiredHint}
         </p>
       )}
       {hasDuplicate && (
