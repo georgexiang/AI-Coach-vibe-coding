@@ -733,8 +733,8 @@ export default function ScenarioEditorPage() {
                   )}
 
                   {form.watch("mode") === "conference" && (
-                    <div className="grid gap-4 border rounded-md p-4 bg-muted/20">
-                      <div className="flex items-center justify-between gap-3">
+                    <div className="grid gap-5 rounded-md border bg-background p-4">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                         <div className="grid gap-1">
                           <Label className="font-semibold">
                             {t("scenarios.editor.conferencePrompt.title")}
@@ -758,42 +758,88 @@ export default function ScenarioEditorPage() {
                         </Button>
                       </div>
 
-                      <div className="grid gap-2">
-                        <Label>{t("scenarios.editor.conferencePrompt.speakerOrderPolicy")}</Label>
+                      <div className="grid gap-3 rounded-md border bg-muted/20 p-3">
+                        <div className="grid gap-1">
+                          <Label>{t("scenarios.editor.conferencePrompt.rulesSection")}</Label>
+                          <p className="text-xs text-muted-foreground">
+                            {t("scenarios.editor.conferencePrompt.rulesHint")}
+                          </p>
+                        </div>
                         <Textarea
                           rows={3}
+                          className="resize-y bg-background"
                           {...form.register("conference_prompt_config.speaker_order_policy")}
                         />
                       </div>
 
-                      <div className="grid gap-2">
-                        <Label>{t("scenarios.editor.conferencePrompt.audiencePromptTemplate")}</Label>
-                        <Textarea
-                          rows={10}
-                          className="font-mono text-xs"
-                          {...form.register("conference_prompt_config.audience_prompt_template")}
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          {t("scenarios.editor.conferencePrompt.placeholders")}
-                        </p>
-                      </div>
+                      <details className="rounded-md border bg-muted/20 p-3">
+                        <summary className="cursor-pointer list-none">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="grid gap-1">
+                              <Label className="cursor-pointer">
+                                {t("scenarios.editor.conferencePrompt.hcpTemplateSection")}
+                              </Label>
+                              <p className="text-xs text-muted-foreground">
+                                {t("scenarios.editor.conferencePrompt.hcpTemplateHint")}
+                              </p>
+                            </div>
+                            <Badge variant="outline" className="shrink-0">
+                              {t("scenarios.editor.conferencePrompt.advanced")}
+                            </Badge>
+                          </div>
+                        </summary>
+                        <div className="mt-3 grid gap-2">
+                          <Textarea
+                            rows={12}
+                            className="font-mono text-xs bg-background"
+                            {...form.register("conference_prompt_config.audience_prompt_template")}
+                          />
+                          <p className="text-xs leading-relaxed text-muted-foreground">
+                            {t("scenarios.editor.conferencePrompt.placeholders")}
+                          </p>
+                        </div>
+                      </details>
 
-                      <div className="grid gap-3 md:grid-cols-2">
+                      <div className="grid gap-3">
+                        <div className="grid gap-1">
+                          <Label>{t("scenarios.editor.conferencePrompt.moderatorSection")}</Label>
+                          <p className="text-xs text-muted-foreground">
+                            {t("scenarios.editor.conferencePrompt.moderatorHint")}
+                          </p>
+                        </div>
                         {(["invite", "opening", "handoff", "closing"] as const).map((phase) => (
-                          <div key={phase} className="grid gap-2">
-                            <Label>{t(`scenarios.editor.conferencePrompt.${phase}`)}</Label>
-                            <Textarea
-                              rows={2}
-                              {...form.register(
-                                `conference_prompt_config.moderator_remarks.${phase}.zh`,
-                              )}
-                            />
-                            <Textarea
-                              rows={2}
-                              {...form.register(
-                                `conference_prompt_config.moderator_remarks.${phase}.en`,
-                              )}
-                            />
+                          <div key={phase} className="grid gap-2 rounded-md border bg-muted/20 p-3">
+                            <div className="flex items-center gap-2">
+                              <Badge variant="secondary" className="rounded-sm">
+                                {t(`scenarios.editor.conferencePrompt.${phase}`)}
+                              </Badge>
+                            </div>
+                            <div className="grid gap-2 md:grid-cols-2">
+                              <div className="grid gap-1.5">
+                                <span className="text-xs font-medium text-muted-foreground">
+                                  {t("scenarios.editor.conferencePrompt.zhLabel")}
+                                </span>
+                                <Textarea
+                                  rows={2}
+                                  className="bg-background"
+                                  {...form.register(
+                                    `conference_prompt_config.moderator_remarks.${phase}.zh`,
+                                  )}
+                                />
+                              </div>
+                              <div className="grid gap-1.5">
+                                <span className="text-xs font-medium text-muted-foreground">
+                                  {t("scenarios.editor.conferencePrompt.enLabel")}
+                                </span>
+                                <Textarea
+                                  rows={2}
+                                  className="bg-background"
+                                  {...form.register(
+                                    `conference_prompt_config.moderator_remarks.${phase}.en`,
+                                  )}
+                                />
+                              </div>
+                            </div>
                           </div>
                         ))}
                       </div>
