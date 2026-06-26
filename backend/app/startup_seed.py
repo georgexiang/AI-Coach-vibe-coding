@@ -147,88 +147,103 @@ async def seed_all(session: AsyncSession) -> None:
         await session.commit()
 
     # --- 4. Scenarios ---
+    from seed_phase2 import SEED_SCENARIOS  # type: ignore[import-not-found]
+
     from app.models.scenario import Scenario
     from app.models.skill import Skill, SkillVersion
+    from app.services.conference_prompt_config import default_conference_prompt_config
 
-    existing_scenario = await session.execute(select(Scenario).limit(1))
-    if existing_scenario.scalar_one_or_none() is None:
-        from seed_phase2 import SEED_SCENARIOS  # type: ignore[import-not-found]
+    # Restore the original two demo scenarios even if other scenarios already exist.
+    default_seed_scenarios = SEED_SCENARIOS[:2]
 
-        # Resolve default rubric for rubric_id assignment
-        default_rubric_result = await session.execute(
-            select(ScoringRubric)
+    # Resolve default rubric for rubric_id assignment
+    default_rubric_result = await session.execute(
+        select(ScoringRubric)
+        .where(
+            ScoringRubric.is_default == True,  # noqa: E712
+            ScoringRubric.scenario_type == "f2f",
+        )
+        .limit(1)
+    )
+    default_rubric = default_rubric_result.scalars().first()
+    default_rubric_id = default_rubric.id if default_rubric else None
+
+    default_skill_result = await session.execute(
+        select(Skill).where(Skill.status == "published").limit(1)
+    )
+    default_skill = default_skill_result.scalar_one_or_none()
+    if default_skill is None:
+        logger.info("Scenario seed skipped: no published skill exists")
+        await session.commit()
+    else:
+        default_version_result = await session.execute(
+            select(SkillVersion)
             .where(
-                ScoringRubric.is_default == True,  # noqa: E712
+                SkillVersion.skill_id == default_skill.id,
+                SkillVersion.is_published == True,  # noqa: E712
             )
+            .order_by(SkillVersion.version_number.desc())
             .limit(1)
         )
-        default_rubric = default_rubric_result.scalars().first()
-        default_rubric_id = default_rubric.id if default_rubric else None
+        default_version = default_version_result.scalar_one_or_none()
 
-        default_skill_result = await session.execute(
-            select(Skill).where(Skill.status == "published").limit(1)
-        )
-        default_skill = default_skill_result.scalar_one_or_none()
-        if default_skill is None:
-            logger.info("Scenario seed skipped: no published skill exists")
-            await session.commit()
-        else:
-            default_version_result = await session.execute(
-                select(SkillVersion)
-                .where(
-                    SkillVersion.skill_id == default_skill.id,
-                    SkillVersion.is_published == True,  # noqa: E712
-                )
-                .order_by(SkillVersion.version_number.desc())
-                .limit(1)
+        # Build HCP name -> ID map
+        hcp_result = await session.execute(select(HcpProfile))
+        hcp_map = {p.name: p.id for p in hcp_result.scalars().all()}
+
+        for scenario_data in default_seed_scenarios:
+            existing_result = await session.execute(
+                select(Scenario).where(Scenario.name == scenario_data["name"])
             )
-            default_version = default_version_result.scalar_one_or_none()
+            if existing_result.scalar_one_or_none() is not None:
+                continue
 
-            # Build HCP name -> ID map
-            hcp_result = await session.execute(select(HcpProfile))
-            hcp_map = {p.name: p.id for p in hcp_result.scalars().all()}
+            data = dict(scenario_data)  # copy to avoid mutating the constant
+            hcp_name = data.pop("hcp_name", None)
+            product = data.pop("product", "")
+            therapeutic_area = data.pop("therapeutic_area", "")
+            if "tags" not in data and (product or therapeutic_area):
+                tags = []
+                if product:
+                    tags.append(f"product:{product}")
+                if therapeutic_area:
+                    tags.append(f"area:{therapeutic_area}")
+                data["tags"] = json.dumps(tags)
 
-            for scenario_data in SEED_SCENARIOS:
-                data = dict(scenario_data)  # copy to avoid mutating the constant
-                hcp_name = data.pop("hcp_name", None)
-                product = data.pop("product", "")
-                therapeutic_area = data.pop("therapeutic_area", "")
-                if "tags" not in data and (product or therapeutic_area):
-                    tags = []
-                    if product:
-                        tags.append(f"product:{product}")
-                    if therapeutic_area:
-                        tags.append(f"area:{therapeutic_area}")
-                    data["tags"] = json.dumps(tags)
-
-                hcp_id = hcp_map.get(hcp_name) if hcp_name else None
-                if hcp_id is None:
-                    logger.warning("Scenario seed skipped: HCP profile not found for %s", hcp_name)
-                    continue
-                if default_rubric_id is None:
-                    logger.warning("Scenario seed skipped: no default rubric exists")
-                    continue
-                data.setdefault("rubric_id", default_rubric_id)
-                scenario = Scenario(
-                    **data,
-                    hcp_profile_id=hcp_id,
-                    skill_id=default_skill.id,
-                    skill_version_id=default_version.id if default_version else None,
-                    created_by=admin_id,
-                )
-                session.add(scenario)
-            await session.commit()
+            hcp_id = hcp_map.get(hcp_name) if hcp_name else None
+            if hcp_id is None:
+                logger.warning("Scenario seed skipped: HCP profile not found for %s", hcp_name)
+                continue
+            if default_rubric_id is None:
+                logger.warning("Scenario seed skipped: no default rubric exists")
+                continue
+            data.setdefault("rubric_id", default_rubric_id)
+            data.setdefault(
+                "conference_prompt_config", json.dumps(default_conference_prompt_config())
+            )
+            scenario = Scenario(
+                **data,
+                hcp_profile_id=hcp_id,
+                skill_id=default_skill.id,
+                skill_version_id=default_version.id if default_version else None,
+                created_by=admin_id,
+            )
+            session.add(scenario)
+        await session.commit()
 
     # --- 5. Training materials ---
     from app.models.material import TrainingMaterial
 
     existing_mat = await session.execute(select(TrainingMaterial).limit(1))
     if existing_mat.scalar_one_or_none() is None:
-        from seed_materials import seed_materials  # type: ignore[import-not-found]
+        try:
+            from seed_materials import seed_materials  # type: ignore[import-not-found]
 
-        material_seed_result = seed_materials(session)
-        if isawaitable(material_seed_result):
-            await material_seed_result
+            material_seed_result = seed_materials(session)
+            if isawaitable(material_seed_result):
+                await material_seed_result
+        except Exception:
+            logger.warning("Training material seed failed", exc_info=True)
 
     # --- 6. Azure AI Foundry config from env vars ---
     try:
