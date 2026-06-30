@@ -246,3 +246,14 @@ async def get_effective_endpoint(db: AsyncSession, service_name: str) -> str:
     if master:
         return master.endpoint
     return ""
+
+
+async def get_effective_region(db: AsyncSession, service_name: str) -> str:
+    """Return the effective Azure region for a service, falling back to master config."""
+    config = await get_config(db, service_name)
+    if config and config.region:
+        return config.region
+    master = await get_master_config(db)
+    if master:
+        return master.region
+    return ""

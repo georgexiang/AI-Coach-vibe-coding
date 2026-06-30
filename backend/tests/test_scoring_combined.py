@@ -455,38 +455,47 @@ class TestTriggerVoiceScoringWithPersistence:
             user_id="test-user-1",
             scenario_id=scenario.id,
             status="completed",
-            audio_url="audio/test/rec.webm",
+            audio_url="https://blob.core.windows.net/audio/test.wav",
             voice_score_status="pending",
         )
         db_session.add(session)
         await db_session.commit()
 
-        mock_cu_fields = {
-            "fluency": {"valueString": '{"score": 85, "feedback": "Good"}'},
-            "tone": {"valueString": '{"score": 78, "feedback": "OK"}'},
-            "pace": {"valueString": '{"score": 90, "feedback": "Good"}'},
-            "pronunciation": {"valueString": '{"score": 72, "feedback": "OK"}'},
-            "feedback_summary": {"valueString": "Overall good"},
-            "transcript": {"valueString": "Hello"},
-        }
-
+        from app.services.pronunciation_assessment_service import PronunciationAssessmentResult
         from app.services.voice_scoring_service import trigger_voice_scoring
 
+        speech_result = PronunciationAssessmentResult(
+            dimensions=[
+                {"name": "fluency", "score": 85, "weight": 25},
+                {"name": "tone", "score": 78, "weight": 25},
+                {"name": "pace", "score": 90, "weight": 25},
+                {"name": "pronunciation", "score": 72, "weight": 25},
+            ],
+            feedback_summary="Overall good",
+            raw_result={},
+        )
+        mock_storage = AsyncMock()
+        mock_storage.read = AsyncMock(return_value=b"audio-bytes")
+
         with (
-            patch(
-                "app.services.voice_scoring_service.config_service.get_effective_endpoint",
-                new_callable=AsyncMock,
-                return_value="https://cu.cognitiveservices.azure.com",
-            ),
             patch(
                 "app.services.voice_scoring_service.config_service.get_effective_key",
                 new_callable=AsyncMock,
                 return_value="test-key",
             ),
             patch(
-                "app.services.voice_scoring_service.score_voice_with_cu",
+                "app.services.voice_scoring_service.config_service.get_effective_region",
                 new_callable=AsyncMock,
-                return_value=mock_cu_fields,
+                return_value="eastus2",
+            ),
+            patch(
+                "app.services.voice_scoring_service.assess_pronunciation",
+                new_callable=AsyncMock,
+                return_value=speech_result,
+            ),
+            patch(
+                "app.services.voice_scoring_service.get_storage",
+                return_value=mock_storage,
             ),
         ):
             await trigger_voice_scoring(session_id)

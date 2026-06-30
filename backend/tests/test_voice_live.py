@@ -295,7 +295,7 @@ class TestVoiceLiveAPI:
         assert data["endpoint"] == "https://test.openai.azure.com"
         assert data["token"] == "***configured***"
         assert data["region"] == "eastus2"
-        assert data["avatar_enabled"] is False
+        assert data["avatar_enabled"] is True
         assert data["voice_name"] == "zh-CN-XiaoxiaoMultilingualNeural"
         assert data["agent_id"] is None
         assert data["project_name"] is None

@@ -10,6 +10,12 @@ param projectName string
 param chatDeploymentName string
 param chatModelName string
 param chatModelVersion string
+@allowed([
+  'Standard'
+  'GlobalStandard'
+  'DataZoneStandard'
+])
+param chatDeploymentSkuName string = 'Standard'
 param chatDeploymentCapacity int = 120
 
 @allowed([
@@ -43,7 +49,7 @@ resource chatDeployment 'Microsoft.CognitiveServices/accounts/deployments@2023-0
   parent: foundryAccount
   name: chatDeploymentName
   sku: {
-    name: 'Standard'
+    name: chatDeploymentSkuName
     capacity: chatDeploymentCapacity
   }
   properties: {

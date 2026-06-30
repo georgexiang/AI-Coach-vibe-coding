@@ -73,9 +73,10 @@ class TestWebRTCSessionModelMode:
         data = resp.json()
 
         # Verify signaling URL
-        assert "wss://test.cognitiveservices.azure.com/voice-live/realtime/calls" in data[
-            "signaling_url"
-        ]
+        assert (
+            "wss://test.cognitiveservices.azure.com/voice-live/realtime/calls"
+            in data["signaling_url"]
+        )
         assert "api-version=2026-01-01-preview" in data["signaling_url"]
         assert "model=gpt-4o" in data["signaling_url"]
 

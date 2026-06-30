@@ -243,7 +243,7 @@ async def seed_all(session: AsyncSession) -> None:
             if isawaitable(material_seed_result):
                 await material_seed_result
         except Exception:
-            logger.warning("Training material seed failed", exc_info=True)
+            logger.exception("Training material seed failed; continuing startup seed")
 
     # --- 6. Azure AI Foundry config from env vars ---
     try:

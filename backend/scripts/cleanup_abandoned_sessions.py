@@ -78,9 +78,7 @@ async def main() -> None:
         score_ids = [row[0] for row in score_ids_result.all()]
 
         if score_ids:
-            await session.execute(
-                delete(ScoreDetail).where(ScoreDetail.score_id.in_(score_ids))
-            )
+            await session.execute(delete(ScoreDetail).where(ScoreDetail.score_id.in_(score_ids)))
             print(f"  Deleted score details for {len(score_ids)} scores")
 
             await session.execute(
@@ -89,9 +87,7 @@ async def main() -> None:
             print(f"  Deleted {len(score_ids)} session scores")
 
         # Delete the sessions themselves
-        await session.execute(
-            delete(CoachingSession).where(CoachingSession.id.in_(session_ids))
-        )
+        await session.execute(delete(CoachingSession).where(CoachingSession.id.in_(session_ids)))
         print(f"  Deleted {len(session_ids)} sessions")
 
         await session.commit()

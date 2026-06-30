@@ -345,9 +345,7 @@ class TestUploadAndConvertEndpoint:
         user = _make_user()
 
         file = _make_upload_file(filename="doc.pdf", content=b"fake-pdf-content")
-        result = await upload_and_convert(
-            skill_id="skill-1", files=[file], db=db, user=user
-        )
+        result = await upload_and_convert(skill_id="skill-1", files=[file], db=db, user=user)
 
         assert result.status_code == 202
         body = json.loads(result.body)
@@ -419,9 +417,7 @@ class TestRegenerateSopEndpoint:
         user = _make_user()
         body = RegenerateSopRequest(feedback="Please improve step 2")
 
-        result = await regenerate_sop(
-            skill_id="skill-1", body=body, db=db, _user=user
-        )
+        result = await regenerate_sop(skill_id="skill-1", body=body, db=db, _user=user)
         assert result == mock_skill
         mock_regen.assert_awaited_once()
 
@@ -724,7 +720,7 @@ class TestUploadResourceEndpoint:
         user = _make_user()
 
         file = _make_upload_file(filename="report.pdf", content=b"pdf-content")
-        result = await upload_resource(
+        await upload_resource(
             skill_id="skill-1",
             file=file,
             resource_type="reference",
@@ -856,9 +852,7 @@ class TestDeleteResourceEndpoint:
         db.execute = AsyncMock(return_value=mock_result)
 
         user = _make_user()
-        result = await delete_resource(
-            skill_id="skill-1", resource_id="res-1", db=db, _user=user
-        )
+        result = await delete_resource(skill_id="skill-1", resource_id="res-1", db=db, _user=user)
 
         assert result.status_code == 204
         db.delete.assert_called_once_with(resource)
@@ -873,9 +867,7 @@ class TestDeleteResourceEndpoint:
 
         user = _make_user()
         with pytest.raises(NotFoundException):
-            await delete_resource(
-                skill_id="skill-1", resource_id="missing", db=db, _user=user
-            )
+            await delete_resource(skill_id="skill-1", resource_id="missing", db=db, _user=user)
 
     @patch("app.api.skills.get_storage")
     async def test_delete_storage_error_still_succeeds(self, mock_storage_fn):
@@ -891,9 +883,7 @@ class TestDeleteResourceEndpoint:
         db.execute = AsyncMock(return_value=mock_result)
 
         user = _make_user()
-        result = await delete_resource(
-            skill_id="skill-1", resource_id="res-1", db=db, _user=user
-        )
+        result = await delete_resource(skill_id="skill-1", resource_id="res-1", db=db, _user=user)
 
         assert result.status_code == 204
         db.delete.assert_called_once_with(resource)
@@ -925,9 +915,7 @@ class TestDownloadResourceEndpoint:
         db.execute = AsyncMock(return_value=mock_result)
 
         user = _make_user()
-        result = await download_resource(
-            skill_id="skill-1", resource_id="res-1", db=db, _user=user
-        )
+        result = await download_resource(skill_id="skill-1", resource_id="res-1", db=db, _user=user)
 
         assert result.body == b"pdf-bytes"
         assert result.media_type == "application/pdf"
@@ -942,9 +930,7 @@ class TestDownloadResourceEndpoint:
 
         user = _make_user()
         with pytest.raises(NotFoundException):
-            await download_resource(
-                skill_id="skill-1", resource_id="missing", db=db, _user=user
-            )
+            await download_resource(skill_id="skill-1", resource_id="missing", db=db, _user=user)
 
     @patch("app.api.skills.get_storage")
     async def test_download_file_missing_in_storage_raises_404(self, mock_storage_fn):
@@ -961,9 +947,7 @@ class TestDownloadResourceEndpoint:
 
         user = _make_user()
         with pytest.raises(NotFoundException):
-            await download_resource(
-                skill_id="skill-1", resource_id="res-1", db=db, _user=user
-            )
+            await download_resource(skill_id="skill-1", resource_id="res-1", db=db, _user=user)
 
 
 # ===========================================================================
@@ -1004,9 +988,7 @@ class TestListPublishedSkillsEndpoint:
 
         db = AsyncMock()
         user = _make_user()
-        result = await list_published_skills(
-            page=1, page_size=20, search=None, db=db, _user=user
-        )
+        result = await list_published_skills(page=1, page_size=20, search=None, db=db, _user=user)
 
         assert result.total == 0
         assert result.items == []
@@ -1036,9 +1018,7 @@ class TestListPublishedSkillsEndpoint:
 
         db = AsyncMock()
         user = _make_user()
-        result = await list_published_skills(
-            page=1, page_size=20, search=None, db=db, _user=user
-        )
+        result = await list_published_skills(page=1, page_size=20, search=None, db=db, _user=user)
 
         assert result.total == 1
         assert len(result.items) == 1
@@ -1050,9 +1030,7 @@ class TestListPublishedSkillsEndpoint:
 
         db = AsyncMock()
         user = _make_user()
-        await list_published_skills(
-            page=1, page_size=10, search="keyword", db=db, _user=user
-        )
+        await list_published_skills(page=1, page_size=10, search="keyword", db=db, _user=user)
 
         mock_svc.get_published_skills.assert_awaited_once_with(
             db, page=1, page_size=10, search="keyword"
@@ -1247,6 +1225,9 @@ class TestRunQualityEvaluationInner:
         mock_session = AsyncMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock(return_value=False)
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = None
+        mock_session.execute = AsyncMock(return_value=mock_result)
         mock_session_cls.return_value = mock_session
 
         # Capture the coroutine passed to asyncio.create_task
@@ -1285,6 +1266,9 @@ class TestRunQualityEvaluationInner:
         mock_session = AsyncMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock(return_value=False)
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = None
+        mock_session.execute = AsyncMock(return_value=mock_result)
         mock_session_cls.return_value = mock_session
 
         captured_coro = None

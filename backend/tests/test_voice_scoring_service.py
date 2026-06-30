@@ -1,4 +1,4 @@
-"""Unit tests for voice scoring service (CU-only, no mock)."""
+"""Unit tests for voice scoring service (Speech-first, no mock fallback)."""
 
 import uuid
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from sqlalchemy import select
 
 from app.models.session import CoachingSession
+from app.services.pronunciation_assessment_service import PronunciationAssessmentResult
 from app.services.voice_scoring_service import (
     VOICE_DIMENSIONS,
     trigger_voice_scoring,
@@ -73,8 +74,8 @@ class TestTriggerVoiceScoring:
         s = result.scalar_one()
         assert s.voice_score_status == "none"
 
-    async def test_sets_failed_when_cu_not_configured(self, db_session, monkeypatch):
-        """When CU endpoint not configured, voice scoring sets status to failed."""
+    async def test_sets_failed_when_speech_not_configured(self, db_session, monkeypatch):
+        """When Speech key is not configured, voice scoring sets status to failed."""
         from tests.conftest import TestSessionLocal
 
         monkeypatch.setattr(
@@ -94,17 +95,16 @@ class TestTriggerVoiceScoring:
         db_session.add(session)
         await db_session.commit()
 
-        # Mock config_service to return None (not configured)
         with (
-            patch(
-                "app.services.voice_scoring_service.config_service.get_effective_endpoint",
-                new_callable=AsyncMock,
-                return_value=None,
-            ),
             patch(
                 "app.services.voice_scoring_service.config_service.get_effective_key",
                 new_callable=AsyncMock,
-                return_value=None,
+                return_value="",
+            ),
+            patch(
+                "app.services.voice_scoring_service.config_service.get_effective_region",
+                new_callable=AsyncMock,
+                return_value="eastus2",
             ),
         ):
             await trigger_voice_scoring(session_id)
@@ -116,8 +116,8 @@ class TestTriggerVoiceScoring:
             s = result.scalar_one()
             assert s.voice_score_status == "failed"
 
-    async def test_completes_when_cu_succeeds(self, db_session, monkeypatch):
-        """When CU voice scoring succeeds, sets status to completed."""
+    async def test_completes_when_pronunciation_assessment_succeeds(self, db_session, monkeypatch):
+        """When Speech pronunciation scoring succeeds, sets status to completed."""
         from tests.conftest import TestSessionLocal
 
         monkeypatch.setattr(
@@ -125,74 +125,47 @@ class TestTriggerVoiceScoring:
             TestSessionLocal,
         )
 
-        # Create scenario and rubric for the session
-        from app.models.scenario import Scenario
-        from app.models.scoring_rubric import ScoringRubric
-
-        rubric = ScoringRubric(
-            name="VR",
-            scenario_type="f2f",
-            dimensions="[]",
-            is_default=True,
-            created_by="fake-user-id",
-            cu_voice_analyzer_id="testVoiceAnalyzer",
-        )
-        db_session.add(rubric)
-        await db_session.flush()
-
-        scenario = Scenario(
-            name="S",
-            hcp_profile_id="fake-hcp",
-            key_messages="[]",
-            rubric_id=rubric.id,
-            status="active",
-            created_by="fake-user-id",
-            skill_id="fake-skill",
-        )
-        db_session.add(scenario)
-        await db_session.flush()
-
         session_id = str(uuid.uuid4())
         session = CoachingSession(
             id=session_id,
             user_id="fake-user-id",
-            scenario_id=scenario.id,
+            scenario_id="fake-scenario-id",
             status="completed",
-            audio_url="https://blob.core.windows.net/audio/test.webm",
+            audio_url="https://blob.core.windows.net/audio/test.wav",
             voice_score_status="pending",
         )
         db_session.add(session)
         await db_session.commit()
 
-        # Mock CU calls
-        mock_cu_fields = {
-            "fluency": {"valueString": '{"score": 85, "feedback": "Good flow"}'},
-            "tone": {"valueString": '{"score": 80, "feedback": "Professional"}'},
-            "pace": {"valueString": '{"score": 75, "feedback": "Adequate"}'},
-            "pronunciation": {"valueString": '{"score": 90, "feedback": "Clear"}'},
-            "feedback_summary": {"valueString": "Overall good voice quality"},
-            "transcript": {"valueString": "Hello doctor"},
-        }
-
         mock_storage = AsyncMock()
         mock_storage.read = AsyncMock(return_value=b"audio-bytes")
+        speech_result = PronunciationAssessmentResult(
+            dimensions=[
+                {"name": "pronunciation", "score": 90, "weight": 25},
+                {"name": "fluency", "score": 85, "weight": 25},
+                {"name": "pace", "score": 75, "weight": 25},
+                {"name": "tone", "score": 80, "weight": 25},
+            ],
+            feedback_summary="Overall good voice quality",
+            raw_result={},
+        )
 
         with (
-            patch(
-                "app.services.voice_scoring_service.config_service.get_effective_endpoint",
-                new_callable=AsyncMock,
-                return_value="https://cu.cognitiveservices.azure.com",
-            ),
             patch(
                 "app.services.voice_scoring_service.config_service.get_effective_key",
                 new_callable=AsyncMock,
                 return_value="test-key",
             ),
             patch(
-                "app.services.voice_scoring_service.score_voice_with_cu",
+                "app.services.voice_scoring_service.config_service.get_effective_region",
                 new_callable=AsyncMock,
-                return_value=mock_cu_fields,
-            ) as mock_score_voice,
+                return_value="eastus2",
+            ),
+            patch(
+                "app.services.voice_scoring_service.assess_pronunciation",
+                new_callable=AsyncMock,
+                return_value=speech_result,
+            ) as mock_assess,
             patch(
                 "app.services.voice_scoring_service.get_storage",
                 return_value=mock_storage,
@@ -200,8 +173,10 @@ class TestTriggerVoiceScoring:
         ):
             await trigger_voice_scoring(session_id)
 
-        mock_storage.read.assert_awaited_once_with("https://blob.core.windows.net/audio/test.webm")
-        assert mock_score_voice.await_args.kwargs["audio_data"] == b"audio-bytes"
+        mock_storage.read.assert_awaited_once_with("https://blob.core.windows.net/audio/test.wav")
+        assert mock_assess.await_args.kwargs["audio_data"] == b"audio-bytes"
+        assert mock_assess.await_args.kwargs["speech_key"] == "test-key"
+        assert mock_assess.await_args.kwargs["speech_region"] == "eastus2"
 
         async with TestSessionLocal() as verify_session:
             result = await verify_session.execute(
@@ -211,7 +186,7 @@ class TestTriggerVoiceScoring:
             assert s.voice_score_status == "completed"
 
     async def test_transcodes_private_audio_when_enabled(self, db_session, monkeypatch):
-        """Cloud voice scoring transcodes private WebM audio before CU submission."""
+        """Cloud voice scoring transcodes private WebM audio before Speech submission."""
         from tests.conftest import TestSessionLocal
 
         monkeypatch.setattr(
@@ -219,37 +194,11 @@ class TestTriggerVoiceScoring:
             TestSessionLocal,
         )
 
-        from app.models.scenario import Scenario
-        from app.models.scoring_rubric import ScoringRubric
-
-        rubric = ScoringRubric(
-            name="VR",
-            scenario_type="f2f",
-            dimensions="[]",
-            is_default=True,
-            created_by="fake-user-id",
-            cu_voice_analyzer_id="testVoiceAnalyzer",
-        )
-        db_session.add(rubric)
-        await db_session.flush()
-
-        scenario = Scenario(
-            name="S",
-            hcp_profile_id="fake-hcp",
-            key_messages="[]",
-            rubric_id=rubric.id,
-            status="active",
-            created_by="fake-user-id",
-            skill_id="fake-skill",
-        )
-        db_session.add(scenario)
-        await db_session.flush()
-
         session_id = str(uuid.uuid4())
         session = CoachingSession(
             id=session_id,
             user_id="fake-user-id",
-            scenario_id=scenario.id,
+            scenario_id="fake-scenario-id",
             status="completed",
             audio_url="https://blob.core.windows.net/audio/test.webm",
             voice_score_status="pending",
@@ -257,28 +206,32 @@ class TestTriggerVoiceScoring:
         db_session.add(session)
         await db_session.commit()
 
-        mock_cu_fields = {
-            "fluency": {"valueString": '{"score": 85, "feedback": "Good flow"}'},
-            "tone": {"valueString": '{"score": 80, "feedback": "Professional"}'},
-            "pace": {"valueString": '{"score": 75, "feedback": "Adequate"}'},
-            "pronunciation": {"valueString": '{"score": 90, "feedback": "Clear"}'},
-        }
         mock_storage = AsyncMock()
         mock_storage.read = AsyncMock(return_value=b"webm-bytes")
         settings = MagicMock()
         settings.voice_scoring_transcode_enabled = True
         settings.voice_scoring_transcode_timeout_seconds = 120
+        speech_result = PronunciationAssessmentResult(
+            dimensions=[
+                {"name": "pronunciation", "score": 90, "weight": 25},
+                {"name": "fluency", "score": 85, "weight": 25},
+                {"name": "pace", "score": 75, "weight": 25},
+                {"name": "tone", "score": 80, "weight": 25},
+            ],
+            feedback_summary="ok",
+            raw_result={},
+        )
 
         with (
-            patch(
-                "app.services.voice_scoring_service.config_service.get_effective_endpoint",
-                new_callable=AsyncMock,
-                return_value="https://cu.cognitiveservices.azure.com",
-            ),
             patch(
                 "app.services.voice_scoring_service.config_service.get_effective_key",
                 new_callable=AsyncMock,
                 return_value="test-key",
+            ),
+            patch(
+                "app.services.voice_scoring_service.config_service.get_effective_region",
+                new_callable=AsyncMock,
+                return_value="eastus2",
             ),
             patch(
                 "app.services.voice_scoring_service.get_storage",
@@ -294,14 +247,12 @@ class TestTriggerVoiceScoring:
                 return_value=b"wav-bytes",
             ) as mock_transcode,
             patch(
-                "app.services.voice_scoring_service.score_voice_with_cu",
+                "app.services.voice_scoring_service.assess_pronunciation",
                 new_callable=AsyncMock,
-                return_value=mock_cu_fields,
-            ) as mock_score_voice,
+                return_value=speech_result,
+            ) as mock_assess,
         ):
             await trigger_voice_scoring(session_id)
 
         mock_transcode.assert_awaited_once_with(b"webm-bytes", timeout_seconds=120)
-        assert mock_score_voice.await_args.kwargs["audio_data"] == b"wav-bytes"
-        assert mock_score_voice.await_args.kwargs["mime_type"] == "audio/wav"
-        assert mock_score_voice.await_args.kwargs["use_binary_upload"] is False
+        assert mock_assess.await_args.kwargs["audio_data"] == b"wav-bytes"

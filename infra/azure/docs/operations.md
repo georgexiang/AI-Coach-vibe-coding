@@ -33,6 +33,18 @@ az account set --subscription "<subscription-id-or-name>"
 .\infra\azure\scripts\deploy.ps1
 ```
 
+For the public CD target, use the `public` environment name without a `test` suffix:
+
+```powershell
+.\infra\azure\scripts\deploy.ps1 `
+  -ResourceGroupName "ai-coach-public-rg" `
+  -EnvironmentName "public" `
+  -NetworkProfile publicDemo `
+  -Location eastasia `
+  -FoundryLocation SwedenCentral `
+  -ChatDeploymentCapacity 30
+```
+
 The script:
 
 1. Reuses existing Key Vault secrets when the target resource group already has a vault.
@@ -46,6 +58,19 @@ The default mode is infrastructure-only. It does not rebuild images or update Co
 For existing deployments, the script reads the current backend/frontend Container App images and passes them back into Bicep so infra-only runs do not revert the apps to the placeholder image.
 
 For private backend infrastructure, pass `-NetworkProfile privateBackend`. You can provide an existing VNet with `-VnetName`; otherwise the template creates one using the configured CIDR parameters. This profile keeps frontend public, makes backend ingress internal, and adds private endpoint DNS for Storage, Key Vault, PostgreSQL, and Foundry.
+
+Recommended private network test environment:
+
+```powershell
+.\infra\azure\scripts\deploy.ps1 `
+  -ResourceGroupName "ai-coach-private-rg" `
+  -EnvironmentName "private" `
+  -NetworkProfile privateBackend `
+  -Location eastasia `
+  -FoundryLocation eastus2 `
+  -ChatDeploymentSkuName GlobalStandard `
+  -ChatDeploymentCapacity 120
+```
 
 ## Deploy infrastructure and app images
 
@@ -113,14 +138,31 @@ After deployment, use the printed values:
 
 ```powershell
 .\infra\azure\scripts\set-github-vars.ps1 `
-  -Repository "jeromeecho/AI-Coach-vibe-coding" `
+  -Repository "huqianghui/AI-Coach-vibe-coding" `
   -AzureClientId "<AZURE_CLIENT_ID>" `
   -AzureTenantId "<AZURE_TENANT_ID>" `
   -AzureSubscriptionId "<AZURE_SUBSCRIPTION_ID>" `
   -ResourceGroupName "<AZURE_RESOURCE_GROUP>" `
   -AcrName "<ACR_NAME>" `
   -BackendAppName "<BACKEND_APP_NAME>" `
-  -FrontendAppName "<FRONTEND_APP_NAME>"
+  -FrontendAppName "<FRONTEND_APP_NAME>" `
+  -BackendBootstrapJobName "<BACKEND_BOOTSTRAP_JOB_NAME>"
+```
+
+For the private test environment, write variables to the GitHub Environment instead of overwriting repository-level public variables:
+
+```powershell
+.\infra\azure\scripts\set-github-vars.ps1 `
+  -Repository "huqianghui/AI-Coach-vibe-coding" `
+  -EnvironmentName "private" `
+  -AzureClientId "<AZURE_CLIENT_ID>" `
+  -AzureTenantId "<AZURE_TENANT_ID>" `
+  -AzureSubscriptionId "<AZURE_SUBSCRIPTION_ID>" `
+  -ResourceGroupName "<AZURE_RESOURCE_GROUP>" `
+  -AcrName "<ACR_NAME>" `
+  -BackendAppName "<BACKEND_APP_NAME>" `
+  -FrontendAppName "<FRONTEND_APP_NAME>" `
+  -BackendBootstrapJobName "<BACKEND_BOOTSTRAP_JOB_NAME>"
 ```
 
 This sets repository variables only. It does not modify the existing workflow file.

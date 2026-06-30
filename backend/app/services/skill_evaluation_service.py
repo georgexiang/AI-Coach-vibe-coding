@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.skill import Skill
+from app.services import config_service
 from app.services.skill_validation_service import _compute_content_hash
 
 logger = logging.getLogger(__name__)
@@ -58,6 +59,16 @@ def _load_evaluation_dimensions() -> list[str]:
         if len(names) == 6:
             return names
     return list(_FALLBACK_DIMENSIONS)
+
+
+def _load_evaluator_instructions() -> str:
+    """Load skill-evaluator system instructions from the bundled template."""
+    from app.services.meta_skill_service import _TEMPLATE_DIR
+
+    skill_file = _TEMPLATE_DIR / "skill-evaluator" / "SKILL.md"
+    if skill_file.exists():
+        return skill_file.read_text(encoding="utf-8")
+    return _JSON_OUTPUT_INSTRUCTION
 
 
 def _build_evaluation_user_message(
@@ -319,11 +330,30 @@ async def _call_agent_for_evaluation(
                 model_used=model,
                 error_detail="Agent returned empty content",
             )
-        return _AICallResult(data=json.loads(content), status="ai_success", model_used=model)
+        preview = content[:500]
+        try:
+            parsed = json.loads(content)
+        except json.JSONDecodeError as e:
+            return _AICallResult(
+                data=None,
+                status="ai_error",
+                model_used=model,
+                error_detail=f"Agent returned invalid JSON: {e}. Preview: {preview}",
+            )
+        if not isinstance(parsed, dict):
+            return _AICallResult(
+                data=None,
+                status="ai_error",
+                model_used=model,
+                error_detail="Agent returned JSON that was not an object",
+            )
+        return _AICallResult(data=parsed, status="ai_success", model_used=model)
     except Exception as e:
         logger.error("Agent evaluation failed: %s", e, exc_info=True)
         return _AICallResult(
-            data=None, status="ai_error", model_used=model,
+            data=None,
+            status="ai_error",
+            model_used=model,
             error_detail=str(e)[:500],
         )
 
@@ -362,8 +392,11 @@ async def _call_openai_for_evaluation(db: AsyncSession, prompt: str) -> _AICallR
             )
         else:
             from azure.identity import DefaultAzureCredential, get_bearer_token_provider
+
             credential = DefaultAzureCredential()
-            token_provider = get_bearer_token_provider(credential, "https://cognitiveservices.azure.com/.default")
+            token_provider = get_bearer_token_provider(
+                credential, "https://cognitiveservices.azure.com/.default"
+            )
             client = AsyncAzureOpenAI(
                 azure_endpoint=endpoint,
                 azure_ad_token_provider=token_provider,
@@ -400,23 +433,34 @@ async def _call_openai_for_evaluation(db: AsyncSession, prompt: str) -> _AICallR
             return _AICallResult(
                 data=None,
                 status="ai_error",
-                model_used=model,
-                error_detail=f"Agent returned invalid JSON: {e}. Preview: {preview}",
+                model_used=deployment,
+                error_detail="Azure OpenAI returned empty content",
+            )
+        preview = content[:500]
+        try:
+            parsed = json.loads(content)
+        except json.JSONDecodeError as e:
+            logger.error("L2 evaluation returned invalid JSON: %s", e)
+            return _AICallResult(
+                data=None,
+                status="ai_error",
+                model_used=deployment,
+                error_detail=f"Azure OpenAI returned invalid JSON: {e}. Preview: {preview}",
             )
         if not isinstance(parsed, dict):
             return _AICallResult(
                 data=None,
                 status="ai_error",
-                model_used=model,
-                error_detail="Agent returned JSON that was not an object",
+                model_used=deployment,
+                error_detail="Azure OpenAI returned JSON that was not an object",
             )
-        return _AICallResult(data=parsed, status="ai_success", model_used=model)
+        return _AICallResult(data=parsed, status="ai_success", model_used=deployment)
     except Exception as e:
         logger.error("Agent evaluation failed: %s", e, exc_info=True)
         return _AICallResult(
             data=None,
             status="ai_error",
-            model_used=model,
+            model_used=deployment,
             error_detail=str(e)[:500],
         )
 

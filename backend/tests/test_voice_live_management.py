@@ -171,10 +171,15 @@ class TestUnassignInstanceFromHcp:
     """Integration tests for the unassign endpoint (Phase 14-01)."""
 
     @pytest.mark.asyncio
-    @patch("app.services.hcp_profile_service.agent_sync_service")
-    async def test_unassign_instance_from_hcp(self, mock_sync, aclient: AsyncClient, db_session):
+    @patch("app.services.agent_sync_service.update_agent_metadata_only", new_callable=AsyncMock)
+    async def test_unassign_instance_from_hcp(
+        self,
+        mock_update_metadata,
+        aclient: AsyncClient,
+        db_session,
+    ):
         """Unassign a VL Instance from an HCP Profile: full happy path."""
-        mock_sync.sync_agent_for_profile = AsyncMock(return_value={"id": "asst_test"})
+        mock_update_metadata.return_value = "2"
 
         # 1. Create VL Instance via API
         inst_resp = await aclient.post(

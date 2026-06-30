@@ -294,9 +294,7 @@ class TestComposeInstructions:
 
     def test_compose_preserves_order(self):
         """Skills appear in the order they were provided."""
-        skills = [
-            SkillContent(f"Skill-{i}", "", "", "", 1) for i in range(5)
-        ]
+        skills = [SkillContent(f"Skill-{i}", "", "", "", 1) for i in range(5)]
         result = SkillManager.compose_instructions("", skills)
         positions = [result.index(f"Skill-{i}") for i in range(5)]
         assert positions == sorted(positions)
@@ -853,9 +851,7 @@ class TestReadSkillResource:
             skill_id = skill.id
 
         async with TestSessionLocal() as session:
-            result = await read_skill_resource(
-                session, skill_id, "reference", "nonexistent.pdf"
-            )
+            result = await read_skill_resource(session, skill_id, "reference", "nonexistent.pdf")
             assert result == ""
 
     async def test_resource_with_none_text_content_returns_empty(self):
@@ -888,9 +884,7 @@ class TestReadSkillResource:
             await session.commit()
 
         async with TestSessionLocal() as session:
-            result = await read_skill_resource(
-                session, skill_id, "script", "analysis.py"
-            )
+            result = await read_skill_resource(session, skill_id, "script", "analysis.py")
             assert result == ""
 
     async def test_resource_wrong_type_returns_empty(self):
@@ -924,9 +918,7 @@ class TestReadSkillResource:
 
         async with TestSessionLocal() as session:
             # Query with "script" type but resource is "reference"
-            result = await read_skill_resource(
-                session, skill_id, "script", "data.pdf"
-            )
+            result = await read_skill_resource(session, skill_id, "script", "data.pdf")
             assert result == ""
 
     async def test_resource_wrong_skill_id_returns_empty(self):

@@ -8,6 +8,8 @@ param namePrefix string = 'aicoach'
 @allowed([
   'dev'
   'demo'
+  'public'
+  'private'
   'prod'
 ])
 param environmentName string = 'demo'
@@ -141,13 +143,16 @@ param managePostgresAdminPassword bool = true
 param databaseAutoCreateTables bool = false
 
 @description('GitHub repository owner or organization for OIDC federation.')
-param githubOwner string = 'jeromeecho'
+param githubOwner string = 'huqianghui'
 
 @description('GitHub repository name for OIDC federation.')
 param githubRepo string = 'AI-Coach-vibe-coding'
 
 @description('GitHub branch allowed to deploy through OIDC.')
 param githubBranch string = 'main'
+
+@description('Optional GitHub Environment allowed to deploy through OIDC. When set, creates an additional federated credential with an environment subject.')
+param githubEnvironmentName string = environmentName
 
 @description('Default Azure OpenAI chat/scoring deployment name.')
 param chatDeploymentName string = 'gpt-4o'
@@ -157,6 +162,14 @@ param chatModelName string = 'gpt-4o'
 
 @description('Default Azure OpenAI chat/scoring model version. Confirm available versions in the target region before deployment.')
 param chatModelVersion string = '2024-11-20'
+
+@allowed([
+  'Standard'
+  'GlobalStandard'
+  'DataZoneStandard'
+])
+@description('Azure OpenAI chat/scoring deployment SKU. Use GlobalStandard when regional Standard quota is constrained.')
+param chatDeploymentSkuName string = 'Standard'
 
 @minValue(1)
 @description('Default Azure OpenAI chat/scoring deployment capacity. For gpt-4o in Sweden Central, 120 maps to 120,000 TPM.')
@@ -318,6 +331,9 @@ module network './modules/network.bicep' = {
 module containerApps './modules/container-apps.bicep' = {
   name: '${deploymentName}-container-apps'
   scope: deploymentResourceGroup
+  dependsOn: [
+    roleAssignments
+  ]
   params: {
     namePrefix: namePrefix
     environmentName: environmentName
@@ -359,6 +375,7 @@ module aiFoundry './modules/ai-foundry.bicep' = if (deployAzureAi) {
     chatDeploymentName: chatDeploymentName
     chatModelName: chatModelName
     chatModelVersion: chatModelVersion
+    chatDeploymentSkuName: chatDeploymentSkuName
     chatDeploymentCapacity: chatDeploymentCapacity
     networkProfile: networkProfile
   }
@@ -424,6 +441,7 @@ module githubOidc './modules/github-oidc.bicep' = {
     githubOwner: githubOwner
     githubRepo: githubRepo
     githubBranch: githubBranch
+    githubEnvironmentName: githubEnvironmentName
   }
 }
 
@@ -494,6 +512,10 @@ output githubActions object = {
   AZURE_CLIENT_ID: githubOidc.outputs.githubDeploymentClientId
   AZURE_TENANT_ID: tenant().tenantId
   AZURE_SUBSCRIPTION_ID: subscription().subscriptionId
+  AZURE_RESOURCE_GROUP: effectiveResourceGroupName
   ACR_NAME: containerRegistry.outputs.summary.registryName
   RESOURCE_GROUP: effectiveResourceGroupName
+  BACKEND_APP_NAME: containerApps.outputs.backendAppName
+  BACKEND_BOOTSTRAP_JOB_NAME: containerApps.outputs.backendBootstrapJobName
+  FRONTEND_APP_NAME: containerApps.outputs.frontendAppName
 }
