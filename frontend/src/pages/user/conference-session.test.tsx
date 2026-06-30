@@ -65,7 +65,7 @@ vi.mock("@/hooks/use-conference-sse", () => ({
 }));
 
 vi.mock("@/hooks/use-speech", () => ({
-  useSpeechInput: () => ({
+  useStreamingSpeechInput: () => ({
     startRecording: mockStartRecording,
     stopRecording: mockStopRecording,
     recordingState: mockRecordingState,

@@ -195,6 +195,7 @@ async def _load_connection_config(
             elif (
                 _settings.voice_live_agent_mode_enabled
                 and profile.agent_id
+                and profile.agent_id.startswith("asst_")
                 and profile.agent_sync_status == "synced"
             ):
                 master = await config_service.get_master_config(db)

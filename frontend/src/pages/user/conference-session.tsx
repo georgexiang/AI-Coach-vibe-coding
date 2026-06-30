@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { useSpeechInput, useTextToSpeech } from "@/hooks/use-speech";
+import { useStreamingSpeechInput, useTextToSpeech } from "@/hooks/use-speech";
 import {
   Dialog,
   DialogContent,
@@ -271,7 +271,7 @@ export default function ConferenceSession() {
     stopRecording,
     recordingState,
     error: speechError,
-  } = useSpeechInput(handleSpeechTranscribed);
+  } = useStreamingSpeechInput(handleSpeechTranscribed);
 
   useEffect(() => {
     if (speechError) {

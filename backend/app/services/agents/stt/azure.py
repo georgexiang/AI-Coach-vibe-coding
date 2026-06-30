@@ -1,10 +1,15 @@
 """Azure Speech-to-Text adapter using Cognitive Services SDK."""
 
 import asyncio
+import logging
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
+import httpx
+
 from app.services.agents.stt.base import BaseSTTAdapter
+
+logger = logging.getLogger(__name__)
 
 
 class AzureSTTAdapter(BaseSTTAdapter):
@@ -25,6 +30,10 @@ class AzureSTTAdapter(BaseSTTAdapter):
 
         Uses PushAudioInputStream and recognize_once wrapped in asyncio.to_thread.
         """
+        rest_result = await self._transcribe_pcm_wav_with_rest(audio_data, language)
+        if rest_result is not None:
+            return rest_result
+
         try:
             import azure.cognitiveservices.speech as speechsdk
         except ImportError:
@@ -47,7 +56,10 @@ class AzureSTTAdapter(BaseSTTAdapter):
             result = await asyncio.to_thread(recognizer.recognize_once)
         finally:
             if cleanup_path is not None:
-                cleanup_path.unlink(missing_ok=True)
+                try:
+                    cleanup_path.unlink(missing_ok=True)
+                except PermissionError:
+                    logger.debug("Temporary STT audio file still in use: %s", cleanup_path)
 
         if result.reason == speechsdk.ResultReason.RecognizedSpeech:
             return result.text
@@ -59,6 +71,54 @@ class AzureSTTAdapter(BaseSTTAdapter):
     async def is_available(self) -> bool:
         """Check if Azure Speech key and region are configured."""
         return bool(self._key and self._region)
+
+    async def _transcribe_pcm_wav_with_rest(
+        self,
+        audio_data: bytes,
+        language: str,
+    ) -> str | None:
+        sample_rate = _pcm_wav_sample_rate(audio_data)
+        if sample_rate is None:
+            return None
+
+        url = (
+            f"https://{self._region}.stt.speech.microsoft.com/"
+            "speech/recognition/conversation/cognitiveservices/v1"
+        )
+        headers = {
+            "Ocp-Apim-Subscription-Key": self._key,
+            "Content-Type": f"audio/wav; codecs=audio/pcm; samplerate={sample_rate}",
+            "Accept": "application/json",
+        }
+        params = {"language": language}
+
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(
+                    url,
+                    params=params,
+                    headers=headers,
+                    content=audio_data,
+                )
+            if response.status_code >= 400:
+                logger.debug(
+                    "Azure Speech REST STT returned HTTP %s: %s",
+                    response.status_code,
+                    response.text[:200],
+                )
+                return None
+            payload = response.json()
+        except Exception as exc:
+            logger.debug("Azure Speech REST STT failed, falling back to SDK: %s", exc)
+            return None
+
+        status = payload.get("RecognitionStatus")
+        if status == "Success":
+            return payload.get("DisplayText", "")
+        if status in {"NoMatch", "InitialSilenceTimeout", "BabbleTimeout"}:
+            return ""
+        logger.debug("Azure Speech REST STT returned status %s: %s", status, payload)
+        return None
 
 
 def _audio_config_from_bytes(speechsdk, audio_data: bytes):
@@ -73,3 +133,16 @@ def _audio_config_from_bytes(speechsdk, audio_data: bytes):
     push_stream.write(audio_data)
     push_stream.close()
     return speechsdk.audio.AudioConfig(stream=push_stream), None
+
+
+def _pcm_wav_sample_rate(audio_data: bytes) -> int | None:
+    if len(audio_data) < 44:
+        return None
+    if not (audio_data.startswith(b"RIFF") and audio_data[8:12] == b"WAVE"):
+        return None
+    audio_format = int.from_bytes(audio_data[20:22], "little")
+    sample_rate = int.from_bytes(audio_data[24:28], "little")
+    bits_per_sample = int.from_bytes(audio_data[34:36], "little")
+    if audio_format != 1 or sample_rate <= 0 or bits_per_sample != 16:
+        return None
+    return sample_rate
