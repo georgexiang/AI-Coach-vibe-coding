@@ -138,10 +138,10 @@ class TestTranscribeAudio:
 
     @patch("app.api.speech.registry")
     @patch("app.api.speech.settings")
-    async def test_transcribe_allows_active_stt_service_config(
+    async def test_transcribe_rejects_active_stt_config_without_credentials(
         self, mock_settings, mock_registry, client
     ):
-        """POST /api/v1/speech/transcribe allows active STT config when env flag is off."""
+        """Active Azure Speech STT config must not silently fall back to mock."""
         mock_settings.feature_voice_enabled = False
         mock_settings.default_stt_provider = "mock"
         mock_adapter = AsyncMock()
@@ -165,8 +165,9 @@ class TestTranscribeAudio:
             files={"audio": ("test.wav", audio_data, "audio/wav")},
         )
 
-        assert response.status_code == 200
-        assert response.json()["text"] == "会议发言"
+        assert response.status_code == 503
+        assert response.json()["code"] == "AZURE_SPEECH_NOT_CONFIGURED"
+        mock_adapter.transcribe.assert_not_awaited()
 
     @patch("app.api.speech.registry")
     @patch("app.api.speech.settings")
@@ -302,6 +303,38 @@ class TestSynthesizeSpeech:
         )
         assert response.status_code == 200
         mock_adapter.synthesize.assert_called_once_with("Hello", "en-US", "en-US-JennyNeural")
+
+    @patch("app.api.speech.registry")
+    @patch("app.api.speech.settings")
+    async def test_synthesize_rejects_active_tts_config_without_credentials(
+        self, mock_settings, mock_registry, client
+    ):
+        """Active Azure Speech TTS config must not silently fall back to mock."""
+        mock_settings.feature_voice_enabled = False
+        mock_settings.default_tts_provider = "mock"
+        mock_adapter = AsyncMock()
+        mock_adapter.synthesize = AsyncMock(return_value=b"audio data")
+        mock_registry.get.return_value = mock_adapter
+        async with TestSessionLocal() as session:
+            session.add(
+                ServiceConfig(
+                    service_name="azure_speech_tts",
+                    display_name="Azure Speech (TTS)",
+                    is_active=True,
+                )
+            )
+            await session.commit()
+
+        _, token = await _create_user_and_token("speech_synth_active_config_no_key")
+        response = await client.post(
+            "/api/v1/speech/synthesize",
+            headers={"Authorization": f"Bearer {token}"},
+            json={"text": "Hello"},
+        )
+
+        assert response.status_code == 503
+        assert response.json()["code"] == "AZURE_SPEECH_NOT_CONFIGURED"
+        mock_adapter.synthesize.assert_not_awaited()
 
 
 class TestSpeechSchemas:

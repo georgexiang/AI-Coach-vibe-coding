@@ -37,6 +37,9 @@ export async function transcribeAudio(
       if (data?.code === "STT_TRANSCRIPTION_FAILED") {
         throw new Error("语音转写失败，请重试或使用文字输入。");
       }
+      if (data?.code === "AZURE_SPEECH_NOT_CONFIGURED") {
+        throw new Error("Azure Speech 未配置独立的 Key 和区域，请在管理员设置中配置 Speech STT/TTS。");
+      }
       throw new Error(data?.message ?? "语音转写失败，请重试或使用文字输入。");
     }
     throw error;

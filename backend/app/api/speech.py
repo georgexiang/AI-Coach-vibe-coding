@@ -28,6 +28,33 @@ async def _service_enabled(db: AsyncSession, service_name: str, env_enabled: boo
     return bool(config and config.is_active)
 
 
+async def _ensure_azure_speech_configured(
+    db: AsyncSession,
+    service_name: str,
+    provider: str,
+) -> None:
+    """Prevent active Azure Speech toggles from silently falling back to mock adapters."""
+    if settings.feature_voice_enabled or provider != "mock":
+        return
+
+    config = await config_service.get_config(db, service_name)
+    if not config or not config.is_active:
+        return
+
+    api_key = await config_service.get_decrypted_key(db, service_name)
+    if api_key and config.region:
+        return
+
+    raise AppException(
+        status_code=503,
+        code="AZURE_SPEECH_NOT_CONFIGURED",
+        message=(
+            "Azure Speech requires its own API key and region. "
+            "Configure Azure Speech STT/TTS separately from AI Foundry."
+        ),
+    )
+
+
 @router.get("/status", response_model=SpeechStatusResponse)
 async def get_speech_status(
     user: User = Depends(get_current_user),
@@ -63,6 +90,8 @@ async def transcribe_audio(
             code="VOICE_NOT_ENABLED",
             message="Voice features are not enabled by the administrator.",
         )
+
+    await _ensure_azure_speech_configured(db, "azure_speech_stt", settings.default_stt_provider)
 
     stt_adapter = registry.get("stt", settings.default_stt_provider)
     if stt_adapter is None:
@@ -109,6 +138,8 @@ async def synthesize_speech(
             code="VOICE_NOT_ENABLED",
             message="Voice features are not enabled by the administrator.",
         )
+
+    await _ensure_azure_speech_configured(db, "azure_speech_tts", settings.default_tts_provider)
 
     tts_adapter = registry.get("tts", settings.default_tts_provider)
     if tts_adapter is None:

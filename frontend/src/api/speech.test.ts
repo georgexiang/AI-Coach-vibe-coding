@@ -66,6 +66,21 @@ describe("transcribeAudio", () => {
       "语音转写失败，请重试或使用文字输入。",
     );
   });
+
+  it("maps Azure Speech configuration errors to an actionable message", async () => {
+    vi.mocked(apiClient.post).mockRejectedValueOnce({
+      isAxiosError: true,
+      response: {
+        data: {
+          code: "AZURE_SPEECH_NOT_CONFIGURED",
+          message: "Azure Speech requires its own API key and region.",
+        },
+      },
+    });
+    await expect(transcribeAudio(new Blob(["audio"]))).rejects.toThrow(
+      "Azure Speech 未配置独立的 Key 和区域，请在管理员设置中配置 Speech STT/TTS。",
+    );
+  });
 });
 
 describe("synthesizeSpeech", () => {
