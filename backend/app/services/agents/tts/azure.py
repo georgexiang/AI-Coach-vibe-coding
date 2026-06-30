@@ -37,9 +37,7 @@ class AzureTTSAdapter(BaseTTSAdapter):
 
         speech_config = speechsdk.SpeechConfig(subscription=self._key, region=self._region)
 
-        synthesizer = speechsdk.SpeechSynthesizer(
-            speech_config=speech_config, audio_config=None
-        )
+        synthesizer = speechsdk.SpeechSynthesizer(speech_config=speech_config, audio_config=None)
 
         # Build SSML for voice selection
         ssml = (
