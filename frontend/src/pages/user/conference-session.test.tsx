@@ -330,6 +330,7 @@ describe("ConferenceSession", () => {
     }
     // Should not navigate on failure
     expect(mockNavigate).not.toHaveBeenCalled();
+    expect(mockToastError).toHaveBeenCalledWith("error.endFailed");
   });
 
   // ── conference input routing ──

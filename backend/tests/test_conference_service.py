@@ -853,6 +853,25 @@ class TestEndConferenceEdgeCases:
             # Session should still be completed despite scoring failure
             assert result.status == "completed"
 
+    @patch("app.services.conference_service.turn_manager")
+    async def test_end_unexpected_scoring_exception_caught(self, mock_tm):
+        """Unexpected scoring errors do not roll back session completion."""
+        async with TestSessionLocal() as db:
+            data = await _seed_conference_fixture(db)
+            session = await create_conference_session(db, data["scenario"].id, data["user"].id)
+            session.status = "in_progress"
+            await db.flush()
+
+            with patch(
+                "app.services.scoring_service.score_session",
+                new_callable=AsyncMock,
+                side_effect=RuntimeError("scoring backend unavailable"),
+            ):
+                result = await end_conference_session(db, session.id, data["user"].id)
+
+            assert result.status == "completed"
+            assert result.completed_at is not None
+
 
 class TestComputeRelevanceScore:
     """Tests for the _compute_relevance_score helper."""

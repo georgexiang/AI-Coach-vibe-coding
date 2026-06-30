@@ -29,6 +29,7 @@
   "continuePresenting": "Continue Presenting",
   "error": {
     "loadFailed": "Failed to load conference session. Please refresh and try again.",
+    "endFailed": "Failed to end the conference. Please try again.",
     "streamFailed": "Connection to the session was lost. Attempting to reconnect...",
     "voiceUnavailable": "Voice input is not available. Azure Speech is not configured."
   }

@@ -29,6 +29,7 @@
   "continuePresenting": "继续演讲",
   "error": {
     "loadFailed": "加载会议演讲失败。请刷新页面重试。",
+    "endFailed": "结束会议失败。请稍后重试。",
     "streamFailed": "会话连接已断开。正在尝试重新连接...",
     "voiceUnavailable": "语音输入不可用。Azure Speech 未配置。"
   }

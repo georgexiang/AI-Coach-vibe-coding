@@ -310,9 +310,9 @@ export default function ConferenceSession() {
       await endSessionMutation.mutateAsync(sessionId);
       navigate(`/user/scoring/${sessionId}`);
     } catch {
-      // Error handled by mutation
+      toast.error(t("error.endFailed"));
     }
-  }, [sessionId, endSessionMutation, navigate]);
+  }, [sessionId, endSessionMutation, navigate, t]);
 
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-background">

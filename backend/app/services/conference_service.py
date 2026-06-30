@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import logging
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 
@@ -20,6 +21,8 @@ from app.services.prompt_builder import build_conference_audience_prompt
 from app.services.turn_manager import QueuedQuestion, turn_manager
 from app.utils.datetime import as_utc_aware, utc_now_naive
 from app.utils.exceptions import AppException, NotFoundException
+
+logger = logging.getLogger(__name__)
 
 # Pause (seconds) inserted between speakers so they appear one at a time in the UI
 # rather than all at once. Module-level so tests can monkeypatch it to 0.
@@ -780,6 +783,8 @@ async def end_conference_session(
     except AppException:
         # Scoring may fail if no messages exist; don't block session end
         pass
+    except Exception:
+        logger.exception("Conference scoring failed after session end: session_id=%s", session_id)
 
     return session
 
