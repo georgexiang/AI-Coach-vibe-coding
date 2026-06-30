@@ -1,4 +1,5 @@
 import apiClient from "./client";
+import axios from "axios";
 
 export interface TranscribeResponse {
   text: string;
@@ -21,13 +22,25 @@ export async function transcribeAudio(
   language: string = "zh-CN",
 ): Promise<TranscribeResponse> {
   const formData = new FormData();
-  formData.append("audio", audioBlob, "recording.webm");
-  const { data } = await apiClient.post<TranscribeResponse>(
-    `/speech/transcribe?language=${encodeURIComponent(language)}`,
-    formData,
-    { headers: { "Content-Type": "multipart/form-data" } },
-  );
-  return data;
+  const extension = audioBlob.type.includes("wav") ? "wav" : "webm";
+  formData.append("audio", audioBlob, `recording.${extension}`);
+  try {
+    const { data } = await apiClient.post<TranscribeResponse>(
+      `/speech/transcribe?language=${encodeURIComponent(language)}`,
+      formData,
+      { headers: { "Content-Type": "multipart/form-data" } },
+    );
+    return data;
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      const data = error.response?.data as { code?: string; message?: string } | undefined;
+      if (data?.code === "STT_TRANSCRIPTION_FAILED") {
+        throw new Error("语音转写失败，请重试或使用文字输入。");
+      }
+      throw new Error(data?.message ?? "语音转写失败，请重试或使用文字输入。");
+    }
+    throw error;
+  }
 }
 
 /**

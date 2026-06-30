@@ -11,6 +11,8 @@ const mockSendMessage = vi.fn();
 const mockMutateAsync = vi.fn().mockResolvedValue(undefined);
 const mockStartRecording = vi.fn();
 const mockStopRecording = vi.fn();
+const mockSpeak = vi.fn();
+const mockStopSpeaking = vi.fn();
 const mockToastError = vi.hoisted(() => vi.fn());
 
 let capturedCallbacks: ConferenceSSECallbacks = {};
@@ -68,6 +70,11 @@ vi.mock("@/hooks/use-speech", () => ({
     stopRecording: mockStopRecording,
     recordingState: mockRecordingState,
     error: mockSpeechError,
+  }),
+  useTextToSpeech: () => ({
+    speak: mockSpeak,
+    stop: mockStopSpeaking,
+    isSpeaking: false,
   }),
 }));
 

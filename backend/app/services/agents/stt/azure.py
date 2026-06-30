@@ -1,6 +1,8 @@
 """Azure Speech-to-Text adapter using Cognitive Services SDK."""
 
 import asyncio
+from pathlib import Path
+from tempfile import NamedTemporaryFile
 
 from app.services.agents.stt.base import BaseSTTAdapter
 
@@ -34,18 +36,18 @@ class AzureSTTAdapter(BaseSTTAdapter):
         speech_config = speechsdk.SpeechConfig(subscription=self._key, region=self._region)
         speech_config.speech_recognition_language = language
 
-        # Use push stream for audio bytes
-        push_stream = speechsdk.audio.PushAudioInputStream()
-        push_stream.write(audio_data)
-        push_stream.close()
-        audio_config = speechsdk.audio.AudioConfig(stream=push_stream)
+        audio_config, cleanup_path = _audio_config_from_bytes(speechsdk, audio_data)
 
         recognizer = speechsdk.SpeechRecognizer(
             speech_config=speech_config, audio_config=audio_config
         )
 
         # Use asyncio.to_thread to avoid blocking event loop
-        result = await asyncio.to_thread(recognizer.recognize_once)
+        try:
+            result = await asyncio.to_thread(recognizer.recognize_once)
+        finally:
+            if cleanup_path is not None:
+                cleanup_path.unlink(missing_ok=True)
 
         if result.reason == speechsdk.ResultReason.RecognizedSpeech:
             return result.text
@@ -57,3 +59,17 @@ class AzureSTTAdapter(BaseSTTAdapter):
     async def is_available(self) -> bool:
         """Check if Azure Speech key and region are configured."""
         return bool(self._key and self._region)
+
+
+def _audio_config_from_bytes(speechsdk, audio_data: bytes):
+    if audio_data.startswith(b"RIFF") and audio_data[8:12] == b"WAVE":
+        temp_file = NamedTemporaryFile(suffix=".wav", delete=False)
+        temp_file.write(audio_data)
+        temp_file.close()
+        path = Path(temp_file.name)
+        return speechsdk.audio.AudioConfig(filename=str(path)), path
+
+    push_stream = speechsdk.audio.PushAudioInputStream()
+    push_stream.write(audio_data)
+    push_stream.close()
+    return speechsdk.audio.AudioConfig(stream=push_stream), None

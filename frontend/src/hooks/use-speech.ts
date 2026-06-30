@@ -1,7 +1,15 @@
 import { useCallback, useRef, useState } from "react";
 import { transcribeAudio, synthesizeSpeech } from "@/api/speech";
 
+declare global {
+  interface Window {
+    webkitAudioContext?: typeof AudioContext;
+  }
+}
+
 type RecordingState = "idle" | "recording" | "processing";
+
+const STT_SAMPLE_RATE = 16000;
 
 interface UseSpeechInputReturn {
   startRecording: () => Promise<void>;
@@ -52,13 +60,16 @@ export function useSpeechInput(
 
       mediaRecorder.onstop = () => {
         setRecordingState("processing");
-        const audioBlob = new Blob(chunksRef.current, { type: "audio/webm" });
+        const recordedBlob = new Blob(chunksRef.current, {
+          type: mediaRecorder.mimeType || "audio/webm",
+        });
 
         // Stop all tracks
         streamRef.current?.getTracks().forEach((track) => track.stop());
         streamRef.current = null;
 
-        transcribeAudio(audioBlob, language)
+        convertRecordedAudioToWav(recordedBlob)
+          .then((audioBlob) => transcribeAudio(audioBlob, language))
           .then((result) => {
             if (result.text.trim()) {
               onTranscribed(result.text);
@@ -94,6 +105,83 @@ export function useSpeechInput(
   }, []);
 
   return { startRecording, stopRecording, recordingState, error };
+}
+
+async function convertRecordedAudioToWav(blob: Blob): Promise<Blob> {
+  if (blob.type.includes("wav")) return blob;
+
+  const arrayBuffer = await blobToArrayBuffer(blob);
+  const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+  const audioContext = new AudioContextCtor();
+  try {
+    const decoded = await audioContext.decodeAudioData(arrayBuffer.slice(0));
+    const rendered = await resampleToMono(decoded, STT_SAMPLE_RATE);
+    return encodeWav(rendered.getChannelData(0), rendered.sampleRate);
+  } finally {
+    await audioContext.close();
+  }
+}
+
+function blobToArrayBuffer(blob: Blob): Promise<ArrayBuffer> {
+  if (typeof blob.arrayBuffer === "function") {
+    return blob.arrayBuffer();
+  }
+
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as ArrayBuffer);
+    reader.onerror = () => reject(reader.error ?? new Error("Failed to read audio blob"));
+    reader.readAsArrayBuffer(blob);
+  });
+}
+
+async function resampleToMono(
+  buffer: AudioBuffer,
+  sampleRate: number,
+): Promise<AudioBuffer> {
+  const frameCount = Math.max(1, Math.ceil(buffer.duration * sampleRate));
+  const offlineContext = new OfflineAudioContext(1, frameCount, sampleRate);
+  const source = offlineContext.createBufferSource();
+  source.buffer = buffer;
+  source.connect(offlineContext.destination);
+  source.start(0);
+  return offlineContext.startRendering();
+}
+
+function encodeWav(samples: Float32Array, sampleRate: number): Blob {
+  const bytesPerSample = 2;
+  const blockAlign = bytesPerSample;
+  const buffer = new ArrayBuffer(44 + samples.length * bytesPerSample);
+  const view = new DataView(buffer);
+
+  writeAscii(view, 0, "RIFF");
+  view.setUint32(4, 36 + samples.length * bytesPerSample, true);
+  writeAscii(view, 8, "WAVE");
+  writeAscii(view, 12, "fmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * blockAlign, true);
+  view.setUint16(32, blockAlign, true);
+  view.setUint16(34, 16, true);
+  writeAscii(view, 36, "data");
+  view.setUint32(40, samples.length * bytesPerSample, true);
+
+  let offset = 44;
+  for (const sample of samples) {
+    const clamped = Math.max(-1, Math.min(1, sample));
+    view.setInt16(offset, clamped < 0 ? clamped * 0x8000 : clamped * 0x7fff, true);
+    offset += bytesPerSample;
+  }
+
+  return new Blob([view], { type: "audio/wav" });
+}
+
+function writeAscii(view: DataView, offset: number, value: string): void {
+  for (let index = 0; index < value.length; index += 1) {
+    view.setUint8(offset + index, value.charCodeAt(index));
+  }
 }
 
 interface UseTextToSpeechReturn {

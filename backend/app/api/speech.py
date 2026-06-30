@@ -1,5 +1,7 @@
 """Speech API: STT transcription and TTS synthesis endpoints."""
 
+import logging
+
 from fastapi import APIRouter, Depends, File, Query, UploadFile
 from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,6 +15,7 @@ from app.services.agents.registry import registry
 from app.utils.exceptions import AppException
 
 settings = get_settings()
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/speech", tags=["speech"])
 
@@ -77,7 +80,15 @@ async def transcribe_audio(
             message="Audio file is empty.",
         )
 
-    text = await stt_adapter.transcribe(audio_data, language)
+    try:
+        text = await stt_adapter.transcribe(audio_data, language)
+    except Exception as exc:
+        logger.exception("STT transcription failed: language=%s", language)
+        raise AppException(
+            status_code=503,
+            code="STT_TRANSCRIPTION_FAILED",
+            message="Speech transcription failed. Please try again or use text input.",
+        ) from exc
     return TranscribeResponse(text=text, language=language)
 
 

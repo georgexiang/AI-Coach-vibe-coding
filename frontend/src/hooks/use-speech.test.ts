@@ -12,8 +12,12 @@ import { useSpeechInput, useTextToSpeech } from "./use-speech";
 // Mock MediaRecorder
 class MockMediaRecorder {
   state = "inactive";
+  mimeType = "audio/webm;codecs=opus";
   ondataavailable: ((e: { data: Blob }) => void) | null = null;
   onstop: (() => void) | null = null;
+  constructor(_stream: unknown, opts?: { mimeType?: string }) {
+    this.mimeType = opts?.mimeType ?? "audio/webm";
+  }
   start() {
     this.state = "recording";
   }
@@ -30,9 +34,39 @@ const mockStream = {
   getTracks: () => [{ stop: vi.fn() }],
 };
 
+const mockDecodedBuffer = {
+  duration: 0.01,
+} as AudioBuffer;
+const mockGetChannelData = vi.fn(() => new Float32Array([0, 0.25, -0.25]));
+const mockRenderedBuffer = {
+  sampleRate: 16000,
+  getChannelData: mockGetChannelData,
+} as unknown as AudioBuffer;
+const mockAudioContext = {
+  decodeAudioData: vi.fn().mockResolvedValue(mockDecodedBuffer),
+  close: vi.fn().mockResolvedValue(undefined),
+};
+const mockOfflineSource = {
+  buffer: null as AudioBuffer | null,
+  connect: vi.fn(),
+  start: vi.fn(),
+};
+const mockOfflineContext = {
+  destination: {},
+  createBufferSource: vi.fn(() => mockOfflineSource),
+  startRendering: vi.fn().mockResolvedValue(mockRenderedBuffer),
+};
+
 beforeEach(() => {
   vi.clearAllMocks();
   vi.stubGlobal("MediaRecorder", MockMediaRecorder);
+  vi.stubGlobal("AudioContext", vi.fn(() => mockAudioContext));
+  vi.stubGlobal("OfflineAudioContext", vi.fn(() => mockOfflineContext));
+  mockAudioContext.decodeAudioData.mockClear();
+  mockAudioContext.close.mockClear();
+  mockOfflineContext.createBufferSource.mockClear();
+  mockOfflineContext.startRendering.mockClear();
+  mockGetChannelData.mockClear();
   Object.defineProperty(globalThis, "navigator", {
     value: {
       mediaDevices: {
@@ -118,6 +152,8 @@ describe("useSpeechInput", () => {
     });
 
     expect(transcribeAudio).toHaveBeenCalled();
+    const audioBlob = vi.mocked(transcribeAudio).mock.calls[0]?.[0];
+    expect(audioBlob?.type).toBe("audio/wav");
     expect(onTranscribed).toHaveBeenCalledWith("Hello world");
     expect(result.current.recordingState).toBe("idle");
   });
@@ -140,6 +176,8 @@ describe("useSpeechInput", () => {
     });
 
     expect(transcribeAudio).toHaveBeenCalled();
+    const audioBlob = vi.mocked(transcribeAudio).mock.calls[0]?.[0];
+    expect(audioBlob?.type).toBe("audio/wav");
     expect(onTranscribed).not.toHaveBeenCalled();
     expect(result.current.recordingState).toBe("idle");
   });
@@ -205,8 +243,8 @@ describe("useSpeechInput", () => {
     let capturedRecorder: MockMediaRecorder | undefined;
     const OriginalMock = MockMediaRecorder;
     vi.stubGlobal("MediaRecorder", class extends OriginalMock {
-      constructor(_stream: unknown, _opts: unknown) {
-        super();
+      constructor(_stream: unknown, _opts?: { mimeType?: string }) {
+        super(_stream, _opts);
         capturedRecorder = this;
       }
       static isTypeSupported(mime: string): boolean {

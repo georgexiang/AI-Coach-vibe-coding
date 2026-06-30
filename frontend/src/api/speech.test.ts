@@ -51,6 +51,21 @@ describe("transcribeAudio", () => {
     vi.mocked(apiClient.post).mockRejectedValueOnce(new Error("401"));
     await expect(transcribeAudio(new Blob([]))).rejects.toThrow("401");
   });
+
+  it("maps STT backend failures to a user-friendly message", async () => {
+    vi.mocked(apiClient.post).mockRejectedValueOnce({
+      isAxiosError: true,
+      response: {
+        data: {
+          code: "STT_TRANSCRIPTION_FAILED",
+          message: "Speech transcription failed.",
+        },
+      },
+    });
+    await expect(transcribeAudio(new Blob(["audio"]))).rejects.toThrow(
+      "语音转写失败，请重试或使用文字输入。",
+    );
+  });
 });
 
 describe("synthesizeSpeech", () => {

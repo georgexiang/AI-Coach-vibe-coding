@@ -187,6 +187,27 @@ class TestTranscribeAudio:
         assert response.status_code == 200
         assert response.json()["language"] == "en-US"
 
+    @patch("app.api.speech.registry")
+    @patch("app.api.speech.settings")
+    async def test_transcribe_adapter_failure_returns_503(
+        self, mock_settings, mock_registry, client
+    ):
+        """POST /api/v1/speech/transcribe maps STT adapter errors to 503."""
+        mock_settings.feature_voice_enabled = True
+        mock_settings.default_stt_provider = "mock"
+        mock_adapter = AsyncMock()
+        mock_adapter.transcribe = AsyncMock(side_effect=RuntimeError("decoder failed"))
+        mock_registry.get.return_value = mock_adapter
+        _, token = await _create_user_and_token("speech_trans_adapter_error")
+        response = await client.post(
+            "/api/v1/speech/transcribe?language=zh-CN",
+            headers={"Authorization": f"Bearer {token}"},
+            files={"audio": ("test.wav", BytesIO(b"fake audio"), "audio/wav")},
+        )
+
+        assert response.status_code == 503
+        assert response.json()["code"] == "STT_TRANSCRIPTION_FAILED"
+
 
 class TestSynthesizeSpeech:
     """Tests for POST /api/v1/speech/synthesize."""
