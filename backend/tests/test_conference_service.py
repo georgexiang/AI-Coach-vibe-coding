@@ -18,6 +18,7 @@ from app.services.conference_service import (
     create_conference_session,
     end_conference_session,
     generate_hcp_questions,
+    score_conference_session_background,
     transition_sub_state,
 )
 from app.services.turn_manager import QueuedQuestion, TurnManager
@@ -188,15 +189,14 @@ class TestEndConferenceSession:
             session.status = "in_progress"
             await db.flush()
 
-            # Patch score_session at the module where it's lazily imported
             with patch(
-                "app.services.scoring_service.score_session",
-                new_callable=AsyncMock,
-            ):
+                "app.services.scoring_service.score_session", new_callable=AsyncMock
+            ) as score:
                 result = await end_conference_session(db, session.id, data["user"].id)
             assert result.status == "completed"
             assert result.completed_at is not None
             mock_tm.cleanup_session.assert_called_once_with(session.id)
+            score.assert_not_awaited()
 
     async def test_end_wrong_user_raises_403(self):
         """Ending session with wrong user raises 403."""
@@ -822,18 +822,14 @@ class TestEndConferenceEdgeCases:
             session.status = "in_progress"
             await db.flush()
 
-            with patch(
-                "app.services.scoring_service.score_session",
-                new_callable=AsyncMock,
-            ):
-                result = await end_conference_session(db, session.id, data["user"].id)
+            result = await end_conference_session(db, session.id, data["user"].id)
             assert result.status == "completed"
             assert result.duration_seconds is not None
             assert result.duration_seconds > 0
 
     @patch("app.services.conference_service.turn_manager")
-    async def test_end_scoring_exception_caught(self, mock_tm):
-        """Scoring failure does not prevent session from completing."""
+    async def test_end_does_not_run_scoring_inline(self, mock_tm):
+        """Ending a session returns after completion without awaiting scoring."""
         async with TestSessionLocal() as db:
             data = await _seed_conference_fixture(db)
             session = await create_conference_session(db, data["scenario"].id, data["user"].id)
@@ -841,36 +837,52 @@ class TestEndConferenceEdgeCases:
             await db.flush()
 
             with patch(
-                "app.services.scoring_service.score_session",
-                new_callable=AsyncMock,
-                side_effect=AppException(
-                    status_code=400,
-                    code="NO_MESSAGES",
-                    message="No messages to score",
-                ),
-            ):
+                "app.services.scoring_service.score_session", new_callable=AsyncMock
+            ) as score:
                 result = await end_conference_session(db, session.id, data["user"].id)
-            # Session should still be completed despite scoring failure
+
             assert result.status == "completed"
+            score.assert_not_awaited()
 
-    @patch("app.services.conference_service.turn_manager")
-    async def test_end_unexpected_scoring_exception_caught(self, mock_tm):
-        """Unexpected scoring errors do not roll back session completion."""
-        async with TestSessionLocal() as db:
-            data = await _seed_conference_fixture(db)
-            session = await create_conference_session(db, data["scenario"].id, data["user"].id)
-            session.status = "in_progress"
-            await db.flush()
+    async def test_background_scoring_commits_success(self):
+        """Background scoring uses its own session and commits on success."""
+        db = AsyncMock()
+        context = MagicMock()
+        context.__aenter__ = AsyncMock(return_value=db)
+        context.__aexit__ = AsyncMock(return_value=None)
+        session_factory = MagicMock(return_value=context)
 
-            with patch(
+        with (
+            patch("app.services.conference_service.AsyncSessionLocal", session_factory),
+            patch("app.services.scoring_service.score_session", new_callable=AsyncMock) as score,
+        ):
+            await score_conference_session_background("session-1")
+
+        score.assert_awaited_once_with(db, "session-1")
+        db.commit.assert_awaited_once()
+        db.rollback.assert_not_awaited()
+
+    async def test_background_scoring_rolls_back_unexpected_exception(self):
+        """Background scoring rolls back and swallows unexpected scoring errors."""
+        db = AsyncMock()
+        context = MagicMock()
+        context.__aenter__ = AsyncMock(return_value=db)
+        context.__aexit__ = AsyncMock(return_value=None)
+        session_factory = MagicMock(return_value=context)
+
+        with (
+            patch("app.services.conference_service.AsyncSessionLocal", session_factory),
+            patch(
                 "app.services.scoring_service.score_session",
                 new_callable=AsyncMock,
                 side_effect=RuntimeError("scoring backend unavailable"),
-            ):
-                result = await end_conference_session(db, session.id, data["user"].id)
+            ) as score,
+        ):
+            await score_conference_session_background("session-1")
 
-            assert result.status == "completed"
-            assert result.completed_at is not None
+        score.assert_awaited_once_with(db, "session-1")
+        db.rollback.assert_awaited_once()
+        db.commit.assert_not_awaited()
 
 
 class TestComputeRelevanceScore:

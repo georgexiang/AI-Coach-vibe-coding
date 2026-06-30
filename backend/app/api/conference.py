@@ -3,7 +3,7 @@
 import asyncio
 import json
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, BackgroundTasks, Depends
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -213,11 +213,14 @@ async def update_sub_state(
 @router.post("/sessions/{session_id}/end", response_model=ConferenceSessionResponse)
 async def end_conference_session(
     session_id: str,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """End a conference session and trigger scoring."""
+    """End a conference session and queue scoring in the background."""
     session = await conference_service.end_conference_session(db, session_id, user.id)
+    await db.commit()
+    background_tasks.add_task(conference_service.score_conference_session_background, session_id)
     return session
 
 

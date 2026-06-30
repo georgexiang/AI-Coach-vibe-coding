@@ -7,6 +7,7 @@ coverage.py does not track through httpx ASGITransport.
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from fastapi import BackgroundTasks
 
 from app.api.conference import (
     create_conference_session,
@@ -156,14 +157,20 @@ class TestEndConferenceSessionDirect:
 
     @patch("app.api.conference.conference_service")
     async def test_calls_service(self, mock_service):
-        """Route function delegates to conference_service.end."""
+        """Route function ends, commits, and queues background scoring."""
         mock_session = _make_session(status="completed")
         mock_service.end_conference_session = AsyncMock(return_value=mock_session)
+        mock_service.score_conference_session_background = AsyncMock()
+        background_tasks = BackgroundTasks()
         db = AsyncMock()
         user = _make_user()
 
-        result = await end_conference_session("sess-1", db, user)
+        result = await end_conference_session("sess-1", background_tasks, db, user)
         assert result == mock_session
+        db.commit.assert_awaited_once()
+        assert len(background_tasks.tasks) == 1
+        assert background_tasks.tasks[0].func == mock_service.score_conference_session_background
+        assert background_tasks.tasks[0].args == ("sess-1",)
 
 
 class TestGetScenarioAudienceDirect:

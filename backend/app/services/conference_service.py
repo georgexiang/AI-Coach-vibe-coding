@@ -10,6 +10,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.database import AsyncSessionLocal
 from app.models.conference import ConferenceAudienceHcp
 from app.models.message import SessionMessage
 from app.models.scenario import Scenario
@@ -736,7 +737,7 @@ async def transition_sub_state(db: AsyncSession, session_id: str, new_state: str
 async def end_conference_session(
     db: AsyncSession, session_id: str, user_id: str
 ) -> CoachingSession:
-    """End a conference session, trigger scoring, and cleanup turn_manager.
+    """End a conference session and cleanup turn_manager.
 
     Sets status to completed, calculates duration, and cleans up in-memory state.
     """
@@ -775,18 +776,29 @@ async def end_conference_session(
     await db.flush()
     await db.refresh(session)
 
-    # Trigger scoring via existing scoring_service
+    return session
+
+
+async def score_conference_session_background(session_id: str) -> None:
+    """Score a completed conference session using an independent DB session."""
     from app.services.scoring_service import score_session
 
-    try:
-        await score_session(db, session_id)
-    except AppException:
-        # Scoring may fail if no messages exist; don't block session end
-        pass
-    except Exception:
-        logger.exception("Conference scoring failed after session end: session_id=%s", session_id)
-
-    return session
+    async with AsyncSessionLocal() as db:
+        try:
+            await score_session(db, session_id)
+            await db.commit()
+        except AppException as exc:
+            await db.rollback()
+            logger.info(
+                "Conference scoring skipped after session end: session_id=%s code=%s",
+                session_id,
+                exc.code,
+            )
+        except Exception:
+            await db.rollback()
+            logger.exception(
+                "Conference scoring failed after session end: session_id=%s", session_id
+            )
 
 
 async def _save_conference_message(
