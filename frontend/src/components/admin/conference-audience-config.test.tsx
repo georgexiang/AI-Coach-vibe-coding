@@ -23,8 +23,13 @@ const labels = {
   roleModerator: "Moderator",
   addHcp: "Add HCP",
   removeHcp: "Remove HCP",
+  moveUp: "Move up",
+  moveDown: "Move down",
+  primarySpeaker: "Primary",
+  secondarySpeaker: "Secondary",
   countHint: "{{count}} bound (need {{min}}-{{max}})",
   minHint: "Need at least {{min}} HCPs",
+  moderatorRequiredHint: "Need one moderator",
   duplicateHint: "Duplicate HCP found",
 };
 
@@ -54,6 +59,18 @@ describe("ConferenceAudienceConfig", () => {
     ]);
     expect(screen.getAllByLabelText("Select HCP")).toHaveLength(2);
     expect(screen.getAllByLabelText("Remove HCP")).toHaveLength(2);
+  });
+
+  it("moves members and reindexes sortOrder", () => {
+    const onChange = renderConfig([
+      { hcpProfileId: "hcp-1", sortOrder: 0 },
+      { hcpProfileId: "hcp-2", sortOrder: 1 },
+    ]);
+    fireEvent.click(screen.getAllByLabelText("Move up")[1]!);
+    expect(onChange).toHaveBeenCalledWith([
+      { hcpProfileId: "hcp-2", sortOrder: 0 },
+      { hcpProfileId: "hcp-1", sortOrder: 1 },
+    ]);
   });
 
   it("adds a new empty member when Add HCP clicked", () => {
@@ -103,6 +120,19 @@ describe("ConferenceAudienceConfig", () => {
     expect(
       screen.queryByText(`Need at least ${MIN_AUDIENCE} HCPs`),
     ).not.toBeInTheDocument();
+  });
+
+  it("shows moderator required hint when no moderator is selected", () => {
+    renderConfig([{ hcpProfileId: "hcp-1" }, { hcpProfileId: "hcp-2" }]);
+    expect(screen.getByText("Need one moderator")).toBeInTheDocument();
+  });
+
+  it("hides moderator required hint when a moderator is selected", () => {
+    renderConfig([
+      { hcpProfileId: "hcp-1", roleInConference: "moderator" },
+      { hcpProfileId: "hcp-2", roleInConference: "audience" },
+    ]);
+    expect(screen.queryByText("Need one moderator")).not.toBeInTheDocument();
   });
 
   it("shows duplicate hint when HCPs repeat", () => {

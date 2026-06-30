@@ -100,13 +100,13 @@ vi.mock("@/components/coach", () => ({
   ),
 }));
 
-function renderPage() {
+function renderPage(initialEntry = "/user/training") {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter>
+      <MemoryRouter initialEntries={[initialEntry]}>
         <ScenarioSelection />
       </MemoryRouter>
     </QueryClientProvider>,
@@ -202,6 +202,34 @@ describe("ScenarioSelection (Training) Page", () => {
     expect(screen.getByTestId("default-mode-sc-1")).toHaveTextContent(
       "digital_human_realtime_model",
     );
+  });
+
+  it("selects Conference tab when mode query param is conference", () => {
+    scenarioData = [
+      {
+        id: "sc-1",
+        name: "F2F Scenario",
+        description: "Test",
+        product: "Brukinsa",
+        mode: "f2f",
+        difficulty: "medium",
+        status: "active",
+      },
+      {
+        id: "sc-2",
+        name: "Conference Scenario",
+        description: "Test 2",
+        product: "Tislelizumab",
+        mode: "conference",
+        difficulty: "hard",
+        status: "active",
+      },
+    ];
+
+    renderPage("/user/training?mode=conference");
+
+    expect(screen.queryByText("F2F Scenario")).not.toBeInTheDocument();
+    expect(screen.getByText("Conference Scenario")).toBeInTheDocument();
   });
 
   it("disables digital human when the HCP Voice Live instance has avatar off", () => {

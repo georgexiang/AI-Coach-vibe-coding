@@ -11,6 +11,8 @@ const mockSendMessage = vi.fn();
 const mockMutateAsync = vi.fn().mockResolvedValue(undefined);
 const mockStartRecording = vi.fn();
 const mockStopRecording = vi.fn();
+const mockSpeak = vi.fn();
+const mockStopSpeaking = vi.fn();
 const mockToastError = vi.hoisted(() => vi.fn());
 
 let capturedCallbacks: ConferenceSSECallbacks = {};
@@ -63,11 +65,16 @@ vi.mock("@/hooks/use-conference-sse", () => ({
 }));
 
 vi.mock("@/hooks/use-speech", () => ({
-  useSpeechInput: () => ({
+  useStreamingSpeechInput: () => ({
     startRecording: mockStartRecording,
     stopRecording: mockStopRecording,
     recordingState: mockRecordingState,
     error: mockSpeechError,
+  }),
+  useTextToSpeech: () => ({
+    speak: mockSpeak,
+    stop: mockStopSpeaking,
+    isSpeaking: false,
   }),
 }));
 
@@ -330,6 +337,7 @@ describe("ConferenceSession", () => {
     }
     // Should not navigate on failure
     expect(mockNavigate).not.toHaveBeenCalled();
+    expect(mockToastError).toHaveBeenCalledWith("error.endFailed");
   });
 
   // ── conference input routing ──

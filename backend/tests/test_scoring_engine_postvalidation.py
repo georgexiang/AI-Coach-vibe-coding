@@ -255,6 +255,39 @@ class TestBuildScoringPromptRoleLabels:
         snippet = prompt[reminder_idx : reminder_idx + 200]
         assert "MR" in snippet
 
+    def test_uses_custom_prompt_template_when_provided(self):
+        """Rubric prompt_template overrides the built-in prompt body."""
+        prompt = build_scoring_prompt(
+            scenario_data={
+                "product": "Brukinsa",
+                "therapeutic_area": "Oncology",
+                "difficulty": "medium",
+                "key_messages": json.dumps(["PFS data"]),
+                "hcp_profile": {"name": "Dr. Li", "specialty": "Hematology"},
+            },
+            messages=[{"role": "user", "content": "Hello doctor"}],
+            key_messages_status=[{"message": "PFS data", "delivered": False}],
+            rubric_dimensions=DEFAULT_RUBRIC_DIMENSIONS,
+            prompt_template="CUSTOM PROMPT\n{transcript}\n{dimensions_config}",
+        )
+
+        assert prompt.startswith("CUSTOM PROMPT")
+        assert ">>> MR (EVALUATE THIS PERSON) <<<: Hello doctor" in prompt
+        assert "key_message (weight=30%)" in prompt
+
+    def test_custom_prompt_template_allows_json_braces(self):
+        """Custom templates can include JSON examples without escaping braces."""
+        prompt = build_scoring_prompt(
+            scenario_data={"hcp_profile": {"name": "Dr. Li"}},
+            messages=[{"role": "user", "content": "I discussed efficacy."}],
+            key_messages_status=[],
+            rubric_dimensions=DEFAULT_RUBRIC_DIMENSIONS,
+            prompt_template='Return JSON: {"summary": "..."}\nTranscript:\n{transcript}',
+        )
+
+        assert 'Return JSON: {"summary": "..."}' in prompt
+        assert ">>> MR (EVALUATE THIS PERSON) <<<: I discussed efficacy." in prompt
+
 
 class TestScoreWithLlmPostValidation:
     """Tests that score_with_llm() applies post-validation rules."""

@@ -13,6 +13,7 @@ from app.dependencies import get_current_user, get_db, require_role
 from app.models.user import User
 from app.schemas.scenario import ScenarioCreate, ScenarioUpdate
 from app.services import scenario_service
+from app.services.conference_prompt_config import normalize_conference_prompt_config
 from app.utils.pagination import PaginatedResponse
 
 router = APIRouter(prefix="/scenarios", tags=["scenarios"])
@@ -72,6 +73,7 @@ class ScenarioOut(BaseModel):
     hcp_profile_id: str
     hcp_profile: HcpProfileBrief | None = None
     key_messages: list[str]
+    conference_prompt_config: dict[str, Any]
     skill_id: str
     skill_version_id: str | None = None
     rubric_id: str
@@ -98,6 +100,12 @@ class ScenarioOut(BaseModel):
         if isinstance(v, str):
             return json.loads(v)
         return v
+
+    @field_validator("conference_prompt_config", mode="before")
+    @classmethod
+    def parse_conference_prompt_config(cls, v: str | dict[str, Any] | None) -> dict[str, Any]:
+        """Parse and default the conference prompt config."""
+        return normalize_conference_prompt_config(v)
 
     @field_validator("created_at", "updated_at", mode="before")
     @classmethod

@@ -24,6 +24,7 @@ async def create_rubric(db: AsyncSession, data: RubricCreate, user_id: str) -> S
         description=data.description,
         scenario_type=data.scenario_type,
         dimensions=json.dumps([d.model_dump() for d in data.dimensions]),
+        prompt_template=data.prompt_template,
         is_default=data.is_default,
         content_weight=data.content_weight,
         voice_weight=data.voice_weight,
@@ -73,6 +74,10 @@ async def update_rubric(db: AsyncSession, rubric_id: str, data: RubricUpdate) ->
         rubric.scenario_type = data.scenario_type
     if data.dimensions is not None:
         rubric.dimensions = json.dumps([d.model_dump() for d in data.dimensions])
+    if data.prompt_template is not None:
+        if data.prompt_template != rubric.prompt_template:
+            rubric.prompt_version = (rubric.prompt_version or 1) + 1
+        rubric.prompt_template = data.prompt_template
     if data.is_default is not None:
         if data.is_default:
             await _unset_defaults(db, rubric.scenario_type)

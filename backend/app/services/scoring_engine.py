@@ -62,10 +62,10 @@ Score each dimension from 0-100 based on the actual conversation content. Be spe
 - Reference actual quotes from the MR's responses in strengths/weaknesses
 - Use the dimension criteria provided above as your scoring guide for each dimension
 - Evaluate how well the MR addressed the HCP's concerns and delivered the required information
-- "strengths" MUST be genuinely positive observations about the MR's performance. If there are
-  no real strengths to report, use an empty array []. NEVER put negative, neutral, or
-  absence-of-action observations in the strengths field. Similarly, "weaknesses" MUST be
-  genuinely negative observations — never put positive observations there.
+- "strengths" MUST be genuinely positive observations about the MR's performance. If there
+    are no real strengths to report, use an empty array []. NEVER put negative, neutral, or
+    absence-of-action observations in the strengths field. Similarly, "weaknesses" MUST be
+    genuinely negative observations - never put positive observations there.
 
 REMINDER: Scores MUST reflect MR (role=user) performance ONLY.
 Every quote must come from MR messages marked with '>>> MR' above.
@@ -155,12 +155,21 @@ def build_dimensions_instructions(rubric_dimensions: list[dict]) -> str:
     return "\n".join(lines)
 
 
+def _render_custom_prompt_template(template: str, values: dict[str, str]) -> str:
+    """Render supported placeholders without interpreting other JSON braces."""
+    rendered = template
+    for key, value in values.items():
+        rendered = rendered.replace(f"{{{key}}}", value)
+    return rendered.replace("{{", "{").replace("}}", "}")
+
+
 def build_scoring_prompt(
     scenario_data: dict,
     messages: list[dict],
     key_messages_status: list[dict],
     rubric_dimensions: list[dict],
     skill_criteria: str = "",
+    prompt_template: str = "",
 ) -> str:
     """Build the scoring prompt from session data."""
     # Format transcript with strong role labels to prevent LLM role confusion
@@ -203,20 +212,25 @@ def build_scoring_prompt(
 
     hcp = scenario_data.get("hcp_profile", {})
 
-    return SCORING_PROMPT_TEMPLATE.format(
-        hcp_name=hcp.get("name", "Unknown"),
-        hcp_specialty=hcp.get("specialty", "Unknown"),
-        hcp_personality=hcp.get("personality_type", "neutral"),
-        hcp_comm_style=hcp.get("communication_style", "50"),
-        product=scenario_data.get("product", "Unknown"),
-        therapeutic_area=scenario_data.get("therapeutic_area", ""),
-        difficulty=scenario_data.get("difficulty", "medium"),
-        key_messages_list=km_list,
-        key_messages_status=km_status,
-        transcript=transcript,
-        dimensions_config=dims_config,
-        skill_criteria_section=skill_section,
-    )
+    values = {
+        "hcp_name": hcp.get("name", "Unknown"),
+        "hcp_specialty": hcp.get("specialty", "Unknown"),
+        "hcp_personality": hcp.get("personality_type", "neutral"),
+        "hcp_comm_style": hcp.get("communication_style", "50"),
+        "product": scenario_data.get("product", "Unknown"),
+        "therapeutic_area": scenario_data.get("therapeutic_area", ""),
+        "difficulty": scenario_data.get("difficulty", "medium"),
+        "key_messages_list": km_list,
+        "key_messages_status": km_status,
+        "transcript": transcript,
+        "dimensions_config": dims_config,
+        "skill_criteria_section": skill_section,
+    }
+
+    if prompt_template:
+        return _render_custom_prompt_template(prompt_template.strip(), values)
+
+    return SCORING_PROMPT_TEMPLATE.format(**values)
 
 
 async def score_with_llm(
@@ -227,6 +241,7 @@ async def score_with_llm(
     rubric_dimensions: list[dict],
     pass_threshold: int = 70,
     skill_criteria: str = "",
+    prompt_template: str = "",
 ) -> dict:
     """Score a session using LLM (primary content scoring engine).
 
@@ -272,7 +287,12 @@ async def score_with_llm(
     weights = {dim["name"]: dim["weight"] for dim in rubric_dimensions}
 
     prompt = build_scoring_prompt(
-        scenario_data, messages, key_messages_status, rubric_dimensions, skill_criteria
+        scenario_data,
+        messages,
+        key_messages_status,
+        rubric_dimensions,
+        skill_criteria,
+        prompt_template=prompt_template,
     )
 
     try:

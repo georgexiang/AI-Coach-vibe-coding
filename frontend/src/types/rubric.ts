@@ -11,6 +11,8 @@ export interface Rubric {
   description: string;
   scenario_type: string;
   dimensions: DimensionConfig[];
+  prompt_template?: string;
+  prompt_version?: number;
   is_default: boolean;
   created_by: string;
   created_at: string;
@@ -26,6 +28,7 @@ export interface RubricCreate {
   description?: string;
   scenario_type?: string;
   dimensions: DimensionConfig[];
+  prompt_template?: string;
   is_default?: boolean;
   content_weight?: number; // 0-100, default 60
   voice_weight?: number; // 0-100, default 40
@@ -36,7 +39,23 @@ export interface RubricUpdate {
   description?: string;
   scenario_type?: string;
   dimensions?: DimensionConfig[];
+  prompt_template?: string;
   is_default?: boolean;
   content_weight?: number;
   voice_weight?: number;
+}
+
+export interface DefaultPromptTemplateResponse {
+  prompt_template: string;
+}
+
+export interface DefaultRubricTemplateResponse {
+  name: string;
+  description: string;
+  scenario_type: string;
+  dimensions: DimensionConfig[];
+  prompt_template: string;
+  is_default: boolean;
+  content_weight: number;
+  voice_weight: number;
 }

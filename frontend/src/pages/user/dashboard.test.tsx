@@ -196,12 +196,20 @@ describe("UserDashboard", () => {
     expect(mockNavigate).toHaveBeenCalledWith("/user/history");
   });
 
-  it("navigates to training when action card Start is clicked", async () => {
+  it("navigates to F2F training mode when F2F action card Start is clicked", async () => {
     const user = userEvent.setup();
     renderDashboard();
     const startButtons = screen.getAllByText("Start");
     await user.click(startButtons[0]!);
-    expect(mockNavigate).toHaveBeenCalledWith("/user/training");
+    expect(mockNavigate).toHaveBeenCalledWith("/user/training?mode=f2f");
+  });
+
+  it("navigates to conference training mode when conference action card Start is clicked", async () => {
+    const user = userEvent.setup();
+    renderDashboard();
+    const startButtons = screen.getAllByText("Start");
+    await user.click(startButtons[1]!);
+    expect(mockNavigate).toHaveBeenCalledWith("/user/training?mode=conference");
   });
 
   // NEW TESTS for uncovered branches

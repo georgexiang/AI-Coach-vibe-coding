@@ -17,6 +17,8 @@ class ScoringRubric(Base, TimestampMixin):
     dimensions: Mapped[str] = mapped_column(
         Text, default="[]"
     )  # JSON: [{name, weight, criteria[], max_score}]
+    prompt_template: Mapped[str] = mapped_column(Text, default="")
+    prompt_version: Mapped[int] = mapped_column(default=1, server_default="1")
     is_default: Mapped[bool] = mapped_column(Boolean, default=False)
     created_by: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False)
 

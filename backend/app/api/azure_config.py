@@ -77,16 +77,16 @@ async def register_adapter_from_config(
         registry.register("llm", adapter)
         settings.default_llm_provider = "azure_openai"
 
-    elif service_name == "azure_speech_stt" and effective_key:
+    elif service_name == "azure_speech_stt" and api_key and region:
         from app.services.agents.stt.azure import AzureSTTAdapter
 
-        registry.register("stt", AzureSTTAdapter(effective_key, effective_region))
+        registry.register("stt", AzureSTTAdapter(api_key, region))
         settings.default_stt_provider = "azure"
 
-    elif service_name == "azure_speech_tts" and effective_key:
+    elif service_name == "azure_speech_tts" and api_key and region:
         from app.services.agents.tts.azure import AzureTTSAdapter
 
-        registry.register("tts", AzureTTSAdapter(effective_key, effective_region))
+        registry.register("tts", AzureTTSAdapter(api_key, region))
         settings.default_tts_provider = "azure"
 
     elif service_name == "azure_avatar" and effective_key:

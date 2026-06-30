@@ -99,8 +99,10 @@ async def score_session(db: AsyncSession, session_id: str) -> SessionScore:
     scenario = session.scenario
     key_messages_status = json.loads(session.key_messages_status)
 
-    # Resolve rubric dimensions — rubric_id is NOT NULL per D-05
-    rubric_dimensions = await resolve_rubric_dimensions(db, scenario)
+    # Resolve rubric config -- rubric_id is NOT NULL per D-05
+    rubric = await get_rubric(db, scenario.rubric_id)
+    dims = rubric.dimensions
+    rubric_dimensions = json.loads(dims) if isinstance(dims, str) else dims
     hcp_profile_data = {}
     if scenario.hcp_profile:
         hcp_profile_data = {
@@ -130,6 +132,7 @@ async def score_session(db: AsyncSession, session_id: str) -> SessionScore:
         rubric_dimensions,
         scenario.pass_threshold,
         skill_criteria=skill_criteria,
+        prompt_template=rubric.prompt_template,
     )
 
     overall_score = scores["overall_score"]

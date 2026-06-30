@@ -3,7 +3,7 @@
 import asyncio
 import json
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, BackgroundTasks, Depends
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -23,7 +23,7 @@ from app.schemas.conference import (
     ConferenceSubStateUpdate,
 )
 from app.services import conference_service
-from app.utils.exceptions import AppException, NotFoundException
+from app.utils.exceptions import AppException, NotFoundException, ValidationException
 
 settings = get_settings()
 
@@ -213,11 +213,14 @@ async def update_sub_state(
 @router.post("/sessions/{session_id}/end", response_model=ConferenceSessionResponse)
 async def end_conference_session(
     session_id: str,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """End a conference session and trigger scoring."""
+    """End a conference session and queue scoring in the background."""
     session = await conference_service.end_conference_session(db, session_id, user.id)
+    await db.commit()
+    background_tasks.add_task(conference_service.score_conference_session_background, session_id)
     return session
 
 
@@ -267,6 +270,9 @@ async def set_scenario_audience(
 
     Replaces all existing audience HCPs with the new list.
     """
+    if not any(hcp.role_in_conference == "moderator" for hcp in audience):
+        raise ValidationException("Conference scenario must include 1 moderator")
+
     # Delete existing audience
     existing = await db.execute(
         select(ConferenceAudienceHcp).where(ConferenceAudienceHcp.scenario_id == scenario_id)

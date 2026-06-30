@@ -18,6 +18,7 @@ from app.services.conference_service import (
     create_conference_session,
     end_conference_session,
     generate_hcp_questions,
+    score_conference_session_background,
     transition_sub_state,
 )
 from app.services.turn_manager import QueuedQuestion, TurnManager
@@ -101,6 +102,30 @@ class TestCreateConferenceSession:
             config = json.loads(session.audience_config)
             assert len(config) == 3
             assert config[0]["name"] == "Dr. HCP-0"
+            assert config[0]["speaker_priority"] == "primary"
+            assert config[1]["speaker_priority"] == "secondary"
+            assert "conference_prompt_config" in config[0]
+
+    async def test_custom_conference_prompt_config_is_snapshotted(self):
+        """Creates session with scenario-level conference prompt config."""
+        async with TestSessionLocal() as db:
+            data = await _seed_conference_fixture(db, roles=["moderator", "audience", "audience"])
+            custom_config = {
+                "speaker_order_policy": "Dr. HCP-1 asks first as primary; others are secondary.",
+                "moderator_remarks": {"invite": {"zh": "自定义开场", "en": "Custom invite"}},
+                "audience_prompt_template": "{hcp_name}|{speaker_priority}|{speaker_order_policy}",
+            }
+            data["scenario"].conference_prompt_config = json.dumps(custom_config)
+            await db.flush()
+
+            session = await create_conference_session(db, data["scenario"].id, data["user"].id)
+            config = json.loads(session.audience_config)
+
+            invite_remark = config[0]["conference_prompt_config"]["moderator_remarks"]["invite"][
+                "zh"
+            ]
+            assert invite_remark == "自定义开场"
+            assert config[1]["speaker_order_policy"] == custom_config["speaker_order_policy"]
 
     async def test_non_conference_scenario_raises_409(self):
         """Scenario with mode='f2f' raises 409."""
@@ -164,15 +189,14 @@ class TestEndConferenceSession:
             session.status = "in_progress"
             await db.flush()
 
-            # Patch score_session at the module where it's lazily imported
             with patch(
-                "app.services.scoring_service.score_session",
-                new_callable=AsyncMock,
-            ):
+                "app.services.scoring_service.score_session", new_callable=AsyncMock
+            ) as score:
                 result = await end_conference_session(db, session.id, data["user"].id)
             assert result.status == "completed"
             assert result.completed_at is not None
             mock_tm.cleanup_session.assert_called_once_with(session.id)
+            score.assert_not_awaited()
 
     async def test_end_wrong_user_raises_403(self):
         """Ending session with wrong user raises 403."""
@@ -352,6 +376,26 @@ class TestRunPresentationRound:
             assert speaker_events[0]["speaker_name"] == "Dr. HCP-0"
             assert "请先进行你的主题演讲" in speaker_events[0]["content"]
             assert not any(e["event"] == "queue_update" for e in events)
+
+    async def test_start_conference_uses_custom_moderator_invite(self, monkeypatch):
+        """Start phase uses configured moderator remarks from the session snapshot."""
+        monkeypatch.setattr("app.services.conference_service.SPEAKER_PACING_SECONDS", 0)
+        from app.services.conference_service import start_conference_round
+
+        async with TestSessionLocal() as db:
+            data = await _seed_conference_fixture(db, roles=["moderator", "audience", "audience"])
+            data["scenario"].conference_prompt_config = json.dumps(
+                {"moderator_remarks": {"invite": {"zh": "请主讲人先发言", "en": "Please present"}}}
+            )
+            await db.flush()
+            session = await create_conference_session(db, data["scenario"].id, data["user"].id)
+
+            events = []
+            async for event in start_conference_round(db, session):
+                events.append(event)
+
+            speaker_events = [json.loads(e["data"]) for e in events if e["event"] == "speaker_text"]
+            assert speaker_events[0]["content"] == "请主讲人先发言"
 
     async def test_present_opens_and_releases_only_first_hcp(self, monkeypatch):
         """Present phase emits moderator opening and the first HCP question only."""
@@ -778,18 +822,14 @@ class TestEndConferenceEdgeCases:
             session.status = "in_progress"
             await db.flush()
 
-            with patch(
-                "app.services.scoring_service.score_session",
-                new_callable=AsyncMock,
-            ):
-                result = await end_conference_session(db, session.id, data["user"].id)
+            result = await end_conference_session(db, session.id, data["user"].id)
             assert result.status == "completed"
             assert result.duration_seconds is not None
             assert result.duration_seconds > 0
 
     @patch("app.services.conference_service.turn_manager")
-    async def test_end_scoring_exception_caught(self, mock_tm):
-        """Scoring failure does not prevent session from completing."""
+    async def test_end_does_not_run_scoring_inline(self, mock_tm):
+        """Ending a session returns after completion without awaiting scoring."""
         async with TestSessionLocal() as db:
             data = await _seed_conference_fixture(db)
             session = await create_conference_session(db, data["scenario"].id, data["user"].id)
@@ -797,17 +837,52 @@ class TestEndConferenceEdgeCases:
             await db.flush()
 
             with patch(
+                "app.services.scoring_service.score_session", new_callable=AsyncMock
+            ) as score:
+                result = await end_conference_session(db, session.id, data["user"].id)
+
+            assert result.status == "completed"
+            score.assert_not_awaited()
+
+    async def test_background_scoring_commits_success(self):
+        """Background scoring uses its own session and commits on success."""
+        db = AsyncMock()
+        context = MagicMock()
+        context.__aenter__ = AsyncMock(return_value=db)
+        context.__aexit__ = AsyncMock(return_value=None)
+        session_factory = MagicMock(return_value=context)
+
+        with (
+            patch("app.services.conference_service.AsyncSessionLocal", session_factory),
+            patch("app.services.scoring_service.score_session", new_callable=AsyncMock) as score,
+        ):
+            await score_conference_session_background("session-1")
+
+        score.assert_awaited_once_with(db, "session-1")
+        db.commit.assert_awaited_once()
+        db.rollback.assert_not_awaited()
+
+    async def test_background_scoring_rolls_back_unexpected_exception(self):
+        """Background scoring rolls back and swallows unexpected scoring errors."""
+        db = AsyncMock()
+        context = MagicMock()
+        context.__aenter__ = AsyncMock(return_value=db)
+        context.__aexit__ = AsyncMock(return_value=None)
+        session_factory = MagicMock(return_value=context)
+
+        with (
+            patch("app.services.conference_service.AsyncSessionLocal", session_factory),
+            patch(
                 "app.services.scoring_service.score_session",
                 new_callable=AsyncMock,
-                side_effect=AppException(
-                    status_code=400,
-                    code="NO_MESSAGES",
-                    message="No messages to score",
-                ),
-            ):
-                result = await end_conference_session(db, session.id, data["user"].id)
-            # Session should still be completed despite scoring failure
-            assert result.status == "completed"
+                side_effect=RuntimeError("scoring backend unavailable"),
+            ) as score,
+        ):
+            await score_conference_session_background("session-1")
+
+        score.assert_awaited_once_with(db, "session-1")
+        db.rollback.assert_awaited_once()
+        db.commit.assert_not_awaited()
 
 
 class TestComputeRelevanceScore:

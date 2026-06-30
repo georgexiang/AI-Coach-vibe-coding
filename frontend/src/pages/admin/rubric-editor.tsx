@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
@@ -31,6 +31,8 @@ import {
   useRubric,
   useCreateRubric,
   useUpdateRubric,
+  useDefaultPromptTemplate,
+  useDefaultRubricTemplate,
 } from "@/hooks/use-rubrics";
 import { CuStatusSection } from "@/components/admin/cu-status-section";
 import type { RubricCreate, RubricUpdate } from "@/types/rubric";
@@ -48,6 +50,7 @@ const rubricSchema = z.object({
   scenario_type: z.string().optional(),
   is_default: z.boolean().optional(),
   dimensions: z.array(dimensionSchema).min(1, "At least one dimension required"),
+  prompt_template: z.string().optional(),
   content_weight: z.number().min(0).max(100),
 });
 
@@ -62,8 +65,13 @@ export default function RubricEditorPage() {
   const isNew = !id;
 
   const { data: rubric, isLoading: rubricLoading } = useRubric(id);
+  const { data: defaultPromptTemplate } = useDefaultPromptTemplate();
+  const { data: defaultRubricTemplate } = useDefaultRubricTemplate();
   const createMutation = useCreateRubric();
   const updateMutation = useUpdateRubric();
+  const defaultPrompt =
+    defaultRubricTemplate?.prompt_template ?? defaultPromptTemplate?.prompt_template ?? "";
+  const defaultRubricApplied = useRef(false);
 
   const form = useForm<RubricFormValues>({
     resolver: zodResolver(rubricSchema),
@@ -73,6 +81,7 @@ export default function RubricEditorPage() {
       scenario_type: "f2f",
       is_default: false,
       dimensions: [createDefaultRubricDimension()],
+      prompt_template: "",
       content_weight: 60,
     },
   });
@@ -98,10 +107,28 @@ export default function RubricEditorPage() {
         scenario_type: rubric.scenario_type ?? "f2f",
         is_default: rubric.is_default,
         dimensions: toRubricDimensionFormValues(rubric.dimensions),
+        prompt_template: rubric.prompt_template || defaultPrompt,
         content_weight: rubric.content_weight ?? 60,
       });
     }
-  }, [rubric, form]);
+  }, [rubric, defaultPrompt, form]);
+
+  useEffect(() => {
+    if (isNew && defaultRubricTemplate && !defaultRubricApplied.current) {
+      defaultRubricApplied.current = true;
+      form.reset({
+        name: defaultRubricTemplate.name,
+        description: defaultRubricTemplate.description,
+        scenario_type: defaultRubricTemplate.scenario_type,
+        is_default: defaultRubricTemplate.is_default,
+        dimensions: toRubricDimensionFormValues(defaultRubricTemplate.dimensions),
+        prompt_template: defaultRubricTemplate.prompt_template,
+        content_weight: defaultRubricTemplate.content_weight,
+      });
+    } else if (isNew && defaultPrompt && !form.getValues("prompt_template")) {
+      form.setValue("prompt_template", defaultPrompt);
+    }
+  }, [isNew, defaultRubricTemplate, defaultPrompt, form]);
 
   const handleSubmit = (values: RubricFormValues) => {
     const payload: RubricCreate = {
@@ -110,6 +137,7 @@ export default function RubricEditorPage() {
       scenario_type: values.scenario_type,
       is_default: values.is_default,
       dimensions: toRubricDimensions(values.dimensions),
+      prompt_template: values.prompt_template ?? "",
       content_weight: values.content_weight,
       voice_weight: 100 - values.content_weight,
     };
@@ -240,6 +268,49 @@ export default function RubricEditorPage() {
                 )}
               />
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Prompt Template Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base font-semibold">
+            {t("admin:rubrics.promptTemplate")}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="grid gap-2">
+            <div className="flex items-center justify-between gap-3">
+              <Label>{t("admin:rubrics.promptTemplate")}</Label>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={!defaultPrompt}
+                onClick={() =>
+                  form.setValue("prompt_template", defaultPrompt, {
+                    shouldDirty: true,
+                  })
+                }
+              >
+                <RefreshCw className="mr-2 size-3.5" />
+                {t("admin:rubrics.useDefaultPromptTemplate")}
+              </Button>
+            </div>
+            <Textarea
+              rows={10}
+              {...form.register("prompt_template")}
+              placeholder={t("admin:rubrics.promptTemplateHint")}
+            />
+            <p className="text-xs text-muted-foreground">
+              {t("admin:rubrics.promptTemplateHint")}
+            </p>
+            {!isNew && rubric && (
+              <p className="text-xs text-muted-foreground">
+                {t("admin:rubrics.promptVersion")}: {rubric.prompt_version ?? 1} · {t("admin:rubrics.updatedAt")}: {new Date(rubric.updated_at).toLocaleString()}
+              </p>
+            )}
           </div>
         </CardContent>
       </Card>

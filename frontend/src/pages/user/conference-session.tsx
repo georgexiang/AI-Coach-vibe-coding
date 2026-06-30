@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { useSpeechInput } from "@/hooks/use-speech";
+import { useStreamingSpeechInput, useTextToSpeech } from "@/hooks/use-speech";
 import {
   Dialog,
   DialogContent,
@@ -77,6 +77,7 @@ export default function ConferenceSession() {
   const [keyTopics, setKeyTopics] = useState<
     Array<{ message: string; delivered: boolean }>
   >([]);
+  const { speak, stop: stopSpeaking } = useTextToSpeech();
 
   // Session timer
   const [sessionTime, setSessionTime] = useState("00:00");
@@ -165,6 +166,9 @@ export default function ConferenceSession() {
         };
         setMessages((prev) => [...prev, msg]);
         setCurrentSpeaker(data.speaker_name);
+        if (inputMode === "audio") {
+          void speak(data.content);
+        }
       },
       onQueueUpdate: (queue: QueuedQuestion[]) => {
         setQuestionQueue(queue);
@@ -212,8 +216,10 @@ export default function ConferenceSession() {
       },
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [speakerMap],
+    [speakerMap, inputMode, speak],
   );
+
+  useEffect(() => () => stopSpeaking(), [stopSpeaking]);
 
   const { sendMessage, isStreaming, streamedText } = useConferenceSSE(
     sessionId,
@@ -265,7 +271,7 @@ export default function ConferenceSession() {
     stopRecording,
     recordingState,
     error: speechError,
-  } = useSpeechInput(handleSpeechTranscribed);
+  } = useStreamingSpeechInput(handleSpeechTranscribed);
 
   useEffect(() => {
     if (speechError) {
@@ -310,9 +316,9 @@ export default function ConferenceSession() {
       await endSessionMutation.mutateAsync(sessionId);
       navigate(`/user/scoring/${sessionId}`);
     } catch {
-      // Error handled by mutation
+      toast.error(t("error.endFailed"));
     }
-  }, [sessionId, endSessionMutation, navigate]);
+  }, [sessionId, endSessionMutation, navigate, t]);
 
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-background">

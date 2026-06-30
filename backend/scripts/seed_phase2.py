@@ -20,6 +20,7 @@ from app.models.base import Base
 from app.models.hcp_profile import HcpProfile
 from app.models.scenario import Scenario
 from app.models.user import User
+from app.services.conference_prompt_config import default_conference_prompt_config
 
 settings = get_settings()
 
@@ -539,6 +540,9 @@ async def seed_phase2() -> None:
                 if therapeutic_area:
                     tag_list.append(f"area:{therapeutic_area}")
                 data["tags"] = json.dumps(tag_list)
+            data.setdefault(
+                "conference_prompt_config", json.dumps(default_conference_prompt_config())
+            )
 
             hcp_id = hcp_map.get(hcp_name)
             if hcp_id is None:

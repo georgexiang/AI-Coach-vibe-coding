@@ -82,6 +82,7 @@ class TestScenarioResponseSchema:
             status="active",
             hcp_profile_id="p1",
             key_messages='["KM1"]',
+            conference_prompt_config="{}",
             skill_id="skill-1",
             rubric_id="rubric-1",
             pass_threshold=70,

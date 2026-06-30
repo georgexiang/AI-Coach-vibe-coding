@@ -111,6 +111,7 @@ async def _seed_completed_session(db) -> tuple[str, str, str]:
         name="Test Rubric",
         scenario_type="f2f",
         dimensions=json.dumps(DEFAULT_RUBRIC_DIMENSIONS),
+        prompt_template="Custom rubric prompt {transcript}",
         is_default=True,
         created_by=user.id,
     )
@@ -178,6 +179,7 @@ class TestScoreSessionIntegration:
         assert score.overall_score == 75.0
         assert score.passed is True
         assert len(score.details) == 5
+        assert mock_llm.call_args.kwargs["prompt_template"] == "Custom rubric prompt {transcript}"
 
     @patch("app.services.scoring_service.score_with_llm", new_callable=AsyncMock)
     async def test_score_session_creates_content_score_after_voice_score(
