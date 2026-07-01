@@ -704,12 +704,12 @@ Plans:
 **Goal:** Integrate the open-source prompt-optimizer via a Docker/Container Apps sidecar and MCP client, migrate all 9 project prompts into a unified versioned registry (PromptTemplate/PromptVersion/PromptOptimizationRun), record every optimization run, and expose a single admin UI to browse, edit, AI-optimize (with diff), adopt, and roll back any prompt.
 **Requirements**: PROMPT-01, PROMPT-02, PROMPT-03, PROMPT-04, PROMPT-05
 **Depends on:** Phase 21 (ScoringRubric versioning precedent)
-**Plans:** 2/6 plans executed
+**Plans:** 3/6 plans executed
 
 Plans:
 - [x] 27-01-PLAN.md -- Prompt Registry foundation: 3 ORM models + migration, defaults catalog, get_prompt resolver, seed, tests
 - [x] 27-02-PLAN.md -- Optimizer sidecar + MCP client + stateless /prompts/optimize + Azure /v1 feasibility gate
-- [ ] 27-03-PLAN.md -- Migrate all builders to registry (get_prompt) with snapshot regression (no behavior drift)
+- [x] 27-03-PLAN.md -- Migrate all builders to registry (get_prompt) with snapshot regression (no behavior drift)
 - [ ] 27-04-PLAN.md -- Prompt management REST API: versions, activate/rollback, optimization run recording, adopt
 - [ ] 27-05-PLAN.md -- Frontend unified management UI: list + editor, AI optimize/diff/adopt, version history, E2E
 - [ ] 27-06-PLAN.md -- Per-entity prompts (rubric, conference) reuse + Azure internal Container App deploy
