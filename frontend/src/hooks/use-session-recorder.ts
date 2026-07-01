@@ -24,10 +24,16 @@ export interface SessionRecorderResult {
 export function useSessionRecorder(): SessionRecorderResult {
   const recorder = useAudioRecorder();
   const isUploadingRef = useRef(false);
+  const hasStartedRef = useRef(false);
 
   const startRecording = useCallback(
     async (stream: MediaStream): Promise<boolean> => {
-      return recorder.startRecording(stream);
+      if (hasStartedRef.current) return true;
+      const started = await recorder.startRecording(stream);
+      if (started) {
+        hasStartedRef.current = true;
+      }
+      return started;
     },
     [recorder],
   );
@@ -48,6 +54,7 @@ export function useSessionRecorder(): SessionRecorderResult {
         const filename = `session-${sessionId}-${Date.now()}.webm`;
         await uploadSessionAudio(sessionId, blob, filename);
         recorder.reset();
+        hasStartedRef.current = false;
         return { success: true };
       } catch (err) {
         const message = err instanceof Error ? err.message : "Upload failed";
@@ -62,6 +69,7 @@ export function useSessionRecorder(): SessionRecorderResult {
   const cancel = useCallback(async () => {
     await recorder.stopAndGetBlob();
     recorder.reset();
+    hasStartedRef.current = false;
   }, [recorder]);
 
   return {

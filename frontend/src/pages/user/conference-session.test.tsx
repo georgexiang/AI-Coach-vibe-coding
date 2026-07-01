@@ -13,6 +13,9 @@ const mockStartRecording = vi.fn();
 const mockStopRecording = vi.fn();
 const mockSpeak = vi.fn();
 const mockStopSpeaking = vi.fn();
+const mockSessionRecorderStart = vi.fn().mockResolvedValue(true);
+const mockSessionRecorderStopAndUpload = vi.fn().mockResolvedValue({ success: true });
+const mockSessionRecorderCancel = vi.fn().mockResolvedValue(undefined);
 const mockToastError = vi.hoisted(() => vi.fn());
 
 let capturedCallbacks: ConferenceSSECallbacks = {};
@@ -21,6 +24,7 @@ let mockSpeechError: string | null = null;
 let mockSessionData: Record<string, unknown> | undefined;
 let mockSearchParams = new URLSearchParams("id=cs-1");
 let mockIsSpeaking = false;
+let mockSessionRecorderIsRecording = false;
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
@@ -77,6 +81,15 @@ vi.mock("@/hooks/use-speech", () => ({
     speak: mockSpeak,
     stop: mockStopSpeaking,
     isSpeaking: mockIsSpeaking,
+  }),
+}));
+
+vi.mock("@/hooks/use-session-recorder", () => ({
+  useSessionRecorder: () => ({
+    isRecording: mockSessionRecorderIsRecording,
+    startRecording: mockSessionRecorderStart,
+    stopAndUpload: mockSessionRecorderStopAndUpload,
+    cancel: mockSessionRecorderCancel,
   }),
 }));
 
@@ -220,6 +233,7 @@ describe("ConferenceSession", () => {
     mockRecordingState = "idle";
     mockSpeechError = null;
     mockIsSpeaking = false;
+    mockSessionRecorderIsRecording = false;
     capturedCallbacks = {};
     mockSessionData = {
       id: "cs-1",
@@ -353,6 +367,37 @@ describe("ConferenceSession", () => {
     }
     expect(mockMutateAsync).toHaveBeenCalledWith("cs-1");
     expect(mockNavigate).toHaveBeenCalledWith("/user/scoring/cs-1");
+  });
+
+  it("uploads recorded audio before ending an audio-mode conference", async () => {
+    mockSearchParams = new URLSearchParams("id=cs-1&inputMode=audio");
+    mockSessionRecorderIsRecording = true;
+    const user = userEvent.setup();
+    renderConferenceSession();
+
+    await user.click(screen.getByText("End"));
+    const endButtons = screen.getAllByText("endPresentation");
+    const confirmBtn = endButtons[endButtons.length - 1];
+    if (confirmBtn) {
+      await user.click(confirmBtn);
+    }
+
+    expect(mockStopSpeaking).toHaveBeenCalled();
+    expect(mockSessionRecorderStopAndUpload).toHaveBeenCalledWith("cs-1");
+    expect(mockMutateAsync).toHaveBeenCalledWith("cs-1");
+    expect(mockNavigate).toHaveBeenCalledWith("/user/scoring/cs-1");
+  });
+
+  it("restores audio input mode from persisted session mode", async () => {
+    mockSessionData = {
+      ...mockSessionData,
+      mode: "voice_realtime_model",
+    };
+    renderConferenceSession();
+
+    await waitFor(() => {
+      expect(capturedConferenceStageProps.inputMode).toBe("audio");
+    });
   });
 
   it("shows speech errors when transcription fails", async () => {

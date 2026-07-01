@@ -366,7 +366,10 @@ describe("ScenarioSelection Filters and Actions", () => {
     const startBtns = screen.getAllByText("Start");
     await userEvent.setup().click(startBtns[0]!);
 
-    expect(mockConferenceMutateAsync).toHaveBeenCalledWith("sc-2");
+    expect(mockConferenceMutateAsync).toHaveBeenCalledWith({
+      scenarioId: "sc-2",
+      mode: "voice_realtime_model",
+    });
     expect(mockNavigate).toHaveBeenCalledWith(
       "/user/training/conference?id=conf-session-1&inputMode=audio",
     );

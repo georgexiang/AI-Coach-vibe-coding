@@ -31,6 +31,7 @@ interface StreamingSpeechOptions {
   voiceThreshold?: number;
   minSpeechMs?: number;
   noSpeechTimeoutMs?: number;
+  onStreamReady?: (stream: MediaStream) => void | Promise<void>;
 }
 
 /**
@@ -149,6 +150,7 @@ export function useStreamingSpeechInput(
   const voiceThreshold = options.voiceThreshold ?? 0.02;
   const minSpeechMs = options.minSpeechMs ?? 450;
   const noSpeechTimeoutMs = options.noSpeechTimeoutMs ?? 15000;
+  const onStreamReady = options.onStreamReady;
 
   const cleanupAudio = useCallback(() => {
     processorRef.current?.disconnect();
@@ -188,6 +190,7 @@ export function useStreamingSpeechInput(
         noiseSuppression: true,
       },
     });
+    await onStreamReady?.(stream);
     const audioContext = new AudioContextCtor();
     const source = audioContext.createMediaStreamSource(stream);
     const processor = audioContext.createScriptProcessor(4096, 1, 1);
@@ -234,7 +237,7 @@ export function useStreamingSpeechInput(
     processorRef.current = processor;
     gainRef.current = gain;
     setRecordingState("recording");
-  }, [autoStopOnSilence, minSpeechMs, noSpeechTimeoutMs, requestStreamStop, silenceMs, voiceThreshold]);
+  }, [autoStopOnSilence, minSpeechMs, noSpeechTimeoutMs, onStreamReady, requestStreamStop, silenceMs, voiceThreshold]);
 
   const startFallbackRecording = useCallback(async () => {
     usingFallbackRef.current = true;

@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { useStreamingSpeechInput, useTextToSpeech } from "@/hooks/use-speech";
+import { useSessionRecorder } from "@/hooks/use-session-recorder";
 import {
   Dialog,
   DialogContent,
@@ -81,6 +82,7 @@ export default function ConferenceSession() {
   const { speak, stop: stopSpeaking, isSpeaking } = useTextToSpeech("zh-CN", undefined, {
     queue: true,
   });
+  const sessionRecorder = useSessionRecorder();
   const startRecordingRef = useRef<() => Promise<void>>(async () => {});
   const stopRecordingRef = useRef<() => void>(() => {});
   const autoStartInFlightRef = useRef(false);
@@ -122,6 +124,12 @@ export default function ConferenceSession() {
       setSubState(session.subState);
     }
   }, [session?.subState]);
+
+  useEffect(() => {
+    if (session?.mode === "voice_realtime_model") {
+      setInputMode("audio");
+    }
+  }, [session?.mode]);
 
   // Initialize key topics from session
   useEffect(() => {
@@ -272,6 +280,18 @@ export default function ConferenceSession() {
     },
     [handleConferenceInput],
   );
+
+  const handleSpeechStreamReady = useCallback(
+    async (stream: MediaStream) => {
+      if (inputMode !== "audio") return;
+      const started = await sessionRecorder.startRecording(stream);
+      if (!started) {
+        toast.error(t("error.voiceRecordingFailed"));
+      }
+    },
+    [inputMode, sessionRecorder, t],
+  );
+
   const {
     startRecording,
     stopRecording,
@@ -279,6 +299,7 @@ export default function ConferenceSession() {
     error: speechError,
   } = useStreamingSpeechInput(handleSpeechTranscribed, "zh-CN", {
     autoStopOnSilence: true,
+    onStreamReady: handleSpeechStreamReady,
   });
 
   useEffect(() => {
@@ -352,12 +373,22 @@ export default function ConferenceSession() {
   const confirmEndSession = useCallback(async () => {
     setShowEndDialog(false);
     try {
+      stopSpeaking();
+      if (recordingState !== "idle") {
+        stopRecordingRef.current();
+      }
+      if (inputMode === "audio") {
+        const uploadResult = await sessionRecorder.stopAndUpload(sessionId);
+        if (!uploadResult.success) {
+          toast.error(uploadResult.error ?? t("error.voiceRecordingFailed"));
+        }
+      }
       await endSessionMutation.mutateAsync(sessionId);
       navigate(`/user/scoring/${sessionId}`);
     } catch {
       toast.error(t("error.endFailed"));
     }
-  }, [sessionId, endSessionMutation, navigate, t]);
+  }, [endSessionMutation, inputMode, navigate, recordingState, sessionId, sessionRecorder, stopSpeaking, t]);
 
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-background">

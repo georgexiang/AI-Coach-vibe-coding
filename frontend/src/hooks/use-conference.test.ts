@@ -88,10 +88,10 @@ describe("useCreateConferenceSession", () => {
       wrapper: createWrapper(),
     });
 
-    result.current.mutate("sc-1");
+    result.current.mutate({ scenarioId: "sc-1", mode: "voice_realtime_model" });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(createConferenceSession).toHaveBeenCalledWith("sc-1");
+    expect(createConferenceSession).toHaveBeenCalledWith("sc-1", "voice_realtime_model");
   });
 
   it("should handle creation failure", async () => {
@@ -101,7 +101,7 @@ describe("useCreateConferenceSession", () => {
       wrapper: createWrapper(),
     });
 
-    result.current.mutate("bad");
+    result.current.mutate({ scenarioId: "bad" });
 
     await waitFor(() => expect(result.current.isError).toBe(true));
   });

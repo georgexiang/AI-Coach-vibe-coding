@@ -117,7 +117,7 @@ export default function ScenarioSelection() {
 
   const handleStartConference = async (scenarioId: string, mode: string) => {
     try {
-      const session = await createConferenceSession.mutateAsync(scenarioId);
+      const session = await createConferenceSession.mutateAsync({ scenarioId, mode });
       const inputMode = mode === "voice_realtime_model" ? "audio" : "text";
       navigate(`/user/training/conference?id=${session.id}&inputMode=${inputMode}`);
     } catch {

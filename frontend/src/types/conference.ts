@@ -25,6 +25,7 @@ export interface ConferenceSession {
   userId: string;
   scenarioId: string;
   status: string;
+  mode: string;
   sessionType: "conference";
   subState: ConferenceSubState;
   presentationTopic: string | null;

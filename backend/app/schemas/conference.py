@@ -1,6 +1,7 @@
 """Conference presentation module request/response schemas."""
 
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -33,6 +34,7 @@ class ConferenceSessionCreate(BaseModel):
     """Create a new conference-type coaching session."""
 
     scenario_id: str
+    mode: Literal["text", "voice_realtime_model"] = "text"
 
 
 class ConferenceSessionResponse(BaseModel):
@@ -44,6 +46,7 @@ class ConferenceSessionResponse(BaseModel):
     user_id: str
     scenario_id: str
     status: str
+    mode: str = "text"
     session_type: str
     sub_state: str
     presentation_topic: str | None = None
