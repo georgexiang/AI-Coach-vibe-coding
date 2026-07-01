@@ -55,16 +55,17 @@ async def _ensure_azure_speech_configured(
     if not config or not config.is_active:
         return
 
-    api_key = await config_service.get_decrypted_key(db, service_name)
-    if api_key and config.region:
+    api_key = await config_service.get_effective_key(db, service_name)
+    region = await config_service.get_effective_region(db, service_name)
+    if api_key and region:
         return
 
     raise AppException(
         status_code=503,
         code="AZURE_SPEECH_NOT_CONFIGURED",
         message=(
-            "Azure Speech requires its own API key and region. "
-            "Configure Azure Speech STT/TTS separately from AI Foundry."
+            "Azure Speech requires an API key and region. "
+            "Configure Azure Speech STT/TTS or provide a master AI Foundry region."
         ),
     )
 
