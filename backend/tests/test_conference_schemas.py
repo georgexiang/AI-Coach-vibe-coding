@@ -30,10 +30,18 @@ class TestConferenceSessionCreate:
         )
         assert schema.mode == "voice_realtime_model"
 
+    def test_digital_human_mode(self):
+        """Digital human mode is accepted for conference creation."""
+        schema = ConferenceSessionCreate(
+            scenario_id="scen-123",
+            mode="digital_human_realtime_model",
+        )
+        assert schema.mode == "digital_human_realtime_model"
+
     def test_invalid_mode(self):
         """Unsupported mode raises ValidationError."""
         with pytest.raises(ValidationError):
-            ConferenceSessionCreate(scenario_id="scen-123", mode="digital_human_realtime_model")
+            ConferenceSessionCreate(scenario_id="scen-123", mode="unsupported_mode")
 
     def test_missing_scenario_id(self):
         """Missing scenario_id raises ValidationError."""

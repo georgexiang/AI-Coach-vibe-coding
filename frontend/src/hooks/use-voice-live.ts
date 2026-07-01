@@ -39,12 +39,7 @@ export function useVoiceLive(options: VoiceLiveOptions) {
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectAttemptRef = useRef(0);
   const intentionalCloseRef = useRef(false);
-  const lastConnectArgsRef = useRef<{
-    hcpProfileId?: string;
-    systemPrompt?: string;
-    vlInstanceId?: string;
-    avatarEnabled?: boolean;
-  } | null>(null);
+  const lastConnectArgsRef = useRef<{ hcpProfileId?: string; systemPrompt?: string; vlInstanceId?: string; enableAvatar?: boolean } | null>(null);
 
   /** Ref for external avatar SDP answer callback (set by voice-session.tsx). */
   const avatarSdpCallbackRef = useRef<((serverSdp: string) => void) | null>(
@@ -56,18 +51,13 @@ export function useVoiceLive(options: VoiceLiveOptions) {
    * @returns avatarEnabled, model name, and ICE servers for avatar WebRTC.
    */
   const connect = useCallback(
-    async (
-      hcpProfileId?: string,
-      systemPrompt?: string,
-      vlInstanceId?: string,
-      avatarEnabled?: boolean,
-    ) => {
+    async (hcpProfileId?: string, systemPrompt?: string, vlInstanceId?: string, enableAvatar?: boolean) => {
       const sid = crypto.randomUUID().slice(0, 8);
       setSessionCorrelationId(sid);
       resetEventSummary();
-      log.info("connect() hcpProfileId=%s vlInstanceId=%s sid=%s", hcpProfileId, vlInstanceId, sid);
+      log.info("connect() hcpProfileId=%s vlInstanceId=%s enableAvatar=%s sid=%s", hcpProfileId, vlInstanceId, enableAvatar, sid);
 
-      lastConnectArgsRef.current = { hcpProfileId, systemPrompt, vlInstanceId, avatarEnabled };
+      lastConnectArgsRef.current = { hcpProfileId, systemPrompt, vlInstanceId, enableAvatar };
       reconnectAttemptRef.current = 0;
       intentionalCloseRef.current = false;
       setConnectionState("connecting");
@@ -87,6 +77,7 @@ export function useVoiceLive(options: VoiceLiveOptions) {
           const ws = new WebSocket(wsUrl);
 
           let resolved = false;
+          let lastErrorMessage: string | null = null;
           let sessionResult = { avatarEnabled: false, model: "gpt-4o", mode: "model" as "agent" | "model" };
           let iceServersResolve: ((servers: RTCIceServer[]) => void) | null =
             null;
@@ -102,7 +93,7 @@ export function useVoiceLive(options: VoiceLiveOptions) {
                 session: {
                   ...(hcpProfileId ? { hcp_profile_id: hcpProfileId } : {}),
                   ...(vlInstanceId ? { vl_instance_id: vlInstanceId } : {}),
-                  ...(avatarEnabled !== undefined ? { avatar_enabled: avatarEnabled } : {}),
+                  ...(enableAvatar !== undefined ? { avatar_enabled: enableAvatar } : {}),
                   system_prompt:
                     systemPrompt || optionsRef.current.systemPrompt,
                 },
@@ -215,6 +206,8 @@ export function useVoiceLive(options: VoiceLiveOptions) {
                     servers.length,
                     !!(sessionUsername && sessionCredential),
                   );
+                } else if (sessionResult.avatarEnabled) {
+                  log.warn("Avatar enabled but session.updated did not include ICE servers");
                 }
                 iceServersResolve?.(servers);
 
@@ -340,19 +333,22 @@ export function useVoiceLive(options: VoiceLiveOptions) {
               case "response.done":
                 setAudioState("idle");
                 optionsRef.current.onAudioStateChange?.("idle");
+                optionsRef.current.onResponseDone?.();
                 break;
 
               case "error":
                 log.error("Error: %o", msg.error);
+                const errorMessage: string = msg.error?.message || "Unknown error";
+                lastErrorMessage = errorMessage;
                 setConnectionState("error");
                 connectionStateRef.current = "error";
                 optionsRef.current.onConnectionStateChange?.("error");
                 optionsRef.current.onError?.(
-                  new Error(msg.error?.message || "Unknown error"),
+                  new Error(errorMessage),
                 );
                 if (!resolved) {
                   resolved = true;
-                  reject(new Error(msg.error?.message || "Connection error"));
+                  reject(new Error(errorMessage));
                 }
                 break;
             }
@@ -375,7 +371,11 @@ export function useVoiceLive(options: VoiceLiveOptions) {
             }
             if (!resolved) {
               resolved = true;
-              reject(new Error("WebSocket closed before connected"));
+              reject(
+                new Error(
+                  closeEvent.reason || lastErrorMessage || "WebSocket closed before connected",
+                ),
+              );
             }
 
             // Auto-reconnect on unexpected disconnect (max 3 attempts)
@@ -400,12 +400,7 @@ export function useVoiceLive(options: VoiceLiveOptions) {
               reconnectTimerRef.current = setTimeout(() => {
                 const args = lastConnectArgsRef.current;
                 if (args) {
-                  void connect(
-                    args.hcpProfileId,
-                    args.systemPrompt,
-                    args.vlInstanceId,
-                    args.avatarEnabled,
-                  ).catch(() => {
+                  void connect(args.hcpProfileId, args.systemPrompt, args.vlInstanceId, args.enableAvatar).catch(() => {
                     // Reconnect failed — will be retried by the next onclose
                   });
                 }

@@ -90,6 +90,15 @@ describe("AvatarView", () => {
     expect(video.className).toContain("opacity-100");
   });
 
+  it("uses contain object fit when requested", () => {
+    render(
+      <AvatarView {...defaultProps} isAvatarConnected={true} videoFit="contain" />,
+    );
+    const video = screen.getByTestId("avatar-video");
+    expect(video.className).toContain("object-contain");
+    expect(video.className).not.toContain("object-cover");
+  });
+
   it("always renders the video element in DOM", () => {
     render(<AvatarView {...defaultProps} />);
     // Video element should always be in the DOM (pre-rendered for WebRTC)
@@ -177,12 +186,15 @@ describe("AvatarView", () => {
     );
   });
 
-  it("static preview uses default thumbnailUrl for video avatar without style", () => {
+  it("static preview uses the character default style for video avatar without style", () => {
     render(
       <AvatarView {...defaultProps} avatarCharacter="lisa" />,
     );
     const img = screen.getByAltText("Lisa");
-    expect(img).toHaveAttribute("src", "https://example.com/lisa.png");
+    expect(img).toHaveAttribute(
+      "src",
+      expect.stringContaining("lisa-graceful-standing.png"),
+    );
   });
 
   it("static preview uses thumbnailUrl for photo avatar regardless of style", () => {
@@ -192,6 +204,21 @@ describe("AvatarView", () => {
     const img = screen.getByAltText("Max");
     // Photo avatar: always uses its own thumbnailUrl
     expect(img).toHaveAttribute("src", "https://example.com/max-photo.png");
+  });
+
+  it("static preview falls back to default style when video avatar style is invalid", () => {
+    render(
+      <AvatarView
+        {...defaultProps}
+        avatarCharacter="lisa"
+        avatarStyle="missing-style"
+      />,
+    );
+
+    expect(screen.getByAltText("Lisa")).toHaveAttribute(
+      "src",
+      expect.stringContaining("lisa-graceful-standing.png"),
+    );
   });
 
   it("does not show static preview when connected", () => {
@@ -268,27 +295,29 @@ describe("AvatarView", () => {
 
   // --- isSessionActive vs isAvatarConnected (voice-only session) ---
 
-  it("shows audio orb during voice-only session (isSessionActive=true, isAvatarConnected=false)", () => {
+  it("keeps static avatar visible during active digital human session before WebRTC video connects", () => {
     render(
       <AvatarView
         {...defaultProps}
         isSessionActive={true}
         isAvatarConnected={false}
         avatarCharacter="lisa"
+        audioState="speaking"
       />,
     );
-    // AudioOrb should show because avatar stream is not connected
-    expect(screen.getByTestId("audio-orb")).toBeInTheDocument();
-    // Static preview should NOT show during active session
-    expect(screen.queryByTestId("avatar-static-preview")).not.toBeInTheDocument();
+    const preview = screen.getByTestId("avatar-static-preview");
+    expect(preview).toBeInTheDocument();
+    expect(preview).toHaveAttribute("data-audio-state", "speaking");
+    expect(screen.queryByTestId("audio-orb")).not.toBeInTheDocument();
   });
 
-  it("hides static preview during active voice-only session even with avatarCharacter set", () => {
+  it("shows audio orb during active voice-only session even with avatar metadata present", () => {
     render(
       <AvatarView
         {...defaultProps}
         isSessionActive={true}
         isAvatarConnected={false}
+        isDigitalHumanMode={false}
         avatarCharacter="lisa"
         avatarStyle="casual-sitting"
       />,
@@ -343,6 +372,7 @@ describe("AvatarView", () => {
         {...defaultProps}
         isSessionActive={true}
         isAvatarConnected={false}
+        isDigitalHumanMode={false}
         avatarCharacter="lisa"
       />,
     );
@@ -386,11 +416,12 @@ describe("AvatarView", () => {
         audioState="speaking"
       />,
     );
-    // Video must be invisible (opacity-0) since avatar stream is not connected
+    // Video must be invisible (opacity-0) since avatar stream is not connected.
+    // Digital human mode keeps the static portrait visible until WebRTC arrives.
     const video = screen.getByTestId("avatar-video");
     expect(video.className).toContain("opacity-0");
-    // AudioOrb must show instead
-    expect(screen.getByTestId("audio-orb")).toBeInTheDocument();
+    expect(screen.getByTestId("avatar-static-preview")).toBeInTheDocument();
+    expect(screen.queryByTestId("audio-orb")).not.toBeInTheDocument();
   });
 
   it("REGRESSION: avatar disabled idle state shows AudioOrb, not static preview", () => {

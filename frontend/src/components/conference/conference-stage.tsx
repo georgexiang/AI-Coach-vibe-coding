@@ -1,10 +1,13 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type Ref } from "react";
 import {
   ScrollArea,
   Avatar,
   AvatarFallback,
+  Button,
 } from "@/components/ui";
 import { ChatBubble, ChatInput } from "@/components/shared";
+import { AvatarView } from "@/components/voice/avatar-view";
+import type { AudioState } from "@/types/voice-live";
 
 interface ChatMessage {
   id: string;
@@ -23,6 +26,15 @@ interface ConferenceStageProps {
   currentSpeaker: string;
   avatarEnabled: boolean;
   featureAvatarEnabled: boolean;
+  digitalHumanEnabled?: boolean;
+  avatarVideoRef?: Ref<HTMLVideoElement>;
+  isAvatarConnected?: boolean;
+  isAvatarConnecting?: boolean;
+  avatarAudioState?: AudioState;
+  avatarCharacter?: string;
+  avatarStyle?: string;
+  avatarHcpName?: string;
+  onAvatarConnectClick?: () => void;
   messages?: ChatMessage[];
   inputMode?: "text" | "audio";
   onInputModeChange?: (mode: "text" | "audio") => void;
@@ -46,6 +58,16 @@ export function ConferenceStage({
   streamedText,
   currentSpeaker,
   avatarEnabled,
+  featureAvatarEnabled,
+  digitalHumanEnabled = false,
+  avatarVideoRef,
+  isAvatarConnected = false,
+  isAvatarConnecting = false,
+  avatarAudioState = "idle",
+  avatarCharacter,
+  avatarStyle,
+  avatarHcpName,
+  onAvatarConnectClick,
   messages = [],
   inputMode = "text",
   onInputModeChange,
@@ -60,12 +82,42 @@ export function ConferenceStage({
   }, [messages, streamedText]);
 
   const speakerInitials = currentSpeaker ? getInitials(currentSpeaker) : "AI";
+  const showDigitalHuman = avatarEnabled && featureAvatarEnabled && digitalHumanEnabled;
 
   return (
     <div className="flex min-w-[480px] flex-1 flex-col">
       {/* Avatar area */}
-      <div className="flex h-[200px] flex-col items-center justify-center bg-slate-900">
-        {avatarEnabled && (
+      <div className="relative flex h-[240px] flex-col items-center justify-center bg-slate-900">
+        {showDigitalHuman && avatarVideoRef && (
+          <AvatarView
+            videoRef={avatarVideoRef}
+            isAvatarConnected={isAvatarConnected}
+            isSessionActive={isAvatarConnected || isAvatarConnecting}
+            audioState={avatarAudioState}
+            isConnecting={isAvatarConnecting}
+            isDigitalHumanMode={true}
+            hcpName={currentSpeaker || avatarHcpName || ""}
+            isFullScreen={false}
+            avatarCharacter={avatarCharacter}
+            avatarStyle={avatarStyle}
+            videoFit="contain"
+            className="!min-h-0 h-full w-full bg-slate-900"
+          />
+        )}
+        {showDigitalHuman && !isAvatarConnected && onAvatarConnectClick && (
+          <div className="absolute inset-x-0 bottom-4 z-30 flex justify-center">
+            <Button
+              type="button"
+              size="sm"
+              onClick={onAvatarConnectClick}
+              disabled={isAvatarConnecting || disabled}
+              className="shadow-lg"
+            >
+              {isAvatarConnecting ? "连接中..." : "连接数字人"}
+            </Button>
+          </div>
+        )}
+        {avatarEnabled && !showDigitalHuman && (
           <>
             <Avatar className="size-20">
               <AvatarFallback className="bg-primary text-primary-foreground text-2xl">

@@ -79,6 +79,7 @@ export interface VoiceLiveOptions {
   onAudioDelta?: (base64Audio: string) => void;
   onConnectionStateChange?: (state: VoiceConnectionState) => void;
   onAudioStateChange?: (state: AudioState) => void;
+  onResponseDone?: () => void;
   onError?: (error: Error) => void;
 }
 

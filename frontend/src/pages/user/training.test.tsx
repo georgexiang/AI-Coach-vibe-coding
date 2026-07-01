@@ -97,6 +97,15 @@ vi.mock("@/components/coach", () => ({
       <span data-testid={`modes-${scenario.id}`}>{availableModes?.join(",")}</span>
       <span data-testid={`default-mode-${scenario.id}`}>{defaultMode}</span>
       <button onClick={() => onStart(scenario.id, defaultMode ?? "text")}>Start</button>
+      {availableModes?.map((mode) => (
+        <button
+          key={mode}
+          data-testid={`start-${scenario.id}-${mode}`}
+          onClick={() => onStart(scenario.id, mode)}
+        >
+          {mode}
+        </button>
+      ))}
     </div>
   ),
 }));
@@ -384,6 +393,67 @@ describe("ScenarioSelection Filters and Actions", () => {
     );
     expect(screen.getByTestId("default-mode-sc-2")).toHaveTextContent(
       "voice_realtime_model",
+    );
+  });
+
+  it("allows digital human mode on avatar-capable conference scenario cards", async () => {
+    scenarioData = [
+      {
+        id: "sc-2",
+        name: "Advanced Meeting",
+        description: "Test 2",
+        product: "Tislelizumab",
+        mode: "conference",
+        difficulty: "hard",
+        status: "active",
+        hcp_profile: {
+          voice_live_enabled: true,
+          avatar_enabled: true,
+        },
+      },
+    ];
+
+    renderPage("/user/training?mode=conference");
+
+    expect(screen.getByTestId("modes-sc-2")).toHaveTextContent(
+      "text,voice_realtime_model,digital_human_realtime_model",
+    );
+    expect(screen.getByTestId("default-mode-sc-2")).toHaveTextContent(
+      "voice_realtime_model",
+    );
+  });
+
+  it("starts conference digital human mode through the conference session page", async () => {
+    scenarioData = [
+      {
+        id: "sc-2",
+        name: "Advanced Meeting",
+        description: "Test 2",
+        product: "Tislelizumab",
+        mode: "conference",
+        difficulty: "hard",
+        status: "active",
+        hcp_profile: {
+          voice_live_enabled: true,
+          avatar_enabled: true,
+        },
+      },
+    ];
+    mockConferenceMutateAsync.mockResolvedValue({ id: "digital-session-1" });
+
+    renderPage("/user/training?mode=conference");
+
+    await userEvent.setup().click(
+      screen.getByTestId("start-sc-2-digital_human_realtime_model"),
+    );
+
+    expect(mockConferenceMutateAsync).toHaveBeenCalledWith({
+      scenarioId: "sc-2",
+      mode: "digital_human_realtime_model",
+    });
+    expect(mockMutateAsync).not.toHaveBeenCalled();
+    expect(mockNavigate).toHaveBeenCalledWith(
+      "/user/training/conference?id=digital-session-1&inputMode=audio",
     );
   });
 

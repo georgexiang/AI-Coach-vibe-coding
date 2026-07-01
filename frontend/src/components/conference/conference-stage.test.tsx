@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { ConferenceStage } from "./conference-stage";
 
 vi.mock("@/components/shared", () => ({
@@ -17,6 +18,26 @@ vi.mock("@/components/shared", () => ({
   ),
   ChatInput: ({ disabled }: { disabled?: boolean }) => (
     <div data-testid="chat-input" data-disabled={disabled} />
+  ),
+}));
+
+vi.mock("@/components/voice/avatar-view", () => ({
+  AvatarView: ({
+    hcpName,
+    avatarCharacter,
+    videoFit,
+  }: {
+    hcpName: string;
+    avatarCharacter?: string;
+    videoFit?: string;
+  }) => (
+    <div
+      data-testid="avatar-view"
+      data-avatar-character={avatarCharacter}
+      data-video-fit={videoFit}
+    >
+      {hcpName}
+    </div>
   ),
 }));
 
@@ -120,4 +141,45 @@ describe("ConferenceStage", () => {
     render(<ConferenceStage {...defaultProps} currentSpeaker="" avatarEnabled={true} />);
     expect(screen.getByText("AI")).toBeInTheDocument();
   });
+
+  it("renders the real avatar view when digital human is enabled", () => {
+    render(
+      <ConferenceStage
+        {...defaultProps}
+        digitalHumanEnabled={true}
+        avatarVideoRef={{ current: null }}
+        isAvatarConnected={true}
+        avatarCharacter="lisa"
+        avatarStyle="casual-sitting"
+      />,
+    );
+
+    expect(screen.getByTestId("avatar-view")).toHaveAttribute(
+      "data-avatar-character",
+      "lisa",
+    );
+    expect(screen.getByText("Dr. Chen")).toBeInTheDocument();
+    expect(screen.getByTestId("avatar-view")).toHaveAttribute(
+      "data-video-fit",
+      "contain",
+    );
+  });
+
+  it("shows a manual connect button before the digital human is connected", async () => {
+    const onConnect = vi.fn();
+    render(
+      <ConferenceStage
+        {...defaultProps}
+        digitalHumanEnabled={true}
+        avatarVideoRef={{ current: null }}
+        isAvatarConnected={false}
+        onAvatarConnectClick={onConnect}
+      />,
+    );
+
+    await userEvent.setup().click(screen.getByRole("button", { name: "连接数字人" }));
+
+    expect(onConnect).toHaveBeenCalledTimes(1);
+  });
 });
+

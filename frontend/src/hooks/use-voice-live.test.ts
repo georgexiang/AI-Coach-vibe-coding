@@ -280,6 +280,33 @@ describe("useVoiceLive (backend WebSocket proxy)", () => {
     ]);
   });
 
+  it("connect() resolves with empty ICE servers when avatar config omits them", async () => {
+    const { result } = renderHook(() => useVoiceLive(defaultOptions));
+
+    const connectResult = await act(async () => {
+      const promise = result.current.connect("hcp-avatar-no-ice", "", undefined, true);
+
+      await vi.waitFor(() => expect(MockWebSocket.instances.length).toBe(1));
+      const ws = getLastWs();
+      await vi.waitFor(() => expect(ws.sentMessages.length).toBe(1));
+
+      ws.simulateMessage({
+        type: "proxy.connected",
+        model: "gpt-4o",
+        avatar_enabled: true,
+      });
+      ws.simulateMessage({
+        type: "session.updated",
+        session: { avatar: {} },
+      });
+
+      return promise;
+    });
+
+    expect(connectResult.avatarEnabled).toBe(true);
+    expect(connectResult.iceServers).toEqual([]);
+  });
+
   it("connect() calls onConnectionStateChange with connecting then connected", async () => {
     const onConnectionStateChange = vi.fn();
     const { result } = renderHook(() =>
@@ -401,8 +428,9 @@ describe("useVoiceLive (backend WebSocket proxy)", () => {
 
   it("handles audio state transitions", async () => {
     const onAudioStateChange = vi.fn();
+    const onResponseDone = vi.fn();
     const { result } = renderHook(() =>
-      useVoiceLive({ ...defaultOptions, onAudioStateChange }),
+      useVoiceLive({ ...defaultOptions, onAudioStateChange, onResponseDone }),
     );
 
     await act(async () => {
@@ -426,6 +454,7 @@ describe("useVoiceLive (backend WebSocket proxy)", () => {
 
     act(() => ws.simulateMessage({ type: "response.done" }));
     expect(result.current.audioState).toBe("idle");
+    expect(onResponseDone).toHaveBeenCalledTimes(1);
   });
 
   it("handles error events from server", async () => {

@@ -842,5 +842,6 @@ async def _send_error(ws: WebSocket, error_message: str) -> None:
                 }
             )
         )
+        await ws.close(code=1011, reason=error_message[:120])
     except Exception:
         pass

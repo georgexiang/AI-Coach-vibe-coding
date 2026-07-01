@@ -71,6 +71,28 @@ class TestCreateConferenceSessionDirect:
             "text",
         )
 
+    @patch("app.api.conference.conference_service")
+    async def test_create_accepts_digital_human_mode(self, mock_service):
+        """Route function passes conference digital human mode to service."""
+        mock_session = _make_session()
+        mock_service.create_conference_session = AsyncMock(return_value=mock_session)
+        request = ConferenceSessionCreate(
+            scenario_id="scen-1",
+            mode="digital_human_realtime_model",
+        )
+        user = _make_user()
+        db = AsyncMock()
+
+        result = await create_conference_session(request, db, user)
+
+        assert result == mock_session
+        mock_service.create_conference_session.assert_called_once_with(
+            db,
+            "scen-1",
+            "user-1",
+            "digital_human_realtime_model",
+        )
+
 
 class TestGetConferenceSessionDirect:
     """Direct tests for get_conference_session route function."""
