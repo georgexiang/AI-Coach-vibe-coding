@@ -9,6 +9,7 @@ from app.api.hcp_profiles import router as hcp_profiles_router
 from app.api.knowledge_base import router as knowledge_base_router
 from app.api.materials import router as materials_router
 from app.api.meta_skills import router as meta_skills_router
+from app.api.prompts import router as prompts_router
 from app.api.rubrics import router as rubrics_router
 from app.api.scenarios import router as scenarios_router
 from app.api.scoring import router as scoring_router
@@ -30,6 +31,7 @@ __all__ = [
     "knowledge_base_router",
     "materials_router",
     "meta_skills_router",
+    "prompts_router",
     "rubrics_router",
     "scenarios_router",
     "scoring_router",

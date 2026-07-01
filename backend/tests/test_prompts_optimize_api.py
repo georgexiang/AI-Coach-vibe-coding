@@ -23,9 +23,7 @@ def _admin() -> User:
 
 async def test_system_mode_returns_optimized_text():
     data = OptimizeRequest(prompt="You are helpful.", mode="system")
-    with patch(
-        "app.api.prompts.optimize_prompt", new=AsyncMock(return_value="BETTER")
-    ) as mock_opt:
+    with patch("app.api.prompts.optimize_prompt", new=AsyncMock(return_value="BETTER")) as mock_opt:
         result = await optimize(data, _user=_admin())
     assert result.optimized_prompt == "BETTER"
     mock_opt.assert_awaited_once()
@@ -34,18 +32,14 @@ async def test_system_mode_returns_optimized_text():
 
 async def test_user_mode_forwards_mode():
     data = OptimizeRequest(prompt="hi", mode="user")
-    with patch(
-        "app.api.prompts.optimize_prompt", new=AsyncMock(return_value="U")
-    ) as mock_opt:
+    with patch("app.api.prompts.optimize_prompt", new=AsyncMock(return_value="U")) as mock_opt:
         await optimize(data, _user=_admin())
     assert mock_opt.await_args.kwargs["mode"] == "user"
 
 
 async def test_iterate_mode_forwards_requirements():
     data = OptimizeRequest(prompt="hi", mode="iterate", requirements="shorter")
-    with patch(
-        "app.api.prompts.optimize_prompt", new=AsyncMock(return_value="I")
-    ) as mock_opt:
+    with patch("app.api.prompts.optimize_prompt", new=AsyncMock(return_value="I")) as mock_opt:
         await optimize(data, _user=_admin())
     assert mock_opt.await_args.kwargs["requirements"] == "shorter"
 
