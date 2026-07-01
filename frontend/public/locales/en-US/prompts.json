@@ -46,6 +46,9 @@
     "rolledBack": "Switched to this version",
     "source": "Source",
     "createdAt": "Created",
+    "viewContent": "View content",
+    "versionContentTitle": "Version {{no}} content",
+    "close": "Close",
     "loadError": "Failed to load prompt"
   },
   "optimize": {

@@ -167,4 +167,41 @@ test.describe("Prompt Management", () => {
     await expect(content).toHaveValue("Hello, this is an e2e prompt.");
     await expect(page.getByTestId("version-history")).toBeVisible();
   });
+
+  test("admin views a historical version's content read-only without altering the editor", async ({
+    page,
+  }) => {
+    await page.goto("/admin/prompts");
+    await page.waitForLoadState("networkidle");
+
+    const firstRow = page.locator("[data-testid^='prompt-row-']").first();
+    test.skip((await firstRow.count()) === 0, "No seeded prompts available");
+
+    await firstRow.click();
+    await page.waitForURL(/\/admin\/prompts\/.+/);
+
+    const editor = page.getByTestId("prompt-content");
+    await expect(editor).toBeVisible();
+    const activeContent = await editor.inputValue();
+
+    // Ensure at least two versions exist by saving a new version.
+    await editor.fill(`${activeContent}\n<!-- e2e edit ${Date.now()} -->`);
+    await page.getByTestId("save-version").click();
+    await page.waitForLoadState("networkidle");
+
+    // Open the read-only content viewer for version 1.
+    const viewV1 = page.getByTestId("version-view-1");
+    await expect(viewV1).toBeVisible();
+    const editorBefore = await editor.inputValue();
+    await viewV1.click();
+
+    const viewer = page.getByTestId("version-view-content");
+    await expect(viewer).toBeVisible();
+    await expect(viewer).not.toBeEmpty();
+
+    // Close and confirm the editable textarea is unchanged by viewing history.
+    await page.keyboard.press("Escape");
+    await expect(viewer).toBeHidden();
+    await expect(editor).toHaveValue(editorBefore);
+  });
 });

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { ArrowLeft, RotateCcw, Save, Sparkles } from "lucide-react";
+import { ArrowLeft, Eye, RotateCcw, Save, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -33,7 +33,7 @@ import {
   usePromptVersions,
   useSaveVersion,
 } from "@/hooks/use-prompts";
-import type { OptimizeMode } from "@/types/prompt";
+import type { OptimizeMode, PromptVersion } from "@/types/prompt";
 
 export default function PromptEditorPage() {
   const { key } = useParams<{ key: string }>();
@@ -53,6 +53,7 @@ export default function PromptEditorPage() {
   const [mode, setMode] = useState<OptimizeMode>("system");
   const [requirements, setRequirements] = useState("");
   const [optimized, setOptimized] = useState<{ runId: string; text: string } | null>(null);
+  const [viewVersion, setViewVersion] = useState<PromptVersion | null>(null);
 
   useEffect(() => {
     if (prompt?.active_version) {
@@ -203,17 +204,28 @@ export default function PromptEditorPage() {
                     {new Date(version.created_at).toLocaleString()}
                   </span>
                 </div>
-                {!version.is_active && (
+                <div className="flex items-center gap-2">
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => handleRollback(version.version_no)}
-                    data-testid={`rollback-${version.version_no}`}
+                    onClick={() => setViewVersion(version)}
+                    data-testid={`version-view-${version.version_no}`}
                   >
-                    <RotateCcw className="size-4" />
-                    {t("editor.rollback")}
+                    <Eye className="size-4" />
+                    {t("editor.viewContent")}
                   </Button>
-                )}
+                  {!version.is_active && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleRollback(version.version_no)}
+                      data-testid={`rollback-${version.version_no}`}
+                    >
+                      <RotateCcw className="size-4" />
+                      {t("editor.rollback")}
+                    </Button>
+                  )}
+                </div>
               </li>
             ))}
           </ul>
@@ -300,6 +312,33 @@ export default function PromptEditorPage() {
                 {optimizeMutation.isPending ? t("optimize.running") : t("optimize.run")}
               </Button>
             )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={viewVersion !== null} onOpenChange={(open) => !open && setViewVersion(null)}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>
+              {t("editor.versionContentTitle", { no: viewVersion?.version_no })}
+            </DialogTitle>
+            <DialogDescription>
+              {`${t("editor.source")}: ${viewVersion?.source ?? ""}`}
+              {viewVersion?.note ? ` · ${viewVersion.note}` : ""}
+            </DialogDescription>
+          </DialogHeader>
+
+          <pre
+            className="max-h-[60vh] overflow-auto whitespace-pre-wrap rounded-md border bg-muted/30 p-4 font-mono text-xs"
+            data-testid="version-view-content"
+          >
+            {viewVersion?.content}
+          </pre>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setViewVersion(null)}>
+              {t("editor.close")}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

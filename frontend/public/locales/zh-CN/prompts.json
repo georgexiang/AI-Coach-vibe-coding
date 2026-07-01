@@ -46,6 +46,9 @@
     "rolledBack": "已切换到该版本",
     "source": "来源",
     "createdAt": "创建时间",
+    "viewContent": "查看内容",
+    "versionContentTitle": "版本 {{no}} 内容",
+    "close": "关闭",
     "loadError": "加载 Prompt 失败"
   },
   "optimize": {

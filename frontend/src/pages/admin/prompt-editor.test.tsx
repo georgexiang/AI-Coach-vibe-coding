@@ -136,4 +136,28 @@ describe("PromptEditorPage", () => {
     renderPage();
     expect(screen.getByText("editor.loadError")).toBeInTheDocument();
   });
+
+  it("views a historical version's content without changing the active editor", async () => {
+    const user = userEvent.setup();
+    mockVersionsReturn = {
+      data: [
+        makeVersion({ content: "current content" }),
+        makeVersion({
+          id: "v-1",
+          version_no: 1,
+          is_active: false,
+          source: "seed",
+          content: "ORIGINAL SEED CONTENT",
+        }),
+      ],
+    };
+    renderPage();
+
+    await user.click(screen.getByTestId("version-view-1"));
+
+    const view = screen.getByTestId("version-view-content");
+    expect(view).toHaveTextContent("ORIGINAL SEED CONTENT");
+    // The editable textarea still shows the active (v2) content, unchanged.
+    expect(screen.getByTestId("prompt-content")).toHaveValue("current content");
+  });
 });
