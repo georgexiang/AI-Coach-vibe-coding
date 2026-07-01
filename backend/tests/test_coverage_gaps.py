@@ -30,16 +30,51 @@ _MOCK_LLM_RESULT = {
     "passed": True,
     "feedback_summary": "Good performance overall.",
     "dimensions": [
-        {"dimension": "key_message", "score": 80, "weight": 30, "category": "content",
-         "strengths": [], "weaknesses": [], "suggestions": []},
-        {"dimension": "objection_handling", "score": 70, "weight": 25, "category": "content",
-         "strengths": [], "weaknesses": [], "suggestions": []},
-        {"dimension": "communication", "score": 75, "weight": 20, "category": "content",
-         "strengths": [], "weaknesses": [], "suggestions": []},
-        {"dimension": "product_knowledge", "score": 72, "weight": 15, "category": "content",
-         "strengths": [], "weaknesses": [], "suggestions": []},
-        {"dimension": "scientific_info", "score": 68, "weight": 10, "category": "content",
-         "strengths": [], "weaknesses": [], "suggestions": []},
+        {
+            "dimension": "key_message",
+            "score": 80,
+            "weight": 30,
+            "category": "content",
+            "strengths": [],
+            "weaknesses": [],
+            "suggestions": [],
+        },
+        {
+            "dimension": "objection_handling",
+            "score": 70,
+            "weight": 25,
+            "category": "content",
+            "strengths": [],
+            "weaknesses": [],
+            "suggestions": [],
+        },
+        {
+            "dimension": "communication",
+            "score": 75,
+            "weight": 20,
+            "category": "content",
+            "strengths": [],
+            "weaknesses": [],
+            "suggestions": [],
+        },
+        {
+            "dimension": "product_knowledge",
+            "score": 72,
+            "weight": 15,
+            "category": "content",
+            "strengths": [],
+            "weaknesses": [],
+            "suggestions": [],
+        },
+        {
+            "dimension": "scientific_info",
+            "score": 68,
+            "weight": 10,
+            "category": "content",
+            "strengths": [],
+            "weaknesses": [],
+            "suggestions": [],
+        },
     ],
 }
 
@@ -54,13 +89,16 @@ def mock_llm_scoring():
     ):
         yield
 
-_DEFAULT_RUBRIC_DIMS = json.dumps([
-    {"name": "key_message", "weight": 30, "criteria": [], "max_score": 100.0},
-    {"name": "objection_handling", "weight": 25, "criteria": [], "max_score": 100.0},
-    {"name": "communication", "weight": 20, "criteria": [], "max_score": 100.0},
-    {"name": "product_knowledge", "weight": 15, "criteria": [], "max_score": 100.0},
-    {"name": "scientific_info", "weight": 10, "criteria": [], "max_score": 100.0},
-])
+
+_DEFAULT_RUBRIC_DIMS = json.dumps(
+    [
+        {"name": "key_message", "weight": 30, "criteria": [], "max_score": 100.0},
+        {"name": "objection_handling", "weight": 25, "criteria": [], "max_score": 100.0},
+        {"name": "communication", "weight": 20, "criteria": [], "max_score": 100.0},
+        {"name": "product_knowledge", "weight": 15, "criteria": [], "max_score": 100.0},
+        {"name": "scientific_info", "weight": 10, "criteria": [], "max_score": 100.0},
+    ]
+)
 
 # ────────────────── helpers ──────────────────
 
@@ -110,20 +148,30 @@ async def _admin_scenario(client, admin_id, admin_token) -> str:
     # Create rubric + skill via DB (no API endpoint needed)
     async with TestSessionLocal() as db:
         rubric = ScoringRubric(
-            name="Test Rubric", scenario_type="f2f",
-            dimensions=_DEFAULT_RUBRIC_DIMS, is_default=True, created_by=admin_id,
+            name="Test Rubric",
+            scenario_type="f2f",
+            dimensions=_DEFAULT_RUBRIC_DIMS,
+            is_default=True,
+            created_by=admin_id,
         )
         db.add(rubric)
         await db.flush()
 
         skill = Skill(
-            id="test-skill-id", name="Test Skill", status="published", created_by=admin_id,
+            id="test-skill-id",
+            name="Test Skill",
+            status="published",
+            created_by=admin_id,
         )
         db.add(skill)
         await db.flush()
 
         skill_ver = SkillVersion(
-            skill_id=skill.id, version_number=1, content="test", is_published=True, created_by=admin_id,
+            skill_id=skill.id,
+            version_number=1,
+            content="test",
+            is_published=True,
+            created_by=admin_id,
         )
         db.add(skill_ver)
         await db.commit()
@@ -147,9 +195,8 @@ async def _admin_scenario(client, admin_id, admin_token) -> str:
     # Activate the scenario so sessions can be created against it
     async with TestSessionLocal() as db:
         from sqlalchemy import update
-        await db.execute(
-            update(Scenario).where(Scenario.id == scenario_id).values(status="active")
-        )
+
+        await db.execute(update(Scenario).where(Scenario.id == scenario_id).values(status="active"))
         await db.commit()
 
     return scenario_id
@@ -173,8 +220,11 @@ async def _completed_session_with_messages() -> tuple[str, str, str]:
         await db.flush()
 
         rubric = ScoringRubric(
-            name="Test Rubric", scenario_type="f2f",
-            dimensions=_DEFAULT_RUBRIC_DIMS, is_default=True, created_by=user.id,
+            name="Test Rubric",
+            scenario_type="f2f",
+            dimensions=_DEFAULT_RUBRIC_DIMS,
+            is_default=True,
+            created_by=user.id,
         )
         db.add(rubric)
         await db.flush()
@@ -583,8 +633,11 @@ class TestSessionsApiCoverage:
             await db.flush()
 
             rubric = ScoringRubric(
-                name="Sug Rubric", scenario_type="f2f",
-                dimensions=_DEFAULT_RUBRIC_DIMS, is_default=True, created_by=user.id,
+                name="Sug Rubric",
+                scenario_type="f2f",
+                dimensions=_DEFAULT_RUBRIC_DIMS,
+                is_default=True,
+                created_by=user.id,
             )
             db.add(rubric)
             await db.flush()
@@ -744,7 +797,11 @@ class TestScenariosCoverage:
             db.add(skill)
             await db.flush()
             skill_ver = SkillVersion(
-                skill_id=skill.id, version_number=1, content="test", is_published=True, created_by=admin_id,
+                skill_id=skill.id,
+                version_number=1,
+                content="test",
+                is_published=True,
+                created_by=admin_id,
             )
             db.add(skill_ver)
             await db.commit()
@@ -792,6 +849,7 @@ class TestScenariosCoverage:
         sid = create_resp.json()["id"]
         async with TestSessionLocal() as db:
             from sqlalchemy import update
+
             await db.execute(update(Scenario).where(Scenario.id == sid).values(status="active"))
             await db.commit()
 
@@ -823,6 +881,7 @@ class TestScenariosCoverage:
         sid = create_resp.json()["id"]
         async with TestSessionLocal() as db:
             from sqlalchemy import update
+
             await db.execute(update(Scenario).where(Scenario.id == sid).values(status="active"))
             await db.commit()
 

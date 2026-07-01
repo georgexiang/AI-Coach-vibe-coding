@@ -1,7 +1,6 @@
 """Tests for validation scripts (Creator + Evaluator output validators)."""
 
 import importlib.util
-from pathlib import Path
 
 import pytest
 
@@ -38,24 +37,24 @@ class TestCreatorValidationScript:
     def test_valid_input_passes(self):
         """A well-formed creator output passes validation."""
         data = {
-            "name": "test-skill",
-            "description": "A test skill",
-            "product": "TestProd",
-            "therapeutic_area": "Oncology",
-            "sop_steps": [
-                {
-                    "title": f"Step {i}",
-                    "description": f"Desc {i}",
-                    "key_points": ["point"],
-                    "assessment_criteria": ["criteria"],
-                }
-                for i in range(5)
-            ],
-            "modules": [
-                {"title": f"Module {i}", "objectives": ["obj"], "content": "content"}
-                for i in range(3)
-            ],
-            "scoring": {"pass_threshold": 70, "weights": {}},
+            "metadata": {
+                "name": "test-skill",
+                "description": "A test skill",
+                "product": "TestProd",
+                "therapeutic_area": "Oncology",
+            },
+            "skill_md": (
+                "# Test Skill\n\n"
+                "## Knowledge\n\n"
+                "This section contains enough knowledge content for validation. "
+                * 4
+                + "\n\n## Assessment\n\n"
+                "Rubric and assessment criteria are described here. "
+                + "\n".join(f"## Step {i}\nDo the thing." for i in range(1, 6))
+            ),
+            "references": {"reference.md": "Reference material " * 5},
+            "scripts": {"validate.py": "print('validation script placeholder')\n" * 3},
+            "assets": {"asset.md": "Asset content"},
             "summary": "A test summary of sufficient length.",
         }
         result = self.mod.validate(data)
@@ -67,11 +66,23 @@ class TestCreatorValidationScript:
         result = self.mod.validate({})
         assert result["valid"] is False
         assert len(result["errors"]) > 0
-        assert any("Missing required field" in e for e in result["errors"])
+        assert any("Missing required" in e for e in result["errors"])
 
     def test_invalid_name_format(self):
         """Name with spaces/special chars fails."""
-        data = {"name": "Invalid Name With Spaces!"}
+        data = {
+            "metadata": {
+                "name": "Invalid Name With Spaces!",
+                "description": "desc",
+                "product": "prod",
+                "therapeutic_area": "area",
+            },
+            "skill_md": "x" * 600,
+            "references": {"reference.md": "Reference material " * 5},
+            "scripts": {"validate.py": "print('validation script placeholder')\n" * 3},
+            "assets": {},
+            "summary": "Summary text here.",
+        }
         result = self.mod.validate(data)
         assert result["valid"] is False
         assert any("name" in e.lower() for e in result["errors"])
@@ -86,17 +97,20 @@ class TestCreatorValidationScript:
     def test_too_few_sop_steps(self):
         """Fewer than 5 SOP steps triggers error."""
         data = {
-            "name": "ok-name",
-            "description": "desc",
-            "product": "prod",
-            "therapeutic_area": "area",
-            "sop_steps": [{"title": "S1", "description": "D", "key_points": [], "assessment_criteria": []}],
-            "modules": [{"title": "M1", "objectives": ["o"], "content": "c"}] * 3,
-            "scoring": {"pass_threshold": 70},
+            "metadata": {
+                "name": "ok-name",
+                "description": "desc",
+                "product": "prod",
+                "therapeutic_area": "area",
+            },
+            "skill_md": "## Step 1\nOnly one step.\n" + ("content " * 100),
+            "references": {"reference.md": "Reference material " * 5},
+            "scripts": {"validate.py": "print('validation script placeholder')\n" * 3},
+            "assets": {},
             "summary": "Summary text here.",
         }
         result = self.mod.validate(data)
-        assert any("sop_steps" in e.lower() or "step" in e.lower() for e in result["errors"])
+        assert any("SOP step" in w for w in result["warnings"])
 
 
 # ---------------------------------------------------------------------------

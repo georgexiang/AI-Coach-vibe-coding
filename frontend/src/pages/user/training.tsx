@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Search } from "lucide-react";
 import {
@@ -19,34 +19,56 @@ import { EmptyState } from "@/components/shared";
 import { ScenarioCard } from "@/components/coach";
 import { useActiveScenarios } from "@/hooks/use-scenarios";
 import { useCreateSession } from "@/hooks/use-session";
+import { useCreateConferenceSession } from "@/hooks/use-conference";
 import { useFeatureFlags } from "@/hooks/use-config";
+import type { Scenario } from "@/types/scenario";
 
 const ALL_VALUE = "__all__";
+
+function getScenarioModes(
+  scenario: Scenario,
+  features: { voice_live_enabled?: boolean; avatar_enabled?: boolean } | undefined,
+) {
+  const modes = ["text"];
+  const hcp = scenario.hcp_profile;
+  const voiceAvailable = Boolean(features?.voice_live_enabled && hcp?.voice_live_enabled);
+  const avatarAvailable = Boolean(
+    voiceAvailable && features?.avatar_enabled && hcp?.avatar_enabled,
+  );
+
+  if (voiceAvailable) {
+    modes.push("voice_realtime_model");
+    if (avatarAvailable) {
+      modes.push("digital_human_realtime_model");
+    }
+  }
+
+  const defaultMode = avatarAvailable
+    ? "digital_human_realtime_model"
+    : voiceAvailable
+      ? "voice_realtime_model"
+      : "text";
+
+  return { modes, defaultMode };
+}
 
 export default function ScenarioSelection() {
   const { t } = useTranslation("coach");
   const { t: tc } = useTranslation("common");
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedProduct, setSelectedProduct] = useState(ALL_VALUE);
   const [selectedDifficulty, setSelectedDifficulty] = useState(ALL_VALUE);
+  const [selectedMode, setSelectedMode] = useState<"f2f" | "conference">(
+    searchParams.get("mode") === "conference" ? "conference" : "f2f",
+  );
 
   const { data, isLoading } = useActiveScenarios();
   const createSession = useCreateSession();
+  const createConferenceSession = useCreateConferenceSession();
   const { data: config } = useFeatureFlags(true);
-
-  // Compute available training modes from feature flags
-  const availableModes = useMemo(() => {
-    const modes: string[] = ["text"]; // text is always available
-    if (config?.features.voice_live_enabled) {
-      modes.push("voice_realtime_model");
-      if (config.features.avatar_enabled) {
-        modes.push("digital_human_realtime_model");
-      }
-    }
-    return modes;
-  }, [config]);
 
   const scenarios = data ?? [];
 
@@ -84,12 +106,21 @@ export default function ScenarioSelection() {
   };
 
   const handleStartConference = async (scenarioId: string, mode: string) => {
+    void mode;
     try {
-      const session = await createSession.mutateAsync({ scenarioId, mode });
+      const session = await createConferenceSession.mutateAsync(scenarioId);
       navigate(`/user/training/conference?id=${session.id}`);
     } catch {
       // Error handled by TanStack Query
     }
+  };
+
+  const handleModeChange = (mode: string) => {
+    const nextMode = mode === "conference" ? "conference" : "f2f";
+    setSelectedMode(nextMode);
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set("mode", nextMode);
+    setSearchParams(nextParams, { replace: true });
   };
 
   const filterRow = (
@@ -170,14 +201,18 @@ export default function ScenarioSelection() {
 
     return (
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {modeScenarios.map((scenario) => (
-          <ScenarioCard
-            key={scenario.id}
-            scenario={scenario}
-            onStart={onStart}
-            availableModes={availableModes}
-          />
-        ))}
+        {modeScenarios.map((scenario) => {
+          const { modes, defaultMode } = getScenarioModes(scenario, config?.features);
+          return (
+            <ScenarioCard
+              key={scenario.id}
+              scenario={scenario}
+              onStart={onStart}
+              availableModes={modes}
+              defaultMode={defaultMode}
+            />
+          );
+        })}
       </div>
     );
   };
@@ -188,7 +223,7 @@ export default function ScenarioSelection() {
         {t("scenarioSelection.title")}
       </h1>
 
-      <Tabs defaultValue="f2f">
+      <Tabs value={selectedMode} onValueChange={handleModeChange}>
         <TabsList>
           <TabsTrigger value="f2f">
             {t("scenarioSelection.tabF2F")}

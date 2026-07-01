@@ -53,6 +53,11 @@ export function useCombinedScore(sessionId: string | undefined) {
     queryKey: ["combined-score", sessionId],
     queryFn: () => fetchCombinedReport(sessionId!),
     enabled: !!sessionId,
+    refetchInterval: (query) => {
+      const status = query.state.data?.voice_summary.voice_score_status;
+      if (status === "pending" || status === "processing") return 3000;
+      return false;
+    },
     staleTime: 30000,
   });
 }

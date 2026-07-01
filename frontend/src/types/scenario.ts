@@ -1,5 +1,16 @@
 import type { HcpProfile } from "./hcp";
 
+export interface ModeratorRemarks {
+  zh: string;
+  en: string;
+}
+
+export interface ConferencePromptConfig {
+  speaker_order_policy: string;
+  audience_prompt_template: string;
+  moderator_remarks: Record<"invite" | "opening" | "handoff" | "closing", ModeratorRemarks>;
+}
+
 export interface Scenario {
   id: string;
   name: string;
@@ -14,6 +25,7 @@ export interface Scenario {
   hcp_profile_id: string;
   hcp_profile?: HcpProfile;
   key_messages: string[];
+  conference_prompt_config?: ConferencePromptConfig;
   skill_id: string | null;
   skill_version_id: string | null;
   rubric_id: string;
@@ -35,6 +47,7 @@ export interface ScenarioCreate {
   mode?: Scenario["mode"];
   difficulty?: Scenario["difficulty"];
   key_messages?: string[];
+  conference_prompt_config?: ConferencePromptConfig;
   pass_threshold?: number;
 }
 
@@ -48,5 +61,6 @@ export interface ScenarioUpdate {
   mode?: Scenario["mode"];
   difficulty?: Scenario["difficulty"];
   key_messages?: string[];
+  conference_prompt_config?: ConferencePromptConfig;
   pass_threshold?: number;
 }

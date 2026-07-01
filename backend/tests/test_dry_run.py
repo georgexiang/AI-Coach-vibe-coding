@@ -283,11 +283,50 @@ class TestCallDryRunAgent:
             )
         assert text == ""
 
+    async def test_call_agent_retries_transient_failure(self):
+        """Transient Responses API failure is retried before returning success."""
+        mock_response = MagicMock()
+        mock_response.output_text = "Recovered response"
+        mock_response.id = "resp-recovered"
+
+        mock_openai_client = MagicMock()
+        mock_openai_client.responses.create.side_effect = [
+            RuntimeError("temporary timeout"),
+            mock_response,
+        ]
+
+        mock_project_client = MagicMock()
+        mock_project_client.get_openai_client.return_value = mock_openai_client
+
+        with (
+            patch(
+                "app.services.agent_sync_service._get_project_client",
+                return_value=mock_project_client,
+            ),
+            patch("app.services.dry_run_engine.asyncio.sleep", new_callable=AsyncMock),
+        ):
+            text, resp_id = await _call_dry_run_agent(
+                message="test",
+                agent_id="agent",
+                agent_version="1",
+                model="gpt-4o",
+                previous_response_id=None,
+                project_endpoint="https://ep",
+                api_key="key",
+            )
+
+        assert text == "Recovered response"
+        assert resp_id == "resp-recovered"
+        assert mock_openai_client.responses.create.call_count == 2
+
     async def test_call_agent_exception_returns_fallback(self):
         """Exception returns fallback message with empty response_id."""
-        with patch(
-            "app.services.agent_sync_service._get_project_client",
-            side_effect=Exception("Connection failed"),
+        with (
+            patch(
+                "app.services.agent_sync_service._get_project_client",
+                side_effect=Exception("Connection failed"),
+            ),
+            patch("app.services.dry_run_engine.asyncio.sleep", new_callable=AsyncMock),
         ):
             text, resp_id = await _call_dry_run_agent(
                 message="test",
@@ -299,6 +338,7 @@ class TestCallDryRunAgent:
                 api_key="key",
             )
         assert "unavailable" in text.lower()
+        assert "Connection failed" in text
         assert resp_id == ""
 
 
@@ -1130,6 +1170,9 @@ class TestRunDryRunSimulation:
             dr = await session.get(DryRun, dry_run_id)
             assert dr.status == "failed"
             assert "consecutive failures" in dr.error_message.lower()
+            assert dr.issues_count == 1
+            assert "consecutive failures" in dr.issues_json.lower()
+            assert dr.duration_seconds is not None
 
     async def test_simulation_llm_exception_marks_failed(self):
         """Exception during simulation marks dry run as failed."""
@@ -1156,6 +1199,7 @@ class TestRunDryRunSimulation:
             dr = await session.get(DryRun, dry_run_id)
             assert dr.status == "failed"
             assert "Azure endpoint unavailable" in dr.error_message
+            assert dr.issues_count == 1
 
     async def test_simulation_without_evaluator(self):
         """Simulation completes but with empty coverage when evaluator not synced."""

@@ -91,6 +91,32 @@ class TestAzureSTTTranscribe:
         with patch.dict(sys.modules, modules):
             text = await adapter.transcribe(b"fake-audio")
         assert text == "Hello world"
+        sdk.audio.AudioConfig.assert_called_once()
+        assert "stream" in sdk.audio.AudioConfig.call_args.kwargs
+
+    async def test_transcribe_wav_uses_file_audio_config(self):
+        """WAV input is passed to Azure via filename instead of raw push stream."""
+        sdk, modules = _mock_azure_speech_sdk()
+        recognized = object()
+        sdk.ResultReason.RecognizedSpeech = recognized
+        sdk.ResultReason.NoMatch = object()
+
+        mock_result = MagicMock()
+        mock_result.reason = recognized
+        mock_result.text = "会议发言"
+
+        mock_recognizer = MagicMock()
+        mock_recognizer.recognize_once.return_value = mock_result
+        sdk.SpeechRecognizer.return_value = mock_recognizer
+
+        adapter = AzureSTTAdapter("key", "region")
+        wav_bytes = b"RIFF\x24\x00\x00\x00WAVEfmt " + b"\x00" * 32
+        with patch.dict(sys.modules, modules):
+            text = await adapter.transcribe(wav_bytes)
+
+        assert text == "会议发言"
+        sdk.audio.PushAudioInputStream.assert_not_called()
+        assert "filename" in sdk.audio.AudioConfig.call_args.kwargs
 
     async def test_transcribe_no_match(self):
         """Transcribe returns empty string when no speech detected."""

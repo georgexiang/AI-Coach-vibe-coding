@@ -36,7 +36,7 @@ class CoachingSession(Base, TimestampMixin):
     passed: Mapped[bool | None] = mapped_column(nullable=True)
 
     # Interaction mode: 7 modes per D-06
-    mode: Mapped[str] = mapped_column(String(40), default="digital_human_realtime_model")
+    mode: Mapped[str] = mapped_column(String(40), default="text")
 
     # Conference fields
     session_type: Mapped[str] = mapped_column(String(20), default="f2f")  # f2f / conference
@@ -74,6 +74,7 @@ class CoachingSession(Base, TimestampMixin):
     user = relationship("User")
     messages = relationship("SessionMessage", back_populates="session")
     score = relationship("SessionScore", back_populates="session", uselist=False)
+    voice_score = relationship("VoiceScore", back_populates="session", uselist=False)
     skill = relationship("Skill", foreign_keys=[skill_id])
 
     @property

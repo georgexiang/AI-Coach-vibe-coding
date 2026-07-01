@@ -78,9 +78,7 @@ class TestTestChatEndpoint:
     async def test_chat_requires_admin_auth(self, client):
         """Non-admin user gets 403."""
         admin_id, admin_token = await _create_admin_and_token()
-        profile_id = await _create_hcp_profile(
-            client, admin_token, admin_id, agent_id="test-agent"
-        )
+        profile_id = await _create_hcp_profile(client, admin_token, admin_id, agent_id="test-agent")
 
         _, user_token = await _create_user_and_token()
         response = await client.post(
@@ -111,9 +109,7 @@ class TestTestChatEndpoint:
     async def test_chat_rejects_profile_without_agent(self, client):
         """Profile without agent_id returns 400."""
         user_id, token = await _create_admin_and_token()
-        profile_id = await _create_hcp_profile(
-            client, token, user_id, agent_id=None
-        )
+        profile_id = await _create_hcp_profile(client, token, user_id, agent_id=None)
 
         response = await client.post(
             f"/api/v1/hcp-profiles/{profile_id}/test-chat",
@@ -123,22 +119,24 @@ class TestTestChatEndpoint:
         # bad_request() raises ValidationException (422) in this codebase
         assert response.status_code == 422
         data = response.json()
-        assert "agent" in data.get("message", "").lower() or "sync" in data.get("message", "").lower()
+        assert (
+            "agent" in data.get("message", "").lower() or "sync" in data.get("message", "").lower()
+        )
 
     @patch("app.api.hcp_profiles.agent_chat_service")
     async def test_chat_success_single_turn(self, mock_chat_svc, client):
         """Successful single-turn chat returns response_text and response_id."""
-        mock_chat_svc.chat_with_agent = AsyncMock(return_value={
-            "response_text": "Hello, I am Dr. ChatTest. How can I help?",
-            "response_id": "resp-123",
-            "agent_name": "test-agent",
-            "agent_version": "1",
-        })
+        mock_chat_svc.chat_with_agent = AsyncMock(
+            return_value={
+                "response_text": "Hello, I am Dr. ChatTest. How can I help?",
+                "response_id": "resp-123",
+                "agent_name": "test-agent",
+                "agent_version": "1",
+            }
+        )
 
         user_id, token = await _create_admin_and_token()
-        profile_id = await _create_hcp_profile(
-            client, token, user_id, agent_id="test-agent"
-        )
+        profile_id = await _create_hcp_profile(client, token, user_id, agent_id="test-agent")
 
         response = await client.post(
             f"/api/v1/hcp-profiles/{profile_id}/test-chat",
@@ -162,17 +160,17 @@ class TestTestChatEndpoint:
     @patch("app.api.hcp_profiles.agent_chat_service")
     async def test_chat_multi_turn_passes_response_id(self, mock_chat_svc, client):
         """Multi-turn chat passes previous_response_id to service."""
-        mock_chat_svc.chat_with_agent = AsyncMock(return_value={
-            "response_text": "Follow-up response",
-            "response_id": "resp-456",
-            "agent_name": "test-agent",
-            "agent_version": "1",
-        })
+        mock_chat_svc.chat_with_agent = AsyncMock(
+            return_value={
+                "response_text": "Follow-up response",
+                "response_id": "resp-456",
+                "agent_name": "test-agent",
+                "agent_version": "1",
+            }
+        )
 
         user_id, token = await _create_admin_and_token()
-        profile_id = await _create_hcp_profile(
-            client, token, user_id, agent_id="test-agent"
-        )
+        profile_id = await _create_hcp_profile(client, token, user_id, agent_id="test-agent")
 
         response = await client.post(
             f"/api/v1/hcp-profiles/{profile_id}/test-chat",
@@ -190,9 +188,7 @@ class TestTestChatEndpoint:
     async def test_chat_validates_request_body(self, client):
         """Empty message body is rejected with 422."""
         user_id, token = await _create_admin_and_token()
-        profile_id = await _create_hcp_profile(
-            client, token, user_id, agent_id="test-agent"
-        )
+        profile_id = await _create_hcp_profile(client, token, user_id, agent_id="test-agent")
 
         response = await client.post(
             f"/api/v1/hcp-profiles/{profile_id}/test-chat",

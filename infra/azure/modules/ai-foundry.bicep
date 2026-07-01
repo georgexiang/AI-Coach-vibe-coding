@@ -10,14 +10,22 @@ param projectName string
 param chatDeploymentName string
 param chatModelName string
 param chatModelVersion string
-param realtimeDeploymentName string
-param realtimeModelName string
-param realtimeModelVersion string
-param realtimeDeploymentSkuName string = 'GlobalStandard'
-@minValue(1)
-param realtimeDeploymentCapacity int = 5
+@allowed([
+  'Standard'
+  'GlobalStandard'
+  'DataZoneStandard'
+])
+param chatDeploymentSkuName string = 'Standard'
+param chatDeploymentCapacity int = 120
+
+@allowed([
+  'publicDemo'
+  'privateBackend'
+])
+param networkProfile string = 'publicDemo'
 
 var foundryAccountName = toLower('${namePrefix}-${environmentName}-foundry-${uniqueString(resourceGroup().id, location)}')
+var usePrivateBackend = networkProfile == 'privateBackend'
 
 resource foundryAccount 'Microsoft.CognitiveServices/accounts@2026-03-01' = {
   name: foundryAccountName
@@ -30,9 +38,9 @@ resource foundryAccount 'Microsoft.CognitiveServices/accounts@2026-03-01' = {
   properties: {
     allowProjectManagement: true
     customSubDomainName: foundryAccountName
-    publicNetworkAccess: 'Enabled'
+    publicNetworkAccess: usePrivateBackend ? 'Disabled' : 'Enabled'
     networkAcls: {
-      defaultAction: 'Allow'
+      defaultAction: usePrivateBackend ? 'Deny' : 'Allow'
     }
   }
 }
@@ -41,33 +49,14 @@ resource chatDeployment 'Microsoft.CognitiveServices/accounts/deployments@2023-0
   parent: foundryAccount
   name: chatDeploymentName
   sku: {
-    name: 'Standard'
-    capacity: 10
+    name: chatDeploymentSkuName
+    capacity: chatDeploymentCapacity
   }
   properties: {
     model: {
       format: 'OpenAI'
       name: chatModelName
       version: chatModelVersion
-    }
-  }
-}
-
-resource realtimeDeployment 'Microsoft.CognitiveServices/accounts/deployments@2023-05-01' = {
-  parent: foundryAccount
-  name: realtimeDeploymentName
-  dependsOn: [
-    chatDeployment
-  ]
-  sku: {
-    name: realtimeDeploymentSkuName
-    capacity: realtimeDeploymentCapacity
-  }
-  properties: {
-    model: {
-      format: 'OpenAI'
-      name: realtimeModelName
-      version: realtimeModelVersion
     }
   }
 }
@@ -94,9 +83,8 @@ output summary object = {
   projectId: foundryProject.id
   deployments: [
     chatDeployment.name
-    realtimeDeployment.name
   ]
-  note: 'Uses current CognitiveServices accounts/projects Foundry resource model. Agent and connection initialization may still need post-deploy CLI steps.'
+  note: 'Uses current CognitiveServices accounts/projects Foundry resource model. Voice Live selects supported realtime models at runtime and does not require a realtime deployment here.'
   environmentName: environmentName
   location: location
 }
@@ -105,4 +93,3 @@ output foundryAccountId string = foundryAccount.id
 output foundryEndpoint string = foundryAccount.properties.endpoint
 output foundryProjectId string = foundryProject.id
 output foundryChatDeploymentName string = chatDeployment.name
-output foundryRealtimeDeploymentName string = realtimeDeployment.name

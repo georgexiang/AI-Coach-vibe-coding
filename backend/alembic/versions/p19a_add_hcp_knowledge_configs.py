@@ -34,7 +34,7 @@ def upgrade() -> None:
         sa.Column("connection_target", sa.String(500), server_default="", nullable=False),
         sa.Column("index_name", sa.String(255), nullable=False),
         sa.Column("server_label", sa.String(255), server_default="", nullable=False),
-        sa.Column("is_enabled", sa.Boolean(), server_default="1", nullable=False),
+        sa.Column("is_enabled", sa.Boolean(), server_default=sa.true(), nullable=False),
         sa.Column("created_at", sa.DateTime(), server_default=sa.func.now(), nullable=False),
         sa.Column("updated_at", sa.DateTime(), server_default=sa.func.now(), nullable=True),
     )

@@ -3,6 +3,9 @@
 Includes unified AI Foundry master config endpoints and per-service toggle management.
 """
 
+import logging
+
+import httpx
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -23,7 +26,6 @@ from app.services.connection_tester import (
     test_service_connection,
 )
 from app.services.region_capabilities import get_region_capabilities
-from app.utils.encryption import decrypt_value
 from app.utils.exceptions import AppException
 
 router = APIRouter(prefix="/azure-config", tags=["azure-config"])
@@ -75,16 +77,16 @@ async def register_adapter_from_config(
         registry.register("llm", adapter)
         settings.default_llm_provider = "azure_openai"
 
-    elif service_name == "azure_speech_stt" and effective_key:
+    elif service_name == "azure_speech_stt" and api_key and region:
         from app.services.agents.stt.azure import AzureSTTAdapter
 
-        registry.register("stt", AzureSTTAdapter(effective_key, effective_region))
+        registry.register("stt", AzureSTTAdapter(api_key, region))
         settings.default_stt_provider = "azure"
 
-    elif service_name == "azure_speech_tts" and effective_key:
+    elif service_name == "azure_speech_tts" and api_key and region:
         from app.services.agents.tts.azure import AzureTTSAdapter
 
-        registry.register("tts", AzureTTSAdapter(effective_key, effective_region))
+        registry.register("tts", AzureTTSAdapter(api_key, region))
         settings.default_tts_provider = "azure"
 
     elif service_name == "azure_avatar" and effective_key:
@@ -150,8 +152,11 @@ async def get_ai_foundry_config(
             is_active=False,
             updated_at=None,
         )
-    decrypted_key = decrypt_value(master.api_key_encrypted)
-    masked_key = ("****" + decrypted_key[-4:]) if decrypted_key else ""
+    configs = await config_service.get_all_configs(db)
+    masked_key = next(
+        (cfg.masked_key for cfg in configs if cfg.service_name == master.service_name),
+        "",
+    )
     return ServiceConfigResponse(
         service_name=master.service_name,
         display_name=master.display_name,
@@ -180,14 +185,14 @@ async def update_ai_foundry_config(
     master = await config_service.upsert_master_config(db, update, admin.id)
 
     # Re-register all active per-service adapters with updated master config
-    master_key = decrypt_value(master.api_key_encrypted)
+    master_key = await config_service.get_decrypted_key(db, master.service_name)
     all_configs = await config_service.get_all_configs(db)
     for cfg in all_configs:
         if cfg.service_name in SERVICE_DISPLAY_NAMES and cfg.is_active:
             per_key = ""
             per_config = await config_service.get_config(db, cfg.service_name)
             if per_config:
-                per_key = decrypt_value(per_config.api_key_encrypted)
+                per_key = await config_service.get_decrypted_key(db, per_config.service_name)
             await register_adapter_from_config(
                 cfg.service_name,
                 cfg.endpoint,
@@ -200,8 +205,10 @@ async def update_ai_foundry_config(
                 master_model=master.model_or_deployment,
             )
 
-    decrypted_key = decrypt_value(master.api_key_encrypted)
-    masked_key = ("****" + decrypted_key[-4:]) if decrypted_key else ""
+    masked_key = next(
+        (cfg.masked_key for cfg in all_configs if cfg.service_name == master.service_name),
+        "",
+    )
     return ServiceConfigResponse(
         service_name=master.service_name,
         display_name=master.display_name,
@@ -229,7 +236,7 @@ async def test_ai_foundry(
     if not master:
         return AIFoundryTestResult(success=False, message="AI Foundry not configured")
 
-    api_key = decrypt_value(master.api_key_encrypted)
+    api_key = await config_service.get_decrypted_key(db, master.service_name)
     success, message = await test_ai_foundry_endpoint(
         master.endpoint, api_key, master.model_or_deployment
     )
@@ -268,14 +275,11 @@ async def list_model_deployments(
     This is a system-level service used by every page that needs a model
     selector dropdown (meta-skills, scoring config, etc.).
     """
-    import httpx
-    import logging
-
     logger = logging.getLogger(__name__)
 
     master = await config_service.get_master_config(db)
-    if master and master.endpoint and master.api_key_encrypted:
-        api_key = decrypt_value(master.api_key_encrypted)
+    api_key = await config_service.get_decrypted_key(db, "ai_foundry") if master else ""
+    if master and master.endpoint and api_key:
         base = master.endpoint.rstrip("/")
         project = master.default_project
 
@@ -372,7 +376,7 @@ async def update_service(
     # Get master config for fallback endpoint/region/model
     master = await config_service.get_master_config(db)
     master_endpoint = master.endpoint if master else ""
-    master_key = decrypt_value(master.api_key_encrypted) if master else ""
+    master_key = await config_service.get_decrypted_key(db, master.service_name) if master else ""
     master_region = master.region if master else ""
     master_model = master.model_or_deployment if master else ""
 
@@ -431,7 +435,7 @@ async def test_service(
     # Get master config for fallback
     master = await config_service.get_master_config(db)
     master_endpoint = master.endpoint if master else ""
-    master_key = decrypt_value(master.api_key_encrypted) if master else ""
+    master_key = await config_service.get_decrypted_key(db, master.service_name) if master else ""
     master_region = master.region if master else ""
     master_model = master.model_or_deployment if master else ""
 

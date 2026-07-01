@@ -1,7 +1,6 @@
 """Rubric CRUD service: manage scoring rubrics with dimension configurations."""
 
 import json
-import logging
 
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,8 +9,6 @@ from app.models.scoring_rubric import ScoringRubric
 from app.schemas.scoring_rubric import RubricCreate, RubricUpdate
 from app.services.cu_evaluation_service import sync_rubric_analyzers
 from app.utils.exceptions import NotFoundException
-
-logger = logging.getLogger(__name__)
 
 
 async def create_rubric(db: AsyncSession, data: RubricCreate, user_id: str) -> ScoringRubric:
@@ -27,18 +24,19 @@ async def create_rubric(db: AsyncSession, data: RubricCreate, user_id: str) -> S
         description=data.description,
         scenario_type=data.scenario_type,
         dimensions=json.dumps([d.model_dump() for d in data.dimensions]),
+        prompt_template=data.prompt_template,
         is_default=data.is_default,
+        content_weight=data.content_weight,
+        voice_weight=data.voice_weight,
         created_by=user_id,
     )
     db.add(rubric)
     await db.flush()
 
-    # D-09: Pre-create CU analyzers for this rubric
-    try:
-        await sync_rubric_analyzers(db, rubric)
-    except Exception as e:
-        logger.warning("CU analyzer sync failed on create (non-blocking): %s", e)
+    # D-09: Pre-create CU analyzers for this rubric when CU is configured.
+    await sync_rubric_analyzers(db, rubric)
 
+    await db.refresh(rubric)
     return rubric
 
 
@@ -76,20 +74,25 @@ async def update_rubric(db: AsyncSession, rubric_id: str, data: RubricUpdate) ->
         rubric.scenario_type = data.scenario_type
     if data.dimensions is not None:
         rubric.dimensions = json.dumps([d.model_dump() for d in data.dimensions])
+    if data.prompt_template is not None:
+        if data.prompt_template != rubric.prompt_template:
+            rubric.prompt_version = (rubric.prompt_version or 1) + 1
+        rubric.prompt_template = data.prompt_template
     if data.is_default is not None:
         if data.is_default:
             await _unset_defaults(db, rubric.scenario_type)
         rubric.is_default = data.is_default
+    if data.content_weight is not None:
+        rubric.content_weight = data.content_weight
+    if data.voice_weight is not None:
+        rubric.voice_weight = data.voice_weight
 
     await db.flush()
+
+    # D-09: Update CU analyzers when rubric changes.
+    await sync_rubric_analyzers(db, rubric)
+
     await db.refresh(rubric)
-
-    # D-09: Update CU analyzers when rubric changes
-    try:
-        await sync_rubric_analyzers(db, rubric)
-    except Exception as e:
-        logger.warning("CU analyzer sync failed on update (non-blocking): %s", e)
-
     return rubric
 
 

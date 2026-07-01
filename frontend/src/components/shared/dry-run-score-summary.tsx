@@ -26,17 +26,25 @@ export function DryRunScoreSummary({
 }: DryRunScoreSummaryProps) {
   const { t } = useTranslation("skill");
 
+  const isScoreEvaluated = score !== null;
+  const isCoverageEvaluated = coveragePercent !== null;
   const displayScore = score ?? 0;
   const displayCoverage = coveragePercent ?? 0;
+  const notEvaluatedLabel = t("dryRun.notEvaluated", {
+    defaultValue: "Not evaluated",
+  });
 
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
       {/* Score card */}
       <Card
         className="min-w-[140px]"
-        aria-label={t("dryRun.scoreLabel", {
-          defaultValue: "Executability Score",
-        }) + ` ${displayScore} out of 100`}
+        aria-label={
+          t("dryRun.scoreLabel", {
+            defaultValue: "Executability Score",
+          }) +
+          ` ${isScoreEvaluated ? `${displayScore} out of 100` : notEvaluatedLabel}`
+        }
       >
         <CardContent className="flex flex-col items-center p-6">
           <span className="text-sm font-semibold text-muted-foreground">
@@ -45,36 +53,55 @@ export function DryRunScoreSummary({
           <span
             className={cn(
               "mt-2 text-4xl font-semibold",
-              scoreColor(displayScore),
+              isScoreEvaluated
+                ? scoreColor(displayScore)
+                : "text-muted-foreground",
             )}
           >
-            {displayScore}
+            {isScoreEvaluated ? displayScore : "--"}
           </span>
-          <span className="text-sm text-muted-foreground">/100</span>
+          <span className="text-sm text-muted-foreground">
+            {isScoreEvaluated ? "/100" : notEvaluatedLabel}
+          </span>
         </CardContent>
       </Card>
 
       {/* Coverage card */}
       <Card
         className="min-w-[140px]"
-        aria-label={t("dryRun.coverageLabel", {
-          defaultValue: "SOP Coverage",
-        }) + ` ${displayCoverage} percent, ${coveredSteps} of ${totalSteps} steps`}
+        aria-label={
+          t("dryRun.coverageLabel", {
+            defaultValue: "SOP Coverage",
+          }) +
+          ` ${
+            isCoverageEvaluated
+              ? `${displayCoverage} percent, ${coveredSteps} of ${totalSteps} steps`
+              : notEvaluatedLabel
+          }`
+        }
       >
         <CardContent className="flex flex-col items-center p-6">
           <span className="text-sm font-semibold text-muted-foreground">
             {t("dryRun.coverageLabel")}
           </span>
           <div className="mt-2">
-            <CoverageRingChart
-              percent={displayCoverage}
-              covered={coveredSteps}
-              total={totalSteps}
-              size={64}
-            />
+            {isCoverageEvaluated ? (
+              <CoverageRingChart
+                percent={displayCoverage}
+                covered={coveredSteps}
+                total={totalSteps}
+                size={64}
+              />
+            ) : (
+              <div className="flex size-16 items-center justify-center rounded-full border text-xl font-semibold text-muted-foreground">
+                --
+              </div>
+            )}
           </div>
           <span className="mt-1 text-sm text-muted-foreground">
-            {coveredSteps}/{totalSteps}
+            {isCoverageEvaluated
+              ? `${coveredSteps}/${totalSteps}`
+              : notEvaluatedLabel}
           </span>
         </CardContent>
       </Card>

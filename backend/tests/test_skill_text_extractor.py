@@ -10,8 +10,6 @@ import io
 import sys
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from app.services.skill_text_extractor import (
     convert_to_markdown,
     extract_text,
@@ -20,7 +18,6 @@ from app.services.skill_text_extractor import (
     extract_text_from_pptx,
     extract_text_from_text,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers: create real in-memory files
@@ -231,10 +228,12 @@ class TestExtractTextFromPptx:
 
     def test_pptx_with_slides(self):
         """Extract text from a PPTX with two slides."""
-        content = _make_pptx_bytes([
-            ["Slide 1 Title", "Slide 1 Body"],
-            ["Slide 2 Title"],
-        ])
+        content = _make_pptx_bytes(
+            [
+                ["Slide 1 Title", "Slide 1 Body"],
+                ["Slide 2 Title"],
+            ]
+        )
         result = extract_text_from_pptx(content)
 
         assert "Slide 1 Title" in result

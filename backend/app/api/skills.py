@@ -128,6 +128,7 @@ class CreateFromMaterialsRequest(BaseModel):
 
 
 @router.post("/create-from-agent", status_code=202)
+@router.post("/from-materials", status_code=202)
 async def create_skill_from_agent(
     body: CreateFromMaterialsRequest,
     db: AsyncSession = Depends(get_db),
@@ -181,7 +182,7 @@ async def create_skill_from_agent(
         read_path = version.storage_url
         base = getattr(storage, "base_path", "")
         if base and read_path.startswith(base):
-            read_path = read_path[len(base):].lstrip("/")
+            read_path = read_path[len(base) :].lstrip("/")
         file_bytes = await storage.read(read_path)
 
         storage_path = f"skills/{skill.id}/references/{version.filename}"
@@ -225,7 +226,8 @@ async def _run_agent_creation(skill_id: str) -> None:
             await session.commit()
             logger.info(
                 "Agent creation completed for skill %s: status=%s",
-                skill_id, result.status,
+                skill_id,
+                result.status,
             )
         except Exception as e:
             await session.rollback()
@@ -616,9 +618,7 @@ async def run_quality_evaluation(
                 async with AsyncSessionLocal() as err_session:
                     from app.models.skill import Skill as _Skill
 
-                    _result = await err_session.execute(
-                        select(_Skill).where(_Skill.id == sid)
-                    )
+                    _result = await err_session.execute(select(_Skill).where(_Skill.id == sid))
                     _skill = _result.scalar_one_or_none()
                     if _skill:
                         _skill.quality_score = 0

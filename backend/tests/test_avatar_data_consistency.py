@@ -90,8 +90,10 @@ class TestAvatarSyncOnAssign:
     async def test_assign_syncs_avatar_character(self, client: AsyncClient):
         """After assigning VL Instance, hcp_profile.avatar_character matches instance."""
         hcp_id, vl_id, token, _ = await _seed_hcp_with_vl_instance(
-            avatar_character="lisa", avatar_style="graceful-standing",
-            hcp_avatar_character="lori", hcp_avatar_style="casual",
+            avatar_character="lisa",
+            avatar_style="graceful-standing",
+            hcp_avatar_character="lori",
+            hcp_avatar_style="casual",
         )
 
         # Assign VL Instance to HCP
@@ -115,7 +117,8 @@ class TestAvatarSyncOnAssign:
     async def test_assign_syncs_avatar_customized(self, client: AsyncClient):
         """After assigning VL Instance with avatar_customized=True, HCP reflects it."""
         hcp_id, vl_id, token, _ = await _seed_hcp_with_vl_instance(
-            avatar_character="harry", avatar_style="casual",
+            avatar_character="harry",
+            avatar_style="casual",
         )
 
         # Update VL Instance to have customized=True
@@ -148,7 +151,8 @@ class TestAvatarSyncOnUpdate:
     async def test_update_instance_avatar_propagates_to_hcp(self, client: AsyncClient):
         """Changing VL Instance avatar_character updates all assigned HCPs."""
         hcp_id, vl_id, token, _ = await _seed_hcp_with_vl_instance(
-            avatar_character="lisa", avatar_style="graceful-standing",
+            avatar_character="lisa",
+            avatar_style="graceful-standing",
         )
 
         # Assign first
@@ -181,7 +185,8 @@ class TestAvatarSyncOnUpdate:
     ):
         """Updating non-avatar VL Instance fields does NOT change HCP avatar."""
         hcp_id, vl_id, token, _ = await _seed_hcp_with_vl_instance(
-            avatar_character="lisa", avatar_style="graceful-standing",
+            avatar_character="lisa",
+            avatar_style="graceful-standing",
         )
 
         # Assign
@@ -213,8 +218,10 @@ class TestScenarioApiAvatarResolution:
     async def test_scenario_api_returns_vl_instance_avatar(self, client: AsyncClient):
         """GET /scenarios/{id} returns avatar from VL Instance, not stale HCP field."""
         hcp_id, vl_id, token, scenario_id = await _seed_hcp_with_vl_instance(
-            avatar_character="lisa", avatar_style="graceful-standing",
-            hcp_avatar_character="lori", hcp_avatar_style="casual",
+            avatar_character="lisa",
+            avatar_style="graceful-standing",
+            hcp_avatar_character="lori",
+            hcp_avatar_style="casual",
         )
 
         # Assign VL Instance to HCP
@@ -237,8 +244,10 @@ class TestScenarioApiAvatarResolution:
     async def test_scenario_list_returns_vl_instance_avatar(self, client: AsyncClient):
         """GET /scenarios returns avatar from VL Instance for each scenario."""
         hcp_id, vl_id, token, _ = await _seed_hcp_with_vl_instance(
-            avatar_character="harry", avatar_style="business",
-            hcp_avatar_character="lori", hcp_avatar_style="casual",
+            avatar_character="harry",
+            avatar_style="business",
+            hcp_avatar_character="lori",
+            hcp_avatar_style="casual",
         )
 
         # Assign VL Instance
@@ -263,8 +272,10 @@ class TestScenarioApiAvatarResolution:
     async def test_active_scenarios_returns_vl_instance_avatar(self, client: AsyncClient):
         """GET /scenarios/active returns resolved avatar."""
         hcp_id, vl_id, token, _ = await _seed_hcp_with_vl_instance(
-            avatar_character="jeff", avatar_style="formal",
-            hcp_avatar_character="lori", hcp_avatar_style="casual",
+            avatar_character="jeff",
+            avatar_style="formal",
+            hcp_avatar_character="lori",
+            hcp_avatar_style="casual",
         )
 
         # Assign VL Instance
@@ -285,13 +296,13 @@ class TestScenarioApiAvatarResolution:
         assert data[0]["hcp_profile"]["avatar_character"] == "jeff"
         assert data[0]["hcp_profile"]["avatar_style"] == "formal"
 
-    async def test_scenario_without_vl_instance_uses_hcp_inline_fields(
-        self, client: AsyncClient
-    ):
+    async def test_scenario_without_vl_instance_uses_hcp_inline_fields(self, client: AsyncClient):
         """When no VL Instance assigned, scenario API falls back to HCP inline fields."""
         _, _, token, scenario_id = await _seed_hcp_with_vl_instance(
-            avatar_character="lisa", avatar_style="graceful-standing",
-            hcp_avatar_character="meg", hcp_avatar_style="formal",
+            avatar_character="lisa",
+            avatar_style="graceful-standing",
+            hcp_avatar_character="meg",
+            hcp_avatar_style="formal",
         )
         # Do NOT assign VL Instance — HCP inline fields should be used
 

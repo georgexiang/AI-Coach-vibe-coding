@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import apiClient from "./client";
 import {
   getRubrics,
+  getDefaultPromptTemplate,
+  getDefaultRubricTemplate,
   createRubric,
   updateRubric,
   deleteRubric,
@@ -51,6 +53,35 @@ describe("Rubrics API client", () => {
         params: undefined,
       });
       expect(result).toHaveLength(0);
+    });
+  });
+
+  describe("getDefaultPromptTemplate", () => {
+    it("calls GET /rubrics/default-prompt-template", async () => {
+      mockClient.get.mockResolvedValue({
+        data: { prompt_template: "Default prompt {transcript}" },
+      });
+
+      const result = await getDefaultPromptTemplate();
+
+      expect(mockClient.get).toHaveBeenCalledWith("/rubrics/default-prompt-template");
+      expect(result.prompt_template).toBe("Default prompt {transcript}");
+    });
+  });
+
+  describe("getDefaultRubricTemplate", () => {
+    it("calls GET /rubrics/default-rubric-template", async () => {
+      mockClient.get.mockResolvedValue({
+        data: {
+          name: "Default F2F Scoring Rubric",
+          dimensions: [{ name: "key_message", weight: 25, criteria: [], max_score: 100 }],
+        },
+      });
+
+      const result = await getDefaultRubricTemplate();
+
+      expect(mockClient.get).toHaveBeenCalledWith("/rubrics/default-rubric-template");
+      expect(result.name).toBe("Default F2F Scoring Rubric");
     });
   });
 

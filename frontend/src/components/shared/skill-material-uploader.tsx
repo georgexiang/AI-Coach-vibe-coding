@@ -5,7 +5,7 @@ import { Upload, X, FileText, Presentation, File } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+const MAX_FILE_SIZE = 4 * 1024 * 1024; // 4MB, constrained by Container Apps ingress
 const MAX_FILES = 10;
 const ACCEPTED_TYPES = {
   "application/pdf": [".pdf"],
@@ -108,7 +108,7 @@ export function SkillMaterialUploader({
         <p className="mt-1 text-xs text-muted-foreground">
           {t("editor.dropzoneHint", {
             defaultValue:
-              "Accepts PDF, DOCX, PPTX, TXT, MD. Max 50MB per file, up to 10 files.",
+              "Accepts PDF, DOCX, PPTX, TXT, MD. Max 4MB per file, up to 10 files.",
           })}
         </p>
       </div>

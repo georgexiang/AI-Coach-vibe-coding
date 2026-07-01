@@ -18,8 +18,7 @@ from typing import Any
 
 # CDN base URL for official Azure avatar preview images
 _CDN_BASE = (
-    "https://learn.microsoft.com/en-us/azure/ai-services/"
-    "speech-service/text-to-speech-avatar/media"
+    "https://learn.microsoft.com/en-us/azure/ai-services/speech-service/text-to-speech-avatar/media"
 )
 
 # ── Video Avatar Characters ─────────────────────────────────────────────

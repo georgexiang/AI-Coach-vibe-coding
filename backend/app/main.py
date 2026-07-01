@@ -3,14 +3,6 @@ import sys
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
-
-# Configure root logger so all app.* loggers produce output.
-# Without this, only uvicorn's own logger produces output.
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
-    stream=sys.stdout,
-)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -42,13 +34,19 @@ from app.middleware import RequestLoggingMiddleware
 from app.startup import init_tables, load_service_configs, register_adapters, run_seed
 from app.utils.exceptions import AppException
 
+# Configure root logger so all app.* loggers produce output.
+# Without this, only uvicorn's own logger produces output.
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
+    stream=sys.stdout,
+)
+
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
 # Apply configurable log level (LOG_LEVEL env var → settings.log_level)
-logging.getLogger().setLevel(
-    getattr(logging, settings.log_level.upper(), logging.INFO)
-)
+logging.getLogger().setLevel(getattr(logging, settings.log_level.upper(), logging.INFO))
 
 
 @asynccontextmanager

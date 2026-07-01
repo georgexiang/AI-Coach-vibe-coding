@@ -143,6 +143,59 @@ class TestListRubricsEndpoint:
         assert response.status_code == 403
 
 
+class TestDefaultPromptTemplateEndpoint:
+    """Tests for GET /api/v1/rubrics/default-prompt-template."""
+
+    async def test_admin_can_get_default_prompt_template(self, client):
+        _, token = await _create_admin_and_token()
+        response = await client.get(
+            "/api/v1/rubrics/default-prompt-template",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        assert response.status_code == 200
+        assert "prompt_template" in response.json()
+        assert "{transcript}" in response.json()["prompt_template"]
+
+    async def test_non_admin_gets_403(self, client):
+        _, token = await _create_user_and_token()
+        response = await client.get(
+            "/api/v1/rubrics/default-prompt-template",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        assert response.status_code == 403
+
+
+class TestDefaultRubricTemplateEndpoint:
+    """Tests for GET /api/v1/rubrics/default-rubric-template."""
+
+    async def test_admin_can_get_default_rubric_template(self, client):
+        _, token = await _create_admin_and_token()
+        response = await client.get(
+            "/api/v1/rubrics/default-rubric-template",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["name"] == "Default F2F Scoring Rubric"
+        assert data["scenario_type"] == "f2f"
+        assert data["is_default"] is True
+        assert len(data["dimensions"]) == 5
+        assert sum(dim["weight"] for dim in data["dimensions"]) == 100
+        assert "{transcript}" in data["prompt_template"]
+
+    async def test_non_admin_gets_403(self, client):
+        _, token = await _create_user_and_token()
+        response = await client.get(
+            "/api/v1/rubrics/default-rubric-template",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        assert response.status_code == 403
+
+
 class TestGetRubricEndpoint:
     """Tests for GET /api/v1/rubrics/{id}."""
 

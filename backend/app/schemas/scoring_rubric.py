@@ -23,6 +23,7 @@ class RubricCreate(BaseModel):
     description: str = ""
     scenario_type: str = "f2f"
     dimensions: list[DimensionConfig]
+    prompt_template: str = ""
     is_default: bool = False
     content_weight: int = 60
     voice_weight: int = 40
@@ -52,6 +53,7 @@ class RubricUpdate(BaseModel):
     description: str | None = None
     scenario_type: str | None = None
     dimensions: list[DimensionConfig] | None = None
+    prompt_template: str | None = None
     is_default: bool | None = None
     content_weight: int | None = None
     voice_weight: int | None = None
@@ -69,6 +71,16 @@ class RubricUpdate(BaseModel):
                 raise ValueError(msg)
         return v
 
+    @model_validator(mode="after")
+    def validate_category_weights(self) -> "RubricUpdate":
+        if (
+            self.content_weight is not None
+            and self.voice_weight is not None
+            and self.content_weight + self.voice_weight != 100
+        ):
+            raise ValueError("content_weight + voice_weight must equal 100")
+        return self
+
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -80,6 +92,8 @@ class RubricResponse(BaseModel):
     description: str
     scenario_type: str
     dimensions: list[DimensionConfig]
+    prompt_template: str = ""
+    prompt_version: int = 1
     is_default: bool
     created_by: str
     content_weight: int = 60
@@ -99,6 +113,25 @@ class RubricResponse(BaseModel):
         return v
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class DefaultPromptTemplateResponse(BaseModel):
+    """Response schema for the built-in scoring prompt template."""
+
+    prompt_template: str
+
+
+class DefaultRubricTemplateResponse(BaseModel):
+    """Response schema for the built-in scoring rubric template."""
+
+    name: str
+    description: str
+    scenario_type: str
+    dimensions: list[DimensionConfig]
+    prompt_template: str
+    is_default: bool
+    content_weight: int
+    voice_weight: int
 
 
 class CuPortalUrlResponse(BaseModel):

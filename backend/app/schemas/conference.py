@@ -55,7 +55,7 @@ class ConferenceSessionResponse(BaseModel):
 class ConferenceMessageSend(BaseModel):
     """Send a message in a conference session."""
 
-    action: str = Field(description="present or respond")
+    action: str = Field(description="start, present, or respond")
     message: str
     target_hcp_id: str | None = None
 

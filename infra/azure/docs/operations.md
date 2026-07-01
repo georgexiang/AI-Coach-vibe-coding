@@ -8,7 +8,7 @@ Run commands from the repository root on Windows PowerShell.
 - Bicep CLI available through Azure CLI.
 - `gh` CLI installed and authenticated if you want to set GitHub repository variables.
 - Azure subscription permissions to create resource groups, identities, role assignments, AI resources, Container Apps, PostgreSQL, and ACR.
-- Existing deployments require permission to read Key Vault secrets, such as `Key Vault Secrets User` on the deployed vault, so the script can preserve stable app secrets.
+- Existing deployments do not require local data-plane access to Key Vault for bootstrap secrets. When a vault already exists, the script reuses Container App Key Vault references and does not read or rotate those secrets locally.
 
 ## What-if
 
@@ -33,6 +33,18 @@ az account set --subscription "<subscription-id-or-name>"
 .\infra\azure\scripts\deploy.ps1
 ```
 
+For the public CD target, use the `public` environment name without a `test` suffix:
+
+```powershell
+.\infra\azure\scripts\deploy.ps1 `
+  -ResourceGroupName "ai-coach-public-rg" `
+  -EnvironmentName "public" `
+  -NetworkProfile publicDemo `
+  -Location eastasia `
+  -FoundryLocation SwedenCentral `
+  -ChatDeploymentCapacity 30
+```
+
 The script:
 
 1. Reuses existing Key Vault secrets when the target resource group already has a vault.
@@ -44,6 +56,21 @@ Generated secret parameter files live in `infra\azure\.local\` and are ignored b
 
 The default mode is infrastructure-only. It does not rebuild images or update Container App revisions.
 For existing deployments, the script reads the current backend/frontend Container App images and passes them back into Bicep so infra-only runs do not revert the apps to the placeholder image.
+
+For private backend infrastructure, pass `-NetworkProfile privateBackend`. You can provide an existing VNet with `-VnetName`; otherwise the template creates one using the configured CIDR parameters. This profile keeps frontend public, makes backend ingress internal, and adds private endpoint DNS for Storage, Key Vault, PostgreSQL, and Foundry.
+
+Recommended private network test environment:
+
+```powershell
+.\infra\azure\scripts\deploy.ps1 `
+  -ResourceGroupName "ai-coach-private-rg" `
+  -EnvironmentName "private" `
+  -NetworkProfile privateBackend `
+  -Location eastasia `
+  -FoundryLocation eastus2 `
+  -ChatDeploymentSkuName GlobalStandard `
+  -ChatDeploymentCapacity 120
+```
 
 ## Deploy infrastructure and app images
 
@@ -76,7 +103,7 @@ The template does not set `SEED_DATA_IGNORE=true`. Startup sample/demo seed beha
 .\infra\azure\scripts\deploy.ps1 -Verify
 ```
 
-`-DeployApp` runs verification automatically after image updates. For infrastructure-only changes, use `-Verify` only when backend/frontend images are already deployed.
+Verification is opt-in. `-DeployApp` does not automatically run verification. For `privateBackend`, the backend URL is internal and cannot be checked directly from a local workstation unless you have a private network path; use `-Verify` only for reachable endpoints or run private checks from inside the VNet/Container Apps environment.
 
 ## Realtime quota allocation
 
@@ -111,14 +138,31 @@ After deployment, use the printed values:
 
 ```powershell
 .\infra\azure\scripts\set-github-vars.ps1 `
-  -Repository "jeromeecho/AI-Coach-vibe-coding" `
+  -Repository "huqianghui/AI-Coach-vibe-coding" `
   -AzureClientId "<AZURE_CLIENT_ID>" `
   -AzureTenantId "<AZURE_TENANT_ID>" `
   -AzureSubscriptionId "<AZURE_SUBSCRIPTION_ID>" `
   -ResourceGroupName "<AZURE_RESOURCE_GROUP>" `
   -AcrName "<ACR_NAME>" `
   -BackendAppName "<BACKEND_APP_NAME>" `
-  -FrontendAppName "<FRONTEND_APP_NAME>"
+  -FrontendAppName "<FRONTEND_APP_NAME>" `
+  -BackendBootstrapJobName "<BACKEND_BOOTSTRAP_JOB_NAME>"
+```
+
+For the private test environment, write variables to the GitHub Environment instead of overwriting repository-level public variables:
+
+```powershell
+.\infra\azure\scripts\set-github-vars.ps1 `
+  -Repository "huqianghui/AI-Coach-vibe-coding" `
+  -EnvironmentName "private" `
+  -AzureClientId "<AZURE_CLIENT_ID>" `
+  -AzureTenantId "<AZURE_TENANT_ID>" `
+  -AzureSubscriptionId "<AZURE_SUBSCRIPTION_ID>" `
+  -ResourceGroupName "<AZURE_RESOURCE_GROUP>" `
+  -AcrName "<ACR_NAME>" `
+  -BackendAppName "<BACKEND_APP_NAME>" `
+  -FrontendAppName "<FRONTEND_APP_NAME>" `
+  -BackendBootstrapJobName "<BACKEND_BOOTSTRAP_JOB_NAME>"
 ```
 
 This sets repository variables only. It does not modify the existing workflow file.

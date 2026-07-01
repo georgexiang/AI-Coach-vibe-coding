@@ -1,0 +1,33 @@
+name: Main Infra Validation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "infra/**"
+      - ".github/workflows/infra-main.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  infra-validation:
+    name: Infra validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: PowerShell syntax check
+        shell: pwsh
+        run: |
+          $files = @(
+            "infra/azure/scripts/deploy.ps1",
+            "infra/azure/scripts/build-and-push.ps1",
+            "infra/azure/scripts/set-github-vars.ps1",
+            "infra/azure/scripts/test-region-availability.ps1",
+            "infra/azure/scripts/verify-deployment.ps1"
+          )
+          foreach ($file in $files) {
+            [scriptblock]::Create((Get-Content -Path $file -Raw)) > $null
+          }
+      - name: Bicep build
+        run: az bicep build --file infra/azure/main.bicep

@@ -56,23 +56,40 @@ async def _create_active_scenario(client, admin_id, admin_token) -> str:
     # Create rubric and skill via DB
     async with TestSessionLocal() as db:
         rubric = ScoringRubric(
-            name="Test Rubric", scenario_type="f2f",
-            dimensions=json.dumps([
-                {"name": "key_message", "weight": 30, "criteria": [], "max_score": 100.0},
-                {"name": "objection_handling", "weight": 25, "criteria": [], "max_score": 100.0},
-                {"name": "communication", "weight": 20, "criteria": [], "max_score": 100.0},
-                {"name": "product_knowledge", "weight": 15, "criteria": [], "max_score": 100.0},
-                {"name": "scientific_info", "weight": 10, "criteria": [], "max_score": 100.0},
-            ]),
-            is_default=True, created_by=admin_id,
+            name="Test Rubric",
+            scenario_type="f2f",
+            dimensions=json.dumps(
+                [
+                    {"name": "key_message", "weight": 30, "criteria": [], "max_score": 100.0},
+                    {
+                        "name": "objection_handling",
+                        "weight": 25,
+                        "criteria": [],
+                        "max_score": 100.0,
+                    },
+                    {"name": "communication", "weight": 20, "criteria": [], "max_score": 100.0},
+                    {"name": "product_knowledge", "weight": 15, "criteria": [], "max_score": 100.0},
+                    {"name": "scientific_info", "weight": 10, "criteria": [], "max_score": 100.0},
+                ]
+            ),
+            is_default=True,
+            created_by=admin_id,
         )
         db.add(rubric)
         await db.flush()
 
-        skill = Skill(id="test-skill-id", name="Test Skill", status="published", created_by=admin_id)
+        skill = Skill(
+            id="test-skill-id", name="Test Skill", status="published", created_by=admin_id
+        )
         db.add(skill)
         await db.flush()
-        skill_ver = SkillVersion(skill_id=skill.id, version_number=1, content="test", is_published=True, created_by=admin_id)
+        skill_ver = SkillVersion(
+            skill_id=skill.id,
+            version_number=1,
+            content="test",
+            is_published=True,
+            created_by=admin_id,
+        )
         db.add(skill_ver)
         await db.commit()
         await db.refresh(rubric)
@@ -97,6 +114,7 @@ async def _create_active_scenario(client, admin_id, admin_token) -> str:
         from sqlalchemy import update
 
         from app.models.scenario import Scenario
+
         await db.execute(update(Scenario).where(Scenario.id == scenario_id).values(status="active"))
         await db.commit()
 
@@ -375,7 +393,7 @@ class TestEndSessionEndpoint:
         data = response.json()
         assert data["status"] == "completed"
 
-    async def test_end_created_session_returns_409(self, client):
+    async def test_end_created_session_returns_200(self, client):
         admin_id, admin_token = await _create_admin_and_token()
         scenario_id = await _create_active_scenario(client, admin_id, admin_token)
         _, user_token = await _create_user_and_token()
@@ -391,7 +409,8 @@ class TestEndSessionEndpoint:
             f"/api/v1/sessions/{session_id}/end",
             headers={"Authorization": f"Bearer {user_token}"},
         )
-        assert response.status_code == 409
+        assert response.status_code == 200
+        assert response.json()["status"] == "completed"
 
 
 class TestGetSessionMessagesEndpoint:

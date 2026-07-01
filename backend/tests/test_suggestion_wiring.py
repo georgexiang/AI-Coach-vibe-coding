@@ -5,6 +5,7 @@ import json
 from app.models.hcp_profile import HcpProfile
 from app.models.message import SessionMessage
 from app.models.scenario import Scenario
+from app.models.scoring_rubric import ScoringRubric
 from app.models.session import CoachingSession
 from app.models.user import User
 from app.services.auth import create_access_token, get_password_hash
@@ -46,6 +47,22 @@ async def _seed_in_progress_session_and_token() -> tuple[str, str, str]:
         db.add(scenario)
         await db.commit()
         await db.refresh(scenario)
+
+        rubric = ScoringRubric(
+            id="test-rubric-id",
+            name="Suggestion Rubric",
+            scenario_type="f2f",
+            dimensions=json.dumps(
+                [
+                    {"name": "key_message", "weight": 60, "criteria": [], "max_score": 100},
+                    {"name": "communication", "weight": 40, "criteria": [], "max_score": 100},
+                ]
+            ),
+            is_default=True,
+            created_by=user.id,
+        )
+        db.add(rubric)
+        await db.commit()
 
         session = CoachingSession(
             user_id=user.id,

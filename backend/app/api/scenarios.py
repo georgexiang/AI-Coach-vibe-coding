@@ -13,6 +13,7 @@ from app.dependencies import get_current_user, get_db, require_role
 from app.models.user import User
 from app.schemas.scenario import ScenarioCreate, ScenarioUpdate
 from app.services import scenario_service
+from app.services.conference_prompt_config import normalize_conference_prompt_config
 from app.utils.pagination import PaginatedResponse
 
 router = APIRouter(prefix="/scenarios", tags=["scenarios"])
@@ -31,6 +32,9 @@ class HcpProfileBrief(BaseModel):
     avatar_url: str = ""
     avatar_character: str = "lori"
     avatar_style: str = "casual"
+    voice_live_enabled: bool = False
+    voice_live_instance_id: str | None = None
+    avatar_enabled: bool = False
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -39,10 +43,10 @@ class HcpProfileBrief(BaseModel):
         """Create from ORM HcpProfile, resolving avatar from VL Instance if assigned."""
         # Prefer VL Instance avatar fields (authoritative source)
         vl_inst = getattr(profile, "voice_live_instance", None)
-        avatar_character = (
-            vl_inst.avatar_character if vl_inst else profile.avatar_character
-        )
+        avatar_character = vl_inst.avatar_character if vl_inst else profile.avatar_character
         avatar_style = vl_inst.avatar_style if vl_inst else profile.avatar_style
+        voice_live_enabled = vl_inst.enabled if vl_inst else profile.voice_live_enabled
+        avatar_enabled = vl_inst.avatar_enabled if vl_inst else voice_live_enabled
         return cls(
             id=profile.id,
             name=profile.name,
@@ -50,6 +54,9 @@ class HcpProfileBrief(BaseModel):
             avatar_url=getattr(profile, "avatar_url", "") or "",
             avatar_character=avatar_character or "lori",
             avatar_style=avatar_style or "casual",
+            voice_live_enabled=bool(voice_live_enabled),
+            voice_live_instance_id=getattr(profile, "voice_live_instance_id", None),
+            avatar_enabled=bool(avatar_enabled),
         )
 
 
@@ -66,6 +73,7 @@ class ScenarioOut(BaseModel):
     hcp_profile_id: str
     hcp_profile: HcpProfileBrief | None = None
     key_messages: list[str]
+    conference_prompt_config: dict[str, Any]
     skill_id: str
     skill_version_id: str | None = None
     rubric_id: str
@@ -92,6 +100,12 @@ class ScenarioOut(BaseModel):
         if isinstance(v, str):
             return json.loads(v)
         return v
+
+    @field_validator("conference_prompt_config", mode="before")
+    @classmethod
+    def parse_conference_prompt_config(cls, v: str | dict[str, Any] | None) -> dict[str, Any]:
+        """Parse and default the conference prompt config."""
+        return normalize_conference_prompt_config(v)
 
     @field_validator("created_at", "updated_at", mode="before")
     @classmethod
@@ -160,9 +174,7 @@ async def transition_scenario_status(
     user: User = Depends(require_role("admin")),
 ):
     """Transition scenario status. Admin only. Validates allowed transitions."""
-    scenario = await scenario_service.transition_scenario_status(
-        db, scenario_id, body.status
-    )
+    scenario = await scenario_service.transition_scenario_status(db, scenario_id, body.status)
     return scenario
 
 

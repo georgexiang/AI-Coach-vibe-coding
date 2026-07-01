@@ -1,0 +1,28 @@
+# Dependencies (installed fresh via `npm ci` inside the image)
+node_modules
+
+# Build output
+dist
+build
+
+# Vite / tooling caches
+.vite
+.cache
+
+# Test artifacts
+e2e/test-results
+playwright-report
+coverage
+
+# Local env files (do not bake into image)
+.env
+.env.*
+!.env.example
+
+# Editor / OS junk
+.DS_Store
+*.log
+
+# VCS
+.git
+.gitignore

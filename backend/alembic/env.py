@@ -28,13 +28,20 @@ from app.models import (  # noqa: F401
     TrainingMaterial,
     User,
     VoiceLiveInstance,
+    VoiceScore,
+    VoiceScoreDetail,
 )
 
 settings = get_settings()
 config = context.config
 
 # Override sqlalchemy.url from settings
-config.set_main_option("sqlalchemy.url", settings.database_url)
+if settings.database_auth_mode.lower() == "azure_ad":
+    from app.database import database_url
+
+    config.set_main_option("sqlalchemy.url", str(database_url))
+else:
+    config.set_main_option("sqlalchemy.url", settings.database_url)
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
@@ -69,14 +76,22 @@ def do_run_migrations(connection) -> None:
 
 async def run_async_migrations() -> None:
     """Run migrations in 'online' mode with async engine."""
-    connectable = async_engine_from_config(
-        config.get_section(config.config_ini_section, {}),
-        prefix="sqlalchemy.",
-        poolclass=pool.NullPool,
-    )
+    if settings.database_auth_mode.lower() == "azure_ad":
+        from app.database import engine
+
+        connectable = engine
+        dispose_engine = True
+    else:
+        connectable = async_engine_from_config(
+            config.get_section(config.config_ini_section, {}),
+            prefix="sqlalchemy.",
+            poolclass=pool.NullPool,
+        )
+        dispose_engine = True
     async with connectable.connect() as connection:
         await connection.run_sync(do_run_migrations)
-    await connectable.dispose()
+    if dispose_engine:
+        await connectable.dispose()
 
 
 def run_migrations_online() -> None:

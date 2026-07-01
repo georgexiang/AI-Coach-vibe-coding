@@ -317,6 +317,33 @@ class TestAudienceManagement:
         assert len(body) == 2
         assert body[0]["role_in_conference"] == "moderator"
 
+    async def test_set_audience_requires_moderator(self, client: AsyncClient):
+        """PUT audience rejects a conference audience without a moderator."""
+        data = await _seed_conference_data()
+        token = await _login(client, "confapi-admin", "adminpass")
+
+        resp = await client.put(
+            f"/api/v1/conference/scenarios/{data['scenario_id']}/audience",
+            json=[
+                {
+                    "hcp_profile_id": data["hcp_ids"][0],
+                    "role_in_conference": "audience",
+                    "voice_id": "",
+                    "sort_order": 0,
+                },
+                {
+                    "hcp_profile_id": data["hcp_ids"][1],
+                    "role_in_conference": "audience",
+                    "voice_id": "",
+                    "sort_order": 1,
+                },
+            ],
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        assert resp.status_code == 422
+        assert resp.json()["code"] == "VALIDATION_ERROR"
+
     async def test_set_audience_requires_admin(self, client: AsyncClient):
         """PUT audience endpoint requires admin role."""
         data = await _seed_conference_data()

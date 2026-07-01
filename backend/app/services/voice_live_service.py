@@ -79,11 +79,6 @@ async def get_voice_live_token(
     if not vl_config or not vl_config.is_active:
         raise ValueError("Voice Live not configured")
 
-    # Try per-service key first, then fall back to master AI Foundry key
-    api_key = await config_service.get_effective_key(db, "azure_voice_live")
-    if not api_key:
-        raise ValueError("Voice Live API key not set")
-
     # Derive effective endpoint from per-service or master config
     raw_endpoint = await config_service.get_effective_endpoint(db, "azure_voice_live")
     if not raw_endpoint:
@@ -96,11 +91,12 @@ async def get_voice_live_token(
     master = await config_service.get_master_config(db)
     effective_region = vl_config.region or (master.region if master else "")
 
-    # Fetch avatar config
+    voice_live_key = await config_service.get_effective_key(db, "azure_voice_live")
+
+    # Fetch optional avatar defaults. Voice Live avatar uses the Voice Live
+    # session itself, so Foundry-only deployments do not need a separate
+    # azure_avatar row just to enable avatar rendering.
     avatar_config = await config_service.get_config(db, "azure_avatar")
-    avatar_key = ""
-    if avatar_config and avatar_config.is_active:
-        avatar_key = await config_service.get_effective_key(db, "azure_avatar")
 
     # Parse config-level agent/model mode from model_or_deployment
     mode_info = parse_voice_live_mode(vl_config.model_or_deployment)
@@ -139,6 +135,7 @@ async def get_voice_live_token(
     echo_cancellation = False
     eou_detection = False
     recognition_language = "zh-CN"
+    avatar_enabled_val = True
 
     # If hcp_profile_id provided, source ALL settings from HCP profile (D-08, D-12, D-14)
     # Config resolution: VoiceLiveInstance > deprecated inline HcpProfile fields
@@ -167,6 +164,7 @@ async def get_voice_live_token(
             avatar_character_val = vc["avatar_character"] or "lori"
             avatar_style_val = vc["avatar_style"] or "casual"
             avatar_customized_val = vc["avatar_customized"]
+            avatar_enabled_val = vc.get("avatar_enabled", True)
             turn_detection_type = vc["turn_detection_type"] or "server_vad"
             noise_suppression = vc["noise_suppression"]
             echo_cancellation = vc["echo_cancellation"]
@@ -210,7 +208,7 @@ async def get_voice_live_token(
     # SECURITY: Never expose the raw API key to the frontend.
     # All Voice Live connections go through the backend WebSocket proxy which
     # reads credentials from DB directly. The token broker only returns metadata.
-    auth_type = "key"
+    auth_type = "key" if voice_live_key else "bearer"
     token_value = "***configured***"
     if is_agent:
         auth_type = "bearer"
@@ -222,7 +220,7 @@ async def get_voice_live_token(
         auth_type=auth_type,
         region=effective_region,
         model=voice_live_model if not is_agent else "",
-        avatar_enabled=bool(avatar_config and avatar_config.is_active and avatar_key),
+        avatar_enabled=bool(avatar_enabled_val and raw_endpoint),
         avatar_character=avatar_character_val,
         voice_name=voice_name,
         agent_id=agent_id,
@@ -250,13 +248,15 @@ async def get_voice_live_status(db: AsyncSession) -> VoiceLiveConfigStatus:
     """
     vl_config = await config_service.get_config(db, "azure_voice_live")
     vl_key = await config_service.get_effective_key(db, "azure_voice_live") if vl_config else ""
+    vl_endpoint = (
+        await config_service.get_effective_endpoint(db, "azure_voice_live") if vl_config else ""
+    )
 
     avatar_config = await config_service.get_config(db, "azure_avatar")
-    avatar_key = await config_service.get_effective_key(db, "azure_avatar") if avatar_config else ""
 
     return VoiceLiveConfigStatus(
-        voice_live_available=bool(vl_config and vl_config.is_active and vl_key),
-        avatar_available=bool(avatar_config and avatar_config.is_active and avatar_key),
+        voice_live_available=bool(vl_config and vl_config.is_active and (vl_key or vl_endpoint)),
+        avatar_available=bool(vl_config and vl_config.is_active and vl_endpoint),
         voice_name="zh-CN-XiaoxiaoMultilingualNeural",
         avatar_character=(
             avatar_config.model_or_deployment if avatar_config else "Lisa-casual-sitting"

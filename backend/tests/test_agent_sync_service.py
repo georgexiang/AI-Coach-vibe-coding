@@ -2717,9 +2717,7 @@ class TestSanitizeAgentName:
             assert pattern.match(result), (
                 f"Sanitized name '{result}' (from '{name}') doesn't match Azure pattern"
             )
-            assert len(result) <= 63, (
-                f"Sanitized name '{result}' exceeds 63 chars"
-            )
+            assert len(result) <= 63, f"Sanitized name '{result}' exceeds 63 chars"
 
     # --- Meta Skill default names ---
 

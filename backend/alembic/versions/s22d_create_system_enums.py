@@ -129,9 +129,9 @@ def upgrade():
         sa.Column("label_en", sa.String(255), nullable=False),
         sa.Column("label_zh", sa.String(255), server_default=""),
         sa.Column("sort_order", sa.Integer, server_default="0"),
-        sa.Column("is_active", sa.Boolean, server_default=sa.text("1")),
-        sa.Column("created_at", sa.DateTime, server_default=sa.func.now(), nullable=False),
-        sa.Column("updated_at", sa.DateTime, server_default=sa.func.now(), nullable=False),
+        sa.Column("is_active", sa.Boolean(), server_default=sa.true()),
+        sa.Column("created_at", sa.DateTime(), server_default=sa.func.now(), nullable=False),
+        sa.Column("updated_at", sa.DateTime(), server_default=sa.func.now(), nullable=False),
         sa.UniqueConstraint("category", "value", name="uq_system_enum_category_value"),
     )
 

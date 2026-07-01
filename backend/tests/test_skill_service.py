@@ -317,9 +317,7 @@ async def _set_quality_gates(db_session, skill, score: int = 75):
     skill.structure_check_passed = True
     skill.quality_score = score
     skill.quality_verdict = "PASS" if score >= 70 else "NEEDS_REVIEW"
-    skill.quality_details = json.dumps(
-        {"content_hash": _compute_content_hash(skill.content or "")}
-    )
+    skill.quality_details = json.dumps({"content_hash": _compute_content_hash(skill.content or "")})
     await db_session.flush()
 
 
@@ -825,9 +823,7 @@ class TestPublishFlow:
         # Quality gates pass but hash mismatches (content was edited after evaluation)
         skill.structure_check_passed = True
         skill.quality_score = 80
-        skill.quality_details = json.dumps(
-            {"content_hash": "stale_hash_from_previous_content"}
-        )
+        skill.quality_details = json.dumps({"content_hash": "stale_hash_from_previous_content"})
         await db_session.flush()
 
         with pytest.raises(ValidationException, match="stale"):
@@ -1029,9 +1025,7 @@ class TestFullLifecycle:
         assert skill.status == "review"
 
         # 7. review → draft (send back for revision)
-        await skill_service.update_skill(
-            db_session, skill.id, SkillUpdate(status="draft"), user_id
-        )
+        await skill_service.update_skill(db_session, skill.id, SkillUpdate(status="draft"), user_id)
         await db_session.commit()
         skill = await skill_service.get_skill(db_session, skill.id)
         assert skill.status == "draft"

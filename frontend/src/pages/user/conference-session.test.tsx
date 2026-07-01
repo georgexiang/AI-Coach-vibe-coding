@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, act } from "@testing-library/react";
+import { render, screen, act, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -11,9 +11,13 @@ const mockSendMessage = vi.fn();
 const mockMutateAsync = vi.fn().mockResolvedValue(undefined);
 const mockStartRecording = vi.fn();
 const mockStopRecording = vi.fn();
+const mockSpeak = vi.fn();
+const mockStopSpeaking = vi.fn();
+const mockToastError = vi.hoisted(() => vi.fn());
 
 let capturedCallbacks: ConferenceSSECallbacks = {};
 let mockRecordingState = "idle";
+let mockSpeechError: string | null = null;
 let mockSessionData: Record<string, unknown> | undefined;
 
 vi.mock("react-i18next", () => ({
@@ -61,12 +65,23 @@ vi.mock("@/hooks/use-conference-sse", () => ({
 }));
 
 vi.mock("@/hooks/use-speech", () => ({
-  useSpeechInput: () => ({
+  useStreamingSpeechInput: () => ({
     startRecording: mockStartRecording,
     stopRecording: mockStopRecording,
     recordingState: mockRecordingState,
-    error: null,
+    error: mockSpeechError,
   }),
+  useTextToSpeech: () => ({
+    speak: mockSpeak,
+    stop: mockStopSpeaking,
+    isSpeaking: false,
+  }),
+}));
+
+vi.mock("sonner", () => ({
+  toast: {
+    error: mockToastError,
+  },
 }));
 
 vi.mock("@/contexts/config-context", () => ({
@@ -128,13 +143,6 @@ vi.mock("@/components/conference", () => ({
     return (
       <div data-testid="conference-header">
         <button onClick={props.onEndSession as () => void}>End</button>
-        <button
-          onClick={() =>
-            (props.onVoiceToggle as (v: boolean) => void)(true)
-          }
-        >
-          ToggleVoice
-        </button>
       </div>
     );
   },
@@ -207,6 +215,7 @@ describe("ConferenceSession", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockRecordingState = "idle";
+    mockSpeechError = null;
     capturedCallbacks = {};
     mockSessionData = {
       id: "cs-1",
@@ -302,7 +311,17 @@ describe("ConferenceSession", () => {
       await user.click(confirmBtn);
     }
     expect(mockMutateAsync).toHaveBeenCalledWith("cs-1");
-    expect(mockNavigate).toHaveBeenCalledWith("/user/scoring?id=cs-1");
+    expect(mockNavigate).toHaveBeenCalledWith("/user/scoring/cs-1");
+  });
+
+  it("shows speech errors when transcription fails", async () => {
+    mockSpeechError = "VOICE_NOT_ENABLED";
+
+    renderConferenceSession();
+
+    await waitFor(() => {
+      expect(mockToastError).toHaveBeenCalledWith("VOICE_NOT_ENABLED");
+    });
   });
 
   it("handles end session mutation failure gracefully", async () => {
@@ -318,15 +337,46 @@ describe("ConferenceSession", () => {
     }
     // Should not navigate on failure
     expect(mockNavigate).not.toHaveBeenCalled();
+    expect(mockToastError).toHaveBeenCalledWith("error.endFailed");
   });
 
-  // ── handlePresent / sendMessage ──
+  // ── conference input routing ──
+  it("requests moderator start once when session loads", async () => {
+    renderConferenceSession();
+
+    await waitFor(() => {
+      expect(mockSendMessage).toHaveBeenCalledWith("start", "");
+    });
+  });
+
   it("adds user message and calls sendMessage when presenting", async () => {
     const user = userEvent.setup();
     renderConferenceSession();
+    mockSendMessage.mockClear();
 
     await user.click(screen.getByText("Send"));
     expect(mockSendMessage).toHaveBeenCalledWith("present", "Hello HCP");
+  });
+
+  it("routes stage input to respond when a queued HCP is waiting", async () => {
+    const user = userEvent.setup();
+    renderConferenceSession();
+    mockSendMessage.mockClear();
+
+    act(() => {
+      capturedCallbacks.onQueueUpdate?.([
+        {
+          hcpProfileId: "hp-1",
+          hcpName: "Dr. Smith",
+          question: "What about side effects?",
+          relevanceScore: 0.9,
+          status: "waiting",
+        },
+      ]);
+    });
+
+    await user.click(screen.getByText("Send"));
+    expect(mockSendMessage).toHaveBeenCalledWith("respond", "Hello HCP", "hp-1");
   });
 
   // ── SSE callback: onSpeakerText ──
@@ -552,6 +602,7 @@ describe("ConferenceSession", () => {
   it("responds to a question from the queue", async () => {
     const user = userEvent.setup();
     renderConferenceSession();
+    mockSendMessage.mockClear();
 
     // First set up the question queue via SSE
     act(() => {
@@ -575,6 +626,7 @@ describe("ConferenceSession", () => {
   it("does not respond if no matching waiting question in queue", async () => {
     const user = userEvent.setup();
     renderConferenceSession();
+    mockSendMessage.mockClear();
 
     // Queue with already active question
     act(() => {
@@ -618,15 +670,20 @@ describe("ConferenceSession", () => {
     expect(capturedTranscriptionPanelProps.isCollapsed).toBe(true);
   });
 
-  // ── Voice toggle ──
-  it("toggles voice mode via conference header", async () => {
-    const user = userEvent.setup();
+  // ── Input mode toggle ──
+  it("toggles audio mode via conference stage input controls", () => {
     renderConferenceSession();
 
     // Initially text mode
     expect(capturedConferenceStageProps.inputMode).toBe("text");
 
-    await user.click(screen.getByText("ToggleVoice"));
+    act(() => {
+      (
+        capturedConferenceStageProps.onInputModeChange as (
+          mode: "text" | "audio",
+        ) => void
+      )("audio");
+    });
     expect(capturedConferenceStageProps.inputMode).toBe("audio");
   });
 

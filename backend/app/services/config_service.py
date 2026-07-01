@@ -6,6 +6,8 @@ and API key. Per-service rows are enable/disable toggles with service-specific
 deployment names, inheriting endpoint and key from master when empty.
 """
 
+import json
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,7 +17,7 @@ from app.schemas.azure_config import (
     ServiceConfigResponse,
     ServiceConfigUpdate,
 )
-from app.utils.encryption import decrypt_value, encrypt_value
+from app.services.secret_store import get_secret_store, is_keyvault_secret_store
 
 
 async def get_all_configs(db: AsyncSession) -> list[ServiceConfigResponse]:
@@ -23,9 +25,9 @@ async def get_all_configs(db: AsyncSession) -> list[ServiceConfigResponse]:
     result = await db.execute(select(ServiceConfig))
     rows = result.scalars().all()
     configs = []
+    secret_store = get_secret_store()
     for row in rows:
-        decrypted_key = decrypt_value(row.api_key_encrypted)
-        masked_key = ("****" + decrypted_key[-4:]) if decrypted_key else ""
+        masked_key = await secret_store.mask_secret(row.service_name, row.api_key_encrypted)
         configs.append(
             ServiceConfigResponse(
                 service_name=row.service_name,
@@ -59,6 +61,45 @@ async def get_master_config(db: AsyncSession) -> ServiceConfig | None:
     return result.scalar_one_or_none()
 
 
+async def ensure_voice_live_config(
+    db: AsyncSession, master: ServiceConfig, updated_by: str
+) -> None:
+    """Create the Voice Live service toggle when Foundry has enough config.
+
+    Voice Live inherits endpoint and credentials from the master AI Foundry row.
+    The per-service row is still required because the rest of the app uses it as
+    an explicit feature toggle.
+    """
+    if not master.endpoint or not master.default_project:
+        return
+
+    existing = await get_config(db, "azure_voice_live")
+    if existing is not None:
+        return
+
+    mode_json = json.dumps(
+        {
+            "mode": "agent",
+            "agent_id": "",
+            "project_name": master.default_project,
+        }
+    )
+    db.add(
+        ServiceConfig(
+            service_name="azure_voice_live",
+            display_name="Azure Voice Live",
+            endpoint="",
+            api_key_encrypted="",
+            model_or_deployment=mode_json,
+            region="",
+            is_master=False,
+            is_active=True,
+            updated_by=updated_by,
+        )
+    )
+    await db.flush()
+
+
 async def upsert_master_config(
     db: AsyncSession,
     update: AIFoundryConfigUpdate,
@@ -70,6 +111,7 @@ async def upsert_master_config(
     used by all per-service toggle rows that lack their own credentials.
     """
     existing = await get_master_config(db)
+    secret_store = get_secret_store()
 
     if existing:
         existing.endpoint = update.endpoint
@@ -79,15 +121,25 @@ async def upsert_master_config(
         existing.updated_by = updated_by
         existing.is_active = True
         if update.api_key:
-            existing.api_key_encrypted = encrypt_value(update.api_key)
+            existing.api_key_encrypted = await secret_store.set_secret(
+                "ai_foundry",
+                update.api_key,
+            )
+        elif is_keyvault_secret_store():
+            existing.api_key_encrypted = ""
         await db.flush()
+        await ensure_voice_live_config(db, existing, updated_by)
         return existing
     else:
         config = ServiceConfig(
             service_name="ai_foundry",
             display_name="Azure AI Foundry",
             endpoint=update.endpoint,
-            api_key_encrypted=encrypt_value(update.api_key) if update.api_key else "",
+            api_key_encrypted=(
+                await secret_store.set_secret("ai_foundry", update.api_key)
+                if update.api_key
+                else ""
+            ),
             model_or_deployment=update.model_or_deployment,
             default_project=update.default_project,
             region=update.region,
@@ -97,6 +149,7 @@ async def upsert_master_config(
         )
         db.add(config)
         await db.flush()
+        await ensure_voice_live_config(db, config, updated_by)
         return config
 
 
@@ -114,6 +167,7 @@ async def upsert_config(
     If update.api_key is empty, preserve the existing encrypted key.
     """
     existing = await get_config(db, service_name)
+    secret_store = get_secret_store()
 
     if existing:
         existing.display_name = display_name
@@ -125,7 +179,12 @@ async def upsert_config(
         )
         existing.updated_by = updated_by
         if update.api_key:
-            existing.api_key_encrypted = encrypt_value(update.api_key)
+            existing.api_key_encrypted = await secret_store.set_secret(
+                service_name,
+                update.api_key,
+            )
+        elif is_keyvault_secret_store():
+            existing.api_key_encrypted = ""
         await db.flush()
         return existing
     else:
@@ -133,7 +192,11 @@ async def upsert_config(
             service_name=service_name,
             display_name=display_name,
             endpoint=update.endpoint,
-            api_key_encrypted=encrypt_value(update.api_key),
+            api_key_encrypted=(
+                await secret_store.set_secret(service_name, update.api_key)
+                if update.api_key
+                else ""
+            ),
             model_or_deployment=update.model_or_deployment,
             region=update.region,
             is_active=update.is_active if update.is_active is not None else True,
@@ -149,7 +212,7 @@ async def get_decrypted_key(db: AsyncSession, service_name: str) -> str:
     config = await get_config(db, service_name)
     if config is None:
         return ""
-    return decrypt_value(config.api_key_encrypted)
+    return await get_secret_store().get_secret(config.service_name, config.api_key_encrypted)
 
 
 async def get_effective_key(db: AsyncSession, service_name: str) -> str:
@@ -163,7 +226,10 @@ async def get_effective_key(db: AsyncSession, service_name: str) -> str:
         return per_service_key
     master = await get_master_config(db)
     if master:
-        return decrypt_value(master.api_key_encrypted)
+        return await get_secret_store().get_secret(
+            master.service_name,
+            master.api_key_encrypted,
+        )
     return ""
 
 
@@ -179,4 +245,15 @@ async def get_effective_endpoint(db: AsyncSession, service_name: str) -> str:
     master = await get_master_config(db)
     if master:
         return master.endpoint
+    return ""
+
+
+async def get_effective_region(db: AsyncSession, service_name: str) -> str:
+    """Return the effective Azure region for a service, falling back to master config."""
+    config = await get_config(db, service_name)
+    if config and config.region:
+        return config.region
+    master = await get_master_config(db)
+    if master:
+        return master.region
     return ""

@@ -40,9 +40,25 @@ def upgrade():
             f"  URL: /admin/scenarios (edit each scenario and select a Skill)\n"
         )
 
-    # All clear - alter column to NOT NULL with RESTRICT FK
-    # SQLite batch mode recreates the table, so we just define the desired state
+    # PostgreSQL can alter the existing table in place. Avoid batch table recreation there
+    # because dependent FKs from coaching_sessions/conference_audience_hcps reference
+    # scenarios_pkey and prevent dropping/recreating the primary key.
+    if op.get_context().dialect.name == "postgresql":
+        op.drop_constraint("fk_scenarios_skill_id", "scenarios", type_="foreignkey")
+        op.alter_column("scenarios", "skill_id", existing_type=sa.String(36), nullable=False)
+        op.create_foreign_key(
+            "fk_scenarios_skill_id_skills",
+            "scenarios",
+            "skills",
+            ["skill_id"],
+            ["id"],
+            ondelete="RESTRICT",
+        )
+        return
+
+    # SQLite batch mode recreates the table, so we just define the desired state.
     with op.batch_alter_table("scenarios", recreate="always") as batch_op:
+        batch_op.drop_constraint("fk_scenarios_skill_id", type_="foreignkey")
         batch_op.alter_column("skill_id", existing_type=sa.String(36), nullable=False)
         batch_op.create_foreign_key(
             "fk_scenarios_skill_id_skills",
@@ -54,11 +70,24 @@ def upgrade():
 
 
 def downgrade():
-    with op.batch_alter_table("scenarios") as batch_op:
+    if op.get_context().dialect.name == "postgresql":
+        op.drop_constraint("fk_scenarios_skill_id_skills", "scenarios", type_="foreignkey")
+        op.alter_column("scenarios", "skill_id", existing_type=sa.String(36), nullable=True)
+        op.create_foreign_key(
+            "fk_scenarios_skill_id",
+            "scenarios",
+            "skills",
+            ["skill_id"],
+            ["id"],
+            ondelete="SET NULL",
+        )
+        return
+
+    with op.batch_alter_table("scenarios", recreate="always") as batch_op:
         batch_op.alter_column("skill_id", existing_type=sa.String(36), nullable=True)
         batch_op.drop_constraint("fk_scenarios_skill_id_skills", type_="foreignkey")
         batch_op.create_foreign_key(
-            "fk_scenarios_skill_id_skills",
+            "fk_scenarios_skill_id",
             "skills",
             ["skill_id"],
             ["id"],

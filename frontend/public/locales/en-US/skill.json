@@ -50,7 +50,7 @@
     "preview": "Preview",
     "previewEmpty": "Start writing to see the preview...",
     "dropzoneTitle": "Drop training materials here, or click to browse",
-    "dropzoneHint": "Accepts PDF, DOCX, PPTX, TXT, MD. Max 50MB per file, up to 10 files.",
+    "dropzoneHint": "Accepts PDF, DOCX, PPTX, TXT, MD. Max 4MB per file, up to 10 files.",
     "selectedFiles": "Selected files ({{count}})",
     "removeFile": "Remove",
     "uploading": "Uploading...",
@@ -207,6 +207,15 @@
     "runCompleteToast": "Dry Run started. View the report for details.",
     "retry": "Retry",
     "tabSopCoverage": "SOP Coverage",
+    "notEvaluated": "Not evaluated",
+    "failedTitle": "Dry Run failed",
+    "status": {
+      "pending": "Pending",
+      "running": "Running",
+      "completed": "Completed",
+      "failed": "Failed",
+      "cancelled": "Cancelled"
+    },
     "errors": {
       "startFailed": "Failed to start simulation"
     }

@@ -8,7 +8,8 @@ interface QuestionItemProps {
   onRespond: (hcpId: string) => void;
 }
 
-function getInitials(name: string): string {
+function getInitials(name: string | undefined): string {
+  if (!name) return "?";
   return name
     .split(" ")
     .map((n) => n[0])

@@ -1,6 +1,6 @@
 """Tests for Azure Config API: DB-backed CRUD, connection testing, admin enforcement."""
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from app.models.user import User
 from app.services.auth import create_access_token, get_password_hash
@@ -170,6 +170,83 @@ class TestPutServiceEndpoint:
             },
         )
         assert response.status_code == 403
+
+
+class TestRegisterAdapterFromConfig:
+    """Direct tests for runtime adapter registration."""
+
+    async def test_speech_stt_does_not_inherit_foundry_master_key(self):
+        """Azure Speech STT must not use AI Foundry master credentials."""
+        from app.api.azure_config import register_adapter_from_config
+
+        mock_registry = MagicMock()
+        mock_settings = MagicMock(default_stt_provider="mock")
+        with (
+            patch("app.services.agents.registry.registry", mock_registry),
+            patch("app.api.azure_config.settings", mock_settings),
+        ):
+            await register_adapter_from_config(
+                "azure_speech_stt",
+                endpoint="",
+                api_key="",
+                deployment="",
+                region="",
+                master_key="foundry-key",
+                master_region="eastus",
+            )
+
+        mock_registry.register.assert_not_called()
+        assert mock_settings.default_stt_provider == "mock"
+
+    async def test_speech_stt_registers_with_own_key_and_region(self):
+        """Azure Speech STT registers only when explicit Speech credentials exist."""
+        from app.api.azure_config import register_adapter_from_config
+        from app.services.agents.stt.azure import AzureSTTAdapter
+
+        mock_registry = MagicMock()
+        mock_settings = MagicMock(default_stt_provider="mock")
+        with (
+            patch("app.services.agents.registry.registry", mock_registry),
+            patch("app.api.azure_config.settings", mock_settings),
+        ):
+            await register_adapter_from_config(
+                "azure_speech_stt",
+                endpoint="",
+                api_key="speech-key",
+                deployment="",
+                region="eastus",
+                master_key="foundry-key",
+                master_region="swedencentral",
+            )
+
+        category, adapter = mock_registry.register.call_args.args
+        assert category == "stt"
+        assert isinstance(adapter, AzureSTTAdapter)
+        assert await adapter.is_available() is True
+        assert mock_settings.default_stt_provider == "azure"
+
+    async def test_speech_tts_does_not_inherit_foundry_master_key(self):
+        """Azure Speech TTS must not use AI Foundry master credentials."""
+        from app.api.azure_config import register_adapter_from_config
+
+        mock_registry = MagicMock()
+        mock_settings = MagicMock(default_tts_provider="mock")
+        with (
+            patch("app.services.agents.registry.registry", mock_registry),
+            patch("app.api.azure_config.settings", mock_settings),
+        ):
+            await register_adapter_from_config(
+                "azure_speech_tts",
+                endpoint="",
+                api_key="",
+                deployment="",
+                region="",
+                master_key="foundry-key",
+                master_region="eastus",
+            )
+
+        mock_registry.register.assert_not_called()
+        assert mock_settings.default_tts_provider == "mock"
 
 
 class TestTestConnectionEndpoint:

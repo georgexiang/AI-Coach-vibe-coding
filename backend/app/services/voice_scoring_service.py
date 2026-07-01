@@ -1,7 +1,7 @@
-"""Voice quality scoring service using Azure Content Understanding.
+"""Voice quality scoring service using Azure Speech Pronunciation Assessment.
 
-Calls CU audioAnalyzer to analyze recorded audio for voice-specific dimensions:
-fluency, tone, pace, pronunciation clarity.
+Uses Azure Speech Pronunciation Assessment for voice-specific dimensions:
+pronunciation/accuracy, fluency, pace, tone/prosody.
 No mock fallback — failures set voice_score_status = "failed".
 Uses durable background task pattern (own DB session) per project convention.
 """
@@ -11,15 +11,22 @@ import logging
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import get_settings
 from app.database import AsyncSessionLocal
-from app.models.score import ScoreDetail, SessionScore
 from app.models.session import CoachingSession
+from app.models.voice_score import VoiceScore, VoiceScoreDetail
 from app.services import config_service
+from app.services.audio_transcoding_service import transcode_audio_to_wav_pcm
 from app.services.cu_evaluation_service import (
     CU_SERVICE_NAME,
     _parse_cu_voice_result,
     score_voice_with_cu,
 )
+from app.services.pronunciation_assessment_service import (
+    SPEECH_STT_SERVICE_NAME,
+    assess_pronunciation,
+)
+from app.services.storage import get_storage
 
 logger = logging.getLogger(__name__)
 
@@ -52,32 +59,53 @@ VOICE_DIMENSIONS = [
 ]
 
 
-async def save_voice_score_details(
-    db: AsyncSession, session_id: str, scores: dict
-) -> None:
-    """Save voice scoring results as ScoreDetail records with category='voice'.
+async def _read_audio_for_scoring(audio_url: str) -> bytes:
+    """Read recorded audio through the configured backend storage."""
+    storage = get_storage()
+    try:
+        return await storage.read(audio_url)
+    except Exception as first_exc:
+        base_path = getattr(storage, "base_path", "")
+        if base_path:
+            normalized_url = audio_url.replace("\\", "/")
+            normalized_base = str(base_path).replace("\\", "/").rstrip("/")
+            if normalized_url.startswith(f"{normalized_base}/"):
+                relative_path = normalized_url[len(normalized_base) :].lstrip("/")
+                try:
+                    return await storage.read(relative_path)
+                except Exception:
+                    pass
+        raise RuntimeError(
+            f"Failed to read audio from storage for voice scoring: {first_exc}"
+        ) from first_exc
 
-    If a SessionScore already exists (content scoring done first), appends voice
-    dimensions to it. Otherwise creates a preliminary SessionScore for voice-only.
-    """
-    result = await db.execute(
-        select(SessionScore).where(SessionScore.session_id == session_id)
-    )
-    session_score = result.scalar_one_or_none()
 
-    if not session_score:
-        session_score = SessionScore(
+async def save_voice_score_details(db: AsyncSession, session_id: str, scores: dict) -> None:
+    """Save voice scoring results independently from content scoring."""
+    result = await db.execute(select(VoiceScore).where(VoiceScore.session_id == session_id))
+    voice_score = result.scalar_one_or_none()
+
+    if not voice_score:
+        voice_score = VoiceScore(
             session_id=session_id,
-            overall_score=scores.get("overall_voice_score", 0),
-            passed=True,
-            feedback_summary="Voice scoring completed",
+            overall_voice_score=scores.get("overall_voice_score", 0),
+            feedback_summary=scores.get("feedback_summary", ""),
         )
-        db.add(session_score)
+        db.add(voice_score)
+        await db.flush()
+    else:
+        voice_score.overall_voice_score = scores.get("overall_voice_score", 0)
+        voice_score.feedback_summary = scores.get("feedback_summary", "")
+        existing = await db.execute(
+            select(VoiceScoreDetail).where(VoiceScoreDetail.voice_score_id == voice_score.id)
+        )
+        for detail in existing.scalars().all():
+            await db.delete(detail)
         await db.flush()
 
     for dim in scores["dimensions"]:
-        detail = ScoreDetail(
-            score_id=session_score.id,
+        detail = VoiceScoreDetail(
+            voice_score_id=voice_score.id,
             dimension=dim["name"],
             score=dim["score"],
             weight=dim["weight"],
@@ -90,8 +118,90 @@ async def save_voice_score_details(
     await db.flush()
 
 
+async def _score_voice_with_pronunciation_assessment(
+    db: AsyncSession,
+    audio_data: bytes,
+    language: str,
+) -> dict:
+    """Score voice quality with Azure Speech Pronunciation Assessment."""
+    speech_endpoint = await config_service.get_effective_endpoint(db, SPEECH_STT_SERVICE_NAME)
+    speech_key = await config_service.get_effective_key(db, SPEECH_STT_SERVICE_NAME)
+    speech_region = await config_service.get_effective_region(db, SPEECH_STT_SERVICE_NAME)
+
+    result = await assess_pronunciation(
+        speech_endpoint=speech_endpoint,
+        speech_key=speech_key,
+        speech_region=speech_region,
+        audio_data=audio_data,
+        language=language,
+    )
+    total_w = sum(d.get("weight", 0) for d in result.dimensions)
+    overall = (
+        sum(d.get("score", 0) * d.get("weight", 0) for d in result.dimensions) / total_w
+        if total_w > 0
+        else 0
+    )
+    return {
+        "dimensions": result.dimensions,
+        "overall_voice_score": round(overall, 1),
+        "feedback_summary": result.feedback_summary,
+    }
+
+
+async def _score_voice_with_cu_legacy(
+    db: AsyncSession,
+    session: CoachingSession,
+    audio_data: bytes | None,
+    mime_type: str | None,
+) -> dict:
+    """Legacy CU voice scoring path retained for future optional use."""
+    endpoint = await config_service.get_effective_endpoint(db, CU_SERVICE_NAME)
+    api_key = await config_service.get_effective_key(db, CU_SERVICE_NAME)
+
+    if not endpoint:
+        raise RuntimeError("CU endpoint not configured for voice scoring")
+
+    from app.models.scenario import Scenario
+    from app.models.scoring_rubric import ScoringRubric
+
+    scenario_result = await db.execute(select(Scenario).where(Scenario.id == session.scenario_id))
+    scenario = scenario_result.scalar_one_or_none()
+    analyzer_id = None
+    if scenario and scenario.rubric_id:
+        rubric_result = await db.execute(
+            select(ScoringRubric).where(ScoringRubric.id == scenario.rubric_id)
+        )
+        rubric = rubric_result.scalar_one_or_none()
+        if rubric:
+            analyzer_id = rubric.cu_voice_analyzer_id
+
+    if not analyzer_id:
+        raise RuntimeError(f"No CU voice analyzer configured for session {session.id}")
+
+    cu_fields = await score_voice_with_cu(
+        endpoint,
+        api_key,
+        analyzer_id,
+        session.audio_url,
+        audio_data=audio_data,
+        mime_type=mime_type,
+        use_binary_upload=False,
+    )
+    voice_result = _parse_cu_voice_result(cu_fields)
+    dims = voice_result.get("dimensions", [])
+    total_w = sum(d.get("weight", 0) for d in dims)
+    overall = (
+        sum(d.get("score", 0) * d.get("weight", 0) for d in dims) / total_w if total_w > 0 else 0
+    )
+    return {
+        "dimensions": dims,
+        "overall_voice_score": round(overall, 1),
+        "feedback_summary": voice_result.get("feedback_summary", ""),
+    }
+
+
 async def trigger_voice_scoring(session_id: str, language: str = "zh-CN") -> None:
-    """Durable background task: score voice quality for a session via CU.
+    """Durable background task: score voice quality for a session via Speech.
 
     Uses own DB session (not request-scoped) per durable task pattern.
     Updates session.voice_score_status: pending -> processing -> completed/failed.
@@ -104,65 +214,30 @@ async def trigger_voice_scoring(session_id: str, language: str = "zh-CN") -> Non
             )
             session = result.scalar_one_or_none()
             if not session or not session.audio_url:
-                logger.warning(
-                    "Voice scoring skipped for session %s: no audio", session_id
-                )
+                logger.warning("Voice scoring skipped for session %s: no audio", session_id)
                 return
 
             session.voice_score_status = "processing"
             await db.commit()
 
-            # Get CU endpoint and key
-            endpoint = await config_service.get_effective_endpoint(db, CU_SERVICE_NAME)
-            api_key = await config_service.get_effective_key(db, CU_SERVICE_NAME)
-
-            if not endpoint or not api_key:
-                raise RuntimeError("CU endpoint/key not configured for voice scoring")
-
-            # Get voice analyzer ID from rubric
-            from app.models.scenario import Scenario
-            from app.models.scoring_rubric import ScoringRubric
-
-            scenario_result = await db.execute(
-                select(Scenario).where(Scenario.id == session.scenario_id)
+            # Private Blob URLs are read by the backend with Managed Identity.
+            audio_data = await _read_audio_for_scoring(session.audio_url)
+            settings = get_settings()
+            needs_transcode = (
+                settings.voice_scoring_transcode_enabled
+                or not session.audio_url.lower().split("?", 1)[0].endswith(".wav")
             )
-            scenario = scenario_result.scalar_one_or_none()
-            analyzer_id = None
-            if scenario and scenario.rubric_id:
-                rubric_result = await db.execute(
-                    select(ScoringRubric).where(ScoringRubric.id == scenario.rubric_id)
-                )
-                rubric = rubric_result.scalar_one_or_none()
-                if rubric:
-                    analyzer_id = rubric.cu_voice_analyzer_id
-
-            if not analyzer_id:
-                raise RuntimeError(
-                    f"No CU voice analyzer configured for session {session_id}"
+            if needs_transcode:
+                audio_data = await transcode_audio_to_wav_pcm(
+                    audio_data,
+                    timeout_seconds=settings.voice_scoring_transcode_timeout_seconds,
                 )
 
-            # Call CU voice scoring
-            cu_fields = await score_voice_with_cu(
-                endpoint, api_key, analyzer_id, session.audio_url
+            voice_scores = await _score_voice_with_pronunciation_assessment(
+                db,
+                audio_data,
+                language,
             )
-            voice_result = _parse_cu_voice_result(cu_fields)
-
-            # Calculate overall voice score
-            dims = voice_result.get("dimensions", [])
-            if dims:
-                total_w = sum(d.get("weight", 0) for d in dims)
-                overall = (
-                    sum(d.get("score", 0) * d.get("weight", 0) for d in dims) / total_w
-                    if total_w > 0
-                    else 0
-                )
-            else:
-                overall = 0
-
-            voice_scores = {
-                "dimensions": dims,
-                "overall_voice_score": round(overall, 1),
-            }
 
             await save_voice_score_details(db, session_id, voice_scores)
             session.voice_score_status = "completed"

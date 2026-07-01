@@ -8,8 +8,10 @@ from app.services.cu_evaluation_service import (
     DEFAULT_VOICE_DIMENSIONS,
     _get_auth_headers,
     _parse_cu_voice_result,
+    _put_analyzer,
     build_voice_analyzer_schema,
     merge_scores,
+    score_voice_with_cu,
 )
 
 
@@ -93,6 +95,246 @@ class TestGetAuthHeaders:
         with patch.dict("sys.modules", {"azure.identity.aio": None}):
             with pytest.raises((RuntimeError, TypeError, ModuleNotFoundError)):
                 await _get_auth_headers("")
+
+
+class TestPutAnalyzer:
+    """Test CU analyzer create/update behavior."""
+
+    @pytest.mark.asyncio
+    async def test_create_replace_uses_allow_replace_and_waits_until_ready(self):
+        """Deterministic analyzer IDs are replaced and must be ready before reuse."""
+        captured = {}
+        get_urls = []
+
+        class FakePutResponse:
+            status_code = 201
+            text = ""
+            headers = {"Operation-Location": "https://example.test/operations/create-1"}
+
+        class FakeGetResponse:
+            status_code = 200
+            text = ""
+
+            def __init__(self, body):
+                self.body = body
+
+            def json(self):
+                return self.body
+
+        class FakeClient:
+            def __init__(self, timeout: float) -> None:
+                self.timeout = timeout
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc, tb):
+                return None
+
+            async def put(self, url, headers, json):
+                captured["url"] = url
+                captured["body"] = json
+                return FakePutResponse()
+
+            async def get(self, url, headers):
+                get_urls.append(url)
+                if "operations" in url:
+                    return FakeGetResponse({"status": "Succeeded"})
+                return FakeGetResponse({"status": "ready"})
+
+        with (
+            patch(
+                "app.services.cu_evaluation_service._get_auth_headers",
+                AsyncMock(return_value={"Content-Type": "application/json"}),
+            ),
+            patch("app.services.cu_evaluation_service.httpx.AsyncClient", FakeClient),
+            patch("app.services.cu_evaluation_service.asyncio.sleep", AsyncMock()),
+            patch(
+                "app.services.cu_evaluation_service._get_cu_api_version",
+                return_value="2025-11-01",
+            ),
+        ):
+            await _put_analyzer(
+                "https://example.cognitiveservices.azure.com",
+                "",
+                "rubricVoice12345678",
+                {"name": "VoiceScoring", "fields": {}},
+                "voice",
+            )
+
+        assert captured["url"].endswith(
+            "/contentunderstanding/analyzers/rubricVoice12345678"
+            "?api-version=2025-11-01&allowReplace=true"
+        )
+        assert captured["body"]["baseAnalyzerId"] == "prebuilt-audio"
+        assert captured["body"]["fieldSchema"] == {"name": "VoiceScoring", "fields": {}}
+        assert get_urls == [
+            "https://example.test/operations/create-1",
+            "https://example.cognitiveservices.azure.com/contentunderstanding/analyzers/"
+            "rubricVoice12345678?api-version=2025-11-01",
+        ]
+
+    @pytest.mark.asyncio
+    async def test_model_exists_conflict_raises_instead_of_reusing(self):
+        """A 409 is not a usable analyzer and must be surfaced to the caller."""
+
+        class FakeResponse:
+            status_code = 409
+            text = '{"error":{"code":"ModelExists"}}'
+            headers = {}
+
+        class FakeClient:
+            def __init__(self, timeout: float) -> None:
+                self.timeout = timeout
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc, tb):
+                return None
+
+            async def put(self, url, headers, json):
+                return FakeResponse()
+
+        with (
+            patch(
+                "app.services.cu_evaluation_service._get_auth_headers",
+                AsyncMock(return_value={}),
+            ),
+            patch("app.services.cu_evaluation_service.httpx.AsyncClient", FakeClient),
+            patch(
+                "app.services.cu_evaluation_service._get_cu_api_version",
+                return_value="2025-11-01",
+            ),
+        ):
+            with pytest.raises(RuntimeError, match="CU analyzer creation failed: HTTP 409"):
+                await _put_analyzer(
+                    "https://example.cognitiveservices.azure.com",
+                    "",
+                    "rubricVoice12345678",
+                    {"name": "VoiceScoring", "fields": {}},
+                    "voice",
+                )
+
+
+class TestScoreVoiceWithCu:
+    """Test voice scoring submission payloads."""
+
+    @pytest.mark.asyncio
+    async def test_audio_data_is_submitted_as_base64(self):
+        captured_body = {}
+
+        class FakePostResponse:
+            status_code = 202
+            headers = {"Operation-Location": "https://example.test/operations/1"}
+            text = ""
+
+        class FakeGetResponse:
+            def json(self):
+                return {
+                    "status": "Succeeded",
+                    "result": {"contents": [{"fields": {"transcript": {"valueString": "hi"}}}]},
+                }
+
+        class FakeClient:
+            def __init__(self, timeout: float) -> None:
+                self.timeout = timeout
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc, tb):
+                return None
+
+            async def post(self, url, headers, json):
+                captured_body.update(json)
+                return FakePostResponse()
+
+            async def get(self, url, headers):
+                return FakeGetResponse()
+
+        with (
+            patch(
+                "app.services.cu_evaluation_service._get_auth_headers",
+                AsyncMock(return_value={}),
+            ),
+            patch("app.services.cu_evaluation_service.httpx.AsyncClient", FakeClient),
+            patch("app.services.cu_evaluation_service.asyncio.sleep", AsyncMock()),
+            patch(
+                "app.services.cu_evaluation_service._get_cu_api_version",
+                return_value="2025-11-01",
+            ),
+        ):
+            result = await score_voice_with_cu(
+                "https://example.services.ai.azure.com",
+                "",
+                "rubricVoice12345678",
+                "https://storage.blob.core.windows.net/audio.webm",
+                audio_data=b"audio-bytes",
+            )
+
+        assert captured_body == {"inputs": [{"data": "YXVkaW8tYnl0ZXM=", "mimeType": "audio/webm"}]}
+        assert result == {"transcript": {"valueString": "hi"}}
+
+    @pytest.mark.asyncio
+    async def test_audio_data_uses_stable_inputs_shape_when_binary_requested(self):
+        captured = {}
+
+        class FakePostResponse:
+            status_code = 202
+            headers = {"Operation-Location": "https://example.test/operations/1"}
+            text = ""
+
+        class FakeGetResponse:
+            def json(self):
+                return {
+                    "status": "Succeeded",
+                    "result": {"contents": [{"fields": {"transcript": {"valueString": "hi"}}}]},
+                }
+
+        class FakeClient:
+            def __init__(self, timeout: float) -> None:
+                self.timeout = timeout
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc, tb):
+                return None
+
+            async def post(self, url, headers, json):
+                captured["url"] = url
+                captured["headers"] = headers
+                captured["body"] = json
+                return FakePostResponse()
+
+            async def get(self, url, headers):
+                return FakeGetResponse()
+
+        with (
+            patch(
+                "app.services.cu_evaluation_service._get_auth_headers",
+                AsyncMock(return_value={"Content-Type": "application/json"}),
+            ),
+            patch("app.services.cu_evaluation_service.httpx.AsyncClient", FakeClient),
+            patch("app.services.cu_evaluation_service.asyncio.sleep", AsyncMock()),
+        ):
+            result = await score_voice_with_cu(
+                "https://example.services.ai.azure.com",
+                "",
+                "rubricVoice12345678",
+                "https://storage.blob.core.windows.net/audio.webm",
+                audio_data=b"wav-bytes",
+                mime_type="audio/wav",
+                use_binary_upload=True,
+            )
+
+        assert captured["url"].endswith(
+            "/contentunderstanding/analyzers/rubricVoice12345678:analyze?api-version=2025-11-01"
+        )
+        assert captured["headers"]["Content-Type"] == "application/json"
+        assert captured["body"] == {"inputs": [{"data": "d2F2LWJ5dGVz", "mimeType": "audio/wav"}]}
+        assert result == {"transcript": {"valueString": "hi"}}
 
 
 class TestMergeScores:
@@ -185,3 +427,46 @@ class TestParseCuVoiceResult:
         result = _parse_cu_voice_result({})
         assert result["dimensions"] == []
         assert result["feedback_summary"] == ""
+
+    def test_parse_voice_dimension_from_value_object(self):
+        cu_fields = {
+            "fluency": {
+                "type": "object",
+                "valueObject": {
+                    "score": {"type": "string", "valueString": "88"},
+                    "feedback": {"type": "string", "valueString": "Clear and smooth"},
+                },
+            },
+            "feedback_summary": {"valueString": "Strong voice delivery"},
+        }
+
+        result = _parse_cu_voice_result(cu_fields)
+
+        assert result["dimensions"] == [
+            {
+                "name": "fluency",
+                "score": 88.0,
+                "weight": 25,
+                "feedback": "Clear and smooth",
+            }
+        ]
+        assert result["feedback_summary"] == "Strong voice delivery"
+
+    def test_parse_voice_dimension_from_content_json(self):
+        cu_fields = {
+            "tone": {
+                "type": "string",
+                "content": '{"score": 76, "feedback": "Professional tone"}',
+            }
+        }
+
+        result = _parse_cu_voice_result(cu_fields)
+
+        assert result["dimensions"] == [
+            {
+                "name": "tone",
+                "score": 76,
+                "weight": 25,
+                "feedback": "Professional tone",
+            }
+        ]

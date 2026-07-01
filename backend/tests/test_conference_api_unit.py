@@ -7,6 +7,7 @@ coverage.py does not track through httpx ASGITransport.
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from fastapi import BackgroundTasks
 
 from app.api.conference import (
     create_conference_session,
@@ -23,7 +24,7 @@ from app.schemas.conference import (
     ConferenceSessionCreate,
     ConferenceSubStateUpdate,
 )
-from app.utils.exceptions import AppException, NotFoundException
+from app.utils.exceptions import AppException, NotFoundException, ValidationException
 
 
 def _make_user(user_id: str = "user-1", role: str = "user") -> User:
@@ -156,14 +157,20 @@ class TestEndConferenceSessionDirect:
 
     @patch("app.api.conference.conference_service")
     async def test_calls_service(self, mock_service):
-        """Route function delegates to conference_service.end."""
+        """Route function ends, commits, and queues background scoring."""
         mock_session = _make_session(status="completed")
         mock_service.end_conference_session = AsyncMock(return_value=mock_session)
+        mock_service.score_conference_session_background = AsyncMock()
+        background_tasks = BackgroundTasks()
         db = AsyncMock()
         user = _make_user()
 
-        result = await end_conference_session("sess-1", db, user)
+        result = await end_conference_session("sess-1", background_tasks, db, user)
         assert result == mock_session
+        db.commit.assert_awaited_once()
+        assert len(background_tasks.tasks) == 1
+        assert background_tasks.tasks[0].func == mock_service.score_conference_session_background
+        assert background_tasks.tasks[0].args == ("sess-1",)
 
 
 class TestGetScenarioAudienceDirect:
@@ -227,7 +234,7 @@ class TestSetScenarioAudienceDirect:
         reload_ah.id = "new-ah"
         reload_ah.scenario_id = "scen-1"
         reload_ah.hcp_profile_id = "hcp-1"
-        reload_ah.role_in_conference = "audience"
+        reload_ah.role_in_conference = "moderator"
         reload_ah.voice_id = ""
         reload_ah.sort_order = 0
         reload_ah.hcp_profile = MagicMock()
@@ -245,9 +252,20 @@ class TestSetScenarioAudienceDirect:
         db.add = MagicMock()
         db.delete = AsyncMock()
 
-        audience = [AudienceHcpCreate(hcp_profile_id="hcp-1")]
+        audience = [AudienceHcpCreate(hcp_profile_id="hcp-1", role_in_conference="moderator")]
         user = _make_user(role="admin")
 
         result = await set_scenario_audience("scen-1", audience, db, user)
         assert len(result) == 1
         assert result[0].hcp_name == "Dr. New"
+
+    async def test_rejects_audience_without_moderator(self):
+        """Rejects replacing audience when no moderator is selected."""
+        db = AsyncMock()
+        audience = [AudienceHcpCreate(hcp_profile_id="hcp-1", role_in_conference="audience")]
+        user = _make_user(role="admin")
+
+        with pytest.raises(ValidationException):
+            await set_scenario_audience("scen-1", audience, db, user)
+
+        db.execute.assert_not_called()

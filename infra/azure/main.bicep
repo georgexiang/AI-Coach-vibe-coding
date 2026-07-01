@@ -8,12 +8,53 @@ param namePrefix string = 'aicoach'
 @allowed([
   'dev'
   'demo'
+  'public'
+  'private'
   'prod'
 ])
 param environmentName string = 'demo'
 
 @description('Azure region for resource deployment.')
 param location string = 'eastus2'
+
+@description('Optional Azure region for Azure AI Foundry / AI Services resources. Leave empty to use location.')
+param foundryLocation string = ''
+
+@description('Optional resource group name. Leave empty to use rg-{namePrefix}-{environmentName}-{location}.')
+param resourceGroupName string = ''
+
+@description('High-level deployment profile. foundryOnly keeps the default footprint small; fullLegacy preserves the previous broad deployment shape.')
+@allowed([
+  'foundryOnly'
+  'fullLegacy'
+])
+param deploymentMode string = 'foundryOnly'
+
+@description('Network exposure profile. publicDemo keeps frontend and backend Container Apps publicly reachable; privateBackend adds an auto-created or user-supplied VNet, private ingress, and private endpoints for the first private backend path.')
+@allowed([
+  'publicDemo'
+  'privateBackend'
+])
+param networkProfile string = 'publicDemo'
+
+@description('Optional existing VNet name for privateBackend. Leave empty to auto-create a VNet using the supplied CIDR ranges.')
+param vnetName string = ''
+
+@description('VNet address prefix used when privateBackend auto-creates the VNet.')
+param vnetAddressPrefix string = '10.60.0.0/16'
+
+@description('Container Apps delegated subnet prefix used when privateBackend auto-creates the VNet.')
+param containerAppsSubnetPrefix string = '10.60.0.0/23'
+
+@description('Private endpoint subnet prefix used when privateBackend auto-creates the VNet.')
+param privateEndpointsSubnetPrefix string = '10.60.2.0/24'
+
+@description('Optional knowledge base capability. Azure AI Search is deployed only when this is azureAiSearch, fullLegacy mode is used, or enableAiSearch is true.')
+@allowed([
+  'none'
+  'azureAiSearch'
+])
+param knowledgeBaseMode string = 'none'
 
 @description('Optional owner tag.')
 param owner string = ''
@@ -55,14 +96,63 @@ param frontendImage string = 'mcr.microsoft.com/azuredocs/containerapps-hellowor
 @description('Backend CORS origins. Frontend normally calls the backend through nginx /api proxy, so same-origin browser calls do not require CORS.')
 param corsOrigins string = 'http://localhost:5173,http://localhost:3000'
 
+@description('Backend database auth mode. password preserves legacy DATABASE_URL auth; azureAd uses backend Managed Identity / Entra token auth.')
+@allowed([
+  'password'
+  'azureAd'
+])
+param backendDatabaseAuthMode string = 'password'
+
+@description('Service API key storage. database preserves encrypted DB storage; keyvault stores Admin UI service keys in Key Vault.')
+@allowed([
+  'database'
+  'keyvault'
+])
+param azureServiceKeyStorage string = 'database'
+
+@description('Microsoft Entra admin login/display name for PostgreSQL Flexible Server. Required when backendDatabaseAuthMode=azureAd for initial DB bootstrap.')
+param postgresEntraAdminLogin string = ''
+
+@description('Microsoft Entra admin object ID for PostgreSQL Flexible Server. Required when backendDatabaseAuthMode=azureAd for initial DB bootstrap.')
+param postgresEntraAdminObjectId string = ''
+
+@description('Microsoft Entra admin principal type for PostgreSQL Flexible Server.')
+@allowed([
+  'User'
+  'Group'
+  'ServicePrincipal'
+])
+param postgresEntraAdminPrincipalType string = 'User'
+
+@description('Manage first-deployment bootstrap secrets in Key Vault and PostgreSQL admin password. Set false for later updates that should not rotate existing secrets.')
+param manageBootstrapSecrets bool = true
+
+@description('Whether to create or update the JWT signing secret in Key Vault.')
+param manageJwtSecret bool = true
+
+@description('Whether to create or update the application encryption key in Key Vault.')
+param manageEncryptionKey bool = true
+
+@description('Whether to create or update the PostgreSQL administrator password secret in Key Vault.')
+param managePostgresPasswordSecret bool = true
+
+@description('Whether to set the PostgreSQL administrator password. Required when creating a new PostgreSQL Flexible Server.')
+param managePostgresAdminPassword bool = true
+
+@description('Allow backend startup to create missing tables. Keep false for production/migration-governed deployments; use true for first-pass demo initialization.')
+param databaseAutoCreateTables bool = false
+
 @description('GitHub repository owner or organization for OIDC federation.')
-param githubOwner string = 'jeromeecho'
+param githubOwner string = 'huqianghui'
 
 @description('GitHub repository name for OIDC federation.')
 param githubRepo string = 'AI-Coach-vibe-coding'
 
 @description('GitHub branch allowed to deploy through OIDC.')
 param githubBranch string = 'main'
+
+@description('Optional GitHub Environment allowed to deploy through OIDC. When set, creates an additional federated credential with an environment subject.')
+param githubEnvironmentName string = environmentName
 
 @description('Default Azure OpenAI chat/scoring deployment name.')
 param chatDeploymentName string = 'gpt-4o'
@@ -73,41 +163,41 @@ param chatModelName string = 'gpt-4o'
 @description('Default Azure OpenAI chat/scoring model version. Confirm available versions in the target region before deployment.')
 param chatModelVersion string = '2024-11-20'
 
-@description('Default Azure OpenAI realtime / Voice Live deployment name.')
-param realtimeDeploymentName string = 'gpt-realtime-1-5'
-
-@description('Default Azure OpenAI realtime / Voice Live model name.')
-param realtimeModelName string = 'gpt-realtime-1.5'
-
-@description('Default Azure OpenAI realtime / Voice Live model version. Confirm available versions in the target region before deployment.')
-param realtimeModelVersion string = '2026-02-23'
-
-@description('Azure OpenAI realtime deployment SKU. Realtime preview often requires GlobalStandard even when chat deployments use Standard.')
 @allowed([
-  'GlobalStandard'
   'Standard'
+  'GlobalStandard'
+  'DataZoneStandard'
 ])
-param realtimeDeploymentSkuName string = 'GlobalStandard'
+@description('Azure OpenAI chat/scoring deployment SKU. Use GlobalStandard when regional Standard quota is constrained.')
+param chatDeploymentSkuName string = 'Standard'
 
-@description('Realtime deployment capacity allocation. Keep this within the remaining quota for the selected realtime model/SKU/region.')
 @minValue(1)
-param realtimeDeploymentCapacity int = 5
+@description('Default Azure OpenAI chat/scoring deployment capacity. For gpt-4o in Sweden Central, 120 maps to 120,000 TPM.')
+param chatDeploymentCapacity int = 120
 
 @description('Whether to include Azure AI / Foundry / OpenAI resources in the deployment.')
 param enableAzureAi bool = true
 
-@description('Whether to include Speech / Voice Live / Avatar resources in the deployment plan.')
-param enableVoiceAndAvatar bool = true
+@description('Whether to include Speech / Voice Live / Avatar resources in the deployment plan. fullLegacy also enables this for compatibility.')
+param enableVoiceAndAvatar bool = false
 
-@description('Whether to include Content Understanding resources in the deployment plan.')
-param enableContentUnderstanding bool = true
+@description('Whether to include Content Understanding resources in the deployment plan. fullLegacy also enables this for compatibility.')
+param enableContentUnderstanding bool = false
 
-@description('Whether to include Azure AI Search resources in the deployment plan.')
-param enableAiSearch bool = true
+@description('Whether to include Azure AI Search resources in the deployment plan. Prefer knowledgeBaseMode=azureAiSearch for new deployments.')
+param enableAiSearch bool = false
 
 var locationToken = replace(toLower(location), ' ', '')
-var resourceGroupName = 'rg-${namePrefix}-${environmentName}-${locationToken}'
+var effectiveFoundryLocation = empty(foundryLocation) ? location : foundryLocation
+var effectiveResourceGroupName = empty(resourceGroupName) ? 'rg-${namePrefix}-${environmentName}-${locationToken}' : resourceGroupName
 var deploymentName = '${namePrefix}-${environmentName}-${locationToken}'
+var isFullLegacyDeployment = deploymentMode == 'fullLegacy'
+var deployAzureAi = enableAzureAi || isFullLegacyDeployment
+var deployLegacyOpenAi = isFullLegacyDeployment
+var deployVoiceAndAvatar = enableVoiceAndAvatar || isFullLegacyDeployment
+var deployContentUnderstanding = enableContentUnderstanding || isFullLegacyDeployment
+var deployAiSearch = enableAiSearch || knowledgeBaseMode == 'azureAiSearch' || isFullLegacyDeployment
+var useAzureAdDatabaseAuth = backendDatabaseAuthMode == 'azureAd'
 var commonTags = union({
   project: 'ai-coach'
   environment: environmentName
@@ -119,7 +209,7 @@ var commonTags = union({
 })
 
 resource deploymentResourceGroup 'Microsoft.Resources/resourceGroups@2024-03-01' = {
-  name: resourceGroupName
+  name: effectiveResourceGroupName
   location: location
   tags: commonTags
 }
@@ -169,6 +259,11 @@ module keyVault './modules/key-vault.bicep' = {
     jwtSecret: jwtSecret
     encryptionKey: encryptionKey
     postgresAdminPassword: postgresAdminPassword
+    manageBootstrapSecrets: manageBootstrapSecrets
+    manageJwtSecret: manageJwtSecret
+    manageEncryptionKey: manageEncryptionKey
+    managePostgresPasswordSecret: managePostgresPasswordSecret
+    networkProfile: networkProfile
   }
 }
 
@@ -182,6 +277,21 @@ module postgresql './modules/postgresql.bicep' = {
     tags: commonTags
     administratorLogin: postgresAdminLogin
     administratorPassword: postgresAdminPassword
+    manageAdministratorPassword: managePostgresAdminPassword
+    activeDirectoryAuthEnabled: useAzureAdDatabaseAuth
+    networkProfile: networkProfile
+  }
+}
+
+module postgresqlEntraAdmin './modules/postgresql-entra-admin.bicep' = {
+  name: '${deploymentName}-postgresql-entra-admin'
+  scope: deploymentResourceGroup
+  params: {
+    serverName: postgresql.outputs.serverName
+    activeDirectoryAuthEnabled: useAzureAdDatabaseAuth
+    entraAdminLogin: postgresEntraAdminLogin
+    entraAdminSid: postgresEntraAdminObjectId
+    entraAdminPrincipalType: postgresEntraAdminPrincipalType
   }
 }
 
@@ -194,12 +304,36 @@ module storage './modules/storage.bicep' = {
     location: location
     tags: commonTags
     storageAccountName: storageAccountName
+    networkProfile: networkProfile
   }
+}
+
+module network './modules/network.bicep' = {
+ name: '${deploymentName}-network'
+ scope: deploymentResourceGroup
+ params: {
+   namePrefix: namePrefix
+   environmentName: environmentName
+   location: location
+   tags: commonTags
+   networkProfile: networkProfile
+   vnetName: vnetName
+   vnetAddressPrefix: vnetAddressPrefix
+   containerAppsSubnetPrefix: containerAppsSubnetPrefix
+   privateEndpointsSubnetPrefix: privateEndpointsSubnetPrefix
+  storageAccountId: storage.outputs.summary.storageAccountId
+  keyVaultId: keyVault.outputs.summary.vaultId
+  postgresqlServerId: postgresql.outputs.summary.serverId
+   foundryAccountId: deployAzureAi ? aiFoundry!.outputs.foundryAccountId : ''
+ }
 }
 
 module containerApps './modules/container-apps.bicep' = {
   name: '${deploymentName}-container-apps'
   scope: deploymentResourceGroup
+  dependsOn: [
+    roleAssignments
+  ]
   params: {
     namePrefix: namePrefix
     environmentName: environmentName
@@ -209,61 +343,60 @@ module containerApps './modules/container-apps.bicep' = {
     applicationInsightsConnectionString: monitoring.outputs.applicationInsightsConnectionString
     registryLoginServer: containerRegistry.outputs.registryLoginServer
     backendIdentityId: managedIdentity.outputs.backendIdentityId
+    backendIdentityName: managedIdentity.outputs.backendIdentityName
     backendIdentityClientId: managedIdentity.outputs.backendIdentityClientId
     backendImage: backendImage
     frontendImage: frontendImage
     postgresServerFqdn: postgresql.outputs.serverFqdn
     postgresDatabaseName: postgresql.outputs.databaseName
     postgresAdminLogin: postgresql.outputs.administratorLogin
+    keyVaultUri: keyVault.outputs.summary.vaultUri
     storageAccountBlobEndpoint: storage.outputs.blobEndpoint
     storageContainerName: 'materials'
     postgresAdminPassword: postgresAdminPassword
-    jwtSecret: jwtSecret
-    encryptionKey: encryptionKey
     corsOrigins: corsOrigins
+    backendDatabaseAuthMode: backendDatabaseAuthMode
+    azureServiceKeyStorage: azureServiceKeyStorage
+    databaseAutoCreateTables: databaseAutoCreateTables
+    networkProfile: networkProfile
+    managedEnvironmentInfrastructureSubnetId: network.outputs.infrastructureSubnetId
   }
 }
 
-module aiFoundry './modules/ai-foundry.bicep' = if (enableAzureAi) {
+module aiFoundry './modules/ai-foundry.bicep' = if (deployAzureAi) {
   name: '${deploymentName}-ai-foundry'
   scope: deploymentResourceGroup
   params: {
     namePrefix: namePrefix
     environmentName: environmentName
-    location: location
+    location: effectiveFoundryLocation
     tags: commonTags
     projectName: '${namePrefix}-${environmentName}'
     chatDeploymentName: chatDeploymentName
     chatModelName: chatModelName
     chatModelVersion: chatModelVersion
-    realtimeDeploymentName: realtimeDeploymentName
-    realtimeModelName: realtimeModelName
-    realtimeModelVersion: realtimeModelVersion
-    realtimeDeploymentSkuName: realtimeDeploymentSkuName
-    realtimeDeploymentCapacity: realtimeDeploymentCapacity
+    chatDeploymentSkuName: chatDeploymentSkuName
+    chatDeploymentCapacity: chatDeploymentCapacity
+    networkProfile: networkProfile
   }
 }
 
-module aiOpenAi './modules/ai-openai.bicep' = if (enableAzureAi) {
+module aiOpenAi './modules/ai-openai.bicep' = if (deployLegacyOpenAi) {
   name: '${deploymentName}-ai-openai'
   scope: deploymentResourceGroup
   params: {
     namePrefix: namePrefix
     environmentName: environmentName
-    location: location
+    location: effectiveFoundryLocation
     tags: commonTags
     chatDeploymentName: chatDeploymentName
     chatModelName: chatModelName
     chatModelVersion: chatModelVersion
-    realtimeDeploymentName: realtimeDeploymentName
-    realtimeModelName: realtimeModelName
-    realtimeModelVersion: realtimeModelVersion
-    realtimeDeploymentSkuName: realtimeDeploymentSkuName
-    realtimeDeploymentCapacity: realtimeDeploymentCapacity
+    chatDeploymentCapacity: chatDeploymentCapacity
   }
 }
 
-module speechAvatar './modules/speech-avatar.bicep' = if (enableVoiceAndAvatar) {
+module speechAvatar './modules/speech-avatar.bicep' = if (deployVoiceAndAvatar) {
   name: '${deploymentName}-speech-avatar'
   scope: deploymentResourceGroup
   params: {
@@ -271,22 +404,22 @@ module speechAvatar './modules/speech-avatar.bicep' = if (enableVoiceAndAvatar) 
     environmentName: environmentName
     location: location
     tags: commonTags
-    enableAvatar: enableVoiceAndAvatar
+    enableAvatar: deployVoiceAndAvatar
   }
 }
 
-module contentUnderstanding './modules/content-understanding.bicep' = if (enableContentUnderstanding) {
+module contentUnderstanding './modules/content-understanding.bicep' = if (deployContentUnderstanding) {
   name: '${deploymentName}-content-understanding'
   scope: deploymentResourceGroup
   params: {
     namePrefix: namePrefix
     environmentName: environmentName
-    location: location
+    location: effectiveFoundryLocation
     tags: commonTags
   }
 }
 
-module aiSearch './modules/ai-search.bicep' = if (enableAiSearch) {
+module aiSearch './modules/ai-search.bicep' = if (deployAiSearch) {
   name: '${deploymentName}-ai-search'
   scope: deploymentResourceGroup
   params: {
@@ -308,6 +441,7 @@ module githubOidc './modules/github-oidc.bicep' = {
     githubOwner: githubOwner
     githubRepo: githubRepo
     githubBranch: githubBranch
+    githubEnvironmentName: githubEnvironmentName
   }
 }
 
@@ -320,23 +454,31 @@ module roleAssignments './modules/role-assignments.bicep' = {
     location: location
     tags: commonTags
     backendIdentityPrincipalId: managedIdentity.outputs.backendIdentityPrincipalId
-    enableAzureAi: enableAzureAi
-    enableVoiceAndAvatar: enableVoiceAndAvatar
-    enableContentUnderstanding: enableContentUnderstanding
-    enableAiSearch: enableAiSearch
+    enableAzureAi: deployAzureAi
+    enableVoiceAndAvatar: deployVoiceAndAvatar
+    enableContentUnderstanding: deployContentUnderstanding
+    enableAiSearch: deployAiSearch
     githubDeploymentPrincipalId: githubOidc.outputs.githubDeploymentPrincipalId
   }
 }
 
-output resourceGroupName string = resourceGroupName
+output resourceGroupName string = effectiveResourceGroupName
 output location string = location
+output foundryLocation string = effectiveFoundryLocation
 output tenantId string = tenant().tenantId
 output containerRegistryName string = containerRegistry.outputs.summary.registryName
 output containerRegistryLoginServer string = containerRegistry.outputs.registryLoginServer
+output storageAccountName string = storage.outputs.summary.storageAccountName
+output storageBlobEndpoint string = storage.outputs.blobEndpoint
 output backendContainerAppName string = containerApps.outputs.backendAppName
+output backendBootstrapJobName string = containerApps.outputs.backendBootstrapJobName
 output frontendContainerAppName string = containerApps.outputs.frontendAppName
 output backendUrl string = containerApps.outputs.backendUrl
 output frontendUrl string = containerApps.outputs.frontendUrl
+output postgresServerFqdn string = postgresql.outputs.serverFqdn
+output postgresDatabaseName string = postgresql.outputs.databaseName
+output backendIdentityName string = managedIdentity.outputs.backendIdentityName
+output backendIdentityPrincipalId string = managedIdentity.outputs.backendIdentityPrincipalId
 output githubDeploymentClientId string = githubOidc.outputs.githubDeploymentClientId
 output deployment object = {
   monitoring: monitoring.outputs.summary
@@ -346,11 +488,22 @@ output deployment object = {
   postgresql: postgresql.outputs.summary
   storage: storage.outputs.summary
   containerApps: containerApps.outputs.summary
-  aiFoundry: enableAzureAi ? aiFoundry!.outputs.summary : null
-  aiOpenAi: enableAzureAi ? aiOpenAi!.outputs.summary : null
-  speechAvatar: enableVoiceAndAvatar ? speechAvatar!.outputs.summary : null
-  contentUnderstanding: enableContentUnderstanding ? contentUnderstanding!.outputs.summary : null
-  aiSearch: enableAiSearch ? aiSearch!.outputs.summary : null
+  profile: {
+    deploymentMode: deploymentMode
+    networkProfile: networkProfile
+    knowledgeBaseMode: knowledgeBaseMode
+    location: location
+    foundryLocation: effectiveFoundryLocation
+    enableAzureAi: deployAzureAi
+    enableVoiceAndAvatar: deployVoiceAndAvatar
+    enableContentUnderstanding: deployContentUnderstanding
+    enableAiSearch: deployAiSearch
+  }
+  aiFoundry: deployAzureAi ? aiFoundry!.outputs.summary : null
+  aiOpenAi: deployLegacyOpenAi ? aiOpenAi!.outputs.summary : null
+  speechAvatar: deployVoiceAndAvatar ? speechAvatar!.outputs.summary : null
+  contentUnderstanding: deployContentUnderstanding ? contentUnderstanding!.outputs.summary : null
+  aiSearch: deployAiSearch ? aiSearch!.outputs.summary : null
   githubOidc: githubOidc.outputs.summary
   roleAssignments: roleAssignments.outputs.summary
 }
@@ -359,6 +512,10 @@ output githubActions object = {
   AZURE_CLIENT_ID: githubOidc.outputs.githubDeploymentClientId
   AZURE_TENANT_ID: tenant().tenantId
   AZURE_SUBSCRIPTION_ID: subscription().subscriptionId
+  AZURE_RESOURCE_GROUP: effectiveResourceGroupName
   ACR_NAME: containerRegistry.outputs.summary.registryName
-  RESOURCE_GROUP: resourceGroupName
+  RESOURCE_GROUP: effectiveResourceGroupName
+  BACKEND_APP_NAME: containerApps.outputs.backendAppName
+  BACKEND_BOOTSTRAP_JOB_NAME: containerApps.outputs.backendBootstrapJobName
+  FRONTEND_APP_NAME: containerApps.outputs.frontendAppName
 }

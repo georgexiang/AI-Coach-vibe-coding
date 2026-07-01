@@ -7,6 +7,10 @@ from typing import TYPE_CHECKING, Any
 
 from app.models.hcp_profile import HcpProfile
 from app.models.scenario import Scenario
+from app.services.conference_prompt_config import (
+    normalize_conference_prompt_config,
+    render_prompt_template,
+)
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -190,14 +194,14 @@ def build_scoring_prompt(
     dim_json_examples = []
     for dim in rubric_dimensions:
         dim_json_examples.append(
-            f'    {{\n'
+            f"    {{\n"
             f'      "dimension": "{dim["name"]}",\n'
             f'      "score": <0-100>,\n'
             f'      "weight": {dim["weight"]},\n'
             f'      "strengths": [{{"text": "description", "quote": "quote or null"}}],\n'
             f'      "weaknesses": [{{"text": "description", "quote": "quote or null"}}],\n'
             f'      "suggestions": ["actionable suggestion"]\n'
-            f'    }}'
+            f"    }}"
         )
     dim_json_block = ",\n".join(dim_json_examples)
 
@@ -288,13 +292,14 @@ def build_conference_audience_prompt(
     presentation_topic: str,
     conversation_history: list[dict],
     other_hcp_questions: list[dict],
+    prompt_config: dict[str, Any] | None = None,
 ) -> str:
     """Build a system prompt for a specific HCP in a conference audience.
 
-    Each HCP generates questions based on:
+    Each HCP responds conversationally based on:
     1. Their personality and specialty
-    2. The MR's presentation content
-    3. Questions already asked by other HCPs (to avoid duplication)
+    2. The MR's latest input and conversation history
+    3. Questions and comments already raised by other HCPs (to avoid duplication)
     """
     hcp_name = hcp_config.get("name", "Doctor")
     specialty = hcp_config.get("specialty", "General Medicine")
@@ -317,57 +322,41 @@ def build_conference_audience_prompt(
     product = scenario.product if scenario else "the product"
     therapeutic_area = scenario.therapeutic_area if scenario else ""
 
-    prompt_parts = [
-        "# Conference Audience Role",
-        f"You are Dr. {hcp_name}, a {specialty} specialist attending a medical conference.",
-        f"You are a {role} member in the audience.",
-        "",
-        "# Personality",
-        personality_instruction,
-        "",
-        "# Presentation Context",
-        f"The Medical Representative is presenting about: {product}",
-    ]
+    config = normalize_conference_prompt_config(prompt_config)
+    history_lines = []
+    for msg in conversation_history[-10:]:
+        speaker = msg.get("speaker_name") or ("MR" if msg.get("role") == "user" else "HCP")
+        history_lines.append(f"{speaker}: {msg.get('content', '')}")
+    history_text = "\n".join(history_lines) or "No prior conversation."
 
-    if therapeutic_area:
-        prompt_parts.append(f"Therapeutic area: {therapeutic_area}")
-
-    if presentation_topic:
-        prompt_parts.append(f"Presentation topic: {presentation_topic}")
-
-    # Include conversation history
-    if conversation_history:
-        prompt_parts.extend(["", "# Conversation So Far"])
-        for msg in conversation_history[-10:]:
-            speaker = msg.get("speaker_name") or ("MR" if msg.get("role") == "user" else "HCP")
-            prompt_parts.append(f"{speaker}: {msg.get('content', '')}")
-
-    # Include other HCPs' questions to avoid duplication
-    if other_hcp_questions:
-        prompt_parts.extend(["", "# Questions Already Asked by Other Audience Members"])
-        for q in other_hcp_questions:
-            prompt_parts.append(f"- {q['hcp_name']}: {q['question']}")
-        prompt_parts.append(
-            "Do NOT repeat or closely paraphrase these questions. "
-            "You may follow up on them or ask about a different aspect."
+    other_question_lines = []
+    for question in other_hcp_questions:
+        other_question_lines.append(f"- {question['hcp_name']}: {question['question']}")
+    if other_question_lines:
+        other_question_lines.append(
+            "Do NOT repeat or closely paraphrase these questions. You may follow up on them "
+            "or ask about a different aspect."
         )
+    other_questions_text = "\n".join(other_question_lines) or "No other HCP questions yet."
 
-    prompt_parts.extend(
-        [
-            "",
-            "# Instructions",
-            "Based on the MR's presentation, generate a relevant question from your "
-            "perspective as a conference audience member.",
-            "- Your question should reflect your specialty and personality.",
-            "- If other HCPs have already asked similar questions, focus on a different angle.",
-            "- If you have no relevant question, respond with an empty string.",
-            "- Respond in the same language the MR uses (Chinese or English).",
-            "- Keep your question concise (1-3 sentences).",
-            "- Do NOT provide coaching feedback. You ARE a conference attendee.",
-        ]
+    return render_prompt_template(
+        config["audience_prompt_template"],
+        {
+            "hcp_name": hcp_name,
+            "specialty": specialty,
+            "personality_type": personality_type,
+            "role": role,
+            "speaker_order": hcp_config.get("sort_order", ""),
+            "speaker_priority": hcp_config.get("speaker_priority", "secondary"),
+            "speaker_order_policy": config["speaker_order_policy"],
+            "personality_instruction": personality_instruction,
+            "product": product,
+            "therapeutic_area": therapeutic_area,
+            "presentation_topic": presentation_topic,
+            "conversation_history": history_text,
+            "other_hcp_questions": other_questions_text,
+        },
     )
-
-    return "\n".join(prompt_parts)
 
 
 def build_conference_scoring_prompt(

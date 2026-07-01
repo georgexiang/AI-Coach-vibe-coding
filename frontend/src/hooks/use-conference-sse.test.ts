@@ -190,8 +190,16 @@ describe("useConferenceSSE", () => {
     const onQueueUpdate = vi.fn();
     const callbacks: ConferenceSSECallbacks = { onQueueUpdate };
 
-    const queue = [{ hcpProfileId: "hcp-1", hcpName: "Dr. X", question: "Why?", relevanceScore: 0.9, status: "waiting" }];
-    const sseData = `event: queue_update\ndata: ${JSON.stringify(queue)}\n\n`;
+    const queueApi = [
+      {
+        hcp_profile_id: "hcp-1",
+        hcp_name: "Dr. X",
+        question: "Why?",
+        relevance_score: 0.9,
+        status: "waiting",
+      },
+    ];
+    const sseData = `event: queue_update\ndata: ${JSON.stringify(queueApi)}\n\n`;
     globalThis.fetch = vi.fn().mockResolvedValue(
       createMockResponse([sseData]),
     );
@@ -205,7 +213,15 @@ describe("useConferenceSSE", () => {
       await new Promise((resolve) => setTimeout(resolve, 50));
     });
 
-    expect(onQueueUpdate).toHaveBeenCalledWith(queue);
+    expect(onQueueUpdate).toHaveBeenCalledWith([
+      {
+        hcpProfileId: "hcp-1",
+        hcpName: "Dr. X",
+        question: "Why?",
+        relevanceScore: 0.9,
+        status: "waiting",
+      },
+    ]);
   });
 
   it("should process hint events", async () => {

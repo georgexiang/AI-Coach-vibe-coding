@@ -218,7 +218,7 @@ class TestSkillFromMaterialsApi:
         data = response.json()
         assert data["materials_copied"] == 1
         assert "id" in data
-        assert data["status"] == "pending"
+        assert data["status"] == "processing"
 
     async def test_create_from_materials_empty_ids_rejected(self, client):
         _, token = await _create_admin_and_token("from_mat_empty_admin")

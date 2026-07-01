@@ -430,9 +430,7 @@ class TestGetVoiceLiveTokenHcpError:
             new_callable=AsyncMock,
             side_effect=Exception("DB error"),
         ):
-            result = await get_voice_live_token(
-                seeded_db, hcp_profile_id="bad-hcp-id"
-            )
+            result = await get_voice_live_token(seeded_db, hcp_profile_id="bad-hcp-id")
 
         # Should succeed with defaults
         assert result.endpoint

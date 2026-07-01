@@ -50,7 +50,7 @@
     "preview": "预览",
     "previewEmpty": "开始编写以查看预览...",
     "dropzoneTitle": "拖放培训材料到此处，或点击浏览",
-    "dropzoneHint": "支持 PDF、DOCX、PPTX、TXT、MD 格式。单文件最大 50MB，最多 10 个文件。",
+    "dropzoneHint": "支持 PDF、DOCX、PPTX、TXT、MD 格式。单文件最大 4MB，最多 10 个文件。",
     "selectedFiles": "已选文件 ({{count}})",
     "removeFile": "移除",
     "uploading": "正在上传...",
@@ -207,6 +207,15 @@
     "runCompleteToast": "模拟测试已启动，请查看报告了解详情。",
     "retry": "重试",
     "tabSopCoverage": "SOP 覆盖率",
+    "notEvaluated": "未评估",
+    "failedTitle": "模拟测试失败",
+    "status": {
+      "pending": "等待中",
+      "running": "运行中",
+      "completed": "已完成",
+      "failed": "失败",
+      "cancelled": "已取消"
+    },
     "errors": {
       "startFailed": "启动模拟测试失败"
     }

@@ -73,6 +73,7 @@ async def _load_connection_config(
     hcp_profile_id: str | None = None,
     system_prompt: str | None = None,
     vl_instance_id: str | None = None,
+    avatar_enabled: bool | None = None,
 ) -> dict[str, Any]:
     """Load all config needed for Azure Voice Live connection from DB.
 
@@ -130,18 +131,13 @@ async def _load_connection_config(
         "recognition_language": "zh,en",
     }
 
-    # Check avatar availability.
-    # Mark enabled if the config row is active. Auth can be either an API key
-    # (per-service or master) or AAD/DefaultAzureCredential (used when
-    # disableLocalAuth=true on the Foundry resource). The downstream Voice Live
-    # WebSocket proxy already obtains a Bearer token via DefaultAzureCredential
-    # when no API key is available, so requiring a non-empty key here would
-    # incorrectly disable avatar in AAD-only deployments.
+    # Check avatar defaults. In the Foundry/Voice Live flow, avatar is a Voice
+    # Live session modality and does not require a separate azure_avatar config
+    # row. Keep the row as an optional default-character override only.
     avatar_config = await config_service.get_config(db, "azure_avatar")
-    if avatar_config and avatar_config.is_active:
-        result["avatar_enabled"] = True
-        if avatar_config.model_or_deployment:
-            result["avatar_character"] = avatar_config.model_or_deployment
+    result["avatar_enabled"] = True
+    if avatar_config and avatar_config.is_active and avatar_config.model_or_deployment:
+        result["avatar_character"] = avatar_config.model_or_deployment
 
     # Per-HCP profile overrides -- config resolution: VoiceLiveInstance > inline fields
     if hcp_profile_id:
@@ -190,10 +186,7 @@ async def _load_connection_config(
 
             # Agent mode: hosted agent override takes priority over per-HCP classic agents.
             # If hosted agent is configured, use it for ALL agent-mode connections.
-            if (
-                _settings.voice_live_agent_mode_enabled
-                and _hosted_agent_name
-            ):
+            if _settings.voice_live_agent_mode_enabled and _hosted_agent_name:
                 result["use_agent_mode"] = True
                 result["agent_name"] = _hosted_agent_name
                 result["project_name"] = _hosted_agent_project
@@ -202,6 +195,7 @@ async def _load_connection_config(
             elif (
                 _settings.voice_live_agent_mode_enabled
                 and profile.agent_id
+                and profile.agent_id.startswith("asst_")
                 and profile.agent_sync_status == "synced"
             ):
                 master = await config_service.get_master_config(db)
@@ -299,6 +293,9 @@ async def _load_connection_config(
         if _hosted_agent_endpoint:
             result["endpoint"] = _hosted_agent_endpoint.rstrip("/")
 
+    if avatar_enabled is not None:
+        result["avatar_enabled"] = avatar_enabled
+
     return result
 
 
@@ -329,12 +326,15 @@ async def handle_voice_live_websocket(ws: WebSocket, db: AsyncSession) -> None:
         hcp_profile_id = session_data.get("hcp_profile_id")
         system_prompt = session_data.get("system_prompt")
         vl_instance_id = session_data.get("vl_instance_id")
+        avatar_enabled = session_data.get("avatar_enabled")
+        avatar_enabled_override = avatar_enabled if isinstance(avatar_enabled, bool) else None
 
         session_log.info(
-            "Session started: sid=%s, hcp=%s, vl_instance=%s",
+            "Session started: sid=%s, hcp=%s, vl_instance=%s, avatar_override=%s",
             sid,
             hcp_profile_id,
             vl_instance_id,
+            avatar_enabled_override,
         )
 
         # Step 2a: Check voice_live_enabled on the HCP profile (if provided)
@@ -360,6 +360,7 @@ async def handle_voice_live_websocket(ws: WebSocket, db: AsyncSession) -> None:
                 hcp_profile_id,
                 system_prompt,
                 vl_instance_id,
+                avatar_enabled_override,
             )
         except ValueError as e:
             await _send_error(ws, str(e))
@@ -395,6 +396,7 @@ async def handle_voice_live_websocket(ws: WebSocket, db: AsyncSession) -> None:
             credential = AzureKeyCredential(api_key)
         else:
             from azure.identity.aio import DefaultAzureCredential
+
             credential = DefaultAzureCredential()
 
         # Build session config -- modalities and audio/voice settings
@@ -493,16 +495,6 @@ async def handle_voice_live_websocket(ws: WebSocket, db: AsyncSession) -> None:
                 [str(m) for m in modalities],
             )
 
-            # Import AgentSessionConfig for agent mode
-            try:
-                from azure.ai.voicelive.aio import AgentSessionConfig
-            except ImportError:
-                await _send_error(
-                    ws,
-                    "azure-ai-voicelive SDK >= 1.2.0b5 required for agent mode",
-                )
-                return
-
             # Determine if this is a hosted agent (name-based) or classic agent (asst_* ID)
             _is_hosted_agent = not agent_name.startswith("asst_")
 
@@ -510,11 +502,14 @@ async def handle_voice_live_websocket(ws: WebSocket, db: AsyncSession) -> None:
                 # Hosted agent: SDK natively supports /voice-live/realtime + agent-name=
                 # Use DefaultAzureCredential (hosted agent endpoints require Entra auth)
                 from azure.identity.aio import DefaultAzureCredential as _DAC
+
                 _agent_credential = _DAC()
 
                 session_log.info(
                     "Connecting to hosted agent: name=%s, project=%s, endpoint=%s",
-                    agent_name, project_name, cfg["endpoint"],
+                    agent_name,
+                    project_name,
+                    cfg["endpoint"],
                 )
 
                 try:
@@ -522,10 +517,8 @@ async def handle_voice_live_websocket(ws: WebSocket, db: AsyncSession) -> None:
                         endpoint=cfg["endpoint"],
                         credential=_agent_credential,
                         api_version="2026-01-01-preview",
-                        agent_config=AgentSessionConfig(
-                            agent_name=agent_name,
-                            project_name=project_name,
-                        ),
+                        agent_name=agent_name,
+                        project_name=project_name,
                     ) as azure_conn:
                         await azure_conn.session.update(session=session_config)
                         session_log.info("Connected to hosted agent, session config sent")
@@ -559,6 +552,7 @@ async def handle_voice_live_websocket(ws: WebSocket, db: AsyncSession) -> None:
                 _apply_voice_agent_patch()
 
                 from azure.identity.aio import DefaultAzureCredential as _DAC
+
                 _ai_cred = _DAC()
                 try:
                     _ai_token_obj = await _ai_cred.get_token("https://ai.azure.com/.default")
@@ -570,10 +564,8 @@ async def handle_voice_live_websocket(ws: WebSocket, db: AsyncSession) -> None:
                     endpoint=cfg["endpoint"],
                     credential=credential,
                     api_version="2025-05-01-preview",
-                    agent_config=AgentSessionConfig(
-                        agent_name=agent_name,
-                        project_name=project_name,
-                    ),
+                    agent_name=agent_name,
+                    project_name=project_name,
                     query={"agent_access_token": _agent_access_token},
                     credential_scopes=["https://cognitiveservices.azure.com/.default"],
                 ) as azure_conn:

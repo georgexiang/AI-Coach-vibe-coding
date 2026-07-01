@@ -39,7 +39,12 @@ export function useVoiceLive(options: VoiceLiveOptions) {
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectAttemptRef = useRef(0);
   const intentionalCloseRef = useRef(false);
-  const lastConnectArgsRef = useRef<{ hcpProfileId?: string; systemPrompt?: string; vlInstanceId?: string } | null>(null);
+  const lastConnectArgsRef = useRef<{
+    hcpProfileId?: string;
+    systemPrompt?: string;
+    vlInstanceId?: string;
+    avatarEnabled?: boolean;
+  } | null>(null);
 
   /** Ref for external avatar SDP answer callback (set by voice-session.tsx). */
   const avatarSdpCallbackRef = useRef<((serverSdp: string) => void) | null>(
@@ -51,13 +56,18 @@ export function useVoiceLive(options: VoiceLiveOptions) {
    * @returns avatarEnabled, model name, and ICE servers for avatar WebRTC.
    */
   const connect = useCallback(
-    async (hcpProfileId?: string, systemPrompt?: string, vlInstanceId?: string) => {
+    async (
+      hcpProfileId?: string,
+      systemPrompt?: string,
+      vlInstanceId?: string,
+      avatarEnabled?: boolean,
+    ) => {
       const sid = crypto.randomUUID().slice(0, 8);
       setSessionCorrelationId(sid);
       resetEventSummary();
       log.info("connect() hcpProfileId=%s vlInstanceId=%s sid=%s", hcpProfileId, vlInstanceId, sid);
 
-      lastConnectArgsRef.current = { hcpProfileId, systemPrompt, vlInstanceId };
+      lastConnectArgsRef.current = { hcpProfileId, systemPrompt, vlInstanceId, avatarEnabled };
       reconnectAttemptRef.current = 0;
       intentionalCloseRef.current = false;
       setConnectionState("connecting");
@@ -92,6 +102,7 @@ export function useVoiceLive(options: VoiceLiveOptions) {
                 session: {
                   ...(hcpProfileId ? { hcp_profile_id: hcpProfileId } : {}),
                   ...(vlInstanceId ? { vl_instance_id: vlInstanceId } : {}),
+                  ...(avatarEnabled !== undefined ? { avatar_enabled: avatarEnabled } : {}),
                   system_prompt:
                     systemPrompt || optionsRef.current.systemPrompt,
                 },
@@ -389,7 +400,12 @@ export function useVoiceLive(options: VoiceLiveOptions) {
               reconnectTimerRef.current = setTimeout(() => {
                 const args = lastConnectArgsRef.current;
                 if (args) {
-                  void connect(args.hcpProfileId, args.systemPrompt, args.vlInstanceId).catch(() => {
+                  void connect(
+                    args.hcpProfileId,
+                    args.systemPrompt,
+                    args.vlInstanceId,
+                    args.avatarEnabled,
+                  ).catch(() => {
                     // Reconnect failed — will be retried by the next onclose
                   });
                 }

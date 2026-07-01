@@ -33,10 +33,13 @@ Current local Bicep releases may show `BCP081` warnings because the type library
 
 ## Network posture
 
-The first deployment is public Demo/PoC networking:
+The deployment supports two network profiles:
 
-- Container Apps have external ingress.
-- ACR, Key Vault, Storage, PostgreSQL, and AI services use public network access.
-- PostgreSQL includes an Azure-services firewall rule.
+| Profile | Ingress | Private networking |
+|---|---|---|
+| `publicDemo` | Frontend and backend Container Apps have external ingress. | ACR, Key Vault, Storage, PostgreSQL, and AI services use public network access for demo testing. |
+| `privateBackend` | Frontend remains public; backend Container App uses internal ingress. | Container Apps Environment is VNet-integrated. Storage Blob, Key Vault, PostgreSQL, and Foundry data-plane use private endpoints. |
 
-Production hardening should add private endpoints, VNet integration, restricted ingress, environment-specific CORS, tighter firewall rules, and a migration strategy before go-live.
+`privateBackend` creates private DNS zones and VNet links for Storage Blob, Key Vault, PostgreSQL, and Foundry Tools. The Foundry private endpoint is associated with `privatelink.cognitiveservices.azure.com`, `privatelink.openai.azure.com`, and `privatelink.services.ai.azure.com`, because current app paths can use both `cognitiveservices.azure.com` and `services.ai.azure.com`.
+
+Remaining production hardening should review ACR private image pull, Azure Monitor Private Link, environment-specific CORS, backup/restore, and migration strategy before go-live.

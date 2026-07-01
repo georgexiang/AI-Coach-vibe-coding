@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { useSpeechInput } from "@/hooks/use-speech";
-import { useConfig } from "@/contexts/config-context";
+import { toast } from "sonner";
+import { useStreamingSpeechInput, useTextToSpeech } from "@/hooks/use-speech";
 import {
   Dialog,
   DialogContent,
@@ -57,6 +57,7 @@ export default function ConferenceSession() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const sessionId = searchParams.get("id") ?? "";
+  const hasRequestedStartRef = useRef(false);
 
   // Fetch session
   const { data: session } = useConferenceSession(sessionId || undefined);
@@ -71,12 +72,12 @@ export default function ConferenceSession() {
   const [currentSpeaker, setCurrentSpeaker] = useState("");
   const [leftCollapsed, setLeftCollapsed] = useState(false);
   const [rightCollapsed, setRightCollapsed] = useState(false);
-  const [voiceEnabled, setVoiceEnabled] = useState(false);
-  const config = useConfig();
+  const [inputMode, setInputMode] = useState<"text" | "audio">("text");
   const [showEndDialog, setShowEndDialog] = useState(false);
   const [keyTopics, setKeyTopics] = useState<
     Array<{ message: string; delivered: boolean }>
   >([]);
+  const { speak, stop: stopSpeaking } = useTextToSpeech();
 
   // Session timer
   const [sessionTime, setSessionTime] = useState("00:00");
@@ -165,6 +166,9 @@ export default function ConferenceSession() {
         };
         setMessages((prev) => [...prev, msg]);
         setCurrentSpeaker(data.speaker_name);
+        if (inputMode === "audio") {
+          void speak(data.content);
+        }
       },
       onQueueUpdate: (queue: QueuedQuestion[]) => {
         setQuestionQueue(queue);
@@ -212,17 +216,26 @@ export default function ConferenceSession() {
       },
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [speakerMap],
+    [speakerMap, inputMode, speak],
   );
+
+  useEffect(() => () => stopSpeaking(), [stopSpeaking]);
 
   const { sendMessage, isStreaming, streamedText } = useConferenceSSE(
     sessionId,
     sseCallbacks,
   );
 
+  useEffect(() => {
+    if (!sessionId || !session || hasRequestedStartRef.current) return;
+    hasRequestedStartRef.current = true;
+    sendMessage("start", "");
+  }, [sessionId, session, sendMessage]);
+
   // Handlers
-  const handlePresent = useCallback(
+  const handleConferenceInput = useCallback(
     (text: string) => {
+      const pendingQuestion = questionQueue[0];
       const userMsg: ChatMessage = {
         id: `mr-${Date.now()}`,
         sender: "mr",
@@ -230,23 +243,41 @@ export default function ConferenceSession() {
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, userMsg]);
+
+      if (pendingQuestion) {
+        setQuestionQueue((prev) =>
+          prev.map((q, index) =>
+            index === 0 ? { ...q, status: "active" as const } : q,
+          ),
+        );
+        sendMessage("respond", text, pendingQuestion.hcpProfileId);
+        return;
+      }
+
       sendMessage("present", text);
     },
-    [sendMessage],
+    [questionQueue, sendMessage],
   );
 
   // Speech input for conference mic
   const handleSpeechTranscribed = useCallback(
     (text: string) => {
-      handlePresent(text);
+      handleConferenceInput(text);
     },
-    [handlePresent],
+    [handleConferenceInput],
   );
   const {
     startRecording,
     stopRecording,
     recordingState,
-  } = useSpeechInput(handleSpeechTranscribed);
+    error: speechError,
+  } = useStreamingSpeechInput(handleSpeechTranscribed);
+
+  useEffect(() => {
+    if (speechError) {
+      toast.error(speechError);
+    }
+  }, [speechError]);
 
   const handleConferenceMicClick = useCallback(() => {
     if (recordingState === "recording") {
@@ -283,15 +314,11 @@ export default function ConferenceSession() {
     setShowEndDialog(false);
     try {
       await endSessionMutation.mutateAsync(sessionId);
-      navigate(`/user/scoring?id=${sessionId}`);
+      navigate(`/user/scoring/${sessionId}`);
     } catch {
-      // Error handled by mutation
+      toast.error(t("error.endFailed"));
     }
-  }, [sessionId, endSessionMutation, navigate]);
-
-  const handleVoiceToggle = useCallback((enabled: boolean) => {
-    setVoiceEnabled(enabled);
-  }, []);
+  }, [sessionId, endSessionMutation, navigate, t]);
 
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-background">
@@ -300,9 +327,6 @@ export default function ConferenceSession() {
         session={session}
         subState={subState}
         onEndSession={handleEndSession}
-        onVoiceToggle={handleVoiceToggle}
-        voiceEnabled={voiceEnabled}
-        featureVoiceEnabled={config.voice_enabled}
         sessionTime={sessionTime}
       />
 
@@ -317,14 +341,15 @@ export default function ConferenceSession() {
 
         <ConferenceStage
           sessionId={sessionId}
-          onSendMessage={handlePresent}
+          onSendMessage={handleConferenceInput}
           isStreaming={isStreaming}
           streamedText={streamedText}
           currentSpeaker={currentSpeaker}
           avatarEnabled={true}
           featureAvatarEnabled={false}
           messages={messages}
-          inputMode={voiceEnabled ? "audio" : "text"}
+          inputMode={inputMode}
+          onInputModeChange={setInputMode}
           onMicClick={handleConferenceMicClick}
           recordingState={recordingState}
           disabled={session?.status === "completed"}

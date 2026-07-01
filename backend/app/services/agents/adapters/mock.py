@@ -207,7 +207,7 @@ class MockCoachingAdapter(BaseCoachingAdapter):
     def _extract_product(self, scenario_context: str) -> str:
         """Extract product name from scenario context."""
         for line in scenario_context.split("\n"):
-            if "Product under discussion:" in line:
+            if "Product under discussion:" in line or "presenting about:" in line:
                 return line.split(":", 1)[1].strip()
         return "the product"
 

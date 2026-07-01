@@ -70,4 +70,6 @@ backend/test_avatar_direct.py
 frontend/e2e/screenshots/
 
 docs/
+!infra/azure/docs/
+!infra/azure/docs/**
 backend/data/

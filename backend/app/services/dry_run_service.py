@@ -101,9 +101,7 @@ async def delete_dry_run(db: AsyncSession, dry_run_id: str, skill_id: str) -> No
         not_found("Dry run not found for this skill")
 
     if dry_run.status in ("pending", "running"):
-        bad_request(
-            "Cannot delete a running dry run. Cancel it first."
-        )
+        bad_request("Cannot delete a running dry run. Cancel it first.")
 
     await db.delete(dry_run)
     await db.flush()

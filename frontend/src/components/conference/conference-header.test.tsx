@@ -38,9 +38,6 @@ describe("ConferenceHeader", () => {
     session: makeSession(),
     subState: "presenting" as ConferenceSubState,
     onEndSession: vi.fn(),
-    onVoiceToggle: vi.fn(),
-    voiceEnabled: false,
-    featureVoiceEnabled: true,
     sessionTime: "05:30",
   };
 
@@ -82,29 +79,9 @@ describe("ConferenceHeader", () => {
     expect(onEndSession).toHaveBeenCalledTimes(1);
   });
 
-  it("renders voice toggle when featureVoiceEnabled is true", () => {
-    render(<ConferenceHeader {...defaultProps} featureVoiceEnabled={true} />);
-    expect(screen.getByText("voiceMode")).toBeInTheDocument();
-    expect(screen.getByRole("switch")).toBeInTheDocument();
-  });
-
-  it("does not render voice toggle when featureVoiceEnabled is false", () => {
-    render(<ConferenceHeader {...defaultProps} featureVoiceEnabled={false} />);
+  it("does not render the legacy voice toggle", () => {
+    render(<ConferenceHeader {...defaultProps} />);
     expect(screen.queryByText("voiceMode")).not.toBeInTheDocument();
     expect(screen.queryByRole("switch")).not.toBeInTheDocument();
-  });
-
-  it("calls onVoiceToggle when switch is toggled", async () => {
-    const onVoiceToggle = vi.fn();
-    render(
-      <ConferenceHeader
-        {...defaultProps}
-        onVoiceToggle={onVoiceToggle}
-        voiceEnabled={false}
-      />,
-    );
-    const toggle = screen.getByRole("switch");
-    await userEvent.click(toggle);
-    expect(onVoiceToggle).toHaveBeenCalledWith(true);
   });
 });

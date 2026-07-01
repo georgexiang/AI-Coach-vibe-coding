@@ -15,7 +15,8 @@ export function useTriggerScoring() {
     mutationFn: (sessionId: string) => triggerScoring(sessionId),
     onSuccess: (_data, sessionId) => {
       queryClient.invalidateQueries({ queryKey: ["scoring", sessionId] });
-      queryClient.invalidateQueries({ queryKey: ["sessions", sessionId] });
+      queryClient.invalidateQueries({ queryKey: ["scoring", "history"] });
+      queryClient.invalidateQueries({ queryKey: ["sessions"] });
     },
   });
 }

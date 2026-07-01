@@ -12,6 +12,7 @@ from app.models.scenario import Scenario
 from app.models.skill import Skill, SkillVersion
 from app.schemas.scenario import ScenarioCreate, ScenarioUpdate
 from app.services import hcp_profile_service
+from app.services.conference_prompt_config import normalize_conference_prompt_config
 from app.utils.exceptions import bad_request, not_found
 
 logger = logging.getLogger(__name__)
@@ -78,11 +79,7 @@ async def _reload_with_hcp(db: AsyncSession, scenario_id: str) -> Scenario:
     """Re-load a scenario with eagerly-loaded HCP profile after a mutation."""
     result = await db.execute(
         select(Scenario)
-        .options(
-            selectinload(Scenario.hcp_profile).selectinload(
-                HcpProfile.voice_live_instance
-            )
-        )
+        .options(selectinload(Scenario.hcp_profile).selectinload(HcpProfile.voice_live_instance))
         .where(Scenario.id == scenario_id)
     )
     return result.scalar_one()
@@ -101,6 +98,10 @@ async def create_scenario(db: AsyncSession, data: ScenarioCreate, user_id: str) 
         scenario_data["key_messages"] = json.dumps(scenario_data["key_messages"])
     if isinstance(scenario_data.get("tags"), list):
         scenario_data["tags"] = json.dumps(scenario_data["tags"])
+    if "conference_prompt_config" in scenario_data:
+        scenario_data["conference_prompt_config"] = json.dumps(
+            normalize_conference_prompt_config(scenario_data["conference_prompt_config"])
+        )
 
     # Validate and pin skill version
     skill_id, skill_version_id = await _validate_and_pin_skill(db, scenario_data.get("skill_id"))
@@ -172,11 +173,7 @@ async def get_scenario(db: AsyncSession, scenario_id: str) -> Scenario:
     """Get a single scenario with eager-loaded HCP profile. Raises 404 if not found."""
     result = await db.execute(
         select(Scenario)
-        .options(
-            selectinload(Scenario.hcp_profile).selectinload(
-                HcpProfile.voice_live_instance
-            )
-        )
+        .options(selectinload(Scenario.hcp_profile).selectinload(HcpProfile.voice_live_instance))
         .where(Scenario.id == scenario_id)
     )
     scenario = result.scalar_one_or_none()
@@ -224,6 +221,10 @@ async def update_scenario(db: AsyncSession, scenario_id: str, data: ScenarioUpda
         update_data["key_messages"] = json.dumps(update_data["key_messages"])
     if "tags" in update_data and isinstance(update_data["tags"], list):
         update_data["tags"] = json.dumps(update_data["tags"])
+    if "conference_prompt_config" in update_data:
+        update_data["conference_prompt_config"] = json.dumps(
+            normalize_conference_prompt_config(update_data["conference_prompt_config"])
+        )
 
     # If HCP profile ID is being changed, verify the new one exists
     if "hcp_profile_id" in update_data:
@@ -271,6 +272,7 @@ async def clone_scenario(db: AsyncSession, scenario_id: str, user_id: str) -> Sc
         status="draft",
         hcp_profile_id=original.hcp_profile_id,
         key_messages=original.key_messages,
+        conference_prompt_config=original.conference_prompt_config,
         skill_id=original.skill_id,
         skill_version_id=original.skill_version_id,
         rubric_id=original.rubric_id,

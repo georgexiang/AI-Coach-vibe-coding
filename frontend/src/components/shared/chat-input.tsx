@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 interface ChatInputProps {
   onSend: (text: string) => void;
   inputMode: "text" | "audio";
+  onInputModeChange?: (mode: "text" | "audio") => void;
   onMicClick: () => void;
   recordingState: "idle" | "recording" | "processing";
   disabled?: boolean;
@@ -22,6 +23,7 @@ interface ChatInputProps {
 export function ChatInput({
   onSend,
   inputMode,
+  onInputModeChange,
   onMicClick,
   recordingState,
   disabled = false,
@@ -127,7 +129,7 @@ export function ChatInput({
               ? "bg-primary text-primary-foreground"
               : "text-muted-foreground hover:text-foreground",
           )}
-          onClick={() => inputMode !== "text" && onMicClick()}
+          onClick={() => inputMode !== "text" && onInputModeChange?.("text")}
         >
           {t("textMode")}
         </button>
@@ -139,7 +141,7 @@ export function ChatInput({
               ? "bg-primary text-primary-foreground"
               : "text-muted-foreground hover:text-foreground",
           )}
-          onClick={() => inputMode !== "audio" && onMicClick()}
+          onClick={() => inputMode !== "audio" && onInputModeChange?.("audio")}
         >
           {t("audioMode")}
         </button>
