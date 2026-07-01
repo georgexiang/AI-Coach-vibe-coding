@@ -25,6 +25,14 @@ interface StreamingSpeechMessage {
   message?: string;
 }
 
+interface StreamingSpeechOptions {
+  autoStopOnSilence?: boolean;
+  silenceMs?: number;
+  voiceThreshold?: number;
+  minSpeechMs?: number;
+  noSpeechTimeoutMs?: number;
+}
+
 /**
  * Hook for speech input via microphone recording + STT transcription.
  * Records audio using MediaRecorder, sends to backend /speech/transcribe,
@@ -117,6 +125,7 @@ export function useSpeechInput(
 export function useStreamingSpeechInput(
   onTranscribed: (text: string) => void,
   language: string = "zh-CN",
+  options: StreamingSpeechOptions = {},
 ): UseSpeechInputReturn {
   const fallback = useSpeechInput(onTranscribed, language);
   const [recordingState, setRecordingState] = useState<RecordingState>("idle");
@@ -129,6 +138,17 @@ export function useStreamingSpeechInput(
   const gainRef = useRef<GainNode | null>(null);
   const usingFallbackRef = useRef(false);
   const finalTranscriptRef = useRef("");
+  const stopRequestedRef = useRef(false);
+  const hasSpeechRef = useRef(false);
+  const speechStartedAtRef = useRef<number | null>(null);
+  const silenceStartedAtRef = useRef<number | null>(null);
+  const recordingStartedAtRef = useRef<number | null>(null);
+
+  const autoStopOnSilence = options.autoStopOnSilence ?? false;
+  const silenceMs = options.silenceMs ?? 900;
+  const voiceThreshold = options.voiceThreshold ?? 0.02;
+  const minSpeechMs = options.minSpeechMs ?? 450;
+  const noSpeechTimeoutMs = options.noSpeechTimeoutMs ?? 15000;
 
   const cleanupAudio = useCallback(() => {
     processorRef.current?.disconnect();
@@ -146,6 +166,18 @@ export function useStreamingSpeechInput(
     }
   }, []);
 
+  const requestStreamStop = useCallback((ws: WebSocket) => {
+    if (stopRequestedRef.current) return;
+    stopRequestedRef.current = true;
+    cleanupAudio();
+    if (ws.readyState === WebSocket.OPEN) {
+      setRecordingState("processing");
+      ws.send(JSON.stringify({ type: "stop" }));
+      return;
+    }
+    setRecordingState("idle");
+  }, [cleanupAudio]);
+
   const startAudioPipeline = useCallback(async (ws: WebSocket) => {
     const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
     if (!AudioContextCtor) throw new Error("当前浏览器不支持语音录制。");
@@ -162,9 +194,33 @@ export function useStreamingSpeechInput(
     const gain = audioContext.createGain();
     gain.gain.value = 0;
 
+    recordingStartedAtRef.current = Date.now();
+
     processor.onaudioprocess = (event) => {
       if (ws.readyState !== WebSocket.OPEN) return;
       const input = event.inputBuffer.getChannelData(0);
+      if (autoStopOnSilence) {
+        const now = Date.now();
+        const level = getAudioLevel(input);
+        if (level >= voiceThreshold) {
+          hasSpeechRef.current = true;
+          speechStartedAtRef.current ??= now;
+          silenceStartedAtRef.current = null;
+        } else if (hasSpeechRef.current) {
+          silenceStartedAtRef.current ??= now;
+          const speechDuration = now - (speechStartedAtRef.current ?? now);
+          if (speechDuration >= minSpeechMs && now - silenceStartedAtRef.current >= silenceMs) {
+            requestStreamStop(ws);
+            return;
+          }
+        } else if (
+          recordingStartedAtRef.current &&
+          now - recordingStartedAtRef.current >= noSpeechTimeoutMs
+        ) {
+          requestStreamStop(ws);
+          return;
+        }
+      }
       ws.send(encodePcm16(downsample(input, audioContext.sampleRate, STT_SAMPLE_RATE)));
     };
 
@@ -178,7 +234,7 @@ export function useStreamingSpeechInput(
     processorRef.current = processor;
     gainRef.current = gain;
     setRecordingState("recording");
-  }, []);
+  }, [autoStopOnSilence, minSpeechMs, noSpeechTimeoutMs, requestStreamStop, silenceMs, voiceThreshold]);
 
   const startFallbackRecording = useCallback(async () => {
     usingFallbackRef.current = true;
@@ -189,6 +245,11 @@ export function useStreamingSpeechInput(
     setError(null);
     finalTranscriptRef.current = "";
     usingFallbackRef.current = false;
+    stopRequestedRef.current = false;
+    hasSpeechRef.current = false;
+    speechStartedAtRef.current = null;
+    silenceStartedAtRef.current = null;
+    recordingStartedAtRef.current = null;
 
     if (typeof WebSocket === "undefined") {
       await startFallbackRecording();
@@ -268,14 +329,13 @@ export function useStreamingSpeechInput(
       fallback.stopRecording();
       return;
     }
-    cleanupAudio();
     if (wsRef.current?.readyState === WebSocket.OPEN) {
-      setRecordingState("processing");
-      wsRef.current.send(JSON.stringify({ type: "stop" }));
+      requestStreamStop(wsRef.current);
       return;
     }
+    cleanupAudio();
     setRecordingState("idle");
-  }, [cleanupAudio, fallback]);
+  }, [cleanupAudio, fallback, requestStreamStop]);
 
   if (usingFallbackRef.current) {
     return {
@@ -391,6 +451,15 @@ function encodePcm16(samples: Float32Array): ArrayBuffer {
   return buffer;
 }
 
+function getAudioLevel(samples: Float32Array): number {
+  if (samples.length === 0) return 0;
+  let sum = 0;
+  for (let index = 0; index < samples.length; index += 1) {
+    sum += Math.abs(samples[index] ?? 0);
+  }
+  return sum / samples.length;
+}
+
 function writeAscii(view: DataView, offset: number, value: string): void {
   for (let index = 0; index < value.length; index += 1) {
     view.setUint8(offset + index, value.charCodeAt(index));
@@ -403,6 +472,10 @@ interface UseTextToSpeechReturn {
   isSpeaking: boolean;
 }
 
+interface UseTextToSpeechOptions {
+  queue?: boolean;
+}
+
 /**
  * Hook for TTS playback of AI responses.
  * Sends text to backend /speech/synthesize and plays the returned audio.
@@ -410,28 +483,93 @@ interface UseTextToSpeechReturn {
 export function useTextToSpeech(
   language: string = "zh-CN",
   voice?: string,
+  options: UseTextToSpeechOptions = {},
 ): UseTextToSpeechReturn {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const urlRef = useRef<string | null>(null);
+  const queueRef = useRef<string[]>([]);
+  const queuePlayingRef = useRef(false);
+  const playbackGenerationRef = useRef(0);
+  const shouldQueue = options.queue ?? false;
+
+  const cleanupCurrentAudio = useCallback(() => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+    if (urlRef.current) {
+      URL.revokeObjectURL(urlRef.current);
+      urlRef.current = null;
+    }
+  }, []);
+
+  const playNextQueued = useCallback(async () => {
+    if (queuePlayingRef.current) return;
+
+    const nextText = queueRef.current.shift();
+    if (!nextText) {
+      setIsSpeaking(false);
+      return;
+    }
+
+    queuePlayingRef.current = true;
+    const generation = playbackGenerationRef.current;
+
+    try {
+      setIsSpeaking(true);
+      const audioBlob = await synthesizeSpeech(nextText, language, voice);
+      if (generation !== playbackGenerationRef.current) return;
+
+      const url = URL.createObjectURL(audioBlob);
+      urlRef.current = url;
+
+      const audio = new Audio(url);
+      audioRef.current = audio;
+
+      const finish = () => {
+        if (urlRef.current === url) {
+          URL.revokeObjectURL(url);
+          urlRef.current = null;
+        }
+        if (audioRef.current === audio) {
+          audioRef.current = null;
+        }
+        queuePlayingRef.current = false;
+        void playNextQueued();
+      };
+
+      audio.onended = finish;
+      audio.onerror = finish;
+
+      await audio.play();
+    } catch {
+      queuePlayingRef.current = false;
+      void playNextQueued();
+    }
+  }, [language, voice]);
 
   const speak = useCallback(
     async (text: string) => {
-      if (!text.trim()) return;
+      const trimmed = text.trim();
+      if (!trimmed) return;
+
+      if (shouldQueue) {
+        queueRef.current.push(trimmed);
+        void playNextQueued();
+        return;
+      }
 
       // Stop any current playback
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
-      }
-      if (urlRef.current) {
-        URL.revokeObjectURL(urlRef.current);
-        urlRef.current = null;
-      }
+      cleanupCurrentAudio();
+      playbackGenerationRef.current += 1;
+      const generation = playbackGenerationRef.current;
 
       try {
         setIsSpeaking(true);
-        const audioBlob = await synthesizeSpeech(text, language, voice);
+        const audioBlob = await synthesizeSpeech(trimmed, language, voice);
+        if (generation !== playbackGenerationRef.current) return;
+
         const url = URL.createObjectURL(audioBlob);
         urlRef.current = url;
 
@@ -454,20 +592,16 @@ export function useTextToSpeech(
         setIsSpeaking(false);
       }
     },
-    [language, voice],
+    [cleanupCurrentAudio, language, playNextQueued, shouldQueue, voice],
   );
 
   const stop = useCallback(() => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current = null;
-    }
-    if (urlRef.current) {
-      URL.revokeObjectURL(urlRef.current);
-      urlRef.current = null;
-    }
+    playbackGenerationRef.current += 1;
+    queueRef.current = [];
+    queuePlayingRef.current = false;
+    cleanupCurrentAudio();
     setIsSpeaking(false);
-  }, []);
+  }, [cleanupCurrentAudio]);
 
   return { speak, stop, isSpeaking };
 }

@@ -57,6 +57,7 @@ export default function ConferenceSession() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const sessionId = searchParams.get("id") ?? "";
+  const initialInputMode = searchParams.get("inputMode") === "audio" ? "audio" : "text";
   const hasRequestedStartRef = useRef(false);
 
   // Fetch session
@@ -72,12 +73,17 @@ export default function ConferenceSession() {
   const [currentSpeaker, setCurrentSpeaker] = useState("");
   const [leftCollapsed, setLeftCollapsed] = useState(false);
   const [rightCollapsed, setRightCollapsed] = useState(false);
-  const [inputMode, setInputMode] = useState<"text" | "audio">("text");
+  const [inputMode, setInputMode] = useState<"text" | "audio">(initialInputMode);
   const [showEndDialog, setShowEndDialog] = useState(false);
   const [keyTopics, setKeyTopics] = useState<
     Array<{ message: string; delivered: boolean }>
   >([]);
-  const { speak, stop: stopSpeaking } = useTextToSpeech();
+  const { speak, stop: stopSpeaking, isSpeaking } = useTextToSpeech("zh-CN", undefined, {
+    queue: true,
+  });
+  const startRecordingRef = useRef<() => Promise<void>>(async () => {});
+  const stopRecordingRef = useRef<() => void>(() => {});
+  const autoStartInFlightRef = useRef(false);
 
   // Session timer
   const [sessionTime, setSessionTime] = useState("00:00");
@@ -271,7 +277,17 @@ export default function ConferenceSession() {
     stopRecording,
     recordingState,
     error: speechError,
-  } = useStreamingSpeechInput(handleSpeechTranscribed);
+  } = useStreamingSpeechInput(handleSpeechTranscribed, "zh-CN", {
+    autoStopOnSilence: true,
+  });
+
+  useEffect(() => {
+    startRecordingRef.current = startRecording;
+  }, [startRecording]);
+
+  useEffect(() => {
+    stopRecordingRef.current = stopRecording;
+  }, [stopRecording]);
 
   useEffect(() => {
     if (speechError) {
@@ -286,6 +302,29 @@ export default function ConferenceSession() {
       void startRecording();
     }
   }, [recordingState, startRecording, stopRecording]);
+
+  const shouldAutoListen =
+    inputMode === "audio" &&
+    Boolean(sessionId && session) &&
+    session?.status !== "completed" &&
+    !isSpeaking;
+
+  useEffect(() => {
+    if (!shouldAutoListen) {
+      autoStartInFlightRef.current = false;
+      if (recordingState !== "idle") {
+        stopRecordingRef.current();
+      }
+      return;
+    }
+
+    if (recordingState !== "idle" || autoStartInFlightRef.current) return;
+
+    autoStartInFlightRef.current = true;
+    void Promise.resolve(startRecordingRef.current()).finally(() => {
+      autoStartInFlightRef.current = false;
+    });
+  }, [recordingState, shouldAutoListen]);
 
   const handleRespondToQuestion = useCallback(
     (hcpId: string) => {

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { renderHook, act } from "@testing-library/react";
+import { renderHook, act, waitFor } from "@testing-library/react";
 
 vi.mock("@/api/speech", () => ({
   transcribeAudio: vi.fn(),
@@ -458,6 +458,49 @@ describe("useTextToSpeech", () => {
 
     expect(firstAudioInstance.pause).toHaveBeenCalled();
     expect(URL.revokeObjectURL).toHaveBeenCalled();
+  });
+
+  it("queues speech when queue mode is enabled", async () => {
+    vi.mocked(synthesizeSpeech).mockResolvedValue(new Blob(["audio"]));
+    const firstAudioInstance = {
+      play: vi.fn().mockResolvedValue(undefined),
+      pause: vi.fn(),
+      onended: null as (() => void) | null,
+      onerror: null as (() => void) | null,
+    };
+    const secondAudioInstance = {
+      play: vi.fn().mockResolvedValue(undefined),
+      pause: vi.fn(),
+      onended: null as (() => void) | null,
+      onerror: null as (() => void) | null,
+    };
+    (globalThis.Audio as ReturnType<typeof vi.fn>)
+      .mockReturnValueOnce(firstAudioInstance)
+      .mockReturnValueOnce(secondAudioInstance);
+
+    const { result } = renderHook(() =>
+      useTextToSpeech("zh-CN", undefined, { queue: true }),
+    );
+
+    await act(async () => {
+      await result.current.speak("first");
+      await result.current.speak("second");
+    });
+
+    await waitFor(() => {
+      expect(firstAudioInstance.play).toHaveBeenCalled();
+    });
+    expect(secondAudioInstance.play).not.toHaveBeenCalled();
+
+    act(() => {
+      firstAudioInstance.onended?.();
+    });
+
+    await waitFor(() => {
+      expect(secondAudioInstance.play).toHaveBeenCalled();
+    });
+    expect(synthesizeSpeech).toHaveBeenNthCalledWith(1, "first", "zh-CN", undefined);
+    expect(synthesizeSpeech).toHaveBeenNthCalledWith(2, "second", "zh-CN", undefined);
   });
 
   it("speak handles synthesizeSpeech failure", async () => {

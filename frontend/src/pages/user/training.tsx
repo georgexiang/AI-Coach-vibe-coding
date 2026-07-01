@@ -52,6 +52,16 @@ function getScenarioModes(
   return { modes, defaultMode };
 }
 
+function getConferenceModes(
+  features: { voice_enabled?: boolean } | undefined,
+) {
+  const voiceAvailable = Boolean(features?.voice_enabled);
+  return {
+    modes: voiceAvailable ? ["text", "voice_realtime_model"] : ["text"],
+    defaultMode: voiceAvailable ? "voice_realtime_model" : "text",
+  };
+}
+
 export default function ScenarioSelection() {
   const { t } = useTranslation("coach");
   const { t: tc } = useTranslation("common");
@@ -106,10 +116,10 @@ export default function ScenarioSelection() {
   };
 
   const handleStartConference = async (scenarioId: string, mode: string) => {
-    void mode;
     try {
       const session = await createConferenceSession.mutateAsync(scenarioId);
-      navigate(`/user/training/conference?id=${session.id}`);
+      const inputMode = mode === "voice_realtime_model" ? "audio" : "text";
+      navigate(`/user/training/conference?id=${session.id}&inputMode=${inputMode}`);
     } catch {
       // Error handled by TanStack Query
     }
@@ -202,7 +212,10 @@ export default function ScenarioSelection() {
     return (
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {modeScenarios.map((scenario) => {
-          const { modes, defaultMode } = getScenarioModes(scenario, config?.features);
+          const { modes, defaultMode } =
+            mode === "conference"
+              ? getConferenceModes(config?.features)
+              : getScenarioModes(scenario, config?.features);
           return (
             <ScenarioCard
               key={scenario.id}

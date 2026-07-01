@@ -19,6 +19,8 @@ let capturedCallbacks: ConferenceSSECallbacks = {};
 let mockRecordingState = "idle";
 let mockSpeechError: string | null = null;
 let mockSessionData: Record<string, unknown> | undefined;
+let mockSearchParams = new URLSearchParams("id=cs-1");
+let mockIsSpeaking = false;
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
@@ -34,7 +36,7 @@ vi.mock("react-router-dom", async () => {
   return {
     ...actual,
     useNavigate: () => mockNavigate,
-    useSearchParams: () => [new URLSearchParams("id=cs-1"), vi.fn()],
+    useSearchParams: () => [mockSearchParams, vi.fn()],
   };
 });
 
@@ -74,7 +76,7 @@ vi.mock("@/hooks/use-speech", () => ({
   useTextToSpeech: () => ({
     speak: mockSpeak,
     stop: mockStopSpeaking,
-    isSpeaking: false,
+    isSpeaking: mockIsSpeaking,
   }),
 }));
 
@@ -214,8 +216,10 @@ function renderConferenceSession() {
 describe("ConferenceSession", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockSearchParams = new URLSearchParams("id=cs-1");
     mockRecordingState = "idle";
     mockSpeechError = null;
+    mockIsSpeaking = false;
     capturedCallbacks = {};
     mockSessionData = {
       id: "cs-1",
@@ -256,6 +260,43 @@ describe("ConferenceSession", () => {
   it("renders the conference stage", () => {
     renderConferenceSession();
     expect(screen.getByTestId("conference-stage")).toBeInTheDocument();
+  });
+
+  it("defaults to text input mode without an inputMode query param", () => {
+    renderConferenceSession();
+    expect(capturedConferenceStageProps.inputMode).toBe("text");
+  });
+
+  it("initializes audio input mode from the inputMode query param", () => {
+    mockSearchParams = new URLSearchParams("id=cs-1&inputMode=audio");
+    renderConferenceSession();
+    expect(capturedConferenceStageProps.inputMode).toBe("audio");
+  });
+
+  it("automatically starts listening when the session opens in audio mode", async () => {
+    mockSearchParams = new URLSearchParams("id=cs-1&inputMode=audio");
+    renderConferenceSession();
+
+    await waitFor(() => {
+      expect(mockStartRecording).toHaveBeenCalled();
+    });
+  });
+
+  it("does not automatically start listening in text mode", () => {
+    renderConferenceSession();
+    expect(mockStartRecording).not.toHaveBeenCalled();
+  });
+
+  it("does not automatically start listening for completed sessions", () => {
+    mockSearchParams = new URLSearchParams("id=cs-1&inputMode=audio");
+    mockSessionData = {
+      ...mockSessionData,
+      status: "completed",
+    };
+
+    renderConferenceSession();
+
+    expect(mockStartRecording).not.toHaveBeenCalled();
   });
 
   it("renders the transcription panel", () => {
@@ -685,6 +726,42 @@ describe("ConferenceSession", () => {
       )("audio");
     });
     expect(capturedConferenceStageProps.inputMode).toBe("audio");
+  });
+
+  it("automatically starts listening after switching to audio mode", async () => {
+    renderConferenceSession();
+    mockStartRecording.mockClear();
+
+    act(() => {
+      (
+        capturedConferenceStageProps.onInputModeChange as (
+          mode: "text" | "audio",
+        ) => void
+      )("audio");
+    });
+
+    await waitFor(() => {
+      expect(mockStartRecording).toHaveBeenCalled();
+    });
+  });
+
+  it("stops listening when switching back to text mode", async () => {
+    mockSearchParams = new URLSearchParams("id=cs-1&inputMode=audio");
+    mockRecordingState = "recording";
+    renderConferenceSession();
+    mockStopRecording.mockClear();
+
+    act(() => {
+      (
+        capturedConferenceStageProps.onInputModeChange as (
+          mode: "text" | "audio",
+        ) => void
+      )("text");
+    });
+
+    await waitFor(() => {
+      expect(mockStopRecording).toHaveBeenCalled();
+    });
   });
 
   // ── Session initialization: audience config ──
