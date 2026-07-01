@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: Phase 27 in progress — 1/6 plans complete
+status: Ready to execute
 stopped_at: Completed 27-01-PLAN.md
-last_updated: "2026-07-01T04:24:05.559Z"
+last_updated: "2026-07-01T04:35:52.225Z"
 last_activity: 2026-07-01
 progress:
   total_phases: 29
   completed_phases: 24
   total_plans: 137
-  completed_plans: 122
-  percent: 89
+  completed_plans: 123
+  percent: 90
 ---
 
 # Project State
@@ -25,8 +25,8 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 
 ## Current Position
 
-Phase: 27 (prompt-optimizer-unified-prompt-management) — IN PROGRESS (1/6 plans)
-Plan: 1 of 6 complete (27-01 done; next 27-02)
+Phase: 27 (prompt-optimizer-unified-prompt-management) — IN PROGRESS (2/6 plans)
+Plan: 2 of 6 complete (27-01, 27-02 done; next 27-03)
 Phase: 26 (add-voice-live-webrtc-transport-option-as-alternative-to-web) — COMPLETE (3/3 plans)
 Phase: 24 (Skill Focus + CU Evaluation) — COMPLETE (5/5 plans)
 Phase: 25 (Refactor user training pages) — COMPLETE (2/2 plans)
@@ -125,6 +125,7 @@ Phase: 26 (Scoring Architecture: LLM Content + CU Voice) — COMPLETE (1/1 plan)
 | Phase 21 P02 | 6min | 2 tasks | 5 files |
 | Phase 21 P03 | 30min | 2 tasks | 20 files |
 | Phase 27 P01 | 35 | 3 tasks | 10 files |
+| Phase 27 P02 | 25 | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -278,6 +279,7 @@ Recent decisions affecting current work:
 - [Phase 26]: Content dims (5: key_message, objection_handling, communication, product_knowledge, scientific_info) → LLM; Voice dims (4: fluency, tone, pace, pronunciation) → CU
 - [Phase 26]: merge_scores() uses rubric content_weight/voice_weight (default 60/40) instead of hardcoded 70/30
 - [Phase 26]: Removed _generate_mock_scores(), MockVoiceScoringBackend, score_content_with_cu(), build_content_analyzer_schema()
+- [Phase 27]: 27-02: optimizer endpoint strategy = direct Azure /v1 (approved at checkpoint); LiteLLM proxy documented fallback
 
 ### Pending Todos
 
