@@ -56,6 +56,15 @@ export interface PromptUpdateRequest {
   note?: string;
 }
 
+export interface PromptCreateRequest {
+  key: string;
+  name: string;
+  content: string;
+  category?: string;
+  description?: string;
+  variables?: string[];
+}
+
 export interface OptimizeRequest {
   mode: OptimizeMode;
   requirements?: string | null;

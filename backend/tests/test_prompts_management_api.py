@@ -14,6 +14,7 @@ from app.api.prompts import (
     OptimizeRecordRequest,
     activate_prompt_version,
     adopt_optimization_run,
+    create_prompt,
     delete_prompt,
     get_prompt_detail,
     get_prompt_runs,
@@ -25,7 +26,7 @@ from app.api.prompts import (
 from app.models.prompt_template import PromptTemplate
 from app.models.prompt_version import PromptVersion
 from app.models.user import User
-from app.schemas.prompt import AdoptRunRequest, PromptUpdateRequest
+from app.schemas.prompt import AdoptRunRequest, PromptCreateRequest, PromptUpdateRequest
 from app.services.prompt_optimizer_client import PromptOptimizerError
 from app.services.prompt_registry import get_prompt, seed_prompt_registry
 from app.utils.exceptions import (
@@ -130,6 +131,63 @@ async def test_get_prompt_runs_unknown_key_404(db_session):
     await seed_prompt_registry(db_session)
     with pytest.raises(NotFoundException):
         await get_prompt_runs("nope", db=db_session, _user=_admin())
+
+
+# --- Create -----------------------------------------------------------------
+
+
+async def test_create_prompt_returns_201_detail(db_session):
+    detail = await create_prompt(
+        PromptCreateRequest(
+            key="custom.api",
+            name="Custom API",
+            content="Body {{x}}",
+            category="general",
+            description="desc",
+            variables=["x"],
+        ),
+        db=db_session,
+        user=_admin(),
+    )
+    assert detail.key == "custom.api"
+    assert detail.is_system is False
+    assert detail.variables == ["x"]
+    assert detail.active_version is not None
+    assert detail.active_version.version_no == 1
+    assert detail.active_version.content == "Body {{x}}"
+    # Resolvable and listed.
+    assert await get_prompt(db_session, "custom.api") == "Body {{x}}"
+    rows = await list_prompts(db=db_session, _user=_admin())
+    assert any(r.key == "custom.api" for r in rows)
+
+
+async def test_create_prompt_duplicate_key_conflict(db_session):
+    await seed_prompt_registry(db_session)
+    with pytest.raises(ConflictException):
+        await create_prompt(
+            PromptCreateRequest(key=KEY, name="Dup", content="x"),
+            db=db_session,
+            user=_admin(),
+        )
+
+
+async def test_create_prompt_invalid_key_raises(db_session):
+    with pytest.raises(ValidationException):
+        await create_prompt(
+            PromptCreateRequest(key="Bad Key", name="X", content="x"),
+            db=db_session,
+            user=_admin(),
+        )
+
+
+async def test_created_prompt_is_deletable(db_session):
+    await create_prompt(
+        PromptCreateRequest(key="custom.del", name="Del", content="x"),
+        db=db_session,
+        user=_admin(),
+    )
+    response = await delete_prompt("custom.del", db=db_session, _user=_admin())
+    assert response.status_code == 204
 
 
 # --- Update / activate ------------------------------------------------------

@@ -6,6 +6,7 @@ registers every default key as version 1 exactly once.
 """
 
 import json
+import re
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,7 +15,7 @@ from app.models.prompt_optimization_run import PromptOptimizationRun
 from app.models.prompt_template import PromptTemplate
 from app.models.prompt_version import PromptVersion
 from app.services.prompt_defaults import PROMPT_DEFAULTS
-from app.utils.exceptions import ConflictException, NotFoundException
+from app.utils.exceptions import ConflictException, NotFoundException, ValidationException
 
 __all__ = [
     "get_prompt",
@@ -23,12 +24,15 @@ __all__ = [
     "get_prompt_detail",
     "list_versions",
     "list_runs",
+    "create_template",
     "create_version",
     "activate_version",
     "record_optimization_run",
     "adopt_run",
     "delete_template",
 ]
+
+_KEY_PATTERN = re.compile(r"[a-z0-9][a-z0-9_.-]*")
 
 
 async def get_prompt(db: AsyncSession, key: str) -> str:
@@ -188,6 +192,60 @@ async def list_runs(db: AsyncSession, key: str) -> list[PromptOptimizationRun]:
         .order_by(PromptOptimizationRun.created_at.desc(), PromptOptimizationRun.id.desc())
     )
     return list(result.scalars().all())
+
+
+async def create_template(
+    db: AsyncSession,
+    key: str,
+    name: str,
+    content: str,
+    category: str = "general",
+    description: str = "",
+    variables: list[str] | None = None,
+    created_by: str | None = None,
+) -> tuple[PromptTemplate, PromptVersion]:
+    """Register a new non-system prompt with an active version 1.
+
+    Raises ``ValidationException`` for an invalid key and ``ConflictException`` if the key
+    already exists. New templates are ``is_system=False`` so they can later be deleted.
+    """
+    key = (key or "").strip()
+    if not _KEY_PATTERN.fullmatch(key):
+        raise ValidationException(
+            "Invalid prompt key: use lowercase letters, digits, '.', '_' or '-'"
+        )
+
+    existing = await db.execute(select(PromptTemplate).where(PromptTemplate.key == key))
+    if existing.scalar_one_or_none() is not None:
+        raise ConflictException(f"Prompt key already exists: {key}")
+
+    template = PromptTemplate(
+        key=key,
+        name=name,
+        category=category or "general",
+        description=description or "",
+        variables=json.dumps(variables or []),
+        is_system=False,
+    )
+    db.add(template)
+    await db.flush()
+
+    version = PromptVersion(
+        template_id=template.id,
+        version_no=1,
+        content=content,
+        source="manual",
+        is_active=True,
+        created_by=created_by,
+    )
+    db.add(version)
+    await db.flush()
+
+    template.active_version_id = version.id
+    await db.commit()
+    await db.refresh(template)
+    await db.refresh(version)
+    return template, version
 
 
 async def create_version(

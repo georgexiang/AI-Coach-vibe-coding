@@ -6,6 +6,7 @@ import type {
   OptimizeTextRequest,
   OptimizeTextResponse,
   Prompt,
+  PromptCreateRequest,
   PromptRun,
   PromptSummary,
   PromptUpdateRequest,
@@ -20,6 +21,11 @@ export const promptsApi = {
 
   async get(key: string) {
     const { data } = await apiClient.get<Prompt>(`/prompts/${key}`);
+    return data;
+  },
+
+  async create(payload: PromptCreateRequest) {
+    const { data } = await apiClient.post<Prompt>("/prompts", payload);
     return data;
   },
 

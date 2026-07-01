@@ -73,6 +73,17 @@ class PromptUpdateRequest(BaseModel):
     note: str = ""
 
 
+class PromptCreateRequest(BaseModel):
+    """Register a brand-new (non-system) prompt with its version 1 content."""
+
+    key: str
+    name: str
+    content: str
+    category: str = "general"
+    description: str = ""
+    variables: list[str] = []
+
+
 class OptimizeRecordRequest(BaseModel):
     """Optimize the active version of a prompt and record the run."""
 

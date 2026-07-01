@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
+import { AxiosError } from "axios";
+import { toast } from "sonner";
 import PromptsPage from "./prompts";
 import type { PromptSummary } from "@/types/prompt";
 
@@ -19,9 +21,13 @@ vi.mock("react-router-dom", async () => {
   return { ...actual, useNavigate: () => mockNavigate };
 });
 
+vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+
+const { mockCreateAsync } = vi.hoisted(() => ({ mockCreateAsync: vi.fn() }));
 let mockPromptsReturn: { data: PromptSummary[] | undefined };
 vi.mock("@/hooks/use-prompts", () => ({
   usePrompts: () => mockPromptsReturn,
+  useCreatePrompt: () => ({ mutateAsync: mockCreateAsync, isPending: false }),
 }));
 
 const makeSummary = (overrides: Partial<PromptSummary> = {}): PromptSummary => ({
@@ -76,5 +82,55 @@ describe("PromptsPage", () => {
     mockPromptsReturn = { data: [makeSummary({ active_version_no: 3 })] };
     renderPage();
     expect(screen.getByText("v3")).toBeInTheDocument();
+  });
+
+  it("creates a new prompt and navigates to its editor", async () => {
+    const user = userEvent.setup();
+    mockCreateAsync.mockResolvedValue({ key: "custom.hello" });
+    renderPage();
+
+    await user.click(screen.getByTestId("prompt-create-open"));
+    await user.type(screen.getByTestId("create-key"), "custom.hello");
+    await user.type(screen.getByTestId("create-name"), "Hello");
+    await user.type(screen.getByTestId("create-content"), "Hi there");
+    await user.type(screen.getByTestId("create-variables"), "name, product");
+    await user.click(screen.getByTestId("create-submit"));
+
+    expect(mockCreateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        key: "custom.hello",
+        name: "Hello",
+        content: "Hi there",
+        variables: ["name", "product"],
+      }),
+    );
+    expect(vi.mocked(toast.success)).toHaveBeenCalled();
+    expect(mockNavigate).toHaveBeenCalledWith("/admin/prompts/custom.hello");
+  });
+
+  it("keeps submit disabled until required fields are filled", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(screen.getByTestId("prompt-create-open"));
+    expect(screen.getByTestId("create-submit")).toBeDisabled();
+    await user.type(screen.getByTestId("create-key"), "custom.x");
+    await user.type(screen.getByTestId("create-name"), "X");
+    await user.type(screen.getByTestId("create-content"), "body");
+    expect(screen.getByTestId("create-submit")).toBeEnabled();
+  });
+
+  it("shows a duplicate-key error toast on 409", async () => {
+    const user = userEvent.setup();
+    mockCreateAsync.mockRejectedValue(
+      Object.assign(new AxiosError("conflict"), { response: { status: 409 } }),
+    );
+    renderPage();
+    await user.click(screen.getByTestId("prompt-create-open"));
+    await user.type(screen.getByTestId("create-key"), "hcp.system");
+    await user.type(screen.getByTestId("create-name"), "Dup");
+    await user.type(screen.getByTestId("create-content"), "body");
+    await user.click(screen.getByTestId("create-submit"));
+    expect(vi.mocked(toast.error)).toHaveBeenCalledWith("create.errorDuplicate");
+    expect(mockNavigate).not.toHaveBeenCalled();
   });
 });

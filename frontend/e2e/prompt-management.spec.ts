@@ -141,4 +141,30 @@ test.describe("Prompt Management", () => {
       "textarea",
     );
   });
+
+  test("admin creates a brand-new prompt and lands in its editor", async ({
+    page,
+  }) => {
+    await page.goto("/admin/prompts");
+    await page.waitForLoadState("networkidle");
+    await expect(page).not.toHaveURL(/\/login/);
+
+    const uniqueKey = `custom.e2e${Date.now()}`;
+
+    await page.getByTestId("prompt-create-open").click();
+    await expect(page.getByTestId("prompt-create-dialog")).toBeVisible();
+
+    await page.getByTestId("create-key").fill(uniqueKey);
+    await page.getByTestId("create-name").fill("E2E Custom Prompt");
+    await page.getByTestId("create-variables").fill("name, product");
+    await page.getByTestId("create-content").fill("Hello, this is an e2e prompt.");
+    await page.getByTestId("create-submit").click();
+
+    // Lands on the new prompt's editor with its content resolvable.
+    await page.waitForURL(new RegExp(`/admin/prompts/${uniqueKey.replace(".", "\\.")}$`));
+    const content = page.getByTestId("prompt-content");
+    await expect(content).toBeVisible();
+    await expect(content).toHaveValue("Hello, this is an e2e prompt.");
+    await expect(page.getByTestId("version-history")).toBeVisible();
+  });
 });

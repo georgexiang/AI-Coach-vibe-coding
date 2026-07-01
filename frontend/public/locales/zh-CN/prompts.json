@@ -9,7 +9,25 @@
     "columnLastOptimized": "最近优化",
     "empty": "暂无已注册的 Prompt。",
     "never": "从未",
-    "system": "系统"
+    "system": "系统",
+    "create": "新增 Prompt"
+  },
+  "create": {
+    "title": "新增 Prompt",
+    "description": "创建一个全新的自定义 Prompt，作为初始版本 v1。",
+    "key": "标识",
+    "keyPlaceholder": "例如 custom.greeting（小写字母、数字、. _ -）",
+    "name": "名称",
+    "category": "分类",
+    "variables": "占位符",
+    "variablesPlaceholder": "以逗号分隔，例如 name, product",
+    "descriptionField": "描述",
+    "content": "Prompt 内容",
+    "submit": "创建",
+    "cancel": "取消",
+    "success": "已创建新的 Prompt",
+    "error": "创建失败",
+    "errorDuplicate": "该标识已存在，请更换"
   },
   "editor": {
     "back": "返回列表",

@@ -4,6 +4,7 @@ import type {
   AdoptRunRequest,
   OptimizeRequest,
   OptimizeTextRequest,
+  PromptCreateRequest,
   PromptUpdateRequest,
 } from "@/types/prompt";
 
@@ -21,6 +22,16 @@ export function usePrompt(key: string | undefined) {
     queryKey: [PROMPTS_KEY, key],
     queryFn: () => promptsApi.get(key!),
     enabled: !!key,
+  });
+}
+
+export function useCreatePrompt() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: PromptCreateRequest) => promptsApi.create(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [PROMPTS_KEY] });
+    },
   });
 }
 

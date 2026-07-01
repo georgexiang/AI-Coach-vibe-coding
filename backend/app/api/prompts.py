@@ -25,6 +25,7 @@ from app.schemas.prompt import (
     AdoptRunRequest,
     OptimizeRecordRequest,
     OptimizeRunResponse,
+    PromptCreateRequest,
     PromptOptimizationRunResponse,
     PromptResponse,
     PromptSummary,
@@ -146,6 +147,34 @@ async def get_prompt_runs(
 
 
 # --- Write endpoints (versioning, activation, optimize-record, adopt) -------
+
+
+@router.post("", response_model=PromptResponse, status_code=201)
+async def create_prompt(
+    data: PromptCreateRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role("admin")),
+) -> PromptResponse:
+    """Create a new non-system prompt with an active version 1. Admin only."""
+    template, version = await prompt_registry.create_template(
+        db,
+        key=data.key,
+        name=data.name,
+        content=data.content,
+        category=data.category,
+        description=data.description,
+        variables=data.variables,
+        created_by=user.id,
+    )
+    return PromptResponse(
+        key=template.key,
+        name=template.name,
+        category=template.category,
+        description=template.description or "",
+        is_system=template.is_system,
+        variables=data.variables,
+        active_version=_version_response(version),
+    )
 
 
 @router.put("/{key}", response_model=PromptVersionResponse, status_code=201)

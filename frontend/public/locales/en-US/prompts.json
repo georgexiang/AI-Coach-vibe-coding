@@ -9,7 +9,25 @@
     "columnLastOptimized": "Last optimized",
     "empty": "No registered prompts yet.",
     "never": "Never",
-    "system": "System"
+    "system": "System",
+    "create": "New Prompt"
+  },
+  "create": {
+    "title": "New Prompt",
+    "description": "Create a brand-new custom prompt as its initial version v1.",
+    "key": "Key",
+    "keyPlaceholder": "e.g. custom.greeting (lowercase, digits, . _ -)",
+    "name": "Name",
+    "category": "Category",
+    "variables": "Placeholders",
+    "variablesPlaceholder": "Comma-separated, e.g. name, product",
+    "descriptionField": "Description",
+    "content": "Prompt content",
+    "submit": "Create",
+    "cancel": "Cancel",
+    "success": "New prompt created",
+    "error": "Failed to create prompt",
+    "errorDuplicate": "That key already exists, please choose another"
   },
   "editor": {
     "back": "Back to list",

@@ -1,9 +1,24 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
+import { Plus } from "lucide-react";
+import { AxiosError } from "axios";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { usePrompts } from "@/hooks/use-prompts";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { useCreatePrompt, usePrompts } from "@/hooks/use-prompts";
 import type { PromptSummary } from "@/types/prompt";
 
 function formatDate(value: string | null, never: string): string {
@@ -15,14 +30,61 @@ export default function PromptsPage() {
   const { t } = useTranslation("prompts");
   const navigate = useNavigate();
   const { data } = usePrompts();
+  const createMutation = useCreatePrompt();
 
   const prompts = useMemo<PromptSummary[]>(() => data ?? [], [data]);
 
+  const [createOpen, setCreateOpen] = useState(false);
+  const [form, setForm] = useState({
+    key: "",
+    name: "",
+    category: "general",
+    description: "",
+    variables: "",
+    content: "",
+  });
+
+  function resetForm() {
+    setForm({ key: "", name: "", category: "general", description: "", variables: "", content: "" });
+  }
+
+  async function handleCreate() {
+    const variables = form.variables
+      .split(",")
+      .map((v) => v.trim())
+      .filter(Boolean);
+    try {
+      const created = await createMutation.mutateAsync({
+        key: form.key.trim(),
+        name: form.name.trim(),
+        content: form.content,
+        category: form.category.trim() || "general",
+        description: form.description,
+        variables,
+      });
+      toast.success(t("create.success"));
+      setCreateOpen(false);
+      resetForm();
+      navigate(`/admin/prompts/${created.key}`);
+    } catch (error) {
+      const status = error instanceof AxiosError ? error.response?.status : undefined;
+      toast.error(status === 409 ? t("create.errorDuplicate") : t("create.error"));
+    }
+  }
+
+  const canSubmit = form.key.trim() !== "" && form.name.trim() !== "" && form.content !== "";
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-medium text-foreground">{t("list.title")}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t("list.description")}</p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-medium text-foreground">{t("list.title")}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{t("list.description")}</p>
+        </div>
+        <Button data-testid="prompt-create-open" onClick={() => setCreateOpen(true)}>
+          <Plus className="mr-2 h-4 w-4" />
+          {t("list.create")}
+        </Button>
       </div>
 
       <Card>
@@ -75,6 +137,95 @@ export default function PromptsPage() {
           </table>
         </CardContent>
       </Card>
+
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent className="max-w-2xl" data-testid="prompt-create-dialog">
+          <DialogHeader>
+            <DialogTitle>{t("create.title")}</DialogTitle>
+            <DialogDescription>{t("create.description")}</DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="create-key">{t("create.key")}</Label>
+                <Input
+                  id="create-key"
+                  data-testid="create-key"
+                  value={form.key}
+                  placeholder={t("create.keyPlaceholder")}
+                  onChange={(e) => setForm((f) => ({ ...f, key: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="create-name">{t("create.name")}</Label>
+                <Input
+                  id="create-name"
+                  data-testid="create-name"
+                  value={form.name}
+                  onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="create-category">{t("create.category")}</Label>
+                <Input
+                  id="create-category"
+                  data-testid="create-category"
+                  value={form.category}
+                  onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="create-variables">{t("create.variables")}</Label>
+                <Input
+                  id="create-variables"
+                  data-testid="create-variables"
+                  value={form.variables}
+                  placeholder={t("create.variablesPlaceholder")}
+                  onChange={(e) => setForm((f) => ({ ...f, variables: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="create-description">{t("create.descriptionField")}</Label>
+              <Input
+                id="create-description"
+                data-testid="create-description"
+                value={form.description}
+                onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="create-content">{t("create.content")}</Label>
+              <Textarea
+                id="create-content"
+                data-testid="create-content"
+                rows={8}
+                value={form.content}
+                onChange={(e) => setForm((f) => ({ ...f, content: e.target.value }))}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateOpen(false)}>
+              {t("create.cancel")}
+            </Button>
+            <Button
+              data-testid="create-submit"
+              disabled={!canSubmit || createMutation.isPending}
+              onClick={handleCreate}
+            >
+              {t("create.submit")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
