@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Ready to execute
-stopped_at: Completed 27-04-PLAN.md
-last_updated: "2026-07-01T05:35:10.173Z"
+stopped_at: Completed 27-05-PLAN.md
+last_updated: "2026-07-01T08:05:22.312Z"
 last_activity: 2026-07-01
 progress:
   total_phases: 29
   completed_phases: 24
   total_plans: 137
-  completed_plans: 125
-  percent: 91
+  completed_plans: 126
+  percent: 92
 ---
 
 # Project State
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 ## Current Position
 
 Phase: 27 (prompt-optimizer-unified-prompt-management) — IN PROGRESS (2/6 plans)
-Plan: 4 of 6 complete (27-01, 27-02 done; next 27-03)
+Plan: 5 of 6 complete (27-01, 27-02 done; next 27-03)
 Phase: 26 (add-voice-live-webrtc-transport-option-as-alternative-to-web) — COMPLETE (3/3 plans)
 Phase: 24 (Skill Focus + CU Evaluation) — COMPLETE (5/5 plans)
 Phase: 25 (Refactor user training pages) — COMPLETE (2/2 plans)
@@ -128,6 +128,7 @@ Phase: 26 (Scoring Architecture: LLM Content + CU Voice) — COMPLETE (1/1 plan)
 | Phase 27 P02 | 25 | 2 tasks | 9 files |
 | Phase 27 P03 | 55 | 3 tasks | 8 files |
 | Phase 27 P04 | 40 | 3 tasks | 4 files |
+| Phase 27 P05 | 45 | 3 tasks | 15 files |
 
 ## Accumulated Context
 
@@ -284,6 +285,7 @@ Recent decisions affecting current work:
 - [Phase 27]: 27-02: optimizer endpoint strategy = direct Azure /v1 (approved at checkpoint); LiteLLM proxy documented fallback
 - [Phase 27]: 27-03: builders resolve base templates via registry get_prompt; imperative HCP/key-message builders use a dual-path (byte-identical default, admin override rendered only when active version differs)
 - [Phase 27]: 27-04: prompt management API returns plain newest-first lists (not paginated) and records model='prompt-optimizer' provenance marker on every run
+- [Phase 27]: 27-05: Prompt management admin UI (list+editor, optimize-diff-adopt, version rollback); locale files under public/locales, MessageSquare nav icon
 
 ### Pending Todos
 
@@ -315,6 +317,6 @@ None yet.
 ## Session Continuity
 
 Last activity: 2026-07-01
-Last session: 2026-07-01T05:35:01.642Z
-Stopped at: Completed 27-04-PLAN.md
+Last session: 2026-07-01T08:05:22.307Z
+Stopped at: Completed 27-05-PLAN.md
 Resume file: None
