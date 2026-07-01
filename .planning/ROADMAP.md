@@ -32,6 +32,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 18: Training Material Download & Preview** - 培训材料文件下载和在线预览：后端添加文件下载 API，前端 PDF 在线预览、DOCX/XLSX 下载，修复 storage_url 信息泄露 (completed 2026-04-10)
 - [x] **Phase 21: Scoring Criteria Refactor** - 评分标准模块重构，消除硬编码维度，ScoringRubric 升级为评分唯一权威来源，支持动态自定义维度 (completed 2026-04-28)
 - [x] **Phase 27: Prompt Optimizer & Unified Prompt Management** - Integrate prompt-optimizer (Docker sidecar + MCP client), unify all 9 prompts into a versioned registry with optimization history, and provide an admin management UI (completed 2026-07-01)
+- [x] **Phase 28: Prompt Create & Version Content** - 在 Prompt 管理中支持新增 Prompt（不再局限于优化现有），并在详情页查看历史版本的文本内容 (completed 2026-07-01)
 
 ## Phase Details
 
