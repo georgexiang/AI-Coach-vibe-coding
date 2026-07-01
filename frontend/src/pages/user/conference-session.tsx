@@ -53,6 +53,10 @@ const SPEAKER_COLORS: string[] = [
   "var(--chart-5)",
 ];
 
+const CONFERENCE_SILENCE_MS = 2000;
+const CONFERENCE_MIN_SPEECH_MS = 700;
+const CONFERENCE_NO_SPEECH_TIMEOUT_MS = 20000;
+
 export default function ConferenceSession() {
   const { t } = useTranslation("conference");
   const navigate = useNavigate();
@@ -299,6 +303,9 @@ export default function ConferenceSession() {
     error: speechError,
   } = useStreamingSpeechInput(handleSpeechTranscribed, "zh-CN", {
     autoStopOnSilence: true,
+    silenceMs: CONFERENCE_SILENCE_MS,
+    minSpeechMs: CONFERENCE_MIN_SPEECH_MS,
+    noSpeechTimeoutMs: CONFERENCE_NO_SPEECH_TIMEOUT_MS,
     onStreamReady: handleSpeechStreamReady,
   });
 

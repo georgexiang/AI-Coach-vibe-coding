@@ -25,6 +25,8 @@ let mockSessionData: Record<string, unknown> | undefined;
 let mockSearchParams = new URLSearchParams("id=cs-1");
 let mockIsSpeaking = false;
 let mockSessionRecorderIsRecording = false;
+let capturedSpeechOptions: Record<string, unknown> = {};
+let capturedTextToSpeechOptions: Record<string, unknown> = {};
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
@@ -71,17 +73,31 @@ vi.mock("@/hooks/use-conference-sse", () => ({
 }));
 
 vi.mock("@/hooks/use-speech", () => ({
-  useStreamingSpeechInput: () => ({
-    startRecording: mockStartRecording,
-    stopRecording: mockStopRecording,
-    recordingState: mockRecordingState,
-    error: mockSpeechError,
-  }),
-  useTextToSpeech: () => ({
-    speak: mockSpeak,
-    stop: mockStopSpeaking,
-    isSpeaking: mockIsSpeaking,
-  }),
+  useStreamingSpeechInput: (
+    _onTranscribed: unknown,
+    _language: string,
+    options: Record<string, unknown>,
+  ) => {
+    capturedSpeechOptions = options;
+    return {
+      startRecording: mockStartRecording,
+      stopRecording: mockStopRecording,
+      recordingState: mockRecordingState,
+      error: mockSpeechError,
+    };
+  },
+  useTextToSpeech: (
+    _language: string,
+    _voice: string | undefined,
+    options: Record<string, unknown>,
+  ) => {
+    capturedTextToSpeechOptions = options;
+    return {
+      speak: mockSpeak,
+      stop: mockStopSpeaking,
+      isSpeaking: mockIsSpeaking,
+    };
+  },
 }));
 
 vi.mock("@/hooks/use-session-recorder", () => ({
@@ -235,6 +251,8 @@ describe("ConferenceSession", () => {
     mockIsSpeaking = false;
     mockSessionRecorderIsRecording = false;
     capturedCallbacks = {};
+    capturedSpeechOptions = {};
+    capturedTextToSpeechOptions = {};
     mockSessionData = {
       id: "cs-1",
       status: "in_progress",
@@ -501,6 +519,30 @@ describe("ConferenceSession", () => {
     });
 
     expect(capturedConferenceStageProps.currentSpeaker).toBe("Dr. Smith");
+  });
+
+  it("speaks full HCP text in audio mode", () => {
+    mockSearchParams = new URLSearchParams("id=cs-1&inputMode=audio");
+    renderConferenceSession();
+
+    act(() => {
+      capturedCallbacks.onSpeakerText?.({
+        speaker_id: "hcp-1",
+        speaker_name: "Dr. Smith",
+        content: "第一句问题。第二句补充说明？",
+      });
+    });
+
+    expect(mockSpeak).toHaveBeenCalledWith("第一句问题。第二句补充说明？");
+    expect(mockSpeak).toHaveBeenCalledTimes(1);
+  });
+
+  it("enables queued TTS for conference voice playback", () => {
+    renderConferenceSession();
+
+    expect(capturedTextToSpeechOptions).toMatchObject({
+      queue: true,
+    });
   });
 
   // ── SSE callback: onQueueUpdate ──
@@ -787,6 +829,17 @@ describe("ConferenceSession", () => {
 
     await waitFor(() => {
       expect(mockStartRecording).toHaveBeenCalled();
+    });
+  });
+
+  it("uses longer silence detection settings for conference speech", () => {
+    renderConferenceSession();
+
+    expect(capturedSpeechOptions).toMatchObject({
+      autoStopOnSilence: true,
+      silenceMs: 2000,
+      minSpeechMs: 700,
+      noSpeechTimeoutMs: 20000,
     });
   });
 
