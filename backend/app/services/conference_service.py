@@ -35,7 +35,7 @@ HCP_FOLLOWUPS_BEFORE_NEXT = 3
 
 
 async def create_conference_session(
-    db: AsyncSession, scenario_id: str, user_id: str
+    db: AsyncSession, scenario_id: str, user_id: str, mode: str = "text"
 ) -> CoachingSession:
     """Create a conference session with multi-HCP audience setup.
 
@@ -100,6 +100,7 @@ async def create_conference_session(
         user_id=user_id,
         scenario_id=scenario_id,
         status="created",
+        mode=mode,
         session_type="conference",
         sub_state="presenting",
         presentation_topic=scenario.description,

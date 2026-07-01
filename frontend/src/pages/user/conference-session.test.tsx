@@ -13,12 +13,20 @@ const mockStartRecording = vi.fn();
 const mockStopRecording = vi.fn();
 const mockSpeak = vi.fn();
 const mockStopSpeaking = vi.fn();
+const mockSessionRecorderStart = vi.fn().mockResolvedValue(true);
+const mockSessionRecorderStopAndUpload = vi.fn().mockResolvedValue({ success: true });
+const mockSessionRecorderCancel = vi.fn().mockResolvedValue(undefined);
 const mockToastError = vi.hoisted(() => vi.fn());
 
 let capturedCallbacks: ConferenceSSECallbacks = {};
 let mockRecordingState = "idle";
 let mockSpeechError: string | null = null;
 let mockSessionData: Record<string, unknown> | undefined;
+let mockSearchParams = new URLSearchParams("id=cs-1");
+let mockIsSpeaking = false;
+let mockSessionRecorderIsRecording = false;
+let capturedSpeechOptions: Record<string, unknown> = {};
+let capturedTextToSpeechOptions: Record<string, unknown> = {};
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
@@ -34,7 +42,7 @@ vi.mock("react-router-dom", async () => {
   return {
     ...actual,
     useNavigate: () => mockNavigate,
-    useSearchParams: () => [new URLSearchParams("id=cs-1"), vi.fn()],
+    useSearchParams: () => [mockSearchParams, vi.fn()],
   };
 });
 
@@ -65,16 +73,39 @@ vi.mock("@/hooks/use-conference-sse", () => ({
 }));
 
 vi.mock("@/hooks/use-speech", () => ({
-  useStreamingSpeechInput: () => ({
-    startRecording: mockStartRecording,
-    stopRecording: mockStopRecording,
-    recordingState: mockRecordingState,
-    error: mockSpeechError,
-  }),
-  useTextToSpeech: () => ({
-    speak: mockSpeak,
-    stop: mockStopSpeaking,
-    isSpeaking: false,
+  useStreamingSpeechInput: (
+    _onTranscribed: unknown,
+    _language: string,
+    options: Record<string, unknown>,
+  ) => {
+    capturedSpeechOptions = options;
+    return {
+      startRecording: mockStartRecording,
+      stopRecording: mockStopRecording,
+      recordingState: mockRecordingState,
+      error: mockSpeechError,
+    };
+  },
+  useTextToSpeech: (
+    _language: string,
+    _voice: string | undefined,
+    options: Record<string, unknown>,
+  ) => {
+    capturedTextToSpeechOptions = options;
+    return {
+      speak: mockSpeak,
+      stop: mockStopSpeaking,
+      isSpeaking: mockIsSpeaking,
+    };
+  },
+}));
+
+vi.mock("@/hooks/use-session-recorder", () => ({
+  useSessionRecorder: () => ({
+    isRecording: mockSessionRecorderIsRecording,
+    startRecording: mockSessionRecorderStart,
+    stopAndUpload: mockSessionRecorderStopAndUpload,
+    cancel: mockSessionRecorderCancel,
   }),
 }));
 
@@ -214,9 +245,14 @@ function renderConferenceSession() {
 describe("ConferenceSession", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockSearchParams = new URLSearchParams("id=cs-1");
     mockRecordingState = "idle";
     mockSpeechError = null;
+    mockIsSpeaking = false;
+    mockSessionRecorderIsRecording = false;
     capturedCallbacks = {};
+    capturedSpeechOptions = {};
+    capturedTextToSpeechOptions = {};
     mockSessionData = {
       id: "cs-1",
       status: "in_progress",
@@ -256,6 +292,43 @@ describe("ConferenceSession", () => {
   it("renders the conference stage", () => {
     renderConferenceSession();
     expect(screen.getByTestId("conference-stage")).toBeInTheDocument();
+  });
+
+  it("defaults to text input mode without an inputMode query param", () => {
+    renderConferenceSession();
+    expect(capturedConferenceStageProps.inputMode).toBe("text");
+  });
+
+  it("initializes audio input mode from the inputMode query param", () => {
+    mockSearchParams = new URLSearchParams("id=cs-1&inputMode=audio");
+    renderConferenceSession();
+    expect(capturedConferenceStageProps.inputMode).toBe("audio");
+  });
+
+  it("automatically starts listening when the session opens in audio mode", async () => {
+    mockSearchParams = new URLSearchParams("id=cs-1&inputMode=audio");
+    renderConferenceSession();
+
+    await waitFor(() => {
+      expect(mockStartRecording).toHaveBeenCalled();
+    });
+  });
+
+  it("does not automatically start listening in text mode", () => {
+    renderConferenceSession();
+    expect(mockStartRecording).not.toHaveBeenCalled();
+  });
+
+  it("does not automatically start listening for completed sessions", () => {
+    mockSearchParams = new URLSearchParams("id=cs-1&inputMode=audio");
+    mockSessionData = {
+      ...mockSessionData,
+      status: "completed",
+    };
+
+    renderConferenceSession();
+
+    expect(mockStartRecording).not.toHaveBeenCalled();
   });
 
   it("renders the transcription panel", () => {
@@ -312,6 +385,37 @@ describe("ConferenceSession", () => {
     }
     expect(mockMutateAsync).toHaveBeenCalledWith("cs-1");
     expect(mockNavigate).toHaveBeenCalledWith("/user/scoring/cs-1");
+  });
+
+  it("uploads recorded audio before ending an audio-mode conference", async () => {
+    mockSearchParams = new URLSearchParams("id=cs-1&inputMode=audio");
+    mockSessionRecorderIsRecording = true;
+    const user = userEvent.setup();
+    renderConferenceSession();
+
+    await user.click(screen.getByText("End"));
+    const endButtons = screen.getAllByText("endPresentation");
+    const confirmBtn = endButtons[endButtons.length - 1];
+    if (confirmBtn) {
+      await user.click(confirmBtn);
+    }
+
+    expect(mockStopSpeaking).toHaveBeenCalled();
+    expect(mockSessionRecorderStopAndUpload).toHaveBeenCalledWith("cs-1");
+    expect(mockMutateAsync).toHaveBeenCalledWith("cs-1");
+    expect(mockNavigate).toHaveBeenCalledWith("/user/scoring/cs-1");
+  });
+
+  it("restores audio input mode from persisted session mode", async () => {
+    mockSessionData = {
+      ...mockSessionData,
+      mode: "voice_realtime_model",
+    };
+    renderConferenceSession();
+
+    await waitFor(() => {
+      expect(capturedConferenceStageProps.inputMode).toBe("audio");
+    });
   });
 
   it("shows speech errors when transcription fails", async () => {
@@ -415,6 +519,30 @@ describe("ConferenceSession", () => {
     });
 
     expect(capturedConferenceStageProps.currentSpeaker).toBe("Dr. Smith");
+  });
+
+  it("speaks full HCP text in audio mode", () => {
+    mockSearchParams = new URLSearchParams("id=cs-1&inputMode=audio");
+    renderConferenceSession();
+
+    act(() => {
+      capturedCallbacks.onSpeakerText?.({
+        speaker_id: "hcp-1",
+        speaker_name: "Dr. Smith",
+        content: "第一句问题。第二句补充说明？",
+      });
+    });
+
+    expect(mockSpeak).toHaveBeenCalledWith("第一句问题。第二句补充说明？");
+    expect(mockSpeak).toHaveBeenCalledTimes(1);
+  });
+
+  it("enables queued TTS for conference voice playback", () => {
+    renderConferenceSession();
+
+    expect(capturedTextToSpeechOptions).toMatchObject({
+      queue: true,
+    });
   });
 
   // ── SSE callback: onQueueUpdate ──
@@ -685,6 +813,53 @@ describe("ConferenceSession", () => {
       )("audio");
     });
     expect(capturedConferenceStageProps.inputMode).toBe("audio");
+  });
+
+  it("automatically starts listening after switching to audio mode", async () => {
+    renderConferenceSession();
+    mockStartRecording.mockClear();
+
+    act(() => {
+      (
+        capturedConferenceStageProps.onInputModeChange as (
+          mode: "text" | "audio",
+        ) => void
+      )("audio");
+    });
+
+    await waitFor(() => {
+      expect(mockStartRecording).toHaveBeenCalled();
+    });
+  });
+
+  it("uses longer silence detection settings for conference speech", () => {
+    renderConferenceSession();
+
+    expect(capturedSpeechOptions).toMatchObject({
+      autoStopOnSilence: true,
+      silenceMs: 2000,
+      minSpeechMs: 700,
+      noSpeechTimeoutMs: 20000,
+    });
+  });
+
+  it("stops listening when switching back to text mode", async () => {
+    mockSearchParams = new URLSearchParams("id=cs-1&inputMode=audio");
+    mockRecordingState = "recording";
+    renderConferenceSession();
+    mockStopRecording.mockClear();
+
+    act(() => {
+      (
+        capturedConferenceStageProps.onInputModeChange as (
+          mode: "text" | "audio",
+        ) => void
+      )("text");
+    });
+
+    await waitFor(() => {
+      expect(mockStopRecording).toHaveBeenCalled();
+    });
   });
 
   // ── Session initialization: audience config ──

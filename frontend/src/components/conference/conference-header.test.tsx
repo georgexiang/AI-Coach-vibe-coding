@@ -23,6 +23,7 @@ function makeSession(overrides: Partial<ConferenceSession> = {}): ConferenceSess
     userId: "user-1",
     scenarioId: "scen-1",
     status: "in_progress",
+    mode: "text",
     sessionType: "conference",
     subState: "presenting",
     presentationTopic: "Drug Efficacy Study",

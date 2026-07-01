@@ -50,7 +50,9 @@ async def create_conference_session(
     user: User = Depends(get_current_user),
 ):
     """Create a new conference-type coaching session."""
-    session = await conference_service.create_conference_session(db, request.scenario_id, user.id)
+    session = await conference_service.create_conference_session(
+        db, request.scenario_id, user.id, request.mode
+    )
     return session
 
 

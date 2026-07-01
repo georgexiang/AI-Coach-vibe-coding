@@ -64,7 +64,12 @@ class TestCreateConferenceSessionDirect:
 
         result = await create_conference_session(request, db, user)
         assert result == mock_session
-        mock_service.create_conference_session.assert_called_once_with(db, "scen-1", "user-1")
+        mock_service.create_conference_session.assert_called_once_with(
+            db,
+            "scen-1",
+            "user-1",
+            "text",
+        )
 
 
 class TestGetConferenceSessionDirect:

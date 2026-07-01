@@ -53,10 +53,11 @@ function toAudienceHcpCreateApi(
 
 export async function createConferenceSession(
   scenarioId: string,
+  mode: string = "text",
 ): Promise<ConferenceSession> {
   const { data } = await apiClient.post<ConferenceSession>(
     "/conference/sessions",
-    { scenario_id: scenarioId },
+    { scenario_id: scenarioId, mode },
   );
   return data;
 }

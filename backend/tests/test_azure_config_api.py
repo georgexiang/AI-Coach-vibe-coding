@@ -175,9 +175,10 @@ class TestPutServiceEndpoint:
 class TestRegisterAdapterFromConfig:
     """Direct tests for runtime adapter registration."""
 
-    async def test_speech_stt_does_not_inherit_foundry_master_key(self):
-        """Azure Speech STT must not use AI Foundry master credentials."""
+    async def test_speech_stt_inherits_master_key_and_region(self):
+        """Azure Speech STT can use cloud master credentials when per-service fields are empty."""
         from app.api.azure_config import register_adapter_from_config
+        from app.services.agents.stt.azure import AzureSTTAdapter
 
         mock_registry = MagicMock()
         mock_settings = MagicMock(default_stt_provider="mock")
@@ -195,39 +196,17 @@ class TestRegisterAdapterFromConfig:
                 master_region="eastus",
             )
 
-        mock_registry.register.assert_not_called()
-        assert mock_settings.default_stt_provider == "mock"
-
-    async def test_speech_stt_registers_with_own_key_and_region(self):
-        """Azure Speech STT registers only when explicit Speech credentials exist."""
-        from app.api.azure_config import register_adapter_from_config
-        from app.services.agents.stt.azure import AzureSTTAdapter
-
-        mock_registry = MagicMock()
-        mock_settings = MagicMock(default_stt_provider="mock")
-        with (
-            patch("app.services.agents.registry.registry", mock_registry),
-            patch("app.api.azure_config.settings", mock_settings),
-        ):
-            await register_adapter_from_config(
-                "azure_speech_stt",
-                endpoint="",
-                api_key="speech-key",
-                deployment="",
-                region="eastus",
-                master_key="foundry-key",
-                master_region="swedencentral",
-            )
-
         category, adapter = mock_registry.register.call_args.args
         assert category == "stt"
         assert isinstance(adapter, AzureSTTAdapter)
-        assert await adapter.is_available() is True
+        assert adapter._key == "foundry-key"
+        assert adapter._region == "eastus"
         assert mock_settings.default_stt_provider == "azure"
 
-    async def test_speech_tts_does_not_inherit_foundry_master_key(self):
-        """Azure Speech TTS must not use AI Foundry master credentials."""
+    async def test_speech_tts_inherits_master_key_and_region(self):
+        """Azure Speech TTS can use cloud master credentials when per-service fields are empty."""
         from app.api.azure_config import register_adapter_from_config
+        from app.services.agents.tts.azure import AzureTTSAdapter
 
         mock_registry = MagicMock()
         mock_settings = MagicMock(default_tts_provider="mock")
@@ -245,8 +224,35 @@ class TestRegisterAdapterFromConfig:
                 master_region="eastus",
             )
 
+        category, adapter = mock_registry.register.call_args.args
+        assert category == "tts"
+        assert isinstance(adapter, AzureTTSAdapter)
+        assert adapter._key == "foundry-key"
+        assert adapter._region == "eastus"
+        assert mock_settings.default_tts_provider == "azure"
+
+    async def test_speech_stt_requires_effective_region(self):
+        """Azure Speech STT is not registered when no per-service or master region exists."""
+        from app.api.azure_config import register_adapter_from_config
+
+        mock_registry = MagicMock()
+        mock_settings = MagicMock(default_stt_provider="mock")
+        with (
+            patch("app.services.agents.registry.registry", mock_registry),
+            patch("app.api.azure_config.settings", mock_settings),
+        ):
+            await register_adapter_from_config(
+                "azure_speech_stt",
+                endpoint="",
+                api_key="",
+                deployment="",
+                region="",
+                master_key="foundry-key",
+                master_region="",
+            )
+
         mock_registry.register.assert_not_called()
-        assert mock_settings.default_tts_provider == "mock"
+        assert mock_settings.default_stt_provider == "mock"
 
 
 class TestTestConnectionEndpoint:

@@ -30,7 +30,7 @@ beforeEach(() => vi.clearAllMocks());
 
 describe("Conference API client", () => {
   describe("createConferenceSession", () => {
-    it("calls POST /conference/sessions with scenario_id", async () => {
+    it("calls POST /conference/sessions with scenario_id and default mode", async () => {
       const session = { id: "cs-1", status: "created", scenarioId: "sc-1" };
       mockClient.post.mockResolvedValue({ data: session });
 
@@ -38,8 +38,21 @@ describe("Conference API client", () => {
 
       expect(mockClient.post).toHaveBeenCalledWith("/conference/sessions", {
         scenario_id: "sc-1",
+        mode: "text",
       });
       expect(result.id).toBe("cs-1");
+    });
+
+    it("passes voice mode when provided", async () => {
+      const session = { id: "cs-1", status: "created", scenarioId: "sc-1" };
+      mockClient.post.mockResolvedValue({ data: session });
+
+      await createConferenceSession("sc-1", "voice_realtime_model");
+
+      expect(mockClient.post).toHaveBeenCalledWith("/conference/sessions", {
+        scenario_id: "sc-1",
+        mode: "voice_realtime_model",
+      });
     });
 
     it("propagates creation errors", async () => {

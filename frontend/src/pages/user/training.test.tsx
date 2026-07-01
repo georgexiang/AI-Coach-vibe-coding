@@ -57,6 +57,7 @@ vi.mock("@/hooks/use-config", () => ({
   useFeatureFlags: () => ({
     data: {
       features: {
+        voice_enabled: true,
         voice_live_enabled: true,
         avatar_enabled: true,
       },
@@ -365,8 +366,25 @@ describe("ScenarioSelection Filters and Actions", () => {
     const startBtns = screen.getAllByText("Start");
     await userEvent.setup().click(startBtns[0]!);
 
-    expect(mockConferenceMutateAsync).toHaveBeenCalledWith("sc-2");
-    expect(mockNavigate).toHaveBeenCalledWith("/user/training/conference?id=conf-session-1");
+    expect(mockConferenceMutateAsync).toHaveBeenCalledWith({
+      scenarioId: "sc-2",
+      mode: "voice_realtime_model",
+    });
+    expect(mockNavigate).toHaveBeenCalledWith(
+      "/user/training/conference?id=conf-session-1&inputMode=audio",
+    );
+  });
+
+  it("passes text and voice modes to conference scenario cards", async () => {
+    scenarioData = twoScenarios;
+    renderPage("/user/training?mode=conference");
+
+    expect(screen.getByTestId("modes-sc-2")).toHaveTextContent(
+      "text,voice_realtime_model",
+    );
+    expect(screen.getByTestId("default-mode-sc-2")).toHaveTextContent(
+      "voice_realtime_model",
+    );
   });
 
   it("handles createSession failure gracefully for F2F", async () => {

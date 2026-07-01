@@ -61,6 +61,18 @@ describe("useSessionRecorder", () => {
     expect(success).toBe(false);
   });
 
+  it("startRecording ignores duplicate starts after the recorder has started", async () => {
+    const { result } = renderHook(() => useSessionRecorder());
+    const mockStream = { getTracks: () => [] } as unknown as MediaStream;
+
+    await act(async () => {
+      await result.current.startRecording(mockStream);
+      await result.current.startRecording(mockStream);
+    });
+
+    expect(mockStartRecording).toHaveBeenCalledTimes(1);
+  });
+
   it("stopAndUpload stops recording and uploads the blob", async () => {
     const { result } = renderHook(() => useSessionRecorder());
 
