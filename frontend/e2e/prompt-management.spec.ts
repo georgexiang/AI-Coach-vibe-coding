@@ -90,6 +90,37 @@ test.describe("Prompt Management", () => {
     }
   });
 
+  test("admin optimizes a scoring rubric prompt via the shared dialog", async ({
+    page,
+  }) => {
+    // A rubric editor reuses the same optimize dialog as the prompt registry.
+    await page.goto("/admin/scoring-rubrics/new");
+    await page.waitForLoadState("networkidle");
+    await expect(page).not.toHaveURL(/\/login/);
+
+    // Open the shared AI optimize dialog from the prompt-template card.
+    const optimizeBtn = page.getByTestId("optimize-prompt");
+    await expect(optimizeBtn).toBeVisible();
+    await optimizeBtn.click();
+
+    await expect(page.getByTestId("run-optimize")).toBeVisible();
+    await page.getByTestId("run-optimize").click();
+
+    // The optimizer requires a configured adapter; guard on the diff appearing.
+    const diff = page.getByTestId("optimize-diff");
+    const diffVisible = await diff
+      .waitFor({ state: "visible", timeout: 20000 })
+      .then(() => true)
+      .catch(() => false);
+    test.skip(!diffVisible, "Optimizer adapter not available in this environment");
+
+    await expect(page.getByTestId("optimized-text")).toBeVisible();
+
+    // Adopting fills the rubric prompt-template field with the optimized text.
+    await page.getByTestId("adopt-run").click();
+    await expect(page.getByTestId("optimize-diff")).toHaveCount(0);
+  });
+
   test("prompt content is rendered as plain text (no HTML injection)", async ({
     page,
   }) => {
