@@ -1,6 +1,6 @@
 ---
-phase: 28-prompt-create-and-version-content
-plan: 01
+phase: 27-prompt-optimizer-unified-prompt-management
+plan: 07
 subsystem: prompt-management
 tags: [prompts, admin, crud, i18n]
 requires:
@@ -47,7 +47,7 @@ metrics:
   completed: 2026-07-01
 ---
 
-# Phase 28 Plan 01: Create New Prompt Summary
+# Phase 27 Plan 07: Create New Prompt Summary
 
 Admins can now create a brand-new custom prompt (key + name + content, plus optional
 category/description/variables) directly from the Prompt 管理 list page via a dialog,
@@ -92,10 +92,10 @@ None — plan executed as written.
 
 Pre-existing, unrelated backend test failures and formatting drift were discovered
 while running the full suite as a pre-commit gate and logged to
-`.planning/phases/28-prompt-create-and-version-content/deferred-items.md`
+`.planning/phases/27-prompt-optimizer-unified-prompt-management/deferred-items.md`
 (voice-live/connection-tester tests failing due to an active `az login` in the
 environment; docx extractor tests; scenario module formatting). None touch the
-prompt modules; all Phase 28 tests pass.
+prompt modules; all Phase 27 tests pass.
 
 ## Commit
 
@@ -103,5 +103,5 @@ prompt modules; all Phase 28 tests pass.
 
 ## Self-Check: PASSED
 
-- 28-01-SUMMARY.md exists
+- 27-07-SUMMARY.md exists
 - Commit 3705557 exists in history

@@ -11,6 +11,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -20,6 +27,15 @@ import {
 } from "@/components/ui/dialog";
 import { useCreatePrompt, usePrompts } from "@/hooks/use-prompts";
 import type { PromptSummary } from "@/types/prompt";
+
+const CATEGORY_OPTIONS = [
+  "general",
+  "conversation",
+  "conference",
+  "scoring",
+  "skill",
+  "dry_run",
+] as const;
 
 function formatDate(value: string | null, never: string): string {
   if (!value) return never;
@@ -39,13 +55,22 @@ export default function PromptsPage() {
     key: "",
     name: "",
     category: "general",
+    isSystem: false,
     description: "",
     variables: "",
     content: "",
   });
 
   function resetForm() {
-    setForm({ key: "", name: "", category: "general", description: "", variables: "", content: "" });
+    setForm({
+      key: "",
+      name: "",
+      category: "general",
+      isSystem: false,
+      description: "",
+      variables: "",
+      content: "",
+    });
   }
 
   async function handleCreate() {
@@ -61,6 +86,7 @@ export default function PromptsPage() {
         category: form.category.trim() || "general",
         description: form.description,
         variables,
+        is_system: form.isSystem,
       });
       toast.success(t("create.success"));
       setCreateOpen(false);
@@ -123,7 +149,11 @@ export default function PromptsPage() {
                       )}
                     </td>
                     <td className="px-4 py-3">{prompt.name}</td>
-                    <td className="px-4 py-3">{prompt.category}</td>
+                    <td className="px-4 py-3">
+                      {t(`create.categoryOptions.${prompt.category}`, {
+                        defaultValue: prompt.category,
+                      })}
+                    </td>
                     <td className="px-4 py-3">
                       {prompt.active_version_no != null ? `v${prompt.active_version_no}` : "—"}
                     </td>
@@ -171,22 +201,42 @@ export default function PromptsPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label htmlFor="create-category">{t("create.category")}</Label>
-                <Input
-                  id="create-category"
-                  data-testid="create-category"
+                <Select
                   value={form.category}
-                  onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
-                />
+                  onValueChange={(value) => setForm((f) => ({ ...f, category: value }))}
+                >
+                  <SelectTrigger id="create-category" data-testid="create-category">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CATEGORY_OPTIONS.map((c) => (
+                      <SelectItem key={c} value={c} data-testid={`create-category-${c}`}>
+                        {t(`create.categoryOptions.${c}`)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="create-variables">{t("create.variables")}</Label>
-                <Input
-                  id="create-variables"
-                  data-testid="create-variables"
-                  value={form.variables}
-                  placeholder={t("create.variablesPlaceholder")}
-                  onChange={(e) => setForm((f) => ({ ...f, variables: e.target.value }))}
-                />
+                <Label htmlFor="create-is-system">{t("create.isSystem")}</Label>
+                <Select
+                  value={form.isSystem ? "true" : "false"}
+                  onValueChange={(value) =>
+                    setForm((f) => ({ ...f, isSystem: value === "true" }))
+                  }
+                >
+                  <SelectTrigger id="create-is-system" data-testid="create-is-system">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="false" data-testid="create-is-system-false">
+                      {t("create.isSystemNo")}
+                    </SelectItem>
+                    <SelectItem value="true" data-testid="create-is-system-true">
+                      {t("create.isSystemYes")}
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
@@ -197,6 +247,18 @@ export default function PromptsPage() {
                 data-testid="create-description"
                 value={form.description}
                 onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="create-variables">{t("create.variables")}</Label>
+              <Textarea
+                id="create-variables"
+                data-testid="create-variables"
+                rows={2}
+                value={form.variables}
+                placeholder={t("create.variablesPlaceholder")}
+                onChange={(e) => setForm((f) => ({ ...f, variables: e.target.value }))}
               />
             </div>
 

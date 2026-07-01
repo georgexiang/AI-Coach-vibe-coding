@@ -26,6 +26,7 @@ from app.schemas.prompt import (
     OptimizeRecordRequest,
     OptimizeRunResponse,
     PromptCreateRequest,
+    PromptMetaUpdateRequest,
     PromptOptimizationRunResponse,
     PromptResponse,
     PromptSummary,
@@ -164,6 +165,7 @@ async def create_prompt(
         category=data.category,
         description=data.description,
         variables=data.variables,
+        is_system=data.is_system,
         created_by=user.id,
     )
     return PromptResponse(
@@ -189,6 +191,34 @@ async def update_prompt(
         db, key, content=data.content, note=data.note, created_by=user.id, source="manual"
     )
     return _version_response(version)
+
+
+@router.patch("/{key}", response_model=PromptResponse)
+async def update_prompt_meta(
+    key: str,
+    data: PromptMetaUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+    _user: User = Depends(require_role("admin")),
+) -> PromptResponse:
+    """Update a prompt's editable metadata (name/category/description/variables). Admin only."""
+    template, active = await prompt_registry.update_template_meta(
+        db,
+        key,
+        name=data.name,
+        category=data.category,
+        description=data.description,
+        variables=data.variables,
+        is_system=data.is_system,
+    )
+    return PromptResponse(
+        key=template.key,
+        name=template.name,
+        category=template.category,
+        description=template.description or "",
+        is_system=template.is_system,
+        variables=json.loads(template.variables or "[]"),
+        active_version=_version_response(active) if active else None,
+    )
 
 
 @router.post("/{key}/activate/{version_no}", response_model=PromptVersionResponse)

@@ -7,6 +7,7 @@ import type {
   OptimizeTextResponse,
   Prompt,
   PromptCreateRequest,
+  PromptMetaUpdateRequest,
   PromptRun,
   PromptSummary,
   PromptUpdateRequest,
@@ -41,6 +42,11 @@ export const promptsApi = {
 
   async saveVersion(key: string, payload: PromptUpdateRequest) {
     const { data } = await apiClient.put<PromptVersion>(`/prompts/${key}`, payload);
+    return data;
+  },
+
+  async updateMeta(key: string, payload: PromptMetaUpdateRequest) {
+    const { data } = await apiClient.patch<Prompt>(`/prompts/${key}`, payload);
     return data;
   },
 

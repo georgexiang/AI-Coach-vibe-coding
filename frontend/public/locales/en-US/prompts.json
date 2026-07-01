@@ -19,6 +19,17 @@
     "keyPlaceholder": "e.g. custom.greeting (lowercase, digits, . _ -)",
     "name": "Name",
     "category": "Category",
+    "categoryOptions": {
+      "general": "General",
+      "conversation": "Conversation",
+      "conference": "Conference",
+      "scoring": "Scoring",
+      "skill": "Skill",
+      "dry_run": "Dry run"
+    },
+    "isSystem": "System prompt?",
+    "isSystemYes": "Yes (built-in, cannot delete)",
+    "isSystemNo": "No (custom, deletable)",
     "variables": "Placeholders",
     "variablesPlaceholder": "Comma-separated, e.g. name, product",
     "descriptionField": "Description",
@@ -31,6 +42,10 @@
   },
   "editor": {
     "back": "Back to list",
+    "basicInfo": "Basic info",
+    "saveMeta": "Save changes",
+    "metaSaved": "Basic info saved",
+    "metaError": "Failed to save",
     "content": "Prompt content",
     "placeholders": "Available placeholders",
     "noPlaceholders": "This prompt has no placeholders.",

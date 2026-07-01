@@ -63,6 +63,15 @@ export interface PromptCreateRequest {
   category?: string;
   description?: string;
   variables?: string[];
+  is_system?: boolean;
+}
+
+export interface PromptMetaUpdateRequest {
+  name?: string;
+  category?: string;
+  description?: string;
+  variables?: string[];
+  is_system?: boolean;
 }
 
 export interface OptimizeRequest {

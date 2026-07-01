@@ -8,9 +8,14 @@ from sqlalchemy import func, select
 from app.models.prompt_template import PromptTemplate
 from app.models.prompt_version import PromptVersion
 from app.services.prompt_defaults import PROMPT_DEFAULTS, PROMPT_KEYS
-from app.services.prompt_registry import create_template, get_prompt, seed_prompt_registry
+from app.services.prompt_registry import (
+    create_template,
+    get_prompt,
+    seed_prompt_registry,
+    update_template_meta,
+)
 from app.services.scoring_engine import SCORING_PROMPT_TEMPLATE
-from app.utils.exceptions import ConflictException, ValidationException
+from app.utils.exceptions import ConflictException, NotFoundException, ValidationException
 
 
 @pytest.fixture
@@ -165,6 +170,17 @@ async def test_create_template_defaults_empty_variables(session):
     assert template.category == "general"
 
 
+async def test_create_template_is_system_true(session):
+    template, _ = await create_template(
+        session,
+        key="custom.sys",
+        name="Sys",
+        content="body",
+        is_system=True,
+    )
+    assert template.is_system is True
+
+
 async def test_create_template_duplicate_key_conflict(session):
     await seed_prompt_registry(session)
     with pytest.raises(ConflictException):
@@ -180,3 +196,40 @@ async def test_create_template_invalid_key_raises(session, bad_key):
 async def test_create_template_strips_key_whitespace(session):
     template, _ = await create_template(session, key="  custom.trim  ", name="Trim", content="x")
     assert template.key == "custom.trim"
+
+
+# --- update_template_meta ---------------------------------------------------
+
+
+async def test_update_template_meta_updates_fields(session):
+    await create_template(session, key="custom.up", name="Old", content="body")
+    template, active = await update_template_meta(
+        session,
+        "custom.up",
+        name="New",
+        category="scoring",
+        description="d",
+        variables=["x"],
+        is_system=True,
+    )
+    assert template.name == "New"
+    assert template.category == "scoring"
+    assert template.description == "d"
+    assert json.loads(template.variables) == ["x"]
+    assert template.is_system is True
+    assert active is not None and active.content == "body"
+
+
+async def test_update_template_meta_partial(session):
+    await create_template(
+        session, key="custom.up2", name="Keep", content="body", category="skill"
+    )
+    template, _ = await update_template_meta(session, "custom.up2", description="only")
+    assert template.name == "Keep"
+    assert template.category == "skill"
+    assert template.description == "only"
+
+
+async def test_update_template_meta_unknown_key_raises(session):
+    with pytest.raises(NotFoundException):
+        await update_template_meta(session, "missing", name="X")

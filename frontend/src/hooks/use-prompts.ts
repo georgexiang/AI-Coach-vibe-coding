@@ -5,6 +5,7 @@ import type {
   OptimizeRequest,
   OptimizeTextRequest,
   PromptCreateRequest,
+  PromptMetaUpdateRequest,
   PromptUpdateRequest,
 } from "@/types/prompt";
 
@@ -67,6 +68,14 @@ export function useSaveVersion(key: string | undefined) {
   const invalidate = useInvalidatePrompt(key);
   return useMutation({
     mutationFn: (payload: PromptUpdateRequest) => promptsApi.saveVersion(key!, payload),
+    onSuccess: invalidate,
+  });
+}
+
+export function useUpdatePromptMeta(key: string | undefined) {
+  const invalidate = useInvalidatePrompt(key);
+  return useMutation({
+    mutationFn: (payload: PromptMetaUpdateRequest) => promptsApi.updateMeta(key!, payload),
     onSuccess: invalidate,
   });
 }

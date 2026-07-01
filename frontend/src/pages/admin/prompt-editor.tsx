@@ -32,8 +32,18 @@ import {
   usePrompt,
   usePromptVersions,
   useSaveVersion,
+  useUpdatePromptMeta,
 } from "@/hooks/use-prompts";
 import type { OptimizeMode, PromptVersion } from "@/types/prompt";
+
+const CATEGORY_OPTIONS = [
+  "general",
+  "conversation",
+  "conference",
+  "scoring",
+  "skill",
+  "dry_run",
+] as const;
 
 export default function PromptEditorPage() {
   const { key } = useParams<{ key: string }>();
@@ -46,9 +56,17 @@ export default function PromptEditorPage() {
   const activateMutation = useActivateVersion(key);
   const optimizeMutation = useOptimizePrompt(key);
   const adoptMutation = useAdoptRun(key);
+  const metaMutation = useUpdatePromptMeta(key);
 
   const [content, setContent] = useState("");
   const [note, setNote] = useState("");
+  const [meta, setMeta] = useState({
+    name: "",
+    category: "general",
+    isSystem: false,
+    description: "",
+    variables: "",
+  });
   const [dialogOpen, setDialogOpen] = useState(false);
   const [mode, setMode] = useState<OptimizeMode>("system");
   const [requirements, setRequirements] = useState("");
@@ -58,6 +76,18 @@ export default function PromptEditorPage() {
   useEffect(() => {
     if (prompt?.active_version) {
       setContent(prompt.active_version.content);
+    }
+  }, [prompt]);
+
+  useEffect(() => {
+    if (prompt) {
+      setMeta({
+        name: prompt.name,
+        category: prompt.category,
+        isSystem: prompt.is_system,
+        description: prompt.description ?? "",
+        variables: (prompt.variables ?? []).join(", "),
+      });
     }
   }, [prompt]);
 
@@ -73,6 +103,26 @@ export default function PromptEditorPage() {
           toast.success(t("editor.saved"));
           setNote("");
         },
+      },
+    );
+  };
+
+  const handleSaveMeta = () => {
+    const variables = meta.variables
+      .split(",")
+      .map((v) => v.trim())
+      .filter(Boolean);
+    metaMutation.mutate(
+      {
+        name: meta.name.trim(),
+        category: meta.category.trim() || "general",
+        description: meta.description,
+        variables,
+        is_system: meta.isSystem,
+      },
+      {
+        onSuccess: () => toast.success(t("editor.metaSaved")),
+        onError: () => toast.error(t("editor.metaError")),
       },
     );
   };
@@ -139,21 +189,102 @@ export default function PromptEditorPage() {
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle>{t("editor.placeholders")}</CardTitle>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>{t("editor.basicInfo")}</CardTitle>
+          <Button
+            size="sm"
+            onClick={handleSaveMeta}
+            disabled={metaMutation.isPending}
+            data-testid="save-meta"
+          >
+            <Save className="size-4" />
+            {t("editor.saveMeta")}
+          </Button>
         </CardHeader>
-        <CardContent>
-          {prompt?.variables && prompt.variables.length > 0 ? (
-            <div className="flex flex-wrap gap-2">
-              {prompt.variables.map((v) => (
-                <Badge key={v} variant="secondary" className="font-mono">
-                  {`{{${v}}}`}
-                </Badge>
-              ))}
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="meta-name">{t("create.name")}</Label>
+              <Input
+                id="meta-name"
+                data-testid="meta-name"
+                value={meta.name}
+                onChange={(e) => setMeta((m) => ({ ...m, name: e.target.value }))}
+              />
             </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">{t("editor.noPlaceholders")}</p>
-          )}
+            <div className="space-y-1.5">
+              <Label htmlFor="meta-category">{t("create.category")}</Label>
+              <Select
+                value={meta.category}
+                onValueChange={(value) => setMeta((m) => ({ ...m, category: value }))}
+              >
+                <SelectTrigger id="meta-category" data-testid="meta-category">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {CATEGORY_OPTIONS.map((c) => (
+                    <SelectItem key={c} value={c} data-testid={`meta-category-${c}`}>
+                      {t(`create.categoryOptions.${c}`)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="meta-is-system">{t("create.isSystem")}</Label>
+              <Select
+                value={meta.isSystem ? "true" : "false"}
+                onValueChange={(value) =>
+                  setMeta((m) => ({ ...m, isSystem: value === "true" }))
+                }
+              >
+                <SelectTrigger id="meta-is-system" data-testid="meta-is-system">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="false" data-testid="meta-is-system-false">
+                    {t("create.isSystemNo")}
+                  </SelectItem>
+                  <SelectItem value="true" data-testid="meta-is-system-true">
+                    {t("create.isSystemYes")}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="meta-description">{t("create.descriptionField")}</Label>
+              <Input
+                id="meta-description"
+                data-testid="meta-description"
+                value={meta.description}
+                onChange={(e) => setMeta((m) => ({ ...m, description: e.target.value }))}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="meta-variables">{t("create.variables")}</Label>
+            <Textarea
+              id="meta-variables"
+              data-testid="meta-variables"
+              rows={2}
+              value={meta.variables}
+              placeholder={t("create.variablesPlaceholder")}
+              onChange={(e) => setMeta((m) => ({ ...m, variables: e.target.value }))}
+            />
+            {prompt?.variables && prompt.variables.length > 0 && (
+              <div className="flex flex-wrap gap-2 pt-1">
+                {prompt.variables.map((v) => (
+                  <Badge key={v} variant="secondary" className="font-mono">
+                    {`{{${v}}}`}
+                  </Badge>
+                ))}
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
 

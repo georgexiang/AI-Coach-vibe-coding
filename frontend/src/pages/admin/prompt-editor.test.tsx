@@ -29,6 +29,7 @@ const mockSaveMutate = vi.fn();
 const mockActivateMutate = vi.fn();
 const mockOptimizeMutate = vi.fn();
 const mockAdoptMutate = vi.fn();
+const mockMetaMutate = vi.fn();
 
 let mockPromptReturn: { data: Prompt | undefined; isError: boolean };
 let mockVersionsReturn: { data: PromptVersion[] | undefined };
@@ -40,6 +41,7 @@ vi.mock("@/hooks/use-prompts", () => ({
   useActivateVersion: () => ({ mutate: mockActivateMutate, isPending: false }),
   useOptimizePrompt: () => ({ mutate: mockOptimizeMutate, isPending: false }),
   useAdoptRun: () => ({ mutate: mockAdoptMutate, isPending: false }),
+  useUpdatePromptMeta: () => ({ mutate: mockMetaMutate, isPending: false }),
 }));
 
 const makeVersion = (overrides: Partial<PromptVersion> = {}): PromptVersion => ({
@@ -99,6 +101,22 @@ describe("PromptEditorPage", () => {
     await user.click(screen.getByTestId("save-version"));
     expect(mockSaveMutate).toHaveBeenCalledWith(
       { content: "current content", note: "" },
+      expect.any(Object),
+    );
+  });
+
+  it("Save changes calls useUpdatePromptMeta with the edited metadata", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await user.clear(screen.getByTestId("meta-name"));
+    await user.type(screen.getByTestId("meta-name"), "Renamed Prompt");
+    await user.click(screen.getByTestId("save-meta"));
+    expect(mockMetaMutate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "Renamed Prompt",
+        variables: ["hcp_name", "specialty"],
+        is_system: true,
+      }),
       expect.any(Object),
     );
   });

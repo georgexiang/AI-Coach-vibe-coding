@@ -22,11 +22,17 @@ from app.api.prompts import (
     list_prompts,
     optimize_and_record,
     update_prompt,
+    update_prompt_meta,
 )
 from app.models.prompt_template import PromptTemplate
 from app.models.prompt_version import PromptVersion
 from app.models.user import User
-from app.schemas.prompt import AdoptRunRequest, PromptCreateRequest, PromptUpdateRequest
+from app.schemas.prompt import (
+    AdoptRunRequest,
+    PromptCreateRequest,
+    PromptMetaUpdateRequest,
+    PromptUpdateRequest,
+)
 from app.services.prompt_optimizer_client import PromptOptimizerError
 from app.services.prompt_registry import get_prompt, seed_prompt_registry
 from app.utils.exceptions import (
@@ -161,6 +167,20 @@ async def test_create_prompt_returns_201_detail(db_session):
     assert any(r.key == "custom.api" for r in rows)
 
 
+async def test_create_prompt_is_system_true(db_session):
+    detail = await create_prompt(
+        PromptCreateRequest(
+            key="custom.sys",
+            name="Sys",
+            content="body",
+            is_system=True,
+        ),
+        db=db_session,
+        user=_admin(),
+    )
+    assert detail.is_system is True
+
+
 async def test_create_prompt_duplicate_key_conflict(db_session):
     await seed_prompt_registry(db_session)
     with pytest.raises(ConflictException):
@@ -177,6 +197,61 @@ async def test_create_prompt_invalid_key_raises(db_session):
             PromptCreateRequest(key="Bad Key", name="X", content="x"),
             db=db_session,
             user=_admin(),
+        )
+
+
+async def test_update_prompt_meta_updates_fields(db_session):
+    await create_prompt(
+        PromptCreateRequest(key="custom.meta", name="Old", content="body"),
+        db=db_session,
+        user=_admin(),
+    )
+    detail = await update_prompt_meta(
+        "custom.meta",
+        PromptMetaUpdateRequest(
+            name="New Name",
+            category="skill",
+            description="updated",
+            variables=["a", "b"],
+            is_system=True,
+        ),
+        db=db_session,
+        _user=_admin(),
+    )
+    assert detail.name == "New Name"
+    assert detail.category == "skill"
+    assert detail.description == "updated"
+    assert detail.variables == ["a", "b"]
+    assert detail.is_system is True
+    # Content version is untouched.
+    assert detail.active_version is not None
+    assert detail.active_version.content == "body"
+
+
+async def test_update_prompt_meta_partial_keeps_other_fields(db_session):
+    await create_prompt(
+        PromptCreateRequest(key="custom.partial", name="Keep", content="body", category="skill"),
+        db=db_session,
+        user=_admin(),
+    )
+    detail = await update_prompt_meta(
+        "custom.partial",
+        PromptMetaUpdateRequest(description="only desc"),
+        db=db_session,
+        _user=_admin(),
+    )
+    assert detail.name == "Keep"
+    assert detail.category == "skill"
+    assert detail.description == "only desc"
+
+
+async def test_update_prompt_meta_unknown_key_404(db_session):
+    with pytest.raises(NotFoundException):
+        await update_prompt_meta(
+            "nope",
+            PromptMetaUpdateRequest(name="X"),
+            db=db_session,
+            _user=_admin(),
         )
 
 

@@ -19,6 +19,17 @@
     "keyPlaceholder": "例如 custom.greeting（小写字母、数字、. _ -）",
     "name": "名称",
     "category": "分类",
+    "categoryOptions": {
+      "general": "通用",
+      "conversation": "对话",
+      "conference": "会议",
+      "scoring": "评分",
+      "skill": "技能",
+      "dry_run": "演练"
+    },
+    "isSystem": "是否系统 Prompt",
+    "isSystemYes": "是（系统内置，不可删除）",
+    "isSystemNo": "否（自定义，可删除）",
     "variables": "占位符",
     "variablesPlaceholder": "以逗号分隔，例如 name, product",
     "descriptionField": "描述",
@@ -31,6 +42,10 @@
   },
   "editor": {
     "back": "返回列表",
+    "basicInfo": "基本信息",
+    "saveMeta": "保存修改",
+    "metaSaved": "基本信息已保存",
+    "metaError": "保存失败",
     "content": "Prompt 内容",
     "placeholders": "可用占位符",
     "noPlaceholders": "此 Prompt 无占位符。",

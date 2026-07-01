@@ -1,10 +1,10 @@
 ---
-phase: 28-prompt-create-and-version-content
-plan: 02
+phase: 27-prompt-optimizer-unified-prompt-management
+plan: 08
 subsystem: prompt-management
 tags: [prompts, admin, versions, i18n, read-only]
 requires:
-  - "28-01: create-new-prompt feature (list dialog + POST /prompts)"
+  - "27-07: create-new-prompt feature (list dialog + POST /prompts)"
   - "Prompt registry (Phase 27): GET /prompts/{key}/versions returns content per version"
 provides:
   - "Per-version 'View content' action on the prompt detail page"
@@ -32,7 +32,7 @@ metrics:
   completed: 2026-07-01
 ---
 
-# Phase 28 Plan 02: View Historical Version Content Summary
+# Phase 27 Plan 08: View Historical Version Content Summary
 
 Admins can now read the full text of any historical prompt version from the detail
 page. Each version row in the history list gains an Eye-icon "View content" action
@@ -72,5 +72,5 @@ raw keys.)
 
 ## Self-Check: PASSED
 
-- 28-02-SUMMARY.md exists
+- 27-08-SUMMARY.md exists
 - Commit 97eb902 exists in history

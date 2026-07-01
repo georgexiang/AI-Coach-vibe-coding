@@ -156,6 +156,10 @@ test.describe("Prompt Management", () => {
 
     await page.getByTestId("create-key").fill(uniqueKey);
     await page.getByTestId("create-name").fill("E2E Custom Prompt");
+    // Category and system-prompt selects are present; pick a category, keep custom (deletable).
+    await expect(page.getByTestId("create-is-system")).toBeVisible();
+    await page.getByTestId("create-category").click();
+    await page.getByTestId("create-category-skill").click();
     await page.getByTestId("create-variables").fill("name, product");
     await page.getByTestId("create-content").fill("Hello, this is an e2e prompt.");
     await page.getByTestId("create-submit").click();

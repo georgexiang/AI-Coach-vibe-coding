@@ -102,10 +102,19 @@ describe("PromptsPage", () => {
         name: "Hello",
         content: "Hi there",
         variables: ["name", "product"],
+        is_system: false,
       }),
     );
     expect(vi.mocked(toast.success)).toHaveBeenCalled();
     expect(mockNavigate).toHaveBeenCalledWith("/admin/prompts/custom.hello");
+  });
+
+  it("renders category and system-prompt selects in the create dialog", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(screen.getByTestId("prompt-create-open"));
+    expect(screen.getByTestId("create-category")).toBeInTheDocument();
+    expect(screen.getByTestId("create-is-system")).toBeInTheDocument();
   });
 
   it("keeps submit disabled until required fields are filled", async () => {

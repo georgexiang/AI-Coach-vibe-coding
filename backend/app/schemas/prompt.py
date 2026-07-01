@@ -74,7 +74,7 @@ class PromptUpdateRequest(BaseModel):
 
 
 class PromptCreateRequest(BaseModel):
-    """Register a brand-new (non-system) prompt with its version 1 content."""
+    """Register a brand-new prompt with its version 1 content."""
 
     key: str
     name: str
@@ -82,6 +82,21 @@ class PromptCreateRequest(BaseModel):
     category: str = "general"
     description: str = ""
     variables: list[str] = []
+    is_system: bool = False
+
+
+class PromptMetaUpdateRequest(BaseModel):
+    """Update editable prompt metadata (name/category/description/variables/is_system).
+
+    Every field is optional; only provided fields are changed. Content is versioned
+    separately via :class:`PromptUpdateRequest`.
+    """
+
+    name: str | None = None
+    category: str | None = None
+    description: str | None = None
+    variables: list[str] | None = None
+    is_system: bool | None = None
 
 
 class OptimizeRecordRequest(BaseModel):

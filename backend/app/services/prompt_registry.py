@@ -25,6 +25,7 @@ __all__ = [
     "list_versions",
     "list_runs",
     "create_template",
+    "update_template_meta",
     "create_version",
     "activate_version",
     "record_optimization_run",
@@ -202,12 +203,13 @@ async def create_template(
     category: str = "general",
     description: str = "",
     variables: list[str] | None = None,
+    is_system: bool = False,
     created_by: str | None = None,
 ) -> tuple[PromptTemplate, PromptVersion]:
-    """Register a new non-system prompt with an active version 1.
+    """Register a new prompt with an active version 1.
 
     Raises ``ValidationException`` for an invalid key and ``ConflictException`` if the key
-    already exists. New templates are ``is_system=False`` so they can later be deleted.
+    already exists. Non-system templates (``is_system=False``) can later be deleted.
     """
     key = (key or "").strip()
     if not _KEY_PATTERN.fullmatch(key):
@@ -225,7 +227,7 @@ async def create_template(
         category=category or "general",
         description=description or "",
         variables=json.dumps(variables or []),
-        is_system=False,
+        is_system=is_system,
     )
     db.add(template)
     await db.flush()
@@ -246,6 +248,38 @@ async def create_template(
     await db.refresh(template)
     await db.refresh(version)
     return template, version
+
+
+async def update_template_meta(
+    db: AsyncSession,
+    key: str,
+    *,
+    name: str | None = None,
+    category: str | None = None,
+    description: str | None = None,
+    variables: list[str] | None = None,
+    is_system: bool | None = None,
+) -> tuple[PromptTemplate, PromptVersion | None]:
+    """Update editable metadata of a prompt template (not its version content).
+
+    Only provided (non-``None``) fields are changed. Returns the template and its active
+    version. Raises ``NotFoundException`` for an unknown key.
+    """
+    template = await _get_template_or_404(db, key)
+    if name is not None:
+        template.name = name
+    if category is not None:
+        template.category = category or "general"
+    if description is not None:
+        template.description = description
+    if variables is not None:
+        template.variables = json.dumps(variables)
+    if is_system is not None:
+        template.is_system = is_system
+    await db.commit()
+    await db.refresh(template)
+    active = await _active_version(db, template)
+    return template, active
 
 
 async def create_version(

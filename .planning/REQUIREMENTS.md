@@ -196,3 +196,4 @@
 - [x] **PROMPT-03**: Every AI optimization is recorded as an auditable run (original, optimized result, mode, template, model, time, actor)
 - [x] **PROMPT-04**: Each prompt has an immutable version history supporting rollback to any prior version
 - [x] **PROMPT-05**: A single admin UI manages all prompts: browse, edit, AI-optimize with diff, adopt, and roll back
+- [x] **PROMPT-06**: Admins can create a brand-new prompt from the management UI (not limited to optimizing existing ones) and view the text content of any historical version
