@@ -3,6 +3,7 @@ import { promptsApi } from "@/api/prompts";
 import type {
   AdoptRunRequest,
   OptimizeRequest,
+  OptimizeTextRequest,
   PromptUpdateRequest,
 } from "@/types/prompt";
 
@@ -80,5 +81,13 @@ export function useAdoptRun(key: string | undefined) {
   return useMutation({
     mutationFn: (payload: AdoptRunRequest) => promptsApi.adoptRun(key!, payload),
     onSuccess: invalidate,
+  });
+}
+
+// Stateless optimization for per-entity prompts (rubric, conference audience).
+// Optimizes the passed content without touching the prompt registry.
+export function useOptimizeText() {
+  return useMutation({
+    mutationFn: (payload: OptimizeTextRequest) => promptsApi.optimizeText(payload),
   });
 }

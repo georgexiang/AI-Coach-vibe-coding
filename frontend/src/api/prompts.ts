@@ -3,6 +3,8 @@ import type {
   AdoptRunRequest,
   OptimizeRequest,
   OptimizeRunResponse,
+  OptimizeTextRequest,
+  OptimizeTextResponse,
   Prompt,
   PromptRun,
   PromptSummary,
@@ -53,6 +55,11 @@ export const promptsApi = {
 
   async adoptRun(key: string, payload: AdoptRunRequest) {
     const { data } = await apiClient.post<PromptVersion>(`/prompts/${key}/adopt`, payload);
+    return data;
+  },
+
+  async optimizeText(payload: OptimizeTextRequest) {
+    const { data } = await apiClient.post<OptimizeTextResponse>("/prompts/optimize", payload);
     return data;
   },
 };

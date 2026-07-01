@@ -1,11 +1,11 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { ArrowLeft, Save, Trash2, Plus, RefreshCw } from "lucide-react";
+import { ArrowLeft, Save, Trash2, Plus, RefreshCw, Sparkles } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -35,6 +35,7 @@ import {
   useDefaultRubricTemplate,
 } from "@/hooks/use-rubrics";
 import { CuStatusSection } from "@/components/admin/cu-status-section";
+import { PromptOptimizeDialog } from "@/components/admin/prompt-optimize-dialog";
 import type { RubricCreate, RubricUpdate } from "@/types/rubric";
 
 const dimensionSchema = z.object({
@@ -63,6 +64,7 @@ export default function RubricEditorPage() {
   const navigate = useNavigate();
   const { t } = useTranslation(["admin", "common"]);
   const isNew = !id;
+  const [optimizeOpen, setOptimizeOpen] = useState(false);
 
   const { data: rubric, isLoading: rubricLoading } = useRubric(id);
   const { data: defaultPromptTemplate } = useDefaultPromptTemplate();
@@ -283,20 +285,32 @@ export default function RubricEditorPage() {
           <div className="grid gap-2">
             <div className="flex items-center justify-between gap-3">
               <Label>{t("admin:rubrics.promptTemplate")}</Label>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={!defaultPrompt}
-                onClick={() =>
-                  form.setValue("prompt_template", defaultPrompt, {
-                    shouldDirty: true,
-                  })
-                }
-              >
-                <RefreshCw className="mr-2 size-3.5" />
-                {t("admin:rubrics.useDefaultPromptTemplate")}
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setOptimizeOpen(true)}
+                  data-testid="optimize-prompt"
+                >
+                  <Sparkles className="mr-2 size-3.5" />
+                  {t("prompts:actions.optimize", { defaultValue: "AI \u4f18\u5316" })}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={!defaultPrompt}
+                  onClick={() =>
+                    form.setValue("prompt_template", defaultPrompt, {
+                      shouldDirty: true,
+                    })
+                  }
+                >
+                  <RefreshCw className="mr-2 size-3.5" />
+                  {t("admin:rubrics.useDefaultPromptTemplate")}
+                </Button>
+              </div>
             </div>
             <Textarea
               rows={10}
@@ -314,6 +328,13 @@ export default function RubricEditorPage() {
           </div>
         </CardContent>
       </Card>
+
+      <PromptOptimizeDialog
+        open={optimizeOpen}
+        onOpenChange={setOptimizeOpen}
+        content={form.watch("prompt_template") ?? ""}
+        onAdopt={(text) => form.setValue("prompt_template", text, { shouldDirty: true })}
+      />
 
       {/* Dimensions Card */}
       <Card>
