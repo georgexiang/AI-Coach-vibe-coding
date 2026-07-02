@@ -281,8 +281,10 @@ docker compose up --build
 
 | 角色 | 用户名 | 密码 |
 |------|--------|------|
-| 管理员 | admin@aicoach.com | admin123 |
-| 医药代表 | mr@aicoach.com | test123 |
+| 管理员 | admin | admin123 |
+| 医药代表 | user1 | user123 |
+| 医药代表 | user2 | user123 |
+| 医药代表 | user3 | user123 |
 
 ---
 
@@ -325,7 +327,10 @@ az account show -o table
 
 ```powershell
 .\infra\azure\scripts\deploy.ps1 `
-  -ResourceGroupName ai-coach-demo-rg `
+  -NetworkProfile publicDemo `
+  -ResourceGroupName ai-coach-publicsandbox01-rg `
+  -Location eastasia `
+  -FoundryLocation eastus2 `
   -DeployApp
 ```
 
@@ -344,14 +349,14 @@ az account show -o table
 
 ### 方式二：Private backend 部署
 
-`privateBackend` 用于更接近生产安全边界的云端验证。应用、数据库、存储、Key Vault、Container Apps、VNet/PE 等通用资源使用 `-Location`；Azure AI Foundry / AI Services / model deployment 可用 `-FoundryLocation` 放到模型可用区域。例如应用资源部署到 East Asia，Foundry 部署到 Sweden Central：
+`privateBackend` 用于更接近生产安全边界的云端验证。应用、数据库、存储、Key Vault、Container Apps、VNet/PE 等通用资源使用 `-Location`；Azure AI Foundry / AI Services / model deployment 可用 `-FoundryLocation` 放到模型可用区域。例如应用资源部署到 East Asia，Foundry 部署到 East US 2：
 
 ```powershell
 .\infra\azure\scripts\deploy.ps1 `
   -NetworkProfile privateBackend `
   -ResourceGroupName ai-coach-privatesandbox01-rg `
   -Location eastasia `
-  -FoundryLocation swedencentral `
+  -FoundryLocation eastus2 `
   -DeployApp
 ```
 
