@@ -150,12 +150,6 @@ COACHING_PROTOCOL_TEMPLATE = """# {skill_name} - Coaching Protocol
 
 {sop_steps_section}
 
-## Training Checkpoints
-
-| Focus Area | Description |
-|------------|-------------|
-{assessment_table}
-
 ## Key Knowledge Points
 
 {knowledge_section}
@@ -424,15 +418,6 @@ def format_coaching_protocol(
 
     sop_steps_section = "\n".join(sop_parts) if sop_parts else "*No SOP steps extracted.*"
 
-    # Training checkpoints table. These guide practice, but final scoring uses the scenario rubric.
-    assessment_rows: list[str] = []
-    for criterion in _get_mr_performance_criteria(extraction):
-        name = criterion.get("name", "")
-        desc = criterion.get("description", "")
-        assessment_rows.append(f"| {name} | {desc} |")
-
-    assessment_table = "\n".join(assessment_rows) if assessment_rows else "| *None* | - |"
-
     # Knowledge Points section
     knowledge_parts: list[str] = []
     for kp in extraction.get("key_knowledge_points", []):
@@ -459,7 +444,6 @@ def format_coaching_protocol(
         skill_name=skill_name,
         summary=extraction.get("summary", ""),
         sop_steps_section=sop_steps_section,
-        assessment_table=assessment_table,
         knowledge_section=knowledge_section,
         source_section=source_section,
     )

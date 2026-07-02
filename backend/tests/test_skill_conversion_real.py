@@ -465,8 +465,8 @@ class TestRealFormatCoachingProtocol:
         assert "## SOP Steps" in result
         assert "### Step 1: Opening" in result
         assert "### Step 2: Product Discussion" in result
-        assert "## Assessment Rubric" in result
-        assert "Communication" in result
+        assert "## Assessment Rubric" not in result
+        assert "## Training Checkpoints" not in result
         assert "## Key Knowledge Points" in result
         assert "Mechanism of Action" in result
         assert "2-3 minutes" in result
