@@ -44,7 +44,7 @@
     },
     "skill_md": {
       "type": "string",
-      "description": "The full Markdown body for SKILL.md. Must contain the complete coaching protocol with SOP steps, knowledge modules, assessment rubric, and coaching guidelines. Must include Markdown headings: '## SOP Steps', '### Step N:', '## Assessment Rubric', '## Key Knowledge Points'.",
+      "description": "The full Markdown body for SKILL.md. Must contain the complete coaching protocol with SOP steps, knowledge modules, and coaching guidelines. Must include Markdown headings: '## SOP Steps', '### Step N:', '## Key Knowledge Points', and '## Coaching Guidelines'. Must not include '## Assessment Rubric', '## Training Checkpoints', weighted scoring tables, or similar checklist sections.",
       "minLength": 500
     },
     "references": {

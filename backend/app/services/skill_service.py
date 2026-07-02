@@ -254,7 +254,12 @@ async def publish_skill(db: AsyncSession, skill_id: str, user_id: str) -> Skill:
     if skill.status == "published":
         return skill
 
-    # Enforce transition: must be in review
+    # The UI publish action is the review gate: generated skills remain draft
+    # after quality evaluation, then publish directly from the confirmation dialog.
+    if skill.status == "draft":
+        validate_status_transition(skill.status, "review")
+        skill.status = "review"
+
     validate_status_transition(skill.status, "published")
 
     # Quality gates

@@ -829,8 +829,8 @@ class TestPublishFlow:
         with pytest.raises(ValidationException, match="stale"):
             await skill_service.publish_skill(db_session, skill.id, user_id)
 
-    async def test_direct_draft_to_published_rejected(self, db_session):
-        """Cannot skip review step: draft → published must fail."""
+    async def test_publish_allows_quality_passed_draft_skill(self, db_session):
+        """Publish action advances a quality-passed generated draft to published."""
         from app.services import skill_service
 
         user_id = await _seed_user()
@@ -843,8 +843,9 @@ class TestPublishFlow:
         )
         await db_session.flush()
 
-        with pytest.raises(ValidationException, match="Invalid status transition"):
-            await skill_service.publish_skill(db_session, skill.id, user_id)
+        published = await skill_service.publish_skill(db_session, skill.id, user_id)
+
+        assert published.status == "published"
 
 
 class TestArchiveFlow:
