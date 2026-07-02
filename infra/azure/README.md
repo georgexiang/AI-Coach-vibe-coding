@@ -82,8 +82,8 @@ az account set --subscription "<subscription-id-or-name>"
   -EnvironmentName "public" `
   -NetworkProfile publicDemo `
   -Location eastasia `
-  -FoundryLocation SwedenCentral `
-  -ChatDeploymentCapacity 30
+  -FoundryLocation eastus2 `
+  -DeployApp
 ```
 
 脚本会生成本地忽略文件 `infra\azure\.local\main.parameters.generated.json`，然后执行 Bicep 部署并输出 GitHub OIDC 配置值。云端默认使用 PostgreSQL Entra / Managed Identity 和 Key Vault service-key storage。后续重复运行时，如果资源组里已经有 Key Vault，脚本不会读取 Key Vault secret，也不会默认轮换 bootstrap secrets；只有显式切到 legacy password DB 模式且仍需要生成 `DATABASE_URL` 时，脚本才会提示输入当前 PostgreSQL admin password。
@@ -103,7 +103,7 @@ az account set --subscription "<subscription-id-or-name>"
 ```powershell
 .\infra\azure\scripts\deploy.ps1 `
   -Location "eastasia" `
-  -FoundryLocation "swedencentral"
+  -FoundryLocation "eastus2"
 ```
 
 部署完整 legacy 资源：
