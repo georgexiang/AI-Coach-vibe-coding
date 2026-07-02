@@ -451,7 +451,7 @@ def _build_package_manifest(parsed: dict) -> PackageManifest:
                     metadata[key] = parsed[key]
         return PackageManifest(
             metadata=metadata,
-            skill_md=parsed.get("skill_md", ""),
+            skill_md=_normalize_generated_skill_md(parsed.get("skill_md", "")),
             references=parsed.get("references", {}),
             scripts=parsed.get("scripts", {}),
             assets=parsed.get("assets", {}),
@@ -472,7 +472,7 @@ def _build_package_manifest(parsed: dict) -> PackageManifest:
                 "product": parsed.get("product", ""),
                 "therapeutic_area": parsed.get("therapeutic_area", ""),
             },
-            skill_md=skill_md,
+            skill_md=_normalize_generated_skill_md(skill_md),
             references={},
             scripts={},
             assets={},
@@ -482,9 +482,34 @@ def _build_package_manifest(parsed: dict) -> PackageManifest:
     # Fallback: raw text as skill_md
     return PackageManifest(
         metadata={},
-        skill_md=parsed.get("content", parsed.get("skill_md", "")),
+        skill_md=_normalize_generated_skill_md(parsed.get("content", parsed.get("skill_md", ""))),
         summary=parsed.get("summary", ""),
     )
+
+
+def _normalize_generated_skill_md(skill_md: str) -> str:
+    """Remove generated scoring-like sections from Skill content."""
+    if not skill_md:
+        return skill_md
+
+    section_names = ("Assessment Rubric", "Training Checkpoints")
+    section_pattern = "|".join(re.escape(name) for name in section_names)
+    heading_re = re.compile(
+        rf"^(?P<level>#{{1,6}})\s+(?:{section_pattern})\s*$",
+        re.MULTILINE,
+    )
+
+    normalized = skill_md
+    while match := heading_re.search(normalized):
+        heading_level = len(match.group("level"))
+        next_heading_re = re.compile(rf"^#{{1,{heading_level}}}\s+", re.MULTILINE)
+        next_match = next_heading_re.search(normalized, match.end())
+        end = next_match.start() if next_match else len(normalized)
+        before = normalized[: match.start()].rstrip()
+        after = normalized[end:].lstrip()
+        normalized = f"{before}\n\n{after}".strip()
+
+    return normalized + ("\n" if skill_md.endswith("\n") and normalized else "")
 
 
 def _safe_filename(filename: str) -> bool:

@@ -34,7 +34,7 @@ class ConferenceSessionCreate(BaseModel):
     """Create a new conference-type coaching session."""
 
     scenario_id: str
-    mode: Literal["text", "voice_realtime_model"] = "text"
+    mode: Literal["text", "voice_realtime_model", "digital_human_realtime_model"] = "text"
 
 
 class ConferenceSessionResponse(BaseModel):

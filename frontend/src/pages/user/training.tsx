@@ -53,12 +53,38 @@ function getScenarioModes(
 }
 
 function getConferenceModes(
-  features: { voice_enabled?: boolean } | undefined,
+  scenario: Scenario,
+  features:
+    | {
+        voice_enabled?: boolean;
+        voice_live_enabled?: boolean;
+        avatar_enabled?: boolean;
+      }
+    | undefined,
 ) {
   const voiceAvailable = Boolean(features?.voice_enabled);
+  const hcp = scenario.hcp_profile;
+  const avatarAvailable = Boolean(
+    features?.voice_live_enabled &&
+      features?.avatar_enabled &&
+      hcp?.voice_live_enabled &&
+      hcp?.avatar_enabled,
+  );
+  const modes = ["text"];
+  if (voiceAvailable) {
+    modes.push("voice_realtime_model");
+  }
+  if (avatarAvailable) {
+    modes.push("digital_human_realtime_model");
+  }
+
   return {
-    modes: voiceAvailable ? ["text", "voice_realtime_model"] : ["text"],
-    defaultMode: voiceAvailable ? "voice_realtime_model" : "text",
+    modes,
+    defaultMode: voiceAvailable
+      ? "voice_realtime_model"
+      : avatarAvailable
+        ? "digital_human_realtime_model"
+        : "text",
   };
 }
 
@@ -118,7 +144,9 @@ export default function ScenarioSelection() {
   const handleStartConference = async (scenarioId: string, mode: string) => {
     try {
       const session = await createConferenceSession.mutateAsync({ scenarioId, mode });
-      const inputMode = mode === "voice_realtime_model" ? "audio" : "text";
+      const isAudioMode =
+        mode === "voice_realtime_model" || mode === "digital_human_realtime_model";
+      const inputMode = isAudioMode ? "audio" : "text";
       navigate(`/user/training/conference?id=${session.id}&inputMode=${inputMode}`);
     } catch {
       // Error handled by TanStack Query
@@ -214,7 +242,7 @@ export default function ScenarioSelection() {
         {modeScenarios.map((scenario) => {
           const { modes, defaultMode } =
             mode === "conference"
-              ? getConferenceModes(config?.features)
+              ? getConferenceModes(scenario, config?.features)
               : getScenarioModes(scenario, config?.features);
           return (
             <ScenarioCard

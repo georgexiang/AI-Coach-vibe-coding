@@ -9,6 +9,10 @@ export interface AudienceHcp {
   hcpSpecialty: string;
   roleInConference: string;
   voiceId: string;
+  voiceLiveEnabled?: boolean;
+  avatarEnabled?: boolean;
+  avatarCharacter?: string;
+  avatarStyle?: string;
   sortOrder: number;
   status: AudienceHcpStatus; // client-side only
 }

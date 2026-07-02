@@ -103,6 +103,10 @@ class TestCreateConferenceSession:
             assert len(config) == 3
             assert config[0]["name"] == "Dr. HCP-0"
             assert config[0]["speaker_priority"] == "primary"
+            assert config[0]["voice_live_enabled"] is True
+            assert config[0]["avatar_enabled"] is True
+            assert config[0]["avatar_character"]
+            assert config[0]["avatar_style"]
             assert config[1]["speaker_priority"] == "secondary"
             assert "conference_prompt_config" in config[0]
 

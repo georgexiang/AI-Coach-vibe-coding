@@ -11,6 +11,7 @@ from app.services.skill_creator_service import (
     CreationResult,
     PackageManifest,
     _build_package_manifest,
+    _normalize_generated_skill_md,
     _parse_raw_json,
 )
 from tests.conftest import TestSessionLocal
@@ -135,6 +136,59 @@ class TestBuildPackageManifest:
         assert "kb.md" in m.references
         assert "validate.py" in m.scripts
         assert m.summary == "Test summary"
+
+    def test_normalizes_generated_assessment_rubric(self):
+        raw = """# Skill
+
+## SOP Steps
+
+### Step 1: Opening
+Content.
+
+## Assessment Rubric
+
+| Dimension | Weight | Description |
+| --- | --- | --- |
+| sop_completeness | 20% | All SOP stages are present. |
+| knowledge_accuracy | 25% | Product knowledge is accurate. |
+
+## Key Knowledge Points
+
+- Evidence based messaging
+"""
+
+        normalized = _normalize_generated_skill_md(raw)
+
+        assert "## Assessment Rubric" not in normalized
+        assert "sop_completeness" not in normalized
+        assert "knowledge_accuracy" not in normalized
+        assert "## Key Knowledge Points" in normalized
+
+    def test_normalizes_generated_training_checkpoints(self):
+        raw = """# Skill
+
+## SOP Steps
+
+### Step 1: Opening
+Content.
+
+## Training Checkpoints
+
+| Focus Area | Observable Behavior |
+| --- | --- |
+| Key Message Delivery | MR delivers required messages. |
+
+## Key Knowledge Points
+
+- Evidence based messaging
+"""
+
+        normalized = _normalize_generated_skill_md(raw)
+
+        assert "## Training Checkpoints" not in normalized
+        assert "Key Message Delivery" not in normalized
+        assert "## SOP Steps" in normalized
+        assert "## Key Knowledge Points" in normalized
 
     def test_v2_legacy_format_with_sop_steps(self):
         parsed = {
@@ -407,3 +461,52 @@ class TestCreateSkillViaAgent:
             skill = res.scalar_one()
             assert skill.conversion_status == "failed"
             assert skill.conversion_error == "API timeout"
+
+    @patch("app.services.skill_creator_service._call_direct_openai")
+    async def test_generated_assessment_rubric_is_not_saved(self, mock_direct, db_session):
+        user_id = await _seed_user()
+        skill_id = await _seed_skill_with_resources(user_id)
+        await _seed_meta_skill_creator(agent_id="")
+
+        mock_direct.return_value = CreationResult(
+            status="success",
+            model_used="gpt-4o",
+            raw_response=json.dumps(
+                {
+                    "metadata": {"name": "Rubric Skill", "description": "Updated desc"},
+                    "skill_md": """# Rubric Skill
+
+## SOP Steps
+
+### Step 1: Opening
+Content.
+
+## Assessment Rubric
+
+| Dimension | Weight | Description |
+| --- | --- | --- |
+| sop_completeness | 20% | All SOP stages are present. |
+| assessment_coverage | 15% | Assessment criteria are clear. |
+
+## Key Knowledge Points
+
+- Clinical evidence
+""",
+                    "summary": "Updated skill summary.",
+                }
+            ),
+        )
+
+        result = await skill_creator_service.create_skill_via_agent(db_session, skill_id)
+
+        assert result.status == "success"
+        async with TestSessionLocal() as s:
+            from sqlalchemy import select
+
+            res = await s.execute(select(Skill).where(Skill.id == skill_id))
+            skill = res.scalar_one()
+            assert "## Assessment Rubric" not in skill.content
+            assert "sop_completeness" not in skill.content
+            assert "assessment_coverage" not in skill.content
+            assert "## Training Checkpoints" not in skill.content
+            assert "## Key Knowledge Points" in skill.content

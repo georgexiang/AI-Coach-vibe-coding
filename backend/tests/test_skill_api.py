@@ -202,6 +202,36 @@ async def _seed_material(user_id: str) -> str:
         return material.id
 
 
+async def _seed_material_with_stored_local_path(user_id: str) -> str:
+    """Create a material whose storage_url includes the local storage base path."""
+    async with TestSessionLocal() as session:
+        material = TrainingMaterial(
+            name="Legacy Path Material",
+            product="TestProd",
+            created_by=user_id,
+        )
+        session.add(material)
+        await session.flush()
+
+        storage = get_storage()
+        storage_path = f"materials/{material.id}/v1/legacy_doc.pdf"
+        await storage.save(storage_path, b"%PDF-1.4 legacy content")
+        storage_base = getattr(storage, "base_path", "./storage/materials")
+
+        version = MaterialVersion(
+            material_id=material.id,
+            version_number=1,
+            filename="legacy_doc.pdf",
+            file_size=23,
+            content_type="application/pdf",
+            storage_url=f"{storage_base}\\{storage_path}",
+            is_active=True,
+        )
+        session.add(version)
+        await session.commit()
+        return material.id
+
+
 class TestSkillFromMaterialsApi:
     """Test creating skills from existing training materials."""
 
@@ -218,6 +248,21 @@ class TestSkillFromMaterialsApi:
         data = response.json()
         assert data["materials_copied"] == 1
         assert "id" in data
+        assert data["status"] == "processing"
+
+    async def test_create_from_materials_accepts_stored_local_storage_path(self, client):
+        user_id, token = await _create_admin_and_token("from_mat_legacy_path_admin")
+        material_id = await _seed_material_with_stored_local_path(user_id)
+
+        response = await client.post(
+            "/api/v1/skills/from-materials",
+            json={"material_ids": [material_id], "name": "Legacy Path Skill"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        assert response.status_code == 202
+        data = response.json()
+        assert data["materials_copied"] == 1
         assert data["status"] == "processing"
 
     async def test_create_from_materials_empty_ids_rejected(self, client):

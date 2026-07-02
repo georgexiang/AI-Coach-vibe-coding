@@ -13,7 +13,18 @@ class LocalStorageBackend:
         self.base_path = base_path
 
     def _full_path(self, path: str) -> str:
-        return os.path.join(self.base_path, path)
+        base_path = os.path.normpath(self.base_path)
+        normalized_path = os.path.normpath(
+            os.fspath(path).replace("\\", os.sep).replace("/", os.sep)
+        )
+
+        if os.path.isabs(normalized_path):
+            return normalized_path
+
+        if normalized_path == base_path or normalized_path.startswith(base_path + os.sep):
+            return normalized_path
+
+        return os.path.join(base_path, normalized_path.lstrip("\\/"))
 
     async def save(self, path: str, content: bytes) -> str:
         full_path = self._full_path(path)

@@ -1,10 +1,17 @@
-# Scoring Rubric for MR Training Skills
+# Internal Skill Quality Rubric
+
+This document is an **internal quality gate** for evaluating the generated
+Skill/SOP package. It is not the MR trainee scoring rubric and must not be
+written into the generated `SKILL.md` as an `## Assessment Rubric` section.
 
 ## Standard Evaluation Dimensions
 
 The following 6 dimensions are used to evaluate the quality of a created
-coaching skill. The Creator agent should design content that scores well
-on all dimensions. These dimensions align exactly with the Skill Evaluator's
+coaching skill. The Creator agent should design content that scores well on all
+dimensions, but must not copy these dimension names into the generated Skill's
+`## Training Checkpoints` or any scoring table. Final scoring dimensions and
+weights are configured in the admin Scoring Rubrics module and selected by
+Scenario. These internal dimensions align exactly with the Skill Evaluator's
 assessment criteria.
 
 ### Dimensions and Weights
