@@ -337,7 +337,8 @@ class TestFormatCoachingProtocol:
         assert "**Assessment Criteria:**" in protocol
         assert "**Knowledge Points:**" in protocol
         assert "**Suggested Duration:** 5 minutes" in protocol
-        assert "| Communication | Clear communication | 50% |" in protocol
+        assert "## Training Checkpoints" in protocol
+        assert "| Communication | Clear communication |" in protocol
         assert "### Mechanism of action" in protocol
         assert "How the drug works" in protocol
 
@@ -355,8 +356,69 @@ class TestFormatCoachingProtocol:
 
         assert "# Empty Skill - Coaching Protocol" in protocol
         assert "*No SOP steps extracted.*" in protocol
-        assert "| *None* | - | - |" in protocol
+        assert "## Training Checkpoints" in protocol
+        assert "| Key Message Delivery |" in protocol
+        assert "| Professional Communication |" in protocol
         assert "*No knowledge points extracted.*" in protocol
+
+    def test_filters_skill_quality_dimensions_from_assessment_rubric(self):
+        """Generated Skill rubrics should score MR performance, not SOP document quality."""
+        from app.services.skill_conversion_service import format_coaching_protocol
+
+        extraction = {
+            "summary": "Training on product detailing.",
+            "sop_steps": [],
+            "assessment_criteria": [
+                {
+                    "name": "sop_completeness",
+                    "description": "All SOP stages are complete.",
+                    "weight": 20,
+                },
+                {
+                    "name": "assessment_coverage",
+                    "description": "Rubrics cover all modules.",
+                    "weight": 15,
+                },
+                {
+                    "name": "Product Knowledge Accuracy",
+                    "description": "MR uses accurate clinical evidence.",
+                    "weight": 25,
+                },
+            ],
+            "key_knowledge_points": [],
+        }
+
+        protocol = format_coaching_protocol(extraction, "Product Skill")
+
+        assert "sop_completeness" not in protocol
+        assert "assessment_coverage" not in protocol
+        assert "## Assessment Rubric" not in protocol
+        assert "## Training Checkpoints" in protocol
+        assert "| Product Knowledge Accuracy |" in protocol
+        assert "MR uses accurate clinical evidence." in protocol
+
+    def test_uses_default_mr_rubric_when_only_quality_dimensions_exist(self):
+        """Skill quality dimensions should not leak even when they are the only AI output."""
+        from app.services.skill_conversion_service import format_coaching_protocol
+
+        extraction = {
+            "summary": "Training on product detailing.",
+            "sop_steps": [],
+            "assessment_criteria": [
+                {"name": "sop_completeness", "description": "Complete SOP", "weight": 20},
+                {"name": "executability", "description": "Executable SOP", "weight": 10},
+            ],
+            "key_knowledge_points": [],
+        }
+
+        protocol = format_coaching_protocol(extraction, "Product Skill")
+
+        assert "sop_completeness" not in protocol
+        assert "executability" not in protocol
+        assert "## Assessment Rubric" not in protocol
+        assert "## Training Checkpoints" in protocol
+        assert "| Key Message Delivery |" in protocol
+        assert "| Objection Handling |" in protocol
 
     def test_partial_step_data(self):
         """Steps with missing optional fields should still render."""

@@ -88,8 +88,10 @@ document the coaching agent reads. It must contain:
 2. **`## SOP Steps`** section with **`### Step N: Title`** sub-headings for each
    of the 5+ SOP stages. Each step includes description, key points, objections,
    assessment criteria, knowledge points, and suggested duration.
-3. **`## Assessment Rubric`** section with a Markdown table of evaluation
-   dimensions, weights, and scoring bands.
+3. **`## Training Checkpoints`** section with focus areas and observable MR
+  behaviors for practice. Do not define scoring weights here. Final scoring
+  dimensions come from the Scenario's selected Scoring Rubric in the admin
+  scoring module, not from the generated Skill.
 4. **`## Key Knowledge Points`** section with **`### Topic`** sub-headings for
    each knowledge module from Phase 1, including learning objectives, key facts,
    and assessment items.
@@ -161,10 +163,10 @@ or Python format. The key structure is:
     "tags": "pharma,oncology,mr-training,product-name",
     "compatibility": "python>=3.11"
   },
-  "skill_md": "# Product Name Training Skill\n\n## Overview\n\nThis skill trains MRs on...\n\n## SOP Steps\n\n### Step 1: Opening\n\n...\n\n### Step 2: Needs Assessment\n\n...\n\n### Step 3: Product Discussion\n\n...\n\n### Step 4: Objection Handling\n\n...\n\n### Step 5: Closing\n\n...\n\n## Assessment Rubric\n\n| Dimension | Weight | Description |\n|-----------|--------|-------------|\n| sop_completeness | 20% | ... |\n\n## Key Knowledge Points\n\n### Module 1: Product Fundamentals\n\n...\n\n## Coaching Guidelines\n\n...",
+  "skill_md": "# Product Name Training Skill\n\n## Overview\n\nThis skill trains MRs on...\n\n## SOP Steps\n\n### Step 1: Opening\n\n...\n\n### Step 2: Needs Assessment\n\n...\n\n### Step 3: Product Discussion\n\n...\n\n### Step 4: Objection Handling\n\n...\n\n### Step 5: Closing\n\n...\n\n## Training Checkpoints\n\n| Focus Area | Observable Behavior |\n|------------|---------------------|\n| Key Message Delivery | MR clearly delivers required product and clinical key messages. |\n| Product Knowledge Accuracy | MR uses accurate, evidence-based product and disease knowledge. |\n| HCP Needs Discovery | MR asks relevant questions and connects discussion to HCP needs. |\n| Objection Handling | MR responds to HCP concerns with appropriate evidence and empathy. |\n| Professional Communication | MR maintains a logical, compliant, and professional conversation flow. |\n\n## Key Knowledge Points\n\n### Module 1: Product Fundamentals\n\n...\n\n## Coaching Guidelines\n\n...",
   "references": {
     "knowledge-base.md": "# Knowledge Base\n\n## Product Fundamentals\n\n...",
-    "assessment-rubric.md": "# Assessment Rubric\n\n## Scoring Dimensions\n\n...",
+    "assessment-rubric.md": "# Assessment Rubric\n\n## MR Performance Scoring Dimensions\n\n...",
     "objection-handling-guide.md": "# Objection Handling Guide\n\n## Opening Stage Objections\n\n..."
   },
   "scripts": {
@@ -188,9 +190,10 @@ lists, tables, bold text, and code blocks where appropriate.
 
 1. **Content fidelity** — NEVER invent facts not present in the source documents. Quote directly from source when key terminology matters. Mark ambiguous content with `[NEEDS_CLARIFICATION]`.
 2. **SOP completeness** — Include all 5 required SOP stages as defined in `sop-structure-guide.md`. Each stage must have actionable, specific steps with all required sub-fields.
-3. **Dimension optimization** — Design content that scores well on all 6 evaluation dimensions from `scoring-rubric.md`: sop_completeness, knowledge_accuracy, conversation_logic, assessment_coverage, difficulty_calibration, and executability.
+3. **Skill quality optimization** — Design content that would score well when later evaluated by the Skill Evaluator. These internal quality dimensions (`sop_completeness`, `knowledge_accuracy`, `conversation_logic`, `assessment_coverage`, `difficulty_calibration`, `executability`) are for quality gating only and MUST NOT appear as training checkpoints or scoring rows in the generated Skill.
 4. **Language matching** — Generate output in the SAME LANGUAGE as the source documents. If the source is Chinese, output Chinese text (JSON keys and Markdown heading markers remain English, e.g., `## SOP Steps`, `### Step 1:`). If multi-language, default to the predominant language.
 5. **Difficulty balance** — Distribute assessment difficulty across Bloom's Taxonomy levels: approximately 30% Remember, 30% Understand, 25% Apply, 15% Analyze and above. Include progressive difficulty within each module.
 6. **Executability** — Ensure all SOP instructions are precise enough for an AI coaching agent to execute automatically. Include clear decision criteria at conversation branch points and explicit guidance for handling unexpected HCP responses.
 7. **Package completeness** — Every skill package MUST include at least 2 reference files, at least 2 scripts, and at least 2 asset files. Reference documents should be properly split by topic, not dumped into a single file.
 8. **Script quality** — All Python scripts must be self-contained, use type hints, include docstrings, and follow PEP 8. Scripts should implement real validation logic based on the extracted content, not just stubs.
+9. **Scoring ownership** — Do not create a final scoring standard inside `skill_md`. Final scoring dimensions and weights are configured separately in the admin Scoring Rubrics module and selected by Scenario. The Skill may include `## Training Checkpoints` for coaching focus only, without weights.

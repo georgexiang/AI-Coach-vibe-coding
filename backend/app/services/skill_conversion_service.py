@@ -27,6 +27,43 @@ logger = logging.getLogger(__name__)
 
 MAX_TEXT_LENGTH = 500_000  # ~125K tokens safety limit
 
+SKILL_QUALITY_DIMENSION_NAMES = {
+    "sop_completeness",
+    "knowledge_accuracy",
+    "conversation_logic",
+    "assessment_coverage",
+    "difficulty_calibration",
+    "executability",
+}
+
+DEFAULT_MR_PERFORMANCE_CRITERIA = [
+    {
+        "name": "Key Message Delivery",
+        "description": "MR clearly delivers required product and clinical key messages.",
+        "weight": 25,
+    },
+    {
+        "name": "Product Knowledge Accuracy",
+        "description": "MR uses accurate, evidence-based product and disease knowledge.",
+        "weight": 25,
+    },
+    {
+        "name": "HCP Needs Discovery",
+        "description": "MR asks relevant questions and connects discussion to HCP needs.",
+        "weight": 20,
+    },
+    {
+        "name": "Objection Handling",
+        "description": "MR responds to HCP concerns with appropriate evidence and empathy.",
+        "weight": 15,
+    },
+    {
+        "name": "Professional Communication",
+        "description": "MR maintains a logical, compliant, and professional conversation flow.",
+        "weight": 15,
+    },
+]
+
 SOP_EXTRACTION_PROMPT = """You are an expert medical training instructional designer.
 
 Analyze the following training material and extract a structured Standard Operating
@@ -49,10 +86,10 @@ Return a JSON object with this exact structure:
       "suggested_duration": "<e.g. 2-3 minutes>"
     }}
   ],
-  "assessment_criteria": [
+    "assessment_criteria": [
     {{
-      "name": "<criterion name>",
-      "description": "<what it measures>",
+            "name": "<MR performance criterion name>",
+            "description": "<what it measures in the MR's session performance>",
       "weight": <integer 0-100>
     }}
   ],
@@ -65,6 +102,11 @@ Return a JSON object with this exact structure:
 }}
 
 Return ONLY valid JSON. No markdown fences. No extra text.
+The assessment_criteria list must evaluate MR session performance, such as key
+message delivery, product knowledge accuracy, HCP needs discovery, objection
+handling, clinical evidence use, communication professionalism, and closing
+quality. Do NOT use Skill/SOP document quality criteria such as sop_completeness,
+assessment_coverage, difficulty_calibration, conversation_logic, or executability.
 {language_instruction}"""
 
 
@@ -81,6 +123,23 @@ def _get_language_instruction() -> str:
     return ""
 
 
+def _is_skill_quality_dimension(name: str) -> bool:
+    """Return True when a criterion name belongs to Skill/SOP quality gating."""
+    normalized = name.strip().lower().replace(" ", "_").replace("-", "_")
+    return normalized in SKILL_QUALITY_DIMENSION_NAMES
+
+
+def _get_mr_performance_criteria(extraction: dict) -> list[dict]:
+    """Return assessment criteria that evaluate MR performance, not Skill quality."""
+    criteria = extraction.get("assessment_criteria", [])
+    performance_criteria = [
+        criterion
+        for criterion in criteria
+        if not _is_skill_quality_dimension(str(criterion.get("name", "")))
+    ]
+    return performance_criteria or DEFAULT_MR_PERFORMANCE_CRITERIA
+
+
 COACHING_PROTOCOL_TEMPLATE = """# {skill_name} - Coaching Protocol
 
 ## Overview
@@ -91,10 +150,10 @@ COACHING_PROTOCOL_TEMPLATE = """# {skill_name} - Coaching Protocol
 
 {sop_steps_section}
 
-## Assessment Rubric
+## Training Checkpoints
 
-| Criterion | Description | Weight |
-|-----------|-------------|--------|
+| Focus Area | Description |
+|------------|-------------|
 {assessment_table}
 
 ## Key Knowledge Points
@@ -365,15 +424,14 @@ def format_coaching_protocol(
 
     sop_steps_section = "\n".join(sop_parts) if sop_parts else "*No SOP steps extracted.*"
 
-    # Assessment Rubric table
+    # Training checkpoints table. These guide practice, but final scoring uses the scenario rubric.
     assessment_rows: list[str] = []
-    for criterion in extraction.get("assessment_criteria", []):
+    for criterion in _get_mr_performance_criteria(extraction):
         name = criterion.get("name", "")
         desc = criterion.get("description", "")
-        weight = criterion.get("weight", 0)
-        assessment_rows.append(f"| {name} | {desc} | {weight}% |")
+        assessment_rows.append(f"| {name} | {desc} |")
 
-    assessment_table = "\n".join(assessment_rows) if assessment_rows else "| *None* | - | - |"
+    assessment_table = "\n".join(assessment_rows) if assessment_rows else "| *None* | - |"
 
     # Knowledge Points section
     knowledge_parts: list[str] = []
