@@ -314,6 +314,21 @@ function Invoke-PostgresEntraBootstrapJob {
     throw "PostgreSQL Entra bootstrap job did not complete within 15 minutes."
 }
 
+function Format-AdminConfigValue {
+    param([AllowNull()][object]$Value)
+
+    if ($null -eq $Value) {
+        return "(not available)"
+    }
+
+    $text = [string]$Value
+    if ([string]::IsNullOrWhiteSpace($text)) {
+        return "(not available)"
+    }
+
+    return $text
+}
+
 $ScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $AzureRoot = Split-Path -Parent $ScriptRoot
 $RepoRoot = Split-Path -Parent (Split-Path -Parent $AzureRoot)
@@ -693,6 +708,24 @@ Write-Host "ACR_NAME=$($outputs.containerRegistryName.value)"
 Write-Host "BACKEND_APP_NAME=$($outputs.backendContainerAppName.value)"
 Write-Host "BACKEND_BOOTSTRAP_JOB_NAME=$($outputs.backendBootstrapJobName.value)"
 Write-Host "FRONTEND_APP_NAME=$($outputs.frontendContainerAppName.value)"
+
+$deploymentSummary = $outputs.deployment.value
+$aiFoundrySummary = if ($deploymentSummary) { $deploymentSummary.aiFoundry } else { $null }
+$foundryDeployments = if ($aiFoundrySummary) { $aiFoundrySummary.deployments } else { $null }
+$foundryModelOrDeployment = if ($foundryDeployments -and $foundryDeployments.Count -gt 0) {
+    $foundryDeployments[0]
+}
+else {
+    $ChatDeploymentName
+}
+
+Write-Host ""
+Write-Host "Admin Azure Config values:" -ForegroundColor Cyan
+Write-Host "Frontend URL:              $(Format-AdminConfigValue $outputs.frontendUrl.value)"
+Write-Host "AI Foundry endpoint:       $(Format-AdminConfigValue $aiFoundrySummary.endpoint)"
+Write-Host "AI Foundry project:        $(Format-AdminConfigValue $aiFoundrySummary.projectName)"
+Write-Host "Default model/deployment:  $(Format-AdminConfigValue $foundryModelOrDeployment)"
+Write-Host "Foundry region:            $(Format-AdminConfigValue $outputs.foundryLocation.value)"
 
 if (-not $KeepGeneratedParameters) {
     Remove-Item -Path $parametersPath -Force
