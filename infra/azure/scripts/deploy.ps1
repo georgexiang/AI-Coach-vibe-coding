@@ -270,8 +270,8 @@ function New-PostgresBootstrapFirewallRule {
     Write-Host "Temporarily allowing PostgreSQL bootstrap client IP $clientIp..." -ForegroundColor Cyan
     az postgres flexible-server firewall-rule create `
         --resource-group $ResourceGroupName `
-        --name $serverName `
-        --rule-name $ruleName `
+        --server-name $serverName `
+        --name $ruleName `
         --start-ip-address $clientIp `
         --end-ip-address $clientIp `
         --output none
@@ -293,8 +293,8 @@ function Remove-PostgresBootstrapFirewallRule {
     Write-Host "Removing temporary PostgreSQL bootstrap firewall rule '$($Rule.RuleName)'..." -ForegroundColor Cyan
     az postgres flexible-server firewall-rule delete `
         --resource-group $Rule.ResourceGroupName `
-        --name $Rule.ServerName `
-        --rule-name $Rule.RuleName `
+        --server-name $Rule.ServerName `
+        --name $Rule.RuleName `
         --yes `
         --output none
     if ($LASTEXITCODE -ne 0) {
