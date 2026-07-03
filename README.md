@@ -330,6 +330,7 @@ az account show -o table
 .\infra\azure\scripts\deploy.ps1 `
   -NetworkProfile publicDemo `
   -ResourceGroupName ai-coach-publicsandbox01-rg `
+  -EnvironmentName public `
   -Location eastasia `
   -FoundryLocation eastus2 `
   -DeployApp
@@ -356,6 +357,7 @@ az account show -o table
 .\infra\azure\scripts\deploy.ps1 `
   -NetworkProfile privateBackend `
   -ResourceGroupName ai-coach-privatesandbox01-rg `
+  -EnvironmentName private `
   -Location eastasia `
   -FoundryLocation eastus2 `
   -DeployApp

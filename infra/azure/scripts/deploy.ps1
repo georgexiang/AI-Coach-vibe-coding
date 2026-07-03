@@ -41,6 +41,8 @@ param(
     [switch]$SkipAppBootstrap,
     [switch]$SkipSampleData,
     [switch]$EnableDatabaseAutoCreateTables,
+    [string]$PostgresBootstrapClientIp = "",
+    [switch]$KeepPostgresBootstrapFirewallRule,
     [switch]$KeepGeneratedParameters
 )
 
@@ -234,6 +236,70 @@ function Get-PostgresEntraAccessToken {
     }
 
     return $token
+}
+
+function Get-PostgresServerNameFromFqdn {
+    param([Parameter(Mandatory = $true)][string]$PostgresHost)
+
+    return ($PostgresHost -split "\.")[0]
+}
+
+function Get-CurrentPublicIp {
+    if (-not [string]::IsNullOrWhiteSpace($PostgresBootstrapClientIp)) {
+        return $PostgresBootstrapClientIp.Trim()
+    }
+
+    $ip = Invoke-RestMethod -Uri "https://api.ipify.org" -TimeoutSec 15
+    if ([string]::IsNullOrWhiteSpace($ip)) {
+        throw "Could not determine current public IP for PostgreSQL bootstrap firewall rule. Pass -PostgresBootstrapClientIp explicitly."
+    }
+
+    return ([string]$ip).Trim()
+}
+
+function New-PostgresBootstrapFirewallRule {
+    param(
+        [Parameter(Mandatory = $true)][string]$ResourceGroupName,
+        [Parameter(Mandatory = $true)][string]$PostgresHost
+    )
+
+    $serverName = Get-PostgresServerNameFromFqdn -PostgresHost $PostgresHost
+    $clientIp = Get-CurrentPublicIp
+    $ruleName = "AllowBootstrapClient-$(Get-Date -Format yyyyMMddHHmmss)"
+
+    Write-Host "Temporarily allowing PostgreSQL bootstrap client IP $clientIp..." -ForegroundColor Cyan
+    az postgres flexible-server firewall-rule create `
+        --resource-group $ResourceGroupName `
+        --name $serverName `
+        --rule-name $ruleName `
+        --start-ip-address $clientIp `
+        --end-ip-address $clientIp `
+        --output none
+    if ($LASTEXITCODE -ne 0) {
+        throw "Could not create PostgreSQL bootstrap firewall rule '$ruleName'."
+    }
+
+    return @{
+        ResourceGroupName = $ResourceGroupName
+        ServerName = $serverName
+        RuleName = $ruleName
+        ClientIp = $clientIp
+    }
+}
+
+function Remove-PostgresBootstrapFirewallRule {
+    param([Parameter(Mandatory = $true)][hashtable]$Rule)
+
+    Write-Host "Removing temporary PostgreSQL bootstrap firewall rule '$($Rule.RuleName)'..." -ForegroundColor Cyan
+    az postgres flexible-server firewall-rule delete `
+        --resource-group $Rule.ResourceGroupName `
+        --name $Rule.ServerName `
+        --rule-name $Rule.RuleName `
+        --yes `
+        --output none
+    if ($LASTEXITCODE -ne 0) {
+        Write-Warning "Could not remove temporary PostgreSQL bootstrap firewall rule '$($Rule.RuleName)'. Remove it manually after deployment."
+    }
 }
 
 function Invoke-PostgresEntraBootstrapJob {
@@ -662,6 +728,9 @@ if ($BackendDatabaseAuthMode -eq "azureAd" -and -not $SkipDbBootstrap) {
             "--backend-object-id", $outputs.backendIdentityPrincipalId.value,
             "--backend-object-type", "service"
         )
+        $bootstrapFirewallRule = New-PostgresBootstrapFirewallRule `
+            -ResourceGroupName $outputs.resourceGroupName.value `
+            -PostgresHost $outputs.postgresServerFqdn.value
         Push-Location (Join-Path $RepoRoot "backend")
         try {
             python @bootstrapArgs
@@ -671,6 +740,12 @@ if ($BackendDatabaseAuthMode -eq "azureAd" -and -not $SkipDbBootstrap) {
         }
         finally {
             Pop-Location
+            if ($KeepPostgresBootstrapFirewallRule) {
+                Write-Host "Keeping temporary PostgreSQL bootstrap firewall rule '$($bootstrapFirewallRule.RuleName)' for troubleshooting." -ForegroundColor Yellow
+            }
+            else {
+                Remove-PostgresBootstrapFirewallRule -Rule $bootstrapFirewallRule
+            }
         }
     }
 }
