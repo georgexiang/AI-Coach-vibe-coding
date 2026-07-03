@@ -315,6 +315,7 @@ az account show -o table
 |---|---|
 | 应用/通用资源区域 | `-Location`，默认 `swedencentral` |
 | Foundry/AI Services 区域 | 默认跟随 `-Location`，可用 `-FoundryLocation` 单独指定 |
+| `EnvironmentName` | `public` |
 | `DeploymentMode` | `foundryOnly` |
 | `NetworkProfile` | `publicDemo` |
 | 数据库认证 | PostgreSQL Entra ID + backend Managed Identity |

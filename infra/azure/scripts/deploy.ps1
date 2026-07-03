@@ -2,7 +2,7 @@
 param(
     [string]$Location = "swedencentral",
     [string]$FoundryLocation = "",
-    [string]$EnvironmentName = "demo",
+    [string]$EnvironmentName = "public",
     [string]$NamePrefix = "aicoach",
     [string]$ResourceGroupName = "",
     [ValidateSet("foundryOnly", "fullLegacy")]
@@ -712,8 +712,11 @@ Write-Host "FRONTEND_APP_NAME=$($outputs.frontendContainerAppName.value)"
 $deploymentSummary = $outputs.deployment.value
 $aiFoundrySummary = if ($deploymentSummary) { $deploymentSummary.aiFoundry } else { $null }
 $foundryDeployments = if ($aiFoundrySummary) { $aiFoundrySummary.deployments } else { $null }
-$foundryModelOrDeployment = if ($foundryDeployments -and $foundryDeployments.Count -gt 0) {
+$foundryModelOrDeployment = if ($foundryDeployments -is [array] -and $foundryDeployments.Count -gt 0) {
     $foundryDeployments[0]
+}
+elseif ($null -ne $foundryDeployments -and -not [string]::IsNullOrWhiteSpace([string]$foundryDeployments)) {
+    $foundryDeployments
 }
 else {
     $ChatDeploymentName

@@ -10,7 +10,7 @@
 |---|---|
 | 应用/通用资源区域 | `swedencentral` |
 | Foundry/AI Services 区域 | 默认跟随应用区域，可用 `-FoundryLocation` 单独指定 |
-| 环境 | `demo` |
+| 环境 | `public` |
 | 名称前缀 | `aicoach` |
 | 部署模式 | `foundryOnly` |
 | 网络配置 | `publicDemo` |
