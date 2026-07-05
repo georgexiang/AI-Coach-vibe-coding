@@ -4,7 +4,6 @@ from importlib import util
 from pathlib import Path
 from types import ModuleType
 
-
 MIGRATIONS_DIR = Path(__file__).resolve().parents[1] / "alembic" / "versions"
 
 
