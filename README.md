@@ -315,6 +315,7 @@ az account show -o table
 |---|---|
 | 应用/通用资源区域 | `-Location`，默认 `swedencentral` |
 | Foundry/AI Services 区域 | 默认跟随 `-Location`，可用 `-FoundryLocation` 单独指定 |
+| `EnvironmentName` | `public` |
 | `DeploymentMode` | `foundryOnly` |
 | `NetworkProfile` | `publicDemo` |
 | 数据库认证 | PostgreSQL Entra ID + backend Managed Identity |
@@ -329,6 +330,7 @@ az account show -o table
 .\infra\azure\scripts\deploy.ps1 `
   -NetworkProfile publicDemo `
   -ResourceGroupName ai-coach-publicsandbox01-rg `
+  -EnvironmentName public `
   -Location eastasia `
   -FoundryLocation eastus2 `
   -DeployApp
@@ -355,6 +357,7 @@ az account show -o table
 .\infra\azure\scripts\deploy.ps1 `
   -NetworkProfile privateBackend `
   -ResourceGroupName ai-coach-privatesandbox01-rg `
+  -EnvironmentName private `
   -Location eastasia `
   -FoundryLocation eastus2 `
   -DeployApp
