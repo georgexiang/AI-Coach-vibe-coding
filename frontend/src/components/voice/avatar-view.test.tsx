@@ -79,15 +79,20 @@ describe("AvatarView", () => {
     expect(screen.getByText("connectingVoice")).toBeInTheDocument();
   });
 
-  it("shows video element when avatar connected", () => {
+  it("keeps static preview visible until connected video has a frame", () => {
     render(
-      <AvatarView {...defaultProps} isAvatarConnected={true} />,
+      <AvatarView {...defaultProps} isAvatarConnected={true} avatarCharacter="lisa" />,
     );
     const video = screen.getByTestId("avatar-video");
     expect(video).toBeInTheDocument();
     expect(video.tagName).toBe("VIDEO");
-    // When connected, video should be visible (opacity-100)
+    expect(video.className).toContain("opacity-0");
+    expect(screen.getByTestId("avatar-static-preview")).toBeInTheDocument();
+
+    fireEvent.loadedData(video);
+
     expect(video.className).toContain("opacity-100");
+    expect(screen.queryByTestId("avatar-static-preview")).not.toBeInTheDocument();
   });
 
   it("uses contain object fit when requested", () => {
@@ -221,7 +226,7 @@ describe("AvatarView", () => {
     );
   });
 
-  it("does not show static preview when connected", () => {
+  it("shows static preview when connected until video data loads", () => {
     render(
       <AvatarView
         {...defaultProps}
@@ -229,6 +234,11 @@ describe("AvatarView", () => {
         isAvatarConnected={true}
       />,
     );
+    const video = screen.getByTestId("avatar-video");
+    expect(screen.getByTestId("avatar-static-preview")).toBeInTheDocument();
+
+    fireEvent.loadedData(video);
+
     expect(screen.queryByTestId("avatar-static-preview")).not.toBeInTheDocument();
   });
 
@@ -336,6 +346,8 @@ describe("AvatarView", () => {
       />,
     );
     const video = screen.getByTestId("avatar-video");
+    fireEvent.loadedData(video);
+
     expect(video.className).toContain("opacity-100");
     expect(screen.queryByTestId("audio-orb")).not.toBeInTheDocument();
     expect(screen.queryByTestId("avatar-static-preview")).not.toBeInTheDocument();

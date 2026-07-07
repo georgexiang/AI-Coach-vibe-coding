@@ -1,4 +1,4 @@
-import { useState, type Ref } from "react";
+import { useEffect, useState, type Ref } from "react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui";
@@ -64,6 +64,7 @@ export function AvatarView({
 }: AvatarViewProps) {
   const { t } = useTranslation("voice");
   const [imgError, setImgError] = useState(false);
+  const [hasVideoFrame, setHasVideoFrame] = useState(false);
 
   // Backwards-compatible: if isSessionActive is not provided, fall back to isAvatarConnected
   const isSessionActive = isSessionActiveProp ?? isAvatarConnected;
@@ -87,11 +88,18 @@ export function AvatarView({
         : charMeta.thumbnailUrl
     : undefined;
 
+  useEffect(() => {
+    if (!isAvatarConnected || isConnecting) {
+      setHasVideoFrame(false);
+    }
+  }, [isAvatarConnected, isConnecting]);
+
+  const showVideo = isAvatarConnected && !isConnecting && hasVideoFrame;
   const showDigitalHumanPreview = Boolean(
-    isDigitalHumanMode && !isAvatarConnected && !isConnecting && charMeta && !imgError,
+    isDigitalHumanMode && !showVideo && !isConnecting && charMeta && !imgError,
   );
   const showAvatarFallback = Boolean(
-    isDigitalHumanMode && !isAvatarConnected && !isConnecting && imgError && charMeta,
+    isDigitalHumanMode && !showVideo && !isConnecting && imgError && charMeta,
   );
   const isAvatarSpeaking = audioState === "speaking";
   const isAvatarListening = audioState === "listening";
@@ -126,9 +134,11 @@ export function AvatarView({
         className={cn(
           "absolute inset-0 h-full w-full transition-opacity duration-300",
           videoFit === "contain" ? "object-contain" : "object-cover",
-          isAvatarConnected && !isConnecting ? "z-10 opacity-100" : "z-0 opacity-0",
+          showVideo ? "z-10 opacity-100" : "z-0 opacity-0",
         )}
         data-testid="avatar-video"
+        onLoadedData={() => setHasVideoFrame(true)}
+        onPlaying={() => setHasVideoFrame(true)}
       />
 
       {/* Loading state: skeleton while WebRTC is negotiating */}

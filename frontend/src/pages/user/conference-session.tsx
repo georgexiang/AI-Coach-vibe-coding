@@ -270,9 +270,9 @@ export default function ConferenceSession() {
   });
 
   const activeAvatarCharacter =
-    activeAvatarHcp?.avatarCharacter ?? activeAvatarProfile?.avatar_character ?? "lori";
+    activeAvatarHcp?.avatarCharacter || activeAvatarProfile?.avatar_character || "lori";
   const activeAvatarStyle =
-    activeAvatarHcp?.avatarStyle ?? activeAvatarProfile?.avatar_style ?? "casual";
+    activeAvatarHcp?.avatarStyle || activeAvatarProfile?.avatar_style || "casual";
   const activeAvatarName =
     activeAvatarHcp?.hcpName ?? activeAvatarProfile?.name ?? currentSpeaker;
 
@@ -752,9 +752,11 @@ export default function ConferenceSession() {
           isStreaming={isStreaming}
           streamedText={streamedText}
           currentSpeaker={currentSpeaker}
+          currentSpeakerId={currentSpeakerId}
           avatarEnabled={true}
           featureAvatarEnabled={isDigitalHumanMode}
           digitalHumanEnabled={isDigitalHumanMode}
+          audienceHcps={audienceHcps}
           avatarVideoRef={avatarVideoRef}
           isAvatarConnected={isAvatarConnected}
           isAvatarConnecting={avatarConnectionState === "connecting"}

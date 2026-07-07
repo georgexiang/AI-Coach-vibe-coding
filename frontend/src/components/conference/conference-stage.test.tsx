@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ConferenceStage } from "./conference-stage";
+import type { AudienceHcp } from "@/types/conference";
 
 vi.mock("@/components/shared", () => ({
   ChatBubble: ({
@@ -42,6 +43,18 @@ vi.mock("@/components/voice/avatar-view", () => ({
 }));
 
 describe("ConferenceStage", () => {
+  const makeAudienceHcp = (index: number): AudienceHcp => ({
+    id: `audience-${index}`,
+    scenarioId: "scenario-1",
+    hcpProfileId: `hcp-${index}`,
+    hcpName: `Dr. HCP ${index}`,
+    hcpSpecialty: "Oncology",
+    roleInConference: "audience",
+    voiceId: "",
+    sortOrder: index,
+    status: "listening",
+  });
+
   const defaultProps = {
     sessionId: "sess-1",
     onSendMessage: vi.fn(),
@@ -162,6 +175,108 @@ describe("ConferenceStage", () => {
     expect(screen.getByTestId("avatar-view")).toHaveAttribute(
       "data-video-fit",
       "contain",
+    );
+  });
+
+  it("renders all conference HCPs in the digital human stage", () => {
+    const audienceHcps = [1, 2, 3, 4].map(makeAudienceHcp);
+
+    render(
+      <ConferenceStage
+        {...defaultProps}
+        digitalHumanEnabled={true}
+        avatarVideoRef={{ current: null }}
+        isAvatarConnected={true}
+        audienceHcps={audienceHcps}
+        currentSpeaker="Dr. HCP 2"
+        currentSpeakerId="hcp-2"
+      />,
+    );
+
+    expect(screen.getByTestId("audience-stage-hcp-1")).toBeInTheDocument();
+    expect(screen.getByTestId("audience-stage-hcp-2")).toBeInTheDocument();
+    expect(screen.getByTestId("audience-stage-hcp-3")).toBeInTheDocument();
+    expect(screen.getByTestId("audience-stage-hcp-4")).toBeInTheDocument();
+    expect(screen.getAllByTestId("avatar-view")).toHaveLength(4);
+  });
+
+  it("uses one row for three HCPs and two columns for four HCPs", () => {
+    const { rerender, container } = render(
+      <ConferenceStage
+        {...defaultProps}
+        digitalHumanEnabled={true}
+        avatarVideoRef={{ current: null }}
+        audienceHcps={[1, 2, 3].map(makeAudienceHcp)}
+      />,
+    );
+
+    expect(container.querySelector(".grid-cols-3")).toBeInTheDocument();
+
+    rerender(
+      <ConferenceStage
+        {...defaultProps}
+        digitalHumanEnabled={true}
+        avatarVideoRef={{ current: null }}
+        audienceHcps={[1, 2, 3, 4].map(makeAudienceHcp)}
+      />,
+    );
+
+    expect(container.querySelector(".grid-cols-2")).toBeInTheDocument();
+  });
+
+  it("shows every HCP as a digital human while only the current speaker is active", () => {
+    const audienceHcps = [1, 2, 3].map(makeAudienceHcp);
+
+    render(
+      <ConferenceStage
+        {...defaultProps}
+        digitalHumanEnabled={true}
+        avatarVideoRef={{ current: null }}
+        isAvatarConnected={true}
+        audienceHcps={audienceHcps}
+        currentSpeaker="Dr. HCP 2"
+        currentSpeakerId="hcp-2"
+      />,
+    );
+
+    expect(screen.getAllByTestId("avatar-view")).toHaveLength(3);
+    expect(screen.getByTestId("audience-stage-hcp-2")).toHaveAttribute(
+      "data-active",
+      "true",
+    );
+    expect(screen.getByTestId("audience-stage-hcp-1")).toHaveAttribute(
+      "data-active",
+      "false",
+    );
+    expect(screen.getByTestId("audience-stage-hcp-3")).toHaveAttribute(
+      "data-active",
+      "false",
+    );
+  });
+
+  it("falls back to a usable avatar character when an HCP snapshot has blank avatar fields", () => {
+    const audienceHcps = [
+      {
+        ...makeAudienceHcp(1),
+        avatarCharacter: "",
+        avatarStyle: "",
+      },
+    ];
+
+    render(
+      <ConferenceStage
+        {...defaultProps}
+        digitalHumanEnabled={true}
+        avatarVideoRef={{ current: null }}
+        audienceHcps={audienceHcps}
+        currentSpeaker="Dr. HCP 1"
+        currentSpeakerId="hcp-1"
+      />,
+    );
+
+    expect(screen.getByTestId("avatar-view")).toHaveAttribute(
+      "data-avatar-character",
+      "lori",
     );
   });
 
