@@ -12,6 +12,7 @@ from sqlalchemy.orm import selectinload
 
 from app.database import AsyncSessionLocal
 from app.models.conference import ConferenceAudienceHcp
+from app.models.hcp_profile import HcpProfile
 from app.models.message import SessionMessage
 from app.models.scenario import Scenario
 from app.models.session import CoachingSession
@@ -20,6 +21,7 @@ from app.services.agents.registry import registry
 from app.services.conference_prompt_config import normalize_conference_prompt_config
 from app.services.prompt_builder import build_conference_audience_prompt
 from app.services.turn_manager import QueuedQuestion, turn_manager
+from app.services.voice_live_instance_service import resolve_voice_config
 from app.utils.datetime import as_utc_aware, utc_now_naive
 from app.utils.exceptions import AppException, NotFoundException
 
@@ -56,7 +58,11 @@ async def create_conference_session(
     # Load audience HCPs with profile data
     audience_result = await db.execute(
         select(ConferenceAudienceHcp)
-        .options(selectinload(ConferenceAudienceHcp.hcp_profile))
+        .options(
+            selectinload(ConferenceAudienceHcp.hcp_profile).selectinload(
+                HcpProfile.voice_live_instance
+            )
+        )
         .where(ConferenceAudienceHcp.scenario_id == scenario_id)
         .order_by(ConferenceAudienceHcp.sort_order)
     )
@@ -81,19 +87,18 @@ async def create_conference_session(
             "personality_type": ah.hcp_profile.personality_type,
             "role": ah.role_in_conference,
             "voice_id": ah.voice_id,
-            "voice_live_enabled": ah.hcp_profile.voice_live_enabled,
-            "avatar_enabled": getattr(
-                ah.hcp_profile,
-                "avatar_enabled",
-                ah.hcp_profile.voice_live_enabled,
-            ),
-            "avatar_character": ah.hcp_profile.avatar_character,
-            "avatar_style": ah.hcp_profile.avatar_style,
+            "voice_live_instance_id": ah.hcp_profile.voice_live_instance_id,
+            "voice_name": vc["voice_name"],
+            "voice_live_enabled": vc["voice_live_enabled"],
+            "avatar_enabled": vc["avatar_enabled"],
+            "avatar_character": vc["avatar_character"],
+            "avatar_style": vc["avatar_style"],
             "sort_order": ah.sort_order,
             "speaker_priority": "primary" if ah.hcp_profile_id == primary_hcp_id else "secondary",
             "speaker_order_policy": conference_prompt_config["speaker_order_policy"],
         }
         for ah in audience_hcps
+        for vc in [resolve_voice_config(ah.hcp_profile)]
     ]
     if audience_config:
         audience_config[0]["conference_prompt_config"] = conference_prompt_config

@@ -9,6 +9,8 @@ export interface AudienceHcp {
   hcpSpecialty: string;
   roleInConference: string;
   voiceId: string;
+  voiceLiveInstanceId?: string | null;
+  voiceName?: string;
   voiceLiveEnabled?: boolean;
   avatarEnabled?: boolean;
   avatarCharacter?: string;
@@ -21,6 +23,8 @@ export interface AudienceHcpCreate {
   hcpProfileId: string;
   roleInConference?: string;
   voiceId?: string;
+  voiceLiveInstanceId?: string | null;
+  voiceName?: string;
   sortOrder?: number;
 }
 

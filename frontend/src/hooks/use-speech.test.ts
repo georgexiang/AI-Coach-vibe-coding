@@ -383,6 +383,23 @@ describe("useTextToSpeech", () => {
     );
   });
 
+  it("speak can override the default voice per call", async () => {
+    vi.mocked(synthesizeSpeech).mockResolvedValueOnce(new Blob(["audio"]));
+    const { result } = renderHook(() =>
+      useTextToSpeech("zh-CN", "zh-CN-XiaoxiaoNeural"),
+    );
+
+    await act(async () => {
+      await result.current.speak("test text", "zh-CN-YunjianNeural");
+    });
+
+    expect(synthesizeSpeech).toHaveBeenCalledWith(
+      "test text",
+      "zh-CN",
+      "zh-CN-YunjianNeural",
+    );
+  });
+
   it("speak with empty text does nothing", async () => {
     const { result } = renderHook(() => useTextToSpeech());
     await act(async () => {
@@ -501,6 +518,48 @@ describe("useTextToSpeech", () => {
     });
     expect(synthesizeSpeech).toHaveBeenNthCalledWith(1, "first", "zh-CN", undefined);
     expect(synthesizeSpeech).toHaveBeenNthCalledWith(2, "second", "zh-CN", undefined);
+  });
+
+  it("queues speech with per-item voice overrides", async () => {
+    vi.mocked(synthesizeSpeech).mockResolvedValue(new Blob(["audio"]));
+    const firstAudioInstance = {
+      play: vi.fn().mockResolvedValue(undefined),
+      pause: vi.fn(),
+      onended: null as (() => void) | null,
+      onerror: null as (() => void) | null,
+    };
+    const secondAudioInstance = {
+      play: vi.fn().mockResolvedValue(undefined),
+      pause: vi.fn(),
+      onended: null as (() => void) | null,
+      onerror: null as (() => void) | null,
+    };
+    (globalThis.Audio as ReturnType<typeof vi.fn>)
+      .mockReturnValueOnce(firstAudioInstance)
+      .mockReturnValueOnce(secondAudioInstance);
+
+    const { result } = renderHook(() =>
+      useTextToSpeech("zh-CN", undefined, { queue: true }),
+    );
+
+    await act(async () => {
+      await result.current.speak("first", "voice-a");
+      await result.current.speak("second", "voice-b");
+    });
+
+    await waitFor(() => {
+      expect(firstAudioInstance.play).toHaveBeenCalled();
+    });
+
+    act(() => {
+      firstAudioInstance.onended?.();
+    });
+
+    await waitFor(() => {
+      expect(secondAudioInstance.play).toHaveBeenCalled();
+    });
+    expect(synthesizeSpeech).toHaveBeenNthCalledWith(1, "first", "zh-CN", "voice-a");
+    expect(synthesizeSpeech).toHaveBeenNthCalledWith(2, "second", "zh-CN", "voice-b");
   });
 
   it("speak handles synthesizeSpeech failure", async () => {

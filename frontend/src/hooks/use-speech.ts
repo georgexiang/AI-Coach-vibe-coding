@@ -470,13 +470,18 @@ function writeAscii(view: DataView, offset: number, value: string): void {
 }
 
 interface UseTextToSpeechReturn {
-  speak: (text: string) => Promise<void>;
+  speak: (text: string, voiceOverride?: string) => Promise<void>;
   stop: () => void;
   isSpeaking: boolean;
 }
 
 interface UseTextToSpeechOptions {
   queue?: boolean;
+}
+
+interface TextToSpeechQueueItem {
+  text: string;
+  voice?: string;
 }
 
 /**
@@ -491,7 +496,7 @@ export function useTextToSpeech(
   const [isSpeaking, setIsSpeaking] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const urlRef = useRef<string | null>(null);
-  const queueRef = useRef<string[]>([]);
+  const queueRef = useRef<TextToSpeechQueueItem[]>([]);
   const queuePlayingRef = useRef(false);
   const playbackGenerationRef = useRef(0);
   const shouldQueue = options.queue ?? false;
@@ -510,8 +515,8 @@ export function useTextToSpeech(
   const playNextQueued = useCallback(async () => {
     if (queuePlayingRef.current) return;
 
-    const nextText = queueRef.current.shift();
-    if (!nextText) {
+    const nextItem = queueRef.current.shift();
+    if (!nextItem) {
       setIsSpeaking(false);
       return;
     }
@@ -521,7 +526,11 @@ export function useTextToSpeech(
 
     try {
       setIsSpeaking(true);
-      const audioBlob = await synthesizeSpeech(nextText, language, voice);
+      const audioBlob = await synthesizeSpeech(
+        nextItem.text,
+        language,
+        nextItem.voice ?? voice,
+      );
       if (generation !== playbackGenerationRef.current) return;
 
       const url = URL.createObjectURL(audioBlob);
@@ -553,12 +562,12 @@ export function useTextToSpeech(
   }, [language, voice]);
 
   const speak = useCallback(
-    async (text: string) => {
+    async (text: string, voiceOverride?: string) => {
       const trimmed = text.trim();
       if (!trimmed) return;
 
       if (shouldQueue) {
-        queueRef.current.push(trimmed);
+        queueRef.current.push({ text: trimmed, voice: voiceOverride });
         void playNextQueued();
         return;
       }
@@ -570,7 +579,7 @@ export function useTextToSpeech(
 
       try {
         setIsSpeaking(true);
-        const audioBlob = await synthesizeSpeech(trimmed, language, voice);
+        const audioBlob = await synthesizeSpeech(trimmed, language, voiceOverride ?? voice);
         if (generation !== playbackGenerationRef.current) return;
 
         const url = URL.createObjectURL(audioBlob);

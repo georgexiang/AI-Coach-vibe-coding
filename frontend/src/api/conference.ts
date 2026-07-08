@@ -13,6 +13,8 @@ interface AudienceHcpApi {
   hcp_profile_id: string;
   role_in_conference: string;
   voice_id: string;
+  voice_live_instance_id?: string | null;
+  voice_name?: string;
   sort_order: number;
   hcp_name?: string;
   hcp_specialty?: string;
@@ -49,6 +51,8 @@ function toAudienceHcp(raw: AudienceHcpApi): AudienceHcp {
     hcpSpecialty: raw.hcp_specialty ?? "",
     roleInConference: raw.role_in_conference,
     voiceId: raw.voice_id,
+    voiceLiveInstanceId: raw.voice_live_instance_id,
+    voiceName: raw.voice_name,
     sortOrder: raw.sort_order,
     status: "listening",
   };

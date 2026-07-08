@@ -25,6 +25,8 @@ class AudienceHcpResponse(BaseModel):
     hcp_profile_id: str
     role_in_conference: str
     voice_id: str
+    voice_live_instance_id: str | None = None
+    voice_name: str = ""
     sort_order: int
     hcp_name: str = ""
     hcp_specialty: str = ""

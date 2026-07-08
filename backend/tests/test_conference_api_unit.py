@@ -217,6 +217,9 @@ class TestGetScenarioAudienceDirect:
         ah.hcp_profile = MagicMock()
         ah.hcp_profile.name = "Dr. Test"
         ah.hcp_profile.specialty = "Oncology"
+        ah.hcp_profile.voice_live_instance_id = None
+        ah.hcp_profile.voice_live_instance = None
+        ah.hcp_profile.voice_name = "zh-CN-YunjianNeural"
 
         mock_result = MagicMock()
         mock_scalars = MagicMock()
@@ -267,6 +270,9 @@ class TestSetScenarioAudienceDirect:
         reload_ah.hcp_profile = MagicMock()
         reload_ah.hcp_profile.name = "Dr. New"
         reload_ah.hcp_profile.specialty = "Cardiology"
+        reload_ah.hcp_profile.voice_live_instance_id = None
+        reload_ah.hcp_profile.voice_live_instance = None
+        reload_ah.hcp_profile.voice_name = "zh-CN-YunjianNeural"
 
         reload_mock = MagicMock()
         reload_scalars = MagicMock()

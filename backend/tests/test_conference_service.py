@@ -12,6 +12,7 @@ from app.models.hcp_profile import HcpProfile
 from app.models.message import SessionMessage
 from app.models.scenario import Scenario
 from app.models.user import User
+from app.models.voice_live_instance import VoiceLiveInstance
 from app.services.agents.base import CoachEvent, CoachEventType
 from app.services.auth import get_password_hash
 from app.services.conference_service import (
@@ -48,6 +49,7 @@ async def _seed_conference_fixture(
             name=f"Dr. HCP-{i}",
             specialty="Oncology",
             personality_type="analytical",
+            voice_name=f"zh-CN-TestVoice{i}Neural",
             created_by=user.id,
         )
         session.add(hcp)
@@ -104,6 +106,7 @@ class TestCreateConferenceSession:
             config = json.loads(session.audience_config)
             assert len(config) == 3
             assert config[0]["name"] == "Dr. HCP-0"
+            assert config[0]["voice_name"] == "zh-CN-TestVoice0Neural"
             assert config[0]["speaker_priority"] == "primary"
             assert config[0]["voice_live_enabled"] is True
             assert config[0]["avatar_enabled"] is True
@@ -111,6 +114,32 @@ class TestCreateConferenceSession:
             assert config[0]["avatar_style"]
             assert config[1]["speaker_priority"] == "secondary"
             assert "conference_prompt_config" in config[0]
+
+    async def test_audience_config_prefers_voice_live_instance_voice(self):
+        """Snapshots Voice Live instance voice before deprecated inline profile voice."""
+        async with TestSessionLocal() as db:
+            data = await _seed_conference_fixture(db)
+            voice_instance = VoiceLiveInstance(
+                name="中文男声",
+                voice_name="zh-CN-YunjianNeural",
+                avatar_character="jeff",
+                avatar_style="formal",
+                created_by=data["user"].id,
+            )
+            db.add(voice_instance)
+            await db.flush()
+
+            data["hcps"][0].voice_name = "zh-CN-XiaoxiaoNeural"
+            data["hcps"][0].voice_live_instance_id = voice_instance.id
+            await db.flush()
+
+            session = await create_conference_session(db, data["scenario"].id, data["user"].id)
+            config = json.loads(session.audience_config)
+
+            assert config[0]["voice_live_instance_id"] == voice_instance.id
+            assert config[0]["voice_name"] == "zh-CN-YunjianNeural"
+            assert config[0]["avatar_character"] == "jeff"
+            assert config[0]["avatar_style"] == "formal"
 
     async def test_custom_conference_prompt_config_is_snapshotted(self):
         """Creates session with scenario-level conference prompt config."""
