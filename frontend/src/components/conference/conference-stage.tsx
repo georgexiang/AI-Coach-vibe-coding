@@ -37,6 +37,7 @@ interface ConferenceStageProps {
   avatarCharacter?: string;
   avatarStyle?: string;
   avatarHcpName?: string;
+  activeAvatarHcpId?: string;
   onAvatarConnectClick?: () => void;
   messages?: ChatMessage[];
   inputMode?: "text" | "audio";
@@ -76,6 +77,7 @@ export function ConferenceStage({
   avatarCharacter,
   avatarStyle,
   avatarHcpName,
+  activeAvatarHcpId,
   onAvatarConnectClick,
   messages = [],
   inputMode = "text",
@@ -106,7 +108,11 @@ export function ConferenceStage({
     hcp.hcpProfileId === currentSpeakerId ||
     hcp.id === currentSpeakerId ||
     hcp.hcpName === currentSpeaker ||
-    hcp.status === "speaking";
+    hcp.status === "speaking" ||
+    (!currentSpeakerId &&
+      !currentSpeaker &&
+      Boolean(activeAvatarHcpId) &&
+      (hcp.hcpProfileId === activeAvatarHcpId || hcp.id === activeAvatarHcpId));
 
   return (
     <div className="flex min-w-[480px] flex-1 flex-col">

@@ -551,6 +551,140 @@ describe("ConferenceSession", () => {
     });
   });
 
+  it("uses the connected digital human for moderator speech", async () => {
+    mockSearchParams = new URLSearchParams("id=cs-1&inputMode=audio");
+    mockSessionData = {
+      ...mockSessionData,
+      mode: "digital_human_realtime_model",
+      audienceConfig: JSON.stringify([
+        {
+          id: "aud-1",
+          hcp_profile_id: "hp-1",
+          name: "Dr. Moderator",
+          specialty: "Oncology",
+          role: "moderator",
+          voice_id: "v1",
+          voice_live_enabled: true,
+          avatar_enabled: true,
+          avatar_character: "harry",
+          avatar_style: "business",
+          sort_order: 0,
+        },
+        {
+          id: "aud-2",
+          hcp_profile_id: "hp-2",
+          name: "Dr. Panelist",
+          specialty: "Hematology",
+          role: "audience",
+          voice_id: "v2",
+          voice_live_enabled: true,
+          avatar_enabled: true,
+          avatar_character: "lori",
+          avatar_style: "formal",
+          sort_order: 1,
+        },
+      ]),
+    };
+
+    renderConferenceSession();
+
+    await act(async () => {
+      await (capturedConferenceStageProps.onAvatarConnectClick as () => Promise<void>)();
+    });
+
+    await waitFor(() => {
+      expect(mockVoiceLiveConnect).toHaveBeenCalledWith("hp-1", "", undefined, true);
+      expect(capturedConferenceStageProps.avatarCharacter).toBe("harry");
+      expect(capturedConferenceStageProps.avatarStyle).toBe("business");
+      expect(capturedConferenceStageProps.isAvatarConnected).toBe(true);
+    });
+
+    act(() => {
+      capturedCallbacks.onSpeakerText?.({
+        speaker_id: "hp-1",
+        speaker_name: "Dr. Moderator",
+        content: "欢迎参加本次会议。",
+      });
+    });
+
+    await waitFor(() => {
+      expect(mockSpeak).not.toHaveBeenCalled();
+      expect(mockVoiceLiveSend).toHaveBeenCalledWith(
+        expect.objectContaining({ type: "conversation.item.create" }),
+      );
+      expect(mockVoiceLiveSend).toHaveBeenCalledWith(
+        expect.objectContaining({ type: "response.create" }),
+      );
+    });
+
+    act(() => {
+      (capturedVoiceLiveOptions.onResponseDone as () => void)?.();
+    });
+  });
+
+  it("prefers the moderator when connecting the conference avatar before any speech", async () => {
+    mockSearchParams = new URLSearchParams("id=cs-1&inputMode=audio");
+    mockSessionData = {
+      ...mockSessionData,
+      mode: "digital_human_realtime_model",
+      audienceConfig: JSON.stringify([
+        {
+          id: "aud-1",
+          hcp_profile_id: "hp-panelist",
+          name: "Dr. Panelist",
+          specialty: "Hematology",
+          role: "audience",
+          voice_id: "v1",
+          voice_live_enabled: true,
+          avatar_enabled: true,
+          avatar_character: "lori",
+          avatar_style: "formal",
+          sort_order: 0,
+        },
+        {
+          id: "aud-2",
+          hcp_profile_id: "hp-moderator",
+          name: "Dr. Moderator",
+          specialty: "Oncology",
+          role: "moderator",
+          voice_id: "v2",
+          voice_live_enabled: true,
+          avatar_enabled: true,
+          avatar_character: "harry",
+          avatar_style: "business",
+          sort_order: 1,
+        },
+      ]),
+    };
+
+    renderConferenceSession();
+
+    await waitFor(() => {
+      expect(capturedConferenceStageProps.avatarHcpName).toBe("Dr. Moderator");
+      expect(capturedConferenceStageProps.avatarCharacter).toBe("harry");
+      expect(capturedConferenceStageProps.avatarStyle).toBe("business");
+    });
+
+    await act(async () => {
+      await (capturedConferenceStageProps.onAvatarConnectClick as () => Promise<void>)();
+    });
+
+    await waitFor(() => {
+      expect(mockVoiceLiveConnect).toHaveBeenCalledWith(
+        "hp-moderator",
+        "",
+        undefined,
+        true,
+      );
+      expect(mockVoiceLiveConnect).not.toHaveBeenCalledWith(
+        "hp-panelist",
+        "",
+        undefined,
+        true,
+      );
+    });
+  });
+
   it("processes speaking HCP avatars in queued conference order", async () => {
     mockSearchParams = new URLSearchParams("id=cs-1&inputMode=audio");
     mockSessionData = {

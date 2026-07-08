@@ -369,6 +369,32 @@ def _fallback_hcp_question(hcp_config: dict, mr_text: str) -> str:
     )
 
 
+async def _collect_coach_text(request: CoachRequest) -> tuple[str, str | None]:
+    """Collect streamed text from the configured LLM adapter.
+
+    Returns ``(text, error)``. The conference flow must not silently treat adapter
+    errors as empty model output, because that can leave an HCP active with no
+    visible response.
+    """
+    from app.config import get_settings
+
+    settings = get_settings()
+    adapter = registry.get("llm", settings.default_llm_provider)
+    if adapter is None:
+        return "", "No LLM adapter available"
+
+    full_text = ""
+    async for event in adapter.execute(request):
+        if event.type == CoachEventType.TEXT:
+            full_text += event.content
+        elif event.type == CoachEventType.ERROR:
+            return full_text, event.content or "LLM adapter returned an error"
+        elif event.type == CoachEventType.DONE:
+            break
+
+    return _normalize_generated_text(full_text), None
+
+
 async def generate_hcp_questions(
     db: AsyncSession, session: CoachingSession, mr_text: str
 ) -> list[QueuedQuestion]:
@@ -397,12 +423,6 @@ async def generate_hcp_questions(
         for msg in messages
     ]
 
-    # Get LLM adapter
-    from app.config import get_settings
-
-    settings = get_settings()
-    adapter = registry.get("llm", settings.default_llm_provider)
-
     generated_questions: list[QueuedQuestion] = []
     other_hcp_questions: list[dict] = []
 
@@ -420,19 +440,20 @@ async def generate_hcp_questions(
             prompt_config=_conference_prompt_config_from_session(session),
         )
 
-        question_text = ""
-        if adapter is not None:
-            coach_request = CoachRequest(
-                session_id=session.id,
-                message=mr_text,
-                scenario_context=hcp_prompt,
-                hcp_profile=hcp_config,
+        coach_request = CoachRequest(
+            session_id=session.id,
+            message=mr_text,
+            scenario_context=hcp_prompt,
+            hcp_profile=hcp_config,
+        )
+        question_text, error = await _collect_coach_text(coach_request)
+        if error:
+            logger.warning(
+                "generate_hcp_questions: LLM failed for session=%s hcp=%s: %s",
+                session.id,
+                hcp_config.get("hcp_profile_id"),
+                error,
             )
-            async for event in adapter.execute(coach_request):
-                if event.type == CoachEventType.TEXT:
-                    question_text += event.content
-                elif event.type == CoachEventType.DONE:
-                    break
 
         # Skip empty questions (HCP chose not to ask)
         question_text = _normalize_generated_text(question_text)
@@ -513,25 +534,20 @@ async def _generate_next_hcp_question(
         prompt_config=_conference_prompt_config_from_session(session),
     )
 
-    from app.config import get_settings
-
-    settings = get_settings()
-    adapter = registry.get("llm", settings.default_llm_provider)
-    question_text = ""
-    if adapter is not None:
-        coach_request = CoachRequest(
-            session_id=session.id,
-            message=mr_text,
-            scenario_context=hcp_prompt,
-            hcp_profile=next_hcp,
+    coach_request = CoachRequest(
+        session_id=session.id,
+        message=mr_text,
+        scenario_context=hcp_prompt,
+        hcp_profile=next_hcp,
+    )
+    question_text, error = await _collect_coach_text(coach_request)
+    if error:
+        logger.warning(
+            "_generate_next_hcp_question: LLM failed for session=%s hcp=%s: %s",
+            session.id,
+            next_hcp.get("hcp_profile_id"),
+            error,
         )
-        async for event in adapter.execute(coach_request):
-            if event.type == CoachEventType.TEXT:
-                question_text += event.content
-            elif event.type == CoachEventType.DONE:
-                break
-
-    question_text = _normalize_generated_text(question_text)
     if not question_text or question_text.lower() in ("", "none", "no question"):
         question_text = _fallback_hcp_question(next_hcp, mr_text)
 
@@ -580,27 +596,31 @@ async def _generate_hcp_response_text(
         prompt_config=_conference_prompt_config_from_session(session),
     )
 
-    from app.config import get_settings
-
-    settings = get_settings()
-    adapter = registry.get("llm", settings.default_llm_provider)
-    if adapter is None:
-        return None
-
-    full_response = ""
     coach_request = CoachRequest(
         session_id=session.id,
         message=mr_response,
         scenario_context=hcp_prompt,
         hcp_profile=hcp_config,
     )
-    async for event in adapter.execute(coach_request):
-        if event.type == CoachEventType.TEXT:
-            full_response += event.content
-        elif event.type == CoachEventType.DONE:
-            break
+    full_response, error = await _collect_coach_text(coach_request)
+    if error:
+        logger.warning(
+            "_generate_hcp_response_text: LLM failed for session=%s hcp=%s: %s",
+            session.id,
+            hcp_id,
+            error,
+        )
+        return None
 
-    return hcp_name, _normalize_generated_text(full_response)
+    if not full_response or full_response.lower() in ("", "none", "no question"):
+        logger.warning(
+            "_generate_hcp_response_text: empty LLM response for session=%s hcp=%s",
+            session.id,
+            hcp_id,
+        )
+        return None
+
+    return hcp_name, full_response
 
 
 async def handle_respond(
@@ -650,7 +670,15 @@ async def handle_respond(
 
     generated = await _generate_hcp_response_text(db, session, hcp_id, mr_response)
     if generated is None:
-        yield {"event": "error", "data": json.dumps({"message": "No LLM adapter available"})}
+        turn_manager.mark_answered(session.id, hcp_id)
+        yield {
+            "event": "turn_change",
+            "data": json.dumps(
+                {"speaker_id": hcp_id, "speaker_name": activated.hcp_name, "action": "listening"}
+            ),
+        }
+        async for event_data in _release_next_hcp_or_close(db, session, mr_response):
+            yield event_data
         return
     hcp_name, full_response = generated
 

@@ -187,6 +187,7 @@ export default function ConferenceSession() {
   const stopRecordingRef = useRef<() => void>(() => {});
   const autoStartInFlightRef = useRef(false);
   const connectedAvatarHcpIdRef = useRef("");
+  const audienceHcpsRef = useRef<AudienceHcp[]>([]);
   const avatarConnectionPromiseRef = useRef<Promise<boolean> | null>(null);
   const avatarSpeechQueueRef = useRef<PendingAvatarSpeech[]>([]);
   const isProcessingAvatarSpeechRef = useRef(false);
@@ -195,6 +196,10 @@ export default function ConferenceSession() {
     avatarStreamRef.current = avatarStream;
     voiceLiveRef.current = voiceLive;
   });
+
+  useEffect(() => {
+    audienceHcpsRef.current = audienceHcps;
+  }, [audienceHcps]);
 
   // Session timer
   const [sessionTime, setSessionTime] = useState("00:00");
@@ -251,13 +256,23 @@ export default function ConferenceSession() {
 
   const activeAvatarHcp = useMemo(() => {
     if (!isDigitalHumanMode) return undefined;
+    const matchingSpeaker = audienceHcps.find(
+      (hcp) =>
+        hcp.hcpProfileId === currentSpeakerId ||
+        hcp.id === currentSpeakerId ||
+        hcp.hcpName === currentSpeaker,
+    );
+    if (matchingSpeaker) return matchingSpeaker;
+
+    const moderator = audienceHcps.find(
+      (hcp) =>
+        hcp.roleInConference === "moderator" &&
+        hcp.voiceLiveEnabled &&
+        hcp.avatarEnabled,
+    );
+    if (!currentSpeakerId && !currentSpeaker && moderator) return moderator;
+
     return (
-      audienceHcps.find(
-        (hcp) =>
-          hcp.hcpProfileId === currentSpeakerId ||
-          hcp.id === currentSpeakerId ||
-          hcp.hcpName === currentSpeaker,
-      ) ??
       audienceHcps.find((hcp) => hcp.voiceLiveEnabled && hcp.avatarEnabled) ??
       audienceHcps[0]
     );
@@ -278,13 +293,13 @@ export default function ConferenceSession() {
 
   const findAvatarHcpForSpeaker = useCallback(
     (speakerId: string, speakerName: string) =>
-      audienceHcps.find(
+      audienceHcpsRef.current.find(
         (hcp) =>
           hcp.hcpProfileId === speakerId ||
           hcp.id === speakerId ||
           hcp.hcpName === speakerName,
       ),
-    [audienceHcps],
+    [],
   );
 
   const connectConferenceAvatar = useCallback(async (targetHcp?: AudienceHcp) => {
@@ -400,12 +415,20 @@ export default function ConferenceSession() {
         setCurrentSpeaker(nextSpeech.speakerName);
         setCurrentSpeakerId(nextSpeech.speakerId);
 
-        if (!nextSpeech.hcp) {
+        const speechHcp =
+          nextSpeech.hcp ??
+          findAvatarHcpForSpeaker(nextSpeech.speakerId, nextSpeech.speakerName);
+        const isCurrentConnectedSpeaker =
+          connectedAvatarHcpIdRef.current === nextSpeech.speakerId;
+
+        if (!speechHcp && !isCurrentConnectedSpeaker) {
           void speak(nextSpeech.content);
           continue;
         }
 
-        const connected = await connectConferenceAvatar(nextSpeech.hcp);
+        const connected = isCurrentConnectedSpeaker
+          ? true
+          : await connectConferenceAvatar(speechHcp);
         if (connected) {
           sendAvatarSpeech(voiceLive, nextSpeech.content);
           await waitForAvatarResponseDone();
@@ -416,7 +439,7 @@ export default function ConferenceSession() {
     } finally {
       isProcessingAvatarSpeechRef.current = false;
     }
-  }, [connectConferenceAvatar, speak, voiceLive, waitForAvatarResponseDone]);
+  }, [connectConferenceAvatar, findAvatarHcpForSpeaker, speak, voiceLive, waitForAvatarResponseDone]);
 
   const enqueueAvatarSpeech = useCallback(
     (speech: PendingAvatarSpeech) => {
@@ -764,6 +787,7 @@ export default function ConferenceSession() {
           avatarCharacter={activeAvatarCharacter}
           avatarStyle={activeAvatarStyle}
           avatarHcpName={activeAvatarName}
+          activeAvatarHcpId={activeAvatarHcp?.hcpProfileId || activeAvatarHcp?.id}
           onAvatarConnectClick={() => void connectConferenceAvatar()}
           messages={messages}
           inputMode={inputMode}

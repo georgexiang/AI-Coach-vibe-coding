@@ -254,6 +254,35 @@ describe("ConferenceStage", () => {
     );
   });
 
+  it("uses the selected avatar target as the active tile before any speaker starts", () => {
+    const audienceHcps = [1, 2, 3].map(makeAudienceHcp);
+
+    render(
+      <ConferenceStage
+        {...defaultProps}
+        digitalHumanEnabled={true}
+        avatarVideoRef={{ current: null }}
+        audienceHcps={audienceHcps}
+        currentSpeaker=""
+        currentSpeakerId=""
+        activeAvatarHcpId="hcp-2"
+      />,
+    );
+
+    expect(screen.getByTestId("audience-stage-hcp-2")).toHaveAttribute(
+      "data-active",
+      "true",
+    );
+    expect(screen.getByTestId("audience-stage-hcp-1")).toHaveAttribute(
+      "data-active",
+      "false",
+    );
+    expect(screen.getByTestId("audience-stage-hcp-3")).toHaveAttribute(
+      "data-active",
+      "false",
+    );
+  });
+
   it("falls back to a usable avatar character when an HCP snapshot has blank avatar fields", () => {
     const audienceHcps = [
       {
