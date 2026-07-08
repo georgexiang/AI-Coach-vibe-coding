@@ -30,14 +30,27 @@ const mockVoiceLiveDisconnect = vi.fn().mockResolvedValue(undefined);
 const mockVoiceLiveSend = vi.fn();
 const mockAvatarSdpCallbackRef = { current: null as ((serverSdp: string) => void) | null };
 const mockGetHcpProfile = vi.hoisted(() =>
-  vi.fn().mockResolvedValue({
-    id: "hp-1",
-    name: "Dr. Smith",
-    voice_live_enabled: true,
-    avatar_enabled: true,
-    avatar_character: "lisa",
-    avatar_style: "casual-sitting",
-  }),
+  vi.fn((id = "hp-1") =>
+    Promise.resolve({
+      id,
+      name: id === "hp-2" ? "Dr. Zhang Wei" : "Dr. Smith",
+      voice_name: "zh-CN-XiaoxiaoNeural",
+      voice_live_instance: {
+        id: id === "hp-2" ? "vli-2" : "vli-1",
+        name: id === "hp-2" ? "中文男声 2" : "中文男声 1",
+        voice_live_model: "gpt-4o",
+        enabled: true,
+        voice_name: id === "hp-2" ? "zh-CN-YunxiNeural" : "zh-CN-YunjianNeural",
+        avatar_character: "lisa",
+        avatar_style: "casual-sitting",
+        avatar_enabled: true,
+      },
+      voice_live_enabled: true,
+      avatar_enabled: true,
+      avatar_character: "lisa",
+      avatar_style: "casual-sitting",
+    }),
+  ),
 );
 
 let capturedCallbacks: ConferenceSSECallbacks = {};
@@ -551,6 +564,140 @@ describe("ConferenceSession", () => {
     });
   });
 
+  it("uses the connected digital human for moderator speech", async () => {
+    mockSearchParams = new URLSearchParams("id=cs-1&inputMode=audio");
+    mockSessionData = {
+      ...mockSessionData,
+      mode: "digital_human_realtime_model",
+      audienceConfig: JSON.stringify([
+        {
+          id: "aud-1",
+          hcp_profile_id: "hp-1",
+          name: "Dr. Moderator",
+          specialty: "Oncology",
+          role: "moderator",
+          voice_id: "v1",
+          voice_live_enabled: true,
+          avatar_enabled: true,
+          avatar_character: "harry",
+          avatar_style: "business",
+          sort_order: 0,
+        },
+        {
+          id: "aud-2",
+          hcp_profile_id: "hp-2",
+          name: "Dr. Panelist",
+          specialty: "Hematology",
+          role: "audience",
+          voice_id: "v2",
+          voice_live_enabled: true,
+          avatar_enabled: true,
+          avatar_character: "lori",
+          avatar_style: "formal",
+          sort_order: 1,
+        },
+      ]),
+    };
+
+    renderConferenceSession();
+
+    await act(async () => {
+      await (capturedConferenceStageProps.onAvatarConnectClick as () => Promise<void>)();
+    });
+
+    await waitFor(() => {
+      expect(mockVoiceLiveConnect).toHaveBeenCalledWith("hp-1", "", undefined, true);
+      expect(capturedConferenceStageProps.avatarCharacter).toBe("harry");
+      expect(capturedConferenceStageProps.avatarStyle).toBe("business");
+      expect(capturedConferenceStageProps.isAvatarConnected).toBe(true);
+    });
+
+    act(() => {
+      capturedCallbacks.onSpeakerText?.({
+        speaker_id: "hp-1",
+        speaker_name: "Dr. Moderator",
+        content: "欢迎参加本次会议。",
+      });
+    });
+
+    await waitFor(() => {
+      expect(mockSpeak).not.toHaveBeenCalled();
+      expect(mockVoiceLiveSend).toHaveBeenCalledWith(
+        expect.objectContaining({ type: "conversation.item.create" }),
+      );
+      expect(mockVoiceLiveSend).toHaveBeenCalledWith(
+        expect.objectContaining({ type: "response.create" }),
+      );
+    });
+
+    act(() => {
+      (capturedVoiceLiveOptions.onResponseDone as () => void)?.();
+    });
+  });
+
+  it("prefers the moderator when connecting the conference avatar before any speech", async () => {
+    mockSearchParams = new URLSearchParams("id=cs-1&inputMode=audio");
+    mockSessionData = {
+      ...mockSessionData,
+      mode: "digital_human_realtime_model",
+      audienceConfig: JSON.stringify([
+        {
+          id: "aud-1",
+          hcp_profile_id: "hp-panelist",
+          name: "Dr. Panelist",
+          specialty: "Hematology",
+          role: "audience",
+          voice_id: "v1",
+          voice_live_enabled: true,
+          avatar_enabled: true,
+          avatar_character: "lori",
+          avatar_style: "formal",
+          sort_order: 0,
+        },
+        {
+          id: "aud-2",
+          hcp_profile_id: "hp-moderator",
+          name: "Dr. Moderator",
+          specialty: "Oncology",
+          role: "moderator",
+          voice_id: "v2",
+          voice_live_enabled: true,
+          avatar_enabled: true,
+          avatar_character: "harry",
+          avatar_style: "business",
+          sort_order: 1,
+        },
+      ]),
+    };
+
+    renderConferenceSession();
+
+    await waitFor(() => {
+      expect(capturedConferenceStageProps.avatarHcpName).toBe("Dr. Moderator");
+      expect(capturedConferenceStageProps.avatarCharacter).toBe("harry");
+      expect(capturedConferenceStageProps.avatarStyle).toBe("business");
+    });
+
+    await act(async () => {
+      await (capturedConferenceStageProps.onAvatarConnectClick as () => Promise<void>)();
+    });
+
+    await waitFor(() => {
+      expect(mockVoiceLiveConnect).toHaveBeenCalledWith(
+        "hp-moderator",
+        "",
+        undefined,
+        true,
+      );
+      expect(mockVoiceLiveConnect).not.toHaveBeenCalledWith(
+        "hp-panelist",
+        "",
+        undefined,
+        true,
+      );
+    });
+  });
+
   it("processes speaking HCP avatars in queued conference order", async () => {
     mockSearchParams = new URLSearchParams("id=cs-1&inputMode=audio");
     mockSessionData = {
@@ -916,8 +1063,65 @@ describe("ConferenceSession", () => {
       });
     });
 
-    expect(mockSpeak).toHaveBeenCalledWith("第一句问题。第二句补充说明？");
+    expect(mockSpeak).toHaveBeenCalledWith("第一句问题。第二句补充说明？", "v1");
     expect(mockSpeak).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses each assigned Voice Live voice for conference speech in audio mode", async () => {
+    mockSearchParams = new URLSearchParams("id=cs-1&inputMode=audio");
+    mockSessionData = {
+      ...mockSessionData,
+      audienceConfig: JSON.stringify([
+        {
+          id: "aud-1",
+          hcp_profile_id: "hp-1",
+          name: "Dr. Liu Yang",
+          specialty: "Oncology",
+          role: "moderator",
+          voice_id: "legacy-voice-id-1",
+          sort_order: 0,
+        },
+        {
+          id: "aud-2",
+          hcp_profile_id: "hp-2",
+          name: "Dr. Zhang Wei",
+          specialty: "Hematology",
+          role: "audience",
+          voice_id: "legacy-voice-id-2",
+          sort_order: 1,
+        },
+      ]),
+    };
+    renderConferenceSession();
+
+    await waitFor(() => {
+      expect(mockGetHcpProfile).toHaveBeenCalledWith("hp-1");
+      expect(mockGetHcpProfile).toHaveBeenCalledWith("hp-2");
+    });
+
+    act(() => {
+      capturedCallbacks.onSpeakerText?.({
+        speaker_id: "hp-1",
+        speaker_name: "Dr. Liu Yang",
+        content: "欢迎参加本次会议。",
+      });
+      capturedCallbacks.onSpeakerText?.({
+        speaker_id: "hp-2",
+        speaker_name: "Dr. Zhang Wei",
+        content: "请问临床数据如何？",
+      });
+    });
+
+    expect(mockSpeak).toHaveBeenNthCalledWith(
+      1,
+      "欢迎参加本次会议。",
+      "zh-CN-YunjianNeural",
+    );
+    expect(mockSpeak).toHaveBeenNthCalledWith(
+      2,
+      "请问临床数据如何？",
+      "zh-CN-YunxiNeural",
+    );
   });
 
   it("enables queued TTS for conference voice playback", () => {

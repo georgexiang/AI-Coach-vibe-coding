@@ -7,6 +7,7 @@ import {
 } from "@/components/ui";
 import { ChatBubble, ChatInput } from "@/components/shared";
 import { AvatarView } from "@/components/voice/avatar-view";
+import type { AudienceHcp } from "@/types/conference";
 import type { AudioState } from "@/types/voice-live";
 
 interface ChatMessage {
@@ -24,9 +25,11 @@ interface ConferenceStageProps {
   isStreaming: boolean;
   streamedText: string;
   currentSpeaker: string;
+  currentSpeakerId?: string;
   avatarEnabled: boolean;
   featureAvatarEnabled: boolean;
   digitalHumanEnabled?: boolean;
+  audienceHcps?: AudienceHcp[];
   avatarVideoRef?: Ref<HTMLVideoElement>;
   isAvatarConnected?: boolean;
   isAvatarConnecting?: boolean;
@@ -34,6 +37,7 @@ interface ConferenceStageProps {
   avatarCharacter?: string;
   avatarStyle?: string;
   avatarHcpName?: string;
+  activeAvatarHcpId?: string;
   onAvatarConnectClick?: () => void;
   messages?: ChatMessage[];
   inputMode?: "text" | "audio";
@@ -52,14 +56,20 @@ function getInitials(name: string): string {
     .slice(0, 2);
 }
 
+function firstNonBlank(...values: Array<string | undefined>): string | undefined {
+  return values.find((value) => value && value.trim());
+}
+
 export function ConferenceStage({
   onSendMessage,
   isStreaming,
   streamedText,
   currentSpeaker,
+  currentSpeakerId,
   avatarEnabled,
   featureAvatarEnabled,
   digitalHumanEnabled = false,
+  audienceHcps = [],
   avatarVideoRef,
   isAvatarConnected = false,
   isAvatarConnecting = false,
@@ -67,6 +77,7 @@ export function ConferenceStage({
   avatarCharacter,
   avatarStyle,
   avatarHcpName,
+  activeAvatarHcpId,
   onAvatarConnectClick,
   messages = [],
   inputMode = "text",
@@ -83,12 +94,92 @@ export function ConferenceStage({
 
   const speakerInitials = currentSpeaker ? getInitials(currentSpeaker) : "AI";
   const showDigitalHuman = avatarEnabled && featureAvatarEnabled && digitalHumanEnabled;
+  const showAudienceGallery = showDigitalHuman && audienceHcps.length > 0;
+  const audienceGridClass =
+    audienceHcps.length === 1
+      ? "grid-cols-1"
+      : audienceHcps.length === 2
+        ? "grid-cols-2"
+        : audienceHcps.length === 3
+          ? "grid-cols-3"
+          : "grid-cols-2";
+
+  const isCurrentHcp = (hcp: AudienceHcp): boolean =>
+    hcp.hcpProfileId === currentSpeakerId ||
+    hcp.id === currentSpeakerId ||
+    hcp.hcpName === currentSpeaker ||
+    hcp.status === "speaking" ||
+    (!currentSpeakerId &&
+      !currentSpeaker &&
+      Boolean(activeAvatarHcpId) &&
+      (hcp.hcpProfileId === activeAvatarHcpId || hcp.id === activeAvatarHcpId));
 
   return (
     <div className="flex min-w-[480px] flex-1 flex-col">
       {/* Avatar area */}
       <div className="relative flex h-[240px] flex-col items-center justify-center bg-slate-900">
-        {showDigitalHuman && avatarVideoRef && (
+        {showAudienceGallery && avatarVideoRef ? (
+          <div className={`grid h-full w-full ${audienceGridClass} gap-2 p-2`}>
+            {audienceHcps.map((hcp) => {
+              const isActive = isCurrentHcp(hcp);
+              const displayName = hcp.hcpName || hcp.hcpProfileId || hcp.id;
+              const resolvedAvatarCharacter = firstNonBlank(
+                hcp.avatarCharacter,
+                avatarCharacter,
+                "lori",
+              );
+              const resolvedAvatarStyle = firstNonBlank(
+                hcp.avatarStyle,
+                avatarStyle,
+                "casual",
+              );
+
+              return (
+                <div
+                  key={hcp.hcpProfileId || hcp.id || displayName}
+                  data-testid={`audience-stage-${hcp.hcpProfileId || hcp.id}`}
+                  data-active={isActive ? "true" : "false"}
+                  className={[
+                    "relative min-h-0 overflow-hidden rounded-lg border bg-slate-900",
+                    isActive ? "border-cyan-300/80" : "border-white/10",
+                  ].join(" ")}
+                >
+                  {isActive ? (
+                    <AvatarView
+                      videoRef={avatarVideoRef}
+                      isAvatarConnected={isAvatarConnected}
+                      isSessionActive={isAvatarConnected || isAvatarConnecting}
+                      audioState={avatarAudioState}
+                      isConnecting={isAvatarConnecting}
+                      isDigitalHumanMode={true}
+                      hcpName={displayName}
+                      isFullScreen={false}
+                      avatarCharacter={resolvedAvatarCharacter}
+                      avatarStyle={resolvedAvatarStyle}
+                      videoFit="contain"
+                      className="!min-h-0 h-full w-full bg-slate-900"
+                    />
+                  ) : (
+                    <AvatarView
+                      videoRef={{ current: null }}
+                      isAvatarConnected={false}
+                      isSessionActive={false}
+                      audioState="idle"
+                      isConnecting={false}
+                      isDigitalHumanMode={true}
+                      hcpName={displayName}
+                      isFullScreen={false}
+                      avatarCharacter={resolvedAvatarCharacter}
+                      avatarStyle={resolvedAvatarStyle}
+                      videoFit="contain"
+                      className="!min-h-0 h-full w-full bg-slate-900"
+                    />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ) : showDigitalHuman && avatarVideoRef ? (
           <AvatarView
             videoRef={avatarVideoRef}
             isAvatarConnected={isAvatarConnected}
@@ -103,7 +194,7 @@ export function ConferenceStage({
             videoFit="contain"
             className="!min-h-0 h-full w-full bg-slate-900"
           />
-        )}
+        ) : null}
         {showDigitalHuman && !isAvatarConnected && onAvatarConnectClick && (
           <div className="absolute inset-x-0 bottom-4 z-30 flex justify-center">
             <Button

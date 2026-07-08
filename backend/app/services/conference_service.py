@@ -12,6 +12,7 @@ from sqlalchemy.orm import selectinload
 
 from app.database import AsyncSessionLocal
 from app.models.conference import ConferenceAudienceHcp
+from app.models.hcp_profile import HcpProfile
 from app.models.message import SessionMessage
 from app.models.scenario import Scenario
 from app.models.session import CoachingSession
@@ -20,6 +21,7 @@ from app.services.agents.registry import registry
 from app.services.conference_prompt_config import normalize_conference_prompt_config
 from app.services.prompt_builder import build_conference_audience_prompt
 from app.services.turn_manager import QueuedQuestion, turn_manager
+from app.services.voice_live_instance_service import resolve_voice_config
 from app.utils.datetime import as_utc_aware, utc_now_naive
 from app.utils.exceptions import AppException, NotFoundException
 
@@ -56,7 +58,11 @@ async def create_conference_session(
     # Load audience HCPs with profile data
     audience_result = await db.execute(
         select(ConferenceAudienceHcp)
-        .options(selectinload(ConferenceAudienceHcp.hcp_profile))
+        .options(
+            selectinload(ConferenceAudienceHcp.hcp_profile).selectinload(
+                HcpProfile.voice_live_instance
+            )
+        )
         .where(ConferenceAudienceHcp.scenario_id == scenario_id)
         .order_by(ConferenceAudienceHcp.sort_order)
     )
@@ -81,19 +87,18 @@ async def create_conference_session(
             "personality_type": ah.hcp_profile.personality_type,
             "role": ah.role_in_conference,
             "voice_id": ah.voice_id,
-            "voice_live_enabled": ah.hcp_profile.voice_live_enabled,
-            "avatar_enabled": getattr(
-                ah.hcp_profile,
-                "avatar_enabled",
-                ah.hcp_profile.voice_live_enabled,
-            ),
-            "avatar_character": ah.hcp_profile.avatar_character,
-            "avatar_style": ah.hcp_profile.avatar_style,
+            "voice_live_instance_id": ah.hcp_profile.voice_live_instance_id,
+            "voice_name": vc["voice_name"],
+            "voice_live_enabled": vc["voice_live_enabled"],
+            "avatar_enabled": vc["avatar_enabled"],
+            "avatar_character": vc["avatar_character"],
+            "avatar_style": vc["avatar_style"],
             "sort_order": ah.sort_order,
             "speaker_priority": "primary" if ah.hcp_profile_id == primary_hcp_id else "secondary",
             "speaker_order_policy": conference_prompt_config["speaker_order_policy"],
         }
         for ah in audience_hcps
+        for vc in [resolve_voice_config(ah.hcp_profile)]
     ]
     if audience_config:
         audience_config[0]["conference_prompt_config"] = conference_prompt_config
@@ -369,6 +374,32 @@ def _fallback_hcp_question(hcp_config: dict, mr_text: str) -> str:
     )
 
 
+async def _collect_coach_text(request: CoachRequest) -> tuple[str, str | None]:
+    """Collect streamed text from the configured LLM adapter.
+
+    Returns ``(text, error)``. The conference flow must not silently treat adapter
+    errors as empty model output, because that can leave an HCP active with no
+    visible response.
+    """
+    from app.config import get_settings
+
+    settings = get_settings()
+    adapter = registry.get("llm", settings.default_llm_provider)
+    if adapter is None:
+        return "", "No LLM adapter available"
+
+    full_text = ""
+    async for event in adapter.execute(request):
+        if event.type == CoachEventType.TEXT:
+            full_text += event.content
+        elif event.type == CoachEventType.ERROR:
+            return full_text, event.content or "LLM adapter returned an error"
+        elif event.type == CoachEventType.DONE:
+            break
+
+    return _normalize_generated_text(full_text), None
+
+
 async def generate_hcp_questions(
     db: AsyncSession, session: CoachingSession, mr_text: str
 ) -> list[QueuedQuestion]:
@@ -397,12 +428,6 @@ async def generate_hcp_questions(
         for msg in messages
     ]
 
-    # Get LLM adapter
-    from app.config import get_settings
-
-    settings = get_settings()
-    adapter = registry.get("llm", settings.default_llm_provider)
-
     generated_questions: list[QueuedQuestion] = []
     other_hcp_questions: list[dict] = []
 
@@ -420,19 +445,20 @@ async def generate_hcp_questions(
             prompt_config=_conference_prompt_config_from_session(session),
         )
 
-        question_text = ""
-        if adapter is not None:
-            coach_request = CoachRequest(
-                session_id=session.id,
-                message=mr_text,
-                scenario_context=hcp_prompt,
-                hcp_profile=hcp_config,
+        coach_request = CoachRequest(
+            session_id=session.id,
+            message=mr_text,
+            scenario_context=hcp_prompt,
+            hcp_profile=hcp_config,
+        )
+        question_text, error = await _collect_coach_text(coach_request)
+        if error:
+            logger.warning(
+                "generate_hcp_questions: LLM failed for session=%s hcp=%s: %s",
+                session.id,
+                hcp_config.get("hcp_profile_id"),
+                error,
             )
-            async for event in adapter.execute(coach_request):
-                if event.type == CoachEventType.TEXT:
-                    question_text += event.content
-                elif event.type == CoachEventType.DONE:
-                    break
 
         # Skip empty questions (HCP chose not to ask)
         question_text = _normalize_generated_text(question_text)
@@ -513,25 +539,20 @@ async def _generate_next_hcp_question(
         prompt_config=_conference_prompt_config_from_session(session),
     )
 
-    from app.config import get_settings
-
-    settings = get_settings()
-    adapter = registry.get("llm", settings.default_llm_provider)
-    question_text = ""
-    if adapter is not None:
-        coach_request = CoachRequest(
-            session_id=session.id,
-            message=mr_text,
-            scenario_context=hcp_prompt,
-            hcp_profile=next_hcp,
+    coach_request = CoachRequest(
+        session_id=session.id,
+        message=mr_text,
+        scenario_context=hcp_prompt,
+        hcp_profile=next_hcp,
+    )
+    question_text, error = await _collect_coach_text(coach_request)
+    if error:
+        logger.warning(
+            "_generate_next_hcp_question: LLM failed for session=%s hcp=%s: %s",
+            session.id,
+            next_hcp.get("hcp_profile_id"),
+            error,
         )
-        async for event in adapter.execute(coach_request):
-            if event.type == CoachEventType.TEXT:
-                question_text += event.content
-            elif event.type == CoachEventType.DONE:
-                break
-
-    question_text = _normalize_generated_text(question_text)
     if not question_text or question_text.lower() in ("", "none", "no question"):
         question_text = _fallback_hcp_question(next_hcp, mr_text)
 
@@ -580,27 +601,31 @@ async def _generate_hcp_response_text(
         prompt_config=_conference_prompt_config_from_session(session),
     )
 
-    from app.config import get_settings
-
-    settings = get_settings()
-    adapter = registry.get("llm", settings.default_llm_provider)
-    if adapter is None:
-        return None
-
-    full_response = ""
     coach_request = CoachRequest(
         session_id=session.id,
         message=mr_response,
         scenario_context=hcp_prompt,
         hcp_profile=hcp_config,
     )
-    async for event in adapter.execute(coach_request):
-        if event.type == CoachEventType.TEXT:
-            full_response += event.content
-        elif event.type == CoachEventType.DONE:
-            break
+    full_response, error = await _collect_coach_text(coach_request)
+    if error:
+        logger.warning(
+            "_generate_hcp_response_text: LLM failed for session=%s hcp=%s: %s",
+            session.id,
+            hcp_id,
+            error,
+        )
+        return None
 
-    return hcp_name, _normalize_generated_text(full_response)
+    if not full_response or full_response.lower() in ("", "none", "no question"):
+        logger.warning(
+            "_generate_hcp_response_text: empty LLM response for session=%s hcp=%s",
+            session.id,
+            hcp_id,
+        )
+        return None
+
+    return hcp_name, full_response
 
 
 async def handle_respond(
@@ -650,7 +675,15 @@ async def handle_respond(
 
     generated = await _generate_hcp_response_text(db, session, hcp_id, mr_response)
     if generated is None:
-        yield {"event": "error", "data": json.dumps({"message": "No LLM adapter available"})}
+        turn_manager.mark_answered(session.id, hcp_id)
+        yield {
+            "event": "turn_change",
+            "data": json.dumps(
+                {"speaker_id": hcp_id, "speaker_name": activated.hcp_name, "action": "listening"}
+            ),
+        }
+        async for event_data in _release_next_hcp_or_close(db, session, mr_response):
+            yield event_data
         return
     hcp_name, full_response = generated
 

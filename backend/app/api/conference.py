@@ -12,6 +12,7 @@ from sse_starlette.sse import EventSourceResponse
 from app.config import get_settings
 from app.dependencies import get_current_user, get_db, require_role
 from app.models.conference import ConferenceAudienceHcp
+from app.models.hcp_profile import HcpProfile
 from app.models.session import CoachingSession
 from app.models.user import User
 from app.schemas.conference import (
@@ -23,6 +24,7 @@ from app.schemas.conference import (
     ConferenceSubStateUpdate,
 )
 from app.services import conference_service
+from app.services.voice_live_instance_service import resolve_voice_config
 from app.utils.exceptions import AppException, NotFoundException, ValidationException
 
 settings = get_settings()
@@ -238,7 +240,11 @@ async def get_scenario_audience(
     """Get audience HCPs for a conference scenario."""
     result = await db.execute(
         select(ConferenceAudienceHcp)
-        .options(selectinload(ConferenceAudienceHcp.hcp_profile))
+        .options(
+            selectinload(ConferenceAudienceHcp.hcp_profile).selectinload(
+                HcpProfile.voice_live_instance
+            )
+        )
         .where(ConferenceAudienceHcp.scenario_id == scenario_id)
         .order_by(ConferenceAudienceHcp.sort_order)
     )
@@ -247,15 +253,20 @@ async def get_scenario_audience(
     # Map to response with HCP profile info
     responses = []
     for ah in audience_hcps:
+        voice_config = resolve_voice_config(ah.hcp_profile) if ah.hcp_profile else {}
         resp = AudienceHcpResponse(
             id=ah.id,
             scenario_id=ah.scenario_id,
             hcp_profile_id=ah.hcp_profile_id,
             role_in_conference=ah.role_in_conference,
             voice_id=ah.voice_id,
+            voice_live_instance_id=ah.hcp_profile.voice_live_instance_id
+            if ah.hcp_profile
+            else None,
+            voice_name=_config_text(voice_config, "voice_name"),
             sort_order=ah.sort_order,
-            hcp_name=ah.hcp_profile.name if ah.hcp_profile else "",
-            hcp_specialty=ah.hcp_profile.specialty if ah.hcp_profile else "",
+            hcp_name=_profile_text(ah.hcp_profile, "name"),
+            hcp_specialty=_profile_text(ah.hcp_profile, "specialty"),
         )
         responses.append(resp)
     return responses
@@ -301,7 +312,11 @@ async def set_scenario_audience(
     # Reload with profile info
     result = await db.execute(
         select(ConferenceAudienceHcp)
-        .options(selectinload(ConferenceAudienceHcp.hcp_profile))
+        .options(
+            selectinload(ConferenceAudienceHcp.hcp_profile).selectinload(
+                HcpProfile.voice_live_instance
+            )
+        )
         .where(ConferenceAudienceHcp.scenario_id == scenario_id)
         .order_by(ConferenceAudienceHcp.sort_order)
     )
@@ -309,21 +324,38 @@ async def set_scenario_audience(
 
     responses = []
     for ah in audience_hcps:
+        voice_config = resolve_voice_config(ah.hcp_profile) if ah.hcp_profile else {}
         resp = AudienceHcpResponse(
             id=ah.id,
             scenario_id=ah.scenario_id,
             hcp_profile_id=ah.hcp_profile_id,
             role_in_conference=ah.role_in_conference,
             voice_id=ah.voice_id,
+            voice_live_instance_id=ah.hcp_profile.voice_live_instance_id
+            if ah.hcp_profile
+            else None,
+            voice_name=_config_text(voice_config, "voice_name"),
             sort_order=ah.sort_order,
-            hcp_name=ah.hcp_profile.name if ah.hcp_profile else "",
-            hcp_specialty=ah.hcp_profile.specialty if ah.hcp_profile else "",
+            hcp_name=_profile_text(ah.hcp_profile, "name"),
+            hcp_specialty=_profile_text(ah.hcp_profile, "specialty"),
         )
         responses.append(resp)
     return responses
 
 
 # --- Helpers ---
+
+
+def _profile_text(profile, field: str) -> str:
+    if not profile:
+        return ""
+    value = getattr(profile, field, "")
+    return value if isinstance(value, str) else ""
+
+
+def _config_text(config: dict, field: str) -> str:
+    value = config.get(field, "")
+    return value if isinstance(value, str) else ""
 
 
 def _now_iso() -> str:
