@@ -3,6 +3,7 @@ import type {
   AudienceHcp,
   AudienceHcpCreate,
   ConferenceSession,
+  ConferenceSubState,
 } from "@/types/conference";
 
 /** Backend audience HCP response shape (snake_case). */
@@ -12,6 +13,8 @@ interface AudienceHcpApi {
   hcp_profile_id: string;
   role_in_conference: string;
   voice_id: string;
+  voice_live_instance_id?: string | null;
+  voice_name?: string;
   sort_order: number;
   hcp_name?: string;
   hcp_specialty?: string;
@@ -25,6 +28,20 @@ interface AudienceHcpCreateApi {
   sort_order: number;
 }
 
+interface ConferenceSessionApi {
+  id: string;
+  user_id: string;
+  scenario_id: string;
+  status: string;
+  mode: string;
+  session_type: "conference";
+  sub_state: ConferenceSubState;
+  presentation_topic: string | null;
+  audience_config: string | null;
+  key_messages_status: string | null;
+  created_at: string | null;
+}
+
 function toAudienceHcp(raw: AudienceHcpApi): AudienceHcp {
   return {
     id: raw.id,
@@ -34,8 +51,26 @@ function toAudienceHcp(raw: AudienceHcpApi): AudienceHcp {
     hcpSpecialty: raw.hcp_specialty ?? "",
     roleInConference: raw.role_in_conference,
     voiceId: raw.voice_id,
+    voiceLiveInstanceId: raw.voice_live_instance_id,
+    voiceName: raw.voice_name,
     sortOrder: raw.sort_order,
     status: "listening",
+  };
+}
+
+function toConferenceSession(raw: ConferenceSessionApi): ConferenceSession {
+  return {
+    id: raw.id,
+    userId: raw.user_id,
+    scenarioId: raw.scenario_id,
+    status: raw.status,
+    mode: raw.mode,
+    sessionType: raw.session_type,
+    subState: raw.sub_state,
+    presentationTopic: raw.presentation_topic,
+    audienceConfig: raw.audience_config,
+    keyMessagesStatus: raw.key_messages_status,
+    createdAt: raw.created_at,
   };
 }
 
@@ -53,21 +88,22 @@ function toAudienceHcpCreateApi(
 
 export async function createConferenceSession(
   scenarioId: string,
+  mode: string = "text",
 ): Promise<ConferenceSession> {
-  const { data } = await apiClient.post<ConferenceSession>(
+  const { data } = await apiClient.post<ConferenceSessionApi>(
     "/conference/sessions",
-    { scenario_id: scenarioId },
+    { scenario_id: scenarioId, mode },
   );
-  return data;
+  return toConferenceSession(data);
 }
 
 export async function getConferenceSession(
   sessionId: string,
 ): Promise<ConferenceSession> {
-  const { data } = await apiClient.get<ConferenceSession>(
+  const { data } = await apiClient.get<ConferenceSessionApi>(
     `/conference/sessions/${sessionId}`,
   );
-  return data;
+  return toConferenceSession(data);
 }
 
 export async function updateSubState(

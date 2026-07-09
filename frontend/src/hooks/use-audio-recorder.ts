@@ -21,10 +21,16 @@ export function useAudioRecorder() {
   const startRecording = useCallback(
     async (existingStream?: MediaStream): Promise<boolean> => {
       try {
+        const activeRecorder = mediaRecorderRef.current;
+        if (activeRecorder && activeRecorder.state !== "inactive") {
+          return true;
+        }
+
         const stream = existingStream
           ? existingStream.clone()
           : await navigator.mediaDevices.getUserMedia({ audio: true });
         streamRef.current = stream;
+        chunksRef.current = [];
 
         const mimeType = MediaRecorder.isTypeSupported(
           "audio/webm;codecs=opus"

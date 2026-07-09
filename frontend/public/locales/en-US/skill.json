@@ -146,6 +146,7 @@
     "conversionFailed": "Conversion failed",
     "deleteFailed": "Failed to delete skill",
     "archiveFailed": "Failed to archive skill",
+    "publishFailed": "Failed to publish skill",
     "saveFailed": "Failed to save skill"
   },
   "confirm": {

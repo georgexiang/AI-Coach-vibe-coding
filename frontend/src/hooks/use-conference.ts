@@ -20,7 +20,8 @@ export function useConferenceSession(sessionId?: string) {
 export function useCreateConferenceSession() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (scenarioId: string) => createConferenceSession(scenarioId),
+    mutationFn: ({ scenarioId, mode }: { scenarioId: string; mode?: string }) =>
+      createConferenceSession(scenarioId, mode),
     onSuccess: () => {
       void queryClient.invalidateQueries({
         queryKey: ["conference-sessions"],

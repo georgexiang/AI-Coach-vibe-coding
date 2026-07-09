@@ -64,7 +64,34 @@ class TestCreateConferenceSessionDirect:
 
         result = await create_conference_session(request, db, user)
         assert result == mock_session
-        mock_service.create_conference_session.assert_called_once_with(db, "scen-1", "user-1")
+        mock_service.create_conference_session.assert_called_once_with(
+            db,
+            "scen-1",
+            "user-1",
+            "text",
+        )
+
+    @patch("app.api.conference.conference_service")
+    async def test_create_accepts_digital_human_mode(self, mock_service):
+        """Route function passes conference digital human mode to service."""
+        mock_session = _make_session()
+        mock_service.create_conference_session = AsyncMock(return_value=mock_session)
+        request = ConferenceSessionCreate(
+            scenario_id="scen-1",
+            mode="digital_human_realtime_model",
+        )
+        user = _make_user()
+        db = AsyncMock()
+
+        result = await create_conference_session(request, db, user)
+
+        assert result == mock_session
+        mock_service.create_conference_session.assert_called_once_with(
+            db,
+            "scen-1",
+            "user-1",
+            "digital_human_realtime_model",
+        )
 
 
 class TestGetConferenceSessionDirect:
@@ -190,6 +217,9 @@ class TestGetScenarioAudienceDirect:
         ah.hcp_profile = MagicMock()
         ah.hcp_profile.name = "Dr. Test"
         ah.hcp_profile.specialty = "Oncology"
+        ah.hcp_profile.voice_live_instance_id = None
+        ah.hcp_profile.voice_live_instance = None
+        ah.hcp_profile.voice_name = "zh-CN-YunjianNeural"
 
         mock_result = MagicMock()
         mock_scalars = MagicMock()
@@ -240,6 +270,9 @@ class TestSetScenarioAudienceDirect:
         reload_ah.hcp_profile = MagicMock()
         reload_ah.hcp_profile.name = "Dr. New"
         reload_ah.hcp_profile.specialty = "Cardiology"
+        reload_ah.hcp_profile.voice_live_instance_id = None
+        reload_ah.hcp_profile.voice_live_instance = None
+        reload_ah.hcp_profile.voice_name = "zh-CN-YunjianNeural"
 
         reload_mock = MagicMock()
         reload_scalars = MagicMock()

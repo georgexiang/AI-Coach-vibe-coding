@@ -30,16 +30,54 @@ beforeEach(() => vi.clearAllMocks());
 
 describe("Conference API client", () => {
   describe("createConferenceSession", () => {
-    it("calls POST /conference/sessions with scenario_id", async () => {
-      const session = { id: "cs-1", status: "created", scenarioId: "sc-1" };
+    it("calls POST /conference/sessions with scenario_id and default mode", async () => {
+      const session = {
+        id: "cs-1",
+        user_id: "u-1",
+        scenario_id: "sc-1",
+        status: "created",
+        mode: "text",
+        session_type: "conference",
+        sub_state: "presenting",
+        presentation_topic: "Topic",
+        audience_config: "[]",
+        key_messages_status: "[]",
+        created_at: "2026-07-01T00:00:00Z",
+      };
       mockClient.post.mockResolvedValue({ data: session });
 
       const result = await createConferenceSession("sc-1");
 
       expect(mockClient.post).toHaveBeenCalledWith("/conference/sessions", {
         scenario_id: "sc-1",
+        mode: "text",
       });
       expect(result.id).toBe("cs-1");
+      expect(result.scenarioId).toBe("sc-1");
+    });
+
+    it("passes voice mode when provided", async () => {
+      const session = {
+        id: "cs-1",
+        user_id: "u-1",
+        scenario_id: "sc-1",
+        status: "created",
+        mode: "voice_realtime_model",
+        session_type: "conference",
+        sub_state: "presenting",
+        presentation_topic: "Topic",
+        audience_config: "[]",
+        key_messages_status: "[]",
+        created_at: "2026-07-01T00:00:00Z",
+      };
+      mockClient.post.mockResolvedValue({ data: session });
+
+      await createConferenceSession("sc-1", "voice_realtime_model");
+
+      expect(mockClient.post).toHaveBeenCalledWith("/conference/sessions", {
+        scenario_id: "sc-1",
+        mode: "voice_realtime_model",
+      });
     });
 
     it("propagates creation errors", async () => {
@@ -53,13 +91,28 @@ describe("Conference API client", () => {
 
   describe("getConferenceSession", () => {
     it("calls GET /conference/sessions/:id", async () => {
-      const session = { id: "cs-1", status: "in_progress" };
+      const session = {
+        id: "cs-1",
+        user_id: "u-1",
+        scenario_id: "sc-1",
+        status: "in_progress",
+        mode: "digital_human_realtime_model",
+        session_type: "conference",
+        sub_state: "presenting",
+        presentation_topic: "Topic",
+        audience_config: "[{\"hcp_profile_id\":\"hp-1\"}]",
+        key_messages_status: "[]",
+        created_at: "2026-07-01T00:00:00Z",
+      };
       mockClient.get.mockResolvedValue({ data: session });
 
       const result = await getConferenceSession("cs-1");
 
       expect(mockClient.get).toHaveBeenCalledWith("/conference/sessions/cs-1");
       expect(result.status).toBe("in_progress");
+      expect(result.scenarioId).toBe("sc-1");
+      expect(result.audienceConfig).toContain("hp-1");
+      expect(result.keyMessagesStatus).toBe("[]");
     });
 
     it("propagates 404 for missing session", async () => {

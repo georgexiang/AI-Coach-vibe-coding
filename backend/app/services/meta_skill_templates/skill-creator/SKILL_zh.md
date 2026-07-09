@@ -78,11 +78,9 @@ metadata:
 1. **概述部分** — 技能目的、目标受众、学习目标
 2. **`## SOP Steps`** 部分，每个 SOP 阶段使用 **`### Step N: 标题`** 子标题。
    每个步骤包含描述、要点、异议、评估标准、知识点和建议时间。
-3. **`## Assessment Rubric`** 部分，使用 Markdown 表格展示评估维度、权重和
-   评分区间。
-4. **`## Key Knowledge Points`** 部分，每个知识模块使用 **`### 主题`** 子标题，
+3. **`## Key Knowledge Points`** 部分，每个知识模块使用 **`### 主题`** 子标题，
    包含学习目标、关键事实和评估题目。
-5. **`## Coaching Guidelines`** 部分，包含 AI 教练 Agent 的语气、风格、反馈
+4. **`## Coaching Guidelines`** 部分，包含 AI 教练 Agent 的语气、风格、反馈
    方法和会话流程指南。
 
 ### 阶段 5: 参考文档拆分
@@ -92,8 +90,6 @@ metadata:
 - **`knowledge-base.md`** — 按模块组织的全面产品知识。包含作用机制、临床数据、
   剂量、安全性信息和竞争定位。每个模块有独立章节，含关键事实、数据表和
   临床证据。
-- **`assessment-rubric.md`** — 详细的评分标准，含全部 6 个评估维度、权重分解、
-  评分区间（90-100、70-89、50-69、0-49）和维度特定的评估标准。
 - **`objection-handling-guide.md`** — 按 SOP 阶段组织的 HCP 异议完整目录，
   含基于证据的回应、支持数据引用和升级指导。
 - 根据源材料丰富度可添加其他文件（如 `clinical-data-summary.md`、
@@ -141,10 +137,9 @@ metadata:
     "tags": "pharma,oncology,mr-training,product-name",
     "compatibility": "python>=3.11"
   },
-  "skill_md": "# 产品名称培训技能\n\n## 概述\n\n本技能培训MR...\n\n## SOP Steps\n\n### Step 1: 开场\n\n...\n\n### Step 2: 需求评估\n\n...\n\n### Step 3: 产品讨论\n\n...\n\n### Step 4: 异议处理\n\n...\n\n### Step 5: 收尾\n\n...\n\n## Assessment Rubric\n\n| 维度 | 权重 | 描述 |\n|------|------|------|\n| sop_completeness | 20% | ... |\n\n## Key Knowledge Points\n\n### 模块1: 产品基础知识\n\n...\n\n## Coaching Guidelines\n\n...",
+  "skill_md": "# 产品名称培训技能\n\n## 概述\n\n本技能培训MR...\n\n## SOP Steps\n\n### Step 1: 开场\n\n...\n\n### Step 2: 需求评估\n\n...\n\n### Step 3: 产品讨论\n\n...\n\n### Step 4: 异议处理\n\n...\n\n### Step 5: 收尾\n\n...\n\n## Key Knowledge Points\n\n### 模块1: 产品基础知识\n\n...\n\n## Coaching Guidelines\n\n...",
   "references": {
     "knowledge-base.md": "# 知识库\n\n## 产品基础知识\n\n...",
-    "assessment-rubric.md": "# 评估标准\n\n## 评分维度\n\n...",
     "objection-handling-guide.md": "# 异议处理指南\n\n## 开场阶段异议\n\n..."
   },
   "scripts": {
@@ -155,7 +150,7 @@ metadata:
     "coaching-tips.md": "# 教练技巧\n\n## 会话节奏控制\n\n...",
     "objection-bank.md": "# 异议库\n\n## 初级难度\n\n..."
   },
-  "summary": "针对[产品]的全面MR培训技能，覆盖[治疗领域]。包含5阶段SOP、N个知识模块和M个评估题目，涵盖全部6个评估维度。"
+  "summary": "针对[产品]的全面MR培训技能，覆盖[治疗领域]。包含5阶段SOP、N个知识模块和异议处理指南。"
 }
 ```
 
@@ -164,16 +159,17 @@ metadata:
 （`##`、`###`）、列表、表格、粗体和代码块。
 
 **注意**：Markdown 的章节标题（如 `## SOP Steps`、`### Step 1:`、
-`## Assessment Rubric`、`## Key Knowledge Points`）必须保持英文，以确保
+`## Key Knowledge Points`、`## Coaching Guidelines`）必须保持英文，以确保
 通过 L1 结构验证。正文内容使用源文档语言。
 
 ## 规则
 
 1. **内容保真度** — 绝不编造源文档中不存在的事实。关键术语直接引用源材料。模糊内容标记为 `[NEEDS_CLARIFICATION]`。
 2. **SOP 完整性** — 包含 `sop-structure-guide.md` 中定义的全部 5 个必需 SOP 阶段。每个阶段必须有可操作的、具体的步骤，且包含所有必需子字段。
-3. **维度优化** — 设计的内容应在 `scoring-rubric.md` 中的全部 6 个评估维度上获得高分：sop_completeness、knowledge_accuracy、conversation_logic、assessment_coverage、difficulty_calibration 和 executability。
+3. **Skill 质量优化** — 生成内容后续会被 Skill Evaluator 评估，因此应满足内部质量要求。但这些内部质量维度（`sop_completeness`、`knowledge_accuracy`、`conversation_logic`、`assessment_coverage`、`difficulty_calibration`、`executability`）只用于质量门禁，绝不能作为训练检查点、评分行或独立评分/检查章节写入 Skill。
 4. **语言匹配** — 用与源文档相同的语言生成正文内容。Markdown 章节标题保持英文（如 `## SOP Steps`、`### Step 1:`）以通过结构验证。JSON 键名始终为英文。
 5. **难度平衡** — 按布鲁姆分类法分布评估难度：约 30% 记忆、30% 理解、25% 应用、15% 分析及以上。在每个模块内设置递进难度。
 6. **可执行性** — 确保所有 SOP 指令精确到 AI 教练 Agent 可以自动执行。对话分支点必须有明确的判断标准，并为处理意外的 HCP 回应提供明确指导。
 7. **包完整性** — 每个技能包必须包含至少 2 个参考文件、至少 2 个脚本和至少 2 个辅助资源文件。参考文档应按主题合理拆分，不要全部堆在一个文件中。
 8. **脚本质量** — 所有 Python 脚本必须自包含、使用类型提示、包含 docstring、遵循 PEP 8。脚本应基于提取内容实现真实的验证逻辑，不是空壳。
+9. **评分归属** — 不要在 `skill_md` 内创建最终评分标准。最终评分维度和权重由 Admin 的“评分标准”模块配置，并在 Scenario 中选择。`skill_md` 不要包含 `## Assessment Rubric`、`## Training Checkpoints`、带权重评分表或类似检查清单章节。

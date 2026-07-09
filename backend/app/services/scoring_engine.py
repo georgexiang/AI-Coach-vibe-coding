@@ -2,7 +2,7 @@
 
 Primary content scoring engine using Azure OpenAI (GPT-4o) with structured JSON output.
 Produces real scoring based on conversation transcript, HCP profile, scenario objectives,
-key message delivery status, and skill-specific criteria.
+key message delivery status, and the scenario scoring rubric.
 
 Voice scoring is handled separately by cu_evaluation_service.score_voice_with_cu().
 """
@@ -42,7 +42,7 @@ Healthcare Professional (HCP) and provide a detailed multi-dimensional scoring.
 ## Key Message Delivery Status
 {key_messages_status}
 
-{skill_criteria_section}## Conversation Transcript
+## Conversation Transcript
 {transcript}
 
 ## Scoring Dimensions and Weights
@@ -55,6 +55,8 @@ These rules are MANDATORY and override any other scoring judgment:
 2. If MR's messages are unrelated to the product/therapeutic area, ALL scores MUST be below 50.
 3. Reference actual MR quotes (from lines marked ">>> MR") in strengths/weaknesses.
 4. NEVER reference or evaluate HCP responses. Only evaluate MR performance.
+5. Return dimensions ONLY from `## Scoring Dimensions and Weights`. Do not add,
+   rename, replace, or infer dimensions from Skill content or any other source.
 
 ## Instructions
 
@@ -155,6 +157,42 @@ def build_dimensions_instructions(rubric_dimensions: list[dict]) -> str:
     return "\n".join(lines)
 
 
+def _normalize_scored_dimensions(
+    dimensions: list[dict],
+    rubric_dimensions: list[dict],
+) -> list[dict]:
+    """Keep only dimensions defined by the scenario scoring rubric, in rubric order."""
+    scored_by_name = {dim.get("dimension"): dim for dim in dimensions}
+    normalized: list[dict] = []
+    missing: list[str] = []
+
+    for rubric_dim in rubric_dimensions:
+        name = rubric_dim["name"]
+        scored_dim = scored_by_name.get(name)
+        if scored_dim is None:
+            missing.append(name)
+            continue
+        scored_dim["dimension"] = name
+        scored_dim["weight"] = rubric_dim["weight"]
+        scored_dim["category"] = "content"
+        normalized.append(scored_dim)
+
+    unknown = [
+        str(dim.get("dimension"))
+        for dim in dimensions
+        if dim.get("dimension") not in {rubric_dim["name"] for rubric_dim in rubric_dimensions}
+    ]
+    if unknown:
+        logger.warning("Ignoring non-rubric scoring dimensions returned by LLM: %s", unknown)
+
+    if missing:
+        raise ScoringUnavailableException(
+            "LLM scoring missing required rubric dimensions: " + ", ".join(missing)
+        )
+
+    return normalized
+
+
 def _render_custom_prompt_template(template: str, values: dict[str, str]) -> str:
     """Render supported placeholders without interpreting other JSON braces."""
     rendered = template
@@ -168,7 +206,6 @@ def build_scoring_prompt(
     messages: list[dict],
     key_messages_status: list[dict],
     rubric_dimensions: list[dict],
-    skill_criteria: str = "",
     prompt_template: str = "",
     base_template: str = "",
 ) -> str:
@@ -205,18 +242,6 @@ def build_scoring_prompt(
     # Format dimensions config from rubric dimensions
     dims_config = build_dimensions_instructions(rubric_dimensions)
 
-    # Format Skill-specific assessment criteria section
-    if skill_criteria:
-        skill_section = (
-            "## Skill-Specific Assessment Criteria\n\n"
-            "The following assessment criteria are defined by the assigned coaching skill. "
-            "Use these criteria as additional guidance when scoring each dimension — "
-            "they represent what the training designer considers most important.\n\n"
-            f"{skill_criteria}\n\n"
-        )
-    else:
-        skill_section = ""
-
     hcp = scenario_data.get("hcp_profile", {})
 
     values = {
@@ -231,7 +256,7 @@ def build_scoring_prompt(
         "key_messages_status": km_status,
         "transcript": transcript,
         "dimensions_config": dims_config,
-        "skill_criteria_section": skill_section,
+        "skill_criteria_section": "",
     }
 
     if prompt_template:
@@ -248,7 +273,6 @@ async def score_with_llm(
     key_messages_status: list[dict],
     rubric_dimensions: list[dict],
     pass_threshold: int = 70,
-    skill_criteria: str = "",
     prompt_template: str = "",
 ) -> dict:
     """Score a session using LLM (primary content scoring engine).
@@ -291,9 +315,6 @@ async def score_with_llm(
     except RuntimeError as exc:
         raise ScoringUnavailableException(f"Content scoring unavailable: {exc}")
 
-    # Build weights lookup from rubric dimensions for post-validation
-    weights = {dim["name"]: dim["weight"] for dim in rubric_dimensions}
-
     from app.services.prompt_registry import get_prompt
 
     try:
@@ -307,7 +328,6 @@ async def score_with_llm(
         messages,
         key_messages_status,
         rubric_dimensions,
-        skill_criteria,
         prompt_template=prompt_template,
         base_template=base_template,
     )
@@ -347,12 +367,7 @@ async def score_with_llm(
     if not dimensions:
         raise ScoringUnavailableException("LLM scoring returned no dimensions")
 
-    # Ensure weights match what we provided and tag category
-    for dim in dimensions:
-        expected_weight = weights.get(dim.get("dimension", ""), 0)
-        if expected_weight:
-            dim["weight"] = expected_weight
-        dim["category"] = "content"
+    dimensions = _normalize_scored_dimensions(dimensions, rubric_dimensions)
 
     # Post-validation: enforce critical scoring rules programmatically
     dimensions = _enforce_scoring_rules(dimensions, key_messages_status, messages)

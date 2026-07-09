@@ -99,6 +99,17 @@ def test_build_agent_instructions_missing_fields():
     assert "General" in result
 
 
+def test_build_agent_instructions_defaults_to_chinese():
+    """Default HCP agent instructions prefer Simplified Chinese responses."""
+    from app.services.agent_sync_service import build_agent_instructions
+
+    result = build_agent_instructions({"name": "Dr. Li", "specialty": "Oncology"})
+
+    assert "Language rules" in result
+    assert "Default to Simplified Chinese" in result
+    assert "Only switch to English" in result
+
+
 # --- Test 5: build_agent_instructions emotional state descriptors ---
 def test_build_agent_instructions_emotional_descriptors():
     """build_agent_instructions sets correct emotional descriptors."""

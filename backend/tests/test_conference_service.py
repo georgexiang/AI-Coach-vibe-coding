@@ -5,11 +5,14 @@ from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from sqlalchemy import select
 
 from app.models.conference import ConferenceAudienceHcp
 from app.models.hcp_profile import HcpProfile
+from app.models.message import SessionMessage
 from app.models.scenario import Scenario
 from app.models.user import User
+from app.models.voice_live_instance import VoiceLiveInstance
 from app.services.agents.base import CoachEvent, CoachEventType
 from app.services.auth import get_password_hash
 from app.services.conference_service import (
@@ -46,6 +49,7 @@ async def _seed_conference_fixture(
             name=f"Dr. HCP-{i}",
             specialty="Oncology",
             personality_type="analytical",
+            voice_name=f"zh-CN-TestVoice{i}Neural",
             created_by=user.id,
         )
         session.add(hcp)
@@ -102,9 +106,40 @@ class TestCreateConferenceSession:
             config = json.loads(session.audience_config)
             assert len(config) == 3
             assert config[0]["name"] == "Dr. HCP-0"
+            assert config[0]["voice_name"] == "zh-CN-TestVoice0Neural"
             assert config[0]["speaker_priority"] == "primary"
+            assert config[0]["voice_live_enabled"] is True
+            assert config[0]["avatar_enabled"] is True
+            assert config[0]["avatar_character"]
+            assert config[0]["avatar_style"]
             assert config[1]["speaker_priority"] == "secondary"
             assert "conference_prompt_config" in config[0]
+
+    async def test_audience_config_prefers_voice_live_instance_voice(self):
+        """Snapshots Voice Live instance voice before deprecated inline profile voice."""
+        async with TestSessionLocal() as db:
+            data = await _seed_conference_fixture(db)
+            voice_instance = VoiceLiveInstance(
+                name="中文男声",
+                voice_name="zh-CN-YunjianNeural",
+                avatar_character="jeff",
+                avatar_style="formal",
+                created_by=data["user"].id,
+            )
+            db.add(voice_instance)
+            await db.flush()
+
+            data["hcps"][0].voice_name = "zh-CN-XiaoxiaoNeural"
+            data["hcps"][0].voice_live_instance_id = voice_instance.id
+            await db.flush()
+
+            session = await create_conference_session(db, data["scenario"].id, data["user"].id)
+            config = json.loads(session.audience_config)
+
+            assert config[0]["voice_live_instance_id"] == voice_instance.id
+            assert config[0]["voice_name"] == "zh-CN-YunjianNeural"
+            assert config[0]["avatar_character"] == "jeff"
+            assert config[0]["avatar_style"] == "formal"
 
     async def test_custom_conference_prompt_config_is_snapshotted(self):
         """Creates session with scenario-level conference prompt config."""
@@ -712,7 +747,16 @@ class TestRunPresentationRound:
 
             mock_adapter.execute = mock_execute
 
-            from app.services.conference_service import handle_respond
+            from app.services.conference_service import _save_conference_message, handle_respond
+
+            await _save_conference_message(
+                db,
+                session.id,
+                "assistant",
+                q.question,
+                speaker_id=hcp_id,
+                speaker_name=q.hcp_name,
+            )
 
             events = []
             with (
@@ -759,7 +803,16 @@ class TestRunPresentationRound:
 
             mock_adapter.execute = mock_execute
 
-            from app.services.conference_service import handle_respond
+            from app.services.conference_service import _save_conference_message, handle_respond
+
+            await _save_conference_message(
+                db,
+                session.id,
+                "assistant",
+                q.question,
+                speaker_id=hcp_id,
+                speaker_name=q.hcp_name,
+            )
 
             events = []
             with (
@@ -774,8 +827,8 @@ class TestRunPresentationRound:
             assert len(speaker_events) == 1
             assert json.loads(speaker_events[0]["data"])["content"] == "Follow up response"
 
-    async def test_handle_respond_no_adapter(self):
-        """Respond with no LLM adapter yields error event."""
+    async def test_handle_respond_no_adapter_releases_next_hcp(self):
+        """Respond with no LLM adapter releases the next HCP instead of getting stuck."""
         async with TestSessionLocal() as db:
             data = await _seed_conference_fixture(db)
             session = await create_conference_session(db, data["scenario"].id, data["user"].id)
@@ -791,7 +844,16 @@ class TestRunPresentationRound:
             )
             fresh_tm.add_question(session.id, q)
 
-            from app.services.conference_service import handle_respond
+            from app.services.conference_service import _save_conference_message, handle_respond
+
+            await _save_conference_message(
+                db,
+                session.id,
+                "assistant",
+                q.question,
+                speaker_id=hcp_id,
+                speaker_name=q.hcp_name,
+            )
 
             events = []
             with (
@@ -805,7 +867,135 @@ class TestRunPresentationRound:
                 async for event in handle_respond(db, session, hcp_id, "Response"):
                     events.append(event)
 
-            assert any(e["event"] == "error" for e in events)
+            assert not any(e["event"] == "error" for e in events)
+            speaker_events = [e for e in events if e["event"] == "speaker_text"]
+            assert speaker_events
+            assert json.loads(speaker_events[-1]["data"])["speaker_name"] == data["hcps"][1].name
+
+            msg_result = await db.execute(
+                select(SessionMessage).where(
+                    SessionMessage.session_id == session.id,
+                    SessionMessage.role == "assistant",
+                    SessionMessage.speaker_id == hcp_id,
+                )
+            )
+            assert all(msg.content for msg in msg_result.scalars().all())
+
+    async def test_handle_respond_llm_error_does_not_save_empty_message(self):
+        """Adapter errors during follow-up do not create blank HCP messages."""
+        async with TestSessionLocal() as db:
+            data = await _seed_conference_fixture(db)
+            session = await create_conference_session(db, data["scenario"].id, data["user"].id)
+
+            hcp_id = data["hcps"][0].id
+            fresh_tm = TurnManager()
+            q = QueuedQuestion(
+                hcp_profile_id=hcp_id,
+                hcp_name=data["hcps"][0].name,
+                question="Question?",
+                relevance_score=0.8,
+                queued_at=datetime.now(UTC),
+            )
+            fresh_tm.add_question(session.id, q)
+
+            mock_adapter = MagicMock()
+
+            async def mock_execute(request):
+                yield CoachEvent(type=CoachEventType.ERROR, content="LLM unavailable")
+                yield CoachEvent(type=CoachEventType.DONE, content="")
+
+            mock_adapter.execute = mock_execute
+
+            from app.services.conference_service import _save_conference_message, handle_respond
+
+            await _save_conference_message(
+                db,
+                session.id,
+                "assistant",
+                q.question,
+                speaker_id=hcp_id,
+                speaker_name=q.hcp_name,
+            )
+
+            events = []
+            with (
+                patch("app.services.conference_service.turn_manager", fresh_tm),
+                patch("app.services.conference_service.registry") as mock_registry,
+            ):
+                mock_registry.get.return_value = mock_adapter
+                async for event in handle_respond(db, session, hcp_id, "Response"):
+                    events.append(event)
+
+            assert not any(e["event"] == "error" for e in events)
+            assert fresh_tm.get_active_speaker(session.id) is not None
+            assert fresh_tm.get_active_speaker(session.id).hcp_profile_id == data["hcps"][1].id
+
+            msg_result = await db.execute(
+                select(SessionMessage).where(
+                    SessionMessage.session_id == session.id,
+                    SessionMessage.role == "assistant",
+                    SessionMessage.speaker_id == hcp_id,
+                )
+            )
+            assert all(msg.content for msg in msg_result.scalars().all())
+
+    async def test_handle_respond_empty_llm_output_does_not_save_empty_message(self):
+        """Empty DONE-only follow-up output releases the next HCP without blank text."""
+        async with TestSessionLocal() as db:
+            data = await _seed_conference_fixture(db)
+            session = await create_conference_session(db, data["scenario"].id, data["user"].id)
+
+            hcp_id = data["hcps"][0].id
+            fresh_tm = TurnManager()
+            q = QueuedQuestion(
+                hcp_profile_id=hcp_id,
+                hcp_name=data["hcps"][0].name,
+                question="Question?",
+                relevance_score=0.8,
+                queued_at=datetime.now(UTC),
+            )
+            fresh_tm.add_question(session.id, q)
+
+            mock_adapter = MagicMock()
+
+            async def mock_execute(request):
+                yield CoachEvent(type=CoachEventType.DONE, content="")
+
+            mock_adapter.execute = mock_execute
+
+            from app.services.conference_service import _save_conference_message, handle_respond
+
+            await _save_conference_message(
+                db,
+                session.id,
+                "assistant",
+                q.question,
+                speaker_id=hcp_id,
+                speaker_name=q.hcp_name,
+            )
+
+            events = []
+            with (
+                patch("app.services.conference_service.turn_manager", fresh_tm),
+                patch("app.services.conference_service.registry") as mock_registry,
+            ):
+                mock_registry.get.return_value = mock_adapter
+                async for event in handle_respond(db, session, hcp_id, "Response"):
+                    events.append(event)
+
+            assert not any(e["event"] == "error" for e in events)
+            speaker_events = [e for e in events if e["event"] == "speaker_text"]
+            assert speaker_events
+            assert json.loads(speaker_events[-1]["data"])["speaker_name"] == data["hcps"][1].name
+
+            msg_result = await db.execute(
+                select(SessionMessage).where(
+                    SessionMessage.session_id == session.id,
+                    SessionMessage.role == "assistant",
+                    SessionMessage.speaker_id == hcp_id,
+                )
+            )
+            assert all(msg.content for msg in msg_result.scalars().all())
 
 
 class TestEndConferenceEdgeCases:

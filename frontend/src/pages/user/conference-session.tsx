@@ -1,8 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { useQueries, useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
+import { getHcpProfile } from "@/api/hcp-profiles";
 import { useStreamingSpeechInput, useTextToSpeech } from "@/hooks/use-speech";
+import { useSessionRecorder } from "@/hooks/use-session-recorder";
+import { useAvatarStream } from "@/hooks/use-avatar-stream";
+import { useVoiceLive } from "@/hooks/use-voice-live";
 import {
   Dialog,
   DialogContent,
@@ -22,6 +27,7 @@ import {
 } from "@/components/conference";
 import {
   useConferenceSession,
+  useAudienceHcps,
   useEndConferenceSession,
 } from "@/hooks/use-conference";
 import { useConferenceSSE } from "@/hooks/use-conference-sse";
@@ -34,6 +40,7 @@ import type {
   TurnChangeEvent,
   SubStateEvent,
 } from "@/types/conference";
+import type { VoiceConnectionState } from "@/types/voice-live";
 
 interface ChatMessage {
   id: string;
@@ -44,6 +51,29 @@ interface ChatMessage {
   speakerColor?: string;
 }
 
+interface PendingAvatarSpeech {
+  speakerId: string;
+  speakerName: string;
+  content: string;
+  hcp?: AudienceHcp;
+}
+
+type AudienceConfigMember = Partial<AudienceHcp> & {
+  scenario_id?: string;
+  hcp_profile_id?: string;
+  name?: string;
+  specialty?: string;
+  role?: string;
+  voice_id?: string;
+  voice_name?: string;
+  voice_live_instance_id?: string | null;
+  sort_order?: number;
+  voice_live_enabled?: boolean;
+  avatar_enabled?: boolean;
+  avatar_character?: string;
+  avatar_style?: string;
+};
+
 const SPEAKER_COLORS: string[] = [
   "var(--primary)",
   "var(--chart-2)",
@@ -52,15 +82,67 @@ const SPEAKER_COLORS: string[] = [
   "var(--chart-5)",
 ];
 
+const CONFERENCE_SILENCE_MS = 2000;
+const CONFERENCE_MIN_SPEECH_MS = 700;
+const CONFERENCE_NO_SPEECH_TIMEOUT_MS = 20000;
+
+function normalizeAudienceMember(member: AudienceConfigMember): AudienceHcp {
+  const hcpProfileId = member.hcpProfileId ?? member.hcp_profile_id ?? member.id ?? "";
+  return {
+    id: member.id ?? hcpProfileId,
+    scenarioId: member.scenarioId ?? member.scenario_id ?? "",
+    hcpProfileId,
+    hcpName: member.hcpName ?? member.name ?? "",
+    hcpSpecialty: member.hcpSpecialty ?? member.specialty ?? "",
+    roleInConference: member.roleInConference ?? member.role ?? "audience",
+    voiceId: member.voiceId ?? member.voice_id ?? "",
+    voiceLiveInstanceId: member.voiceLiveInstanceId ?? member.voice_live_instance_id,
+    voiceName: member.voiceName ?? member.voice_name,
+    voiceLiveEnabled: member.voiceLiveEnabled ?? member.voice_live_enabled ?? false,
+    avatarEnabled: member.avatarEnabled ?? member.avatar_enabled ?? false,
+    avatarCharacter: member.avatarCharacter ?? member.avatar_character,
+    avatarStyle: member.avatarStyle ?? member.avatar_style,
+    sortOrder: member.sortOrder ?? member.sort_order ?? 0,
+    status: member.status ?? "listening",
+  };
+}
+
+function sendAvatarSpeech(voiceLive: ReturnType<typeof useVoiceLive>, text: string) {
+  voiceLive.send({
+    type: "conversation.item.create",
+    item: {
+      type: "message",
+      role: "user",
+      content: [
+        {
+          type: "input_text",
+          text: `请只用中文自然朗读以下会议发言，不要补充任何内容：${text}`,
+        },
+      ],
+    },
+  });
+  voiceLive.send({
+    type: "response.create",
+    response: {
+      modalities: ["audio", "text"],
+      instructions: `只朗读下面这段文本，不要解释、不要改写、不要添加前后缀：${text}`,
+    },
+  });
+}
+
 export default function ConferenceSession() {
   const { t } = useTranslation("conference");
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const sessionId = searchParams.get("id") ?? "";
+  const initialInputMode = searchParams.get("inputMode") === "audio" ? "audio" : "text";
   const hasRequestedStartRef = useRef(false);
 
   // Fetch session
   const { data: session } = useConferenceSession(sessionId || undefined);
+  const { data: scenarioAudienceHcps } = useAudienceHcps(
+    session?.mode === "digital_human_realtime_model" ? session.scenarioId : undefined,
+  );
   const endSessionMutation = useEndConferenceSession();
 
   // Local state
@@ -70,14 +152,58 @@ export default function ConferenceSession() {
   const [audienceHcps, setAudienceHcps] = useState<AudienceHcp[]>([]);
   const [subState, setSubState] = useState<ConferenceSubState>("");
   const [currentSpeaker, setCurrentSpeaker] = useState("");
+  const [currentSpeakerId, setCurrentSpeakerId] = useState("");
   const [leftCollapsed, setLeftCollapsed] = useState(false);
   const [rightCollapsed, setRightCollapsed] = useState(false);
-  const [inputMode, setInputMode] = useState<"text" | "audio">("text");
+  const [inputMode, setInputMode] = useState<"text" | "audio">(initialInputMode);
+  const [avatarConnectionState, setAvatarConnectionState] =
+    useState<VoiceConnectionState>("disconnected");
+  const [isAvatarConnected, setIsAvatarConnected] = useState(false);
   const [showEndDialog, setShowEndDialog] = useState(false);
   const [keyTopics, setKeyTopics] = useState<
     Array<{ message: string; delivered: boolean }>
   >([]);
-  const { speak, stop: stopSpeaking } = useTextToSpeech();
+  const isDigitalHumanMode = session?.mode === "digital_human_realtime_model";
+  const { speak, stop: stopSpeaking, isSpeaking } = useTextToSpeech("zh-CN", undefined, {
+    queue: true,
+  });
+  const sessionRecorder = useSessionRecorder();
+  const avatarVideoRef = useRef<HTMLVideoElement>(null);
+  const avatarStream = useAvatarStream(avatarVideoRef);
+  const avatarResponseDoneResolverRef = useRef<(() => void) | null>(null);
+  const voiceLive = useVoiceLive({
+    language: "zh-CN",
+    systemPrompt: "",
+    onConnectionStateChange: setAvatarConnectionState,
+    onResponseDone: () => {
+      avatarResponseDoneResolverRef.current?.();
+      avatarResponseDoneResolverRef.current = null;
+    },
+    onError: (error) => {
+      avatarResponseDoneResolverRef.current?.();
+      avatarResponseDoneResolverRef.current = null;
+      toast.error(`数字人连接失败：${error.message}`);
+    },
+  });
+  const avatarStreamRef = useRef(avatarStream);
+  const voiceLiveRef = useRef(voiceLive);
+  const startRecordingRef = useRef<() => Promise<void>>(async () => {});
+  const stopRecordingRef = useRef<() => void>(() => {});
+  const autoStartInFlightRef = useRef(false);
+  const connectedAvatarHcpIdRef = useRef("");
+  const audienceHcpsRef = useRef<AudienceHcp[]>([]);
+  const avatarConnectionPromiseRef = useRef<Promise<boolean> | null>(null);
+  const avatarSpeechQueueRef = useRef<PendingAvatarSpeech[]>([]);
+  const isProcessingAvatarSpeechRef = useRef(false);
+
+  useEffect(() => {
+    avatarStreamRef.current = avatarStream;
+    voiceLiveRef.current = voiceLive;
+  });
+
+  useEffect(() => {
+    audienceHcpsRef.current = audienceHcps;
+  }, [audienceHcps]);
 
   // Session timer
   const [sessionTime, setSessionTime] = useState("00:00");
@@ -100,15 +226,21 @@ export default function ConferenceSession() {
   useEffect(() => {
     if (session?.audienceConfig) {
       try {
-        const parsed = JSON.parse(session.audienceConfig) as AudienceHcp[];
-        setAudienceHcps(
-          parsed.map((hcp) => ({ ...hcp, status: hcp.status ?? "listening" })),
-        );
+        const parsed = JSON.parse(session.audienceConfig) as AudienceConfigMember[];
+        setAudienceHcps(parsed.map(normalizeAudienceMember));
       } catch {
         // Invalid JSON, skip
       }
     }
   }, [session?.audienceConfig]);
+
+  useEffect(() => {
+    if (!isDigitalHumanMode || !scenarioAudienceHcps?.length) return;
+    setAudienceHcps((prev) => {
+      if (prev.some((hcp) => hcp.hcpProfileId)) return prev;
+      return scenarioAudienceHcps;
+    });
+  }, [isDigitalHumanMode, scenarioAudienceHcps]);
 
   // Initialize sub-state from session
   useEffect(() => {
@@ -116,6 +248,256 @@ export default function ConferenceSession() {
       setSubState(session.subState);
     }
   }, [session?.subState]);
+
+  useEffect(() => {
+    if (
+      session?.mode === "voice_realtime_model" ||
+      session?.mode === "digital_human_realtime_model"
+    ) {
+      setInputMode("audio");
+    }
+  }, [session?.mode]);
+
+  const activeAvatarHcp = useMemo(() => {
+    if (!isDigitalHumanMode) return undefined;
+    const matchingSpeaker = audienceHcps.find(
+      (hcp) =>
+        hcp.hcpProfileId === currentSpeakerId ||
+        hcp.id === currentSpeakerId ||
+        hcp.hcpName === currentSpeaker,
+    );
+    if (matchingSpeaker) return matchingSpeaker;
+
+    const moderator = audienceHcps.find(
+      (hcp) =>
+        hcp.roleInConference === "moderator" &&
+        hcp.voiceLiveEnabled &&
+        hcp.avatarEnabled,
+    );
+    if (!currentSpeakerId && !currentSpeaker && moderator) return moderator;
+
+    return (
+      audienceHcps.find((hcp) => hcp.voiceLiveEnabled && hcp.avatarEnabled) ??
+      audienceHcps[0]
+    );
+  }, [audienceHcps, currentSpeaker, currentSpeakerId, isDigitalHumanMode]);
+
+  const { data: activeAvatarProfile } = useQuery({
+    queryKey: ["hcp-profile", activeAvatarHcp?.hcpProfileId, "conference-avatar"],
+    queryFn: () => getHcpProfile(activeAvatarHcp!.hcpProfileId),
+    enabled: isDigitalHumanMode && Boolean(activeAvatarHcp?.hcpProfileId),
+  });
+
+  const audienceVoiceProfileQueries = useQueries({
+    queries: audienceHcps.map((hcp) => ({
+      queryKey: ["hcp-profile", hcp.hcpProfileId, "conference-voice"],
+      queryFn: () => getHcpProfile(hcp.hcpProfileId),
+      enabled: Boolean(hcp.hcpProfileId) && !hcp.voiceName,
+    })),
+  });
+
+  const voiceNameByHcpId = useMemo(() => {
+    const map = new Map<string, string>();
+    audienceHcps.forEach((hcp, index) => {
+      const profile = audienceVoiceProfileQueries[index]?.data;
+      const profileVoiceName =
+        profile?.voice_live_instance?.voice_name || profile?.voice_name;
+      const voiceName = hcp.voiceName || profileVoiceName;
+      if (hcp.hcpProfileId && voiceName?.trim()) {
+        map.set(hcp.hcpProfileId, voiceName);
+      }
+    });
+    return map;
+  }, [audienceHcps, audienceVoiceProfileQueries]);
+
+  const activeAvatarCharacter =
+    activeAvatarHcp?.avatarCharacter || activeAvatarProfile?.avatar_character || "lori";
+  const activeAvatarStyle =
+    activeAvatarHcp?.avatarStyle || activeAvatarProfile?.avatar_style || "casual";
+  const activeAvatarName =
+    activeAvatarHcp?.hcpName ?? activeAvatarProfile?.name ?? currentSpeaker;
+
+  const findAvatarHcpForSpeaker = useCallback(
+    (speakerId: string, speakerName: string) =>
+      audienceHcpsRef.current.find(
+        (hcp) =>
+          hcp.hcpProfileId === speakerId ||
+          hcp.id === speakerId ||
+          hcp.hcpName === speakerName,
+      ),
+    [],
+  );
+
+  const speakHcpText = useCallback(
+    (text: string, hcp?: AudienceHcp) => {
+      const voiceName = hcp
+        ? hcp.voiceName || voiceNameByHcpId.get(hcp.hcpProfileId) || hcp.voiceId
+        : undefined;
+      void speak(text, voiceName || undefined);
+    },
+    [speak, voiceNameByHcpId],
+  );
+
+  const connectConferenceAvatar = useCallback(async (targetHcp?: AudienceHcp) => {
+    if (!isDigitalHumanMode) return false;
+    const avatarHcp = targetHcp ?? activeAvatarHcp;
+    if (!avatarHcp?.hcpProfileId) {
+      toast.error("未找到数字人绑定的 HCP 配置");
+      return false;
+    }
+
+    if (connectedAvatarHcpIdRef.current === avatarHcp.hcpProfileId) {
+      return true;
+    }
+
+    if (avatarConnectionPromiseRef.current) {
+      const connected = await avatarConnectionPromiseRef.current;
+      if (connected && connectedAvatarHcpIdRef.current === avatarHcp.hcpProfileId) {
+        return true;
+      }
+    }
+
+    if (connectedAvatarHcpIdRef.current && connectedAvatarHcpIdRef.current !== avatarHcp.hcpProfileId) {
+      setIsAvatarConnected(false);
+      avatarStream.disconnect();
+      await voiceLive.disconnect();
+    }
+
+    setAvatarConnectionState("connecting");
+    setIsAvatarConnected(false);
+    voiceLive.avatarSdpCallbackRef.current = (serverSdp: string) => {
+      void avatarStream.handleServerSdp(serverSdp);
+    };
+
+    const connectionPromise = (async () => {
+      const result = await voiceLive.connect(
+        avatarHcp.hcpProfileId,
+        "",
+        undefined,
+        true,
+      );
+      if (result.avatarEnabled) {
+        await avatarStream.connect(result.iceServers, async (clientSdp: string) => {
+          voiceLive.send({
+            type: "session.avatar.connect",
+            client_sdp: clientSdp,
+          });
+        });
+        setAvatarConnectionState("connected");
+        setIsAvatarConnected(true);
+        connectedAvatarHcpIdRef.current = avatarHcp.hcpProfileId;
+        return true;
+      } else {
+        setAvatarConnectionState("error");
+        connectedAvatarHcpIdRef.current = "";
+        avatarStream.disconnect();
+        await voiceLive.disconnect();
+        toast.error("当前 HCP 未启用真实数字人");
+        return false;
+      }
+    })();
+
+    avatarConnectionPromiseRef.current = connectionPromise;
+
+    try {
+      return await connectionPromise;
+    } catch (error) {
+      console.error("Failed to connect conference avatar", error);
+      setAvatarConnectionState("error");
+      setIsAvatarConnected(false);
+      connectedAvatarHcpIdRef.current = "";
+      avatarStream.disconnect();
+      await voiceLive.disconnect();
+      const message = error instanceof Error ? error.message : t("error.avatarFailed");
+      toast.error(`数字人连接失败：${message}`);
+      return false;
+    } finally {
+      if (avatarConnectionPromiseRef.current === connectionPromise) {
+        avatarConnectionPromiseRef.current = null;
+      }
+    }
+  }, [activeAvatarHcp, avatarStream, isDigitalHumanMode, t, voiceLive]);
+
+  const waitForAvatarResponseDone = useCallback(
+    () =>
+      new Promise<void>((resolve) => {
+        let timeoutId: number;
+        const done = () => {
+          window.clearTimeout(timeoutId);
+          resolve();
+        };
+
+        timeoutId = window.setTimeout(() => {
+          if (avatarResponseDoneResolverRef.current === done) {
+            avatarResponseDoneResolverRef.current = null;
+          }
+          resolve();
+        }, 30000);
+
+        avatarResponseDoneResolverRef.current = done;
+      }),
+    [],
+  );
+
+  const processAvatarSpeechQueue = useCallback(async () => {
+    if (isProcessingAvatarSpeechRef.current) return;
+    isProcessingAvatarSpeechRef.current = true;
+
+    try {
+      while (avatarSpeechQueueRef.current.length > 0) {
+        const nextSpeech = avatarSpeechQueueRef.current.shift();
+        if (!nextSpeech) continue;
+
+        setCurrentSpeaker(nextSpeech.speakerName);
+        setCurrentSpeakerId(nextSpeech.speakerId);
+
+        const speechHcp =
+          nextSpeech.hcp ??
+          findAvatarHcpForSpeaker(nextSpeech.speakerId, nextSpeech.speakerName);
+        const isCurrentConnectedSpeaker =
+          connectedAvatarHcpIdRef.current === nextSpeech.speakerId;
+
+        if (!speechHcp && !isCurrentConnectedSpeaker) {
+          speakHcpText(nextSpeech.content);
+          continue;
+        }
+
+        const connected = isCurrentConnectedSpeaker
+          ? true
+          : await connectConferenceAvatar(speechHcp);
+        if (connected) {
+          sendAvatarSpeech(voiceLive, nextSpeech.content);
+          await waitForAvatarResponseDone();
+        } else {
+          speakHcpText(nextSpeech.content, speechHcp);
+        }
+      }
+    } finally {
+      isProcessingAvatarSpeechRef.current = false;
+    }
+  }, [connectConferenceAvatar, findAvatarHcpForSpeaker, speakHcpText, voiceLive, waitForAvatarResponseDone]);
+
+  const enqueueAvatarSpeech = useCallback(
+    (speech: PendingAvatarSpeech) => {
+      avatarSpeechQueueRef.current.push(speech);
+      void processAvatarSpeechQueue();
+    },
+    [processAvatarSpeechQueue],
+  );
+
+  useEffect(() => {
+    if (!isDigitalHumanMode) return;
+    return () => {
+      setIsAvatarConnected(false);
+      connectedAvatarHcpIdRef.current = "";
+      avatarResponseDoneResolverRef.current?.();
+      avatarResponseDoneResolverRef.current = null;
+      avatarSpeechQueueRef.current = [];
+      isProcessingAvatarSpeechRef.current = false;
+      avatarStreamRef.current.disconnect();
+      void voiceLiveRef.current.disconnect();
+    };
+  }, [isDigitalHumanMode]);
 
   // Initialize key topics from session
   useEffect(() => {
@@ -166,8 +548,22 @@ export default function ConferenceSession() {
         };
         setMessages((prev) => [...prev, msg]);
         setCurrentSpeaker(data.speaker_name);
+        setCurrentSpeakerId(data.speaker_id);
         if (inputMode === "audio") {
-          void speak(data.content);
+          const speakerAvatarHcp = findAvatarHcpForSpeaker(
+            data.speaker_id,
+            data.speaker_name,
+          );
+          if (isDigitalHumanMode) {
+            enqueueAvatarSpeech({
+              speakerId: data.speaker_id,
+              speakerName: data.speaker_name,
+              content: data.content,
+              hcp: speakerAvatarHcp,
+            });
+          } else {
+            speakHcpText(data.content, speakerAvatarHcp);
+          }
         }
       },
       onQueueUpdate: (queue: QueuedQuestion[]) => {
@@ -175,6 +571,7 @@ export default function ConferenceSession() {
       },
       onTurnChange: (data: TurnChangeEvent) => {
         setCurrentSpeaker(data.speaker_name);
+        setCurrentSpeakerId(data.speaker_id);
         setAudienceHcps((prev) =>
           prev.map((hcp) =>
             hcp.id === data.speaker_id || hcp.hcpProfileId === data.speaker_id
@@ -216,10 +613,17 @@ export default function ConferenceSession() {
       },
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [speakerMap, inputMode, speak],
+    [speakerMap, inputMode, isDigitalHumanMode, findAvatarHcpForSpeaker, enqueueAvatarSpeech, speakHcpText],
   );
 
-  useEffect(() => () => stopSpeaking(), [stopSpeaking]);
+  useEffect(
+    () => () => {
+      stopSpeaking();
+      avatarStreamRef.current.disconnect();
+      void voiceLiveRef.current.disconnect();
+    },
+    [stopSpeaking],
+  );
 
   const { sendMessage, isStreaming, streamedText } = useConferenceSSE(
     sessionId,
@@ -228,9 +632,10 @@ export default function ConferenceSession() {
 
   useEffect(() => {
     if (!sessionId || !session || hasRequestedStartRef.current) return;
+    if (isDigitalHumanMode && !isAvatarConnected) return;
     hasRequestedStartRef.current = true;
     sendMessage("start", "");
-  }, [sessionId, session, sendMessage]);
+  }, [isAvatarConnected, isDigitalHumanMode, sessionId, session, sendMessage]);
 
   // Handlers
   const handleConferenceInput = useCallback(
@@ -266,12 +671,38 @@ export default function ConferenceSession() {
     },
     [handleConferenceInput],
   );
+
+  const handleSpeechStreamReady = useCallback(
+    async (stream: MediaStream) => {
+      if (inputMode !== "audio") return;
+      const started = await sessionRecorder.startRecording(stream);
+      if (!started) {
+        toast.error(t("error.voiceRecordingFailed"));
+      }
+    },
+    [inputMode, sessionRecorder, t],
+  );
+
   const {
     startRecording,
     stopRecording,
     recordingState,
     error: speechError,
-  } = useStreamingSpeechInput(handleSpeechTranscribed);
+  } = useStreamingSpeechInput(handleSpeechTranscribed, "zh-CN", {
+    autoStopOnSilence: true,
+    silenceMs: CONFERENCE_SILENCE_MS,
+    minSpeechMs: CONFERENCE_MIN_SPEECH_MS,
+    noSpeechTimeoutMs: CONFERENCE_NO_SPEECH_TIMEOUT_MS,
+    onStreamReady: handleSpeechStreamReady,
+  });
+
+  useEffect(() => {
+    startRecordingRef.current = startRecording;
+  }, [startRecording]);
+
+  useEffect(() => {
+    stopRecordingRef.current = stopRecording;
+  }, [stopRecording]);
 
   useEffect(() => {
     if (speechError) {
@@ -286,6 +717,29 @@ export default function ConferenceSession() {
       void startRecording();
     }
   }, [recordingState, startRecording, stopRecording]);
+
+  const shouldAutoListen =
+    inputMode === "audio" &&
+    Boolean(sessionId && session) &&
+    session?.status !== "completed" &&
+    !isSpeaking;
+
+  useEffect(() => {
+    if (!shouldAutoListen) {
+      autoStartInFlightRef.current = false;
+      if (recordingState !== "idle") {
+        stopRecordingRef.current();
+      }
+      return;
+    }
+
+    if (recordingState !== "idle" || autoStartInFlightRef.current) return;
+
+    autoStartInFlightRef.current = true;
+    void Promise.resolve(startRecordingRef.current()).finally(() => {
+      autoStartInFlightRef.current = false;
+    });
+  }, [recordingState, shouldAutoListen]);
 
   const handleRespondToQuestion = useCallback(
     (hcpId: string) => {
@@ -313,12 +767,24 @@ export default function ConferenceSession() {
   const confirmEndSession = useCallback(async () => {
     setShowEndDialog(false);
     try {
+      stopSpeaking();
+      avatarStream.disconnect();
+      await voiceLive.disconnect();
+      if (recordingState !== "idle") {
+        stopRecordingRef.current();
+      }
+      if (inputMode === "audio") {
+        const uploadResult = await sessionRecorder.stopAndUpload(sessionId);
+        if (!uploadResult.success) {
+          toast.error(uploadResult.error ?? t("error.voiceRecordingFailed"));
+        }
+      }
       await endSessionMutation.mutateAsync(sessionId);
       navigate(`/user/scoring/${sessionId}`);
     } catch {
       toast.error(t("error.endFailed"));
     }
-  }, [sessionId, endSessionMutation, navigate, t]);
+  }, [avatarStream, endSessionMutation, inputMode, navigate, recordingState, sessionId, sessionRecorder, stopSpeaking, t, voiceLive]);
 
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-background">
@@ -345,8 +811,20 @@ export default function ConferenceSession() {
           isStreaming={isStreaming}
           streamedText={streamedText}
           currentSpeaker={currentSpeaker}
+          currentSpeakerId={currentSpeakerId}
           avatarEnabled={true}
-          featureAvatarEnabled={false}
+          featureAvatarEnabled={isDigitalHumanMode}
+          digitalHumanEnabled={isDigitalHumanMode}
+          audienceHcps={audienceHcps}
+          avatarVideoRef={avatarVideoRef}
+          isAvatarConnected={isAvatarConnected}
+          isAvatarConnecting={avatarConnectionState === "connecting"}
+          avatarAudioState={voiceLive.audioState}
+          avatarCharacter={activeAvatarCharacter}
+          avatarStyle={activeAvatarStyle}
+          avatarHcpName={activeAvatarName}
+          activeAvatarHcpId={activeAvatarHcp?.hcpProfileId || activeAvatarHcp?.id}
+          onAvatarConnectClick={() => void connectConferenceAvatar()}
           messages={messages}
           inputMode={inputMode}
           onInputModeChange={setInputMode}

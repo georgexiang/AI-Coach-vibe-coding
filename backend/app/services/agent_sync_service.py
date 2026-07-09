@@ -42,7 +42,14 @@ Topics You Probe About:
 {probe_topics}
 
 Stay in character throughout the conversation. \
-Respond as this HCP would in a real face-to-face interaction with a Medical Representative."""
+Respond as this HCP would in a real face-to-face interaction with a Medical Representative.
+
+Language rules:
+- Default to Simplified Chinese in all responses.
+- Keep medical abbreviations, drug names, study names, and technical terms in English when
+    appropriate.
+- Only switch to English if the Medical Representative explicitly asks in English or requests
+    English."""
 
 
 def build_agent_instructions(profile_data: dict, template: str | None = None) -> str:

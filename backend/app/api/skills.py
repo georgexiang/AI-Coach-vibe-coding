@@ -179,11 +179,7 @@ async def create_skill_from_agent(
     # Copy material files into skill resources
     storage = get_storage()
     for version in material_versions:
-        read_path = version.storage_url
-        base = getattr(storage, "base_path", "")
-        if base and read_path.startswith(base):
-            read_path = read_path[len(base) :].lstrip("/")
-        file_bytes = await storage.read(read_path)
+        file_bytes = await storage.read(version.storage_url)
 
         storage_path = f"skills/{skill.id}/references/{version.filename}"
         await storage.save(storage_path, file_bytes)

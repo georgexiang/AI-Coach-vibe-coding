@@ -17,7 +17,6 @@ from app.models.user import User
 from app.models.voice_score import VoiceScore, VoiceScoreDetail
 from app.services.auth import get_password_hash
 from app.services.scoring_service import (
-    _extract_skill_criteria,
     get_score_history,
     get_session_score,
     score_session,
@@ -429,87 +428,12 @@ class TestScoreSessionIntegration:
             assert detail.category == "content"
 
 
-class TestExtractSkillCriteria:
-    """Tests for _extract_skill_criteria helper."""
-
-    def test_returns_empty_for_none_skill(self):
-        assert _extract_skill_criteria(None) == ""
-
-    def test_returns_empty_for_skill_without_content(self):
-        from unittest.mock import MagicMock
-
-        skill = MagicMock()
-        skill.content = ""
-        assert _extract_skill_criteria(skill) == ""
-
-    def test_extracts_assessment_rubric_section(self):
-        from unittest.mock import MagicMock
-
-        skill = MagicMock()
-        skill.content = (
-            "# Skill - Coaching Protocol\n\n"
-            "## Overview\n\nSome overview text.\n\n"
-            "## SOP Steps\n\n### Step 1: Opening\n\nGreet the HCP.\n\n"
-            "## Assessment Rubric\n\n"
-            "| Criterion | Description | Weight |\n"
-            "|-----------|-------------|--------|\n"
-            "| Key Message Delivery | Did the MR deliver key messages? | 30% |\n"
-            "| Objection Handling | How well were objections handled? | 25% |\n\n"
-            "## Key Knowledge Points\n\nSome knowledge."
-        )
-        result = _extract_skill_criteria(skill)
-        assert "Assessment Rubric" in result
-        assert "Key Message Delivery" in result
-        assert "Objection Handling" in result
-        assert "Key Knowledge Points" not in result
-
-    def test_extracts_assessment_fallback_section(self):
-        from unittest.mock import MagicMock
-
-        skill = MagicMock()
-        skill.content = (
-            "# Protocol\n\n"
-            "## Assessment\n\n"
-            "Score MRs on communication skills.\n\n"
-            "## References\n\nSome refs."
-        )
-        result = _extract_skill_criteria(skill)
-        assert "Assessment" in result
-        assert "communication skills" in result
-        assert "References" not in result
-
-    def test_returns_empty_when_no_assessment_section(self):
-        from unittest.mock import MagicMock
-
-        skill = MagicMock()
-        skill.content = "# Simple Protocol\n\n## Steps\n\nJust steps, no rubric."
-        assert _extract_skill_criteria(skill) == ""
-
-    def test_handles_assessment_at_end_of_content(self):
-        from unittest.mock import MagicMock
-
-        skill = MagicMock()
-        skill.content = (
-            "# Protocol\n\n"
-            "## Assessment Rubric\n\n"
-            "| Criterion | Description | Weight |\n"
-            "| Accuracy | Is info accurate? | 50% |\n"
-        )
-        result = _extract_skill_criteria(skill)
-        assert "Accuracy" in result
-
-
 class TestBuildScoringPromptWithSkillCriteria:
-    """Tests that build_scoring_prompt correctly incorporates skill_criteria."""
+    """Tests that build_scoring_prompt ignores Skill criteria for final scoring."""
 
-    def test_prompt_includes_skill_criteria_section(self):
+    def test_prompt_ignores_skill_criteria_section(self):
         from app.services.scoring_engine import build_scoring_prompt
 
-        criteria = (
-            "## Assessment Rubric\n\n"
-            "| Criterion | Description | Weight |\n"
-            "| Opening | Did MR greet professionally? | 20% |"
-        )
         prompt = build_scoring_prompt(
             scenario_data={
                 "product": "TestDrug",
@@ -521,11 +445,11 @@ class TestBuildScoringPromptWithSkillCriteria:
             messages=[{"role": "user", "content": "Hello doctor"}],
             key_messages_status=[],
             rubric_dimensions=DEFAULT_RUBRIC_DIMENSIONS,
-            skill_criteria=criteria,
         )
-        assert "Skill-Specific Assessment Criteria" in prompt
-        assert "Opening" in prompt
-        assert "Did MR greet professionally?" in prompt
+        assert "Skill-Specific Assessment Criteria" not in prompt
+        assert "Did MR greet professionally?" not in prompt
+        assert "## Scoring Dimensions and Weights" in prompt
+        assert "key_message" in prompt
 
     def test_prompt_without_skill_criteria_has_no_section(self):
         from app.services.scoring_engine import build_scoring_prompt
@@ -543,3 +467,38 @@ class TestBuildScoringPromptWithSkillCriteria:
             rubric_dimensions=DEFAULT_RUBRIC_DIMENSIONS,
         )
         assert "Skill-Specific Assessment Criteria" not in prompt
+
+
+class TestNormalizeScoredDimensions:
+    """Tests that LLM scoring output is constrained to configured rubric dimensions."""
+
+    def test_ignores_unknown_dimensions_and_uses_rubric_order_and_weights(self):
+        from app.services.scoring_engine import _normalize_scored_dimensions
+
+        dimensions = [
+            {"dimension": "sop_completeness", "score": 100, "weight": 20},
+            {"dimension": "communication", "score": 70, "weight": 99},
+            {"dimension": "key_message", "score": 80, "weight": 1},
+        ]
+        rubric_dimensions = [
+            {"name": "key_message", "weight": 60, "criteria": []},
+            {"name": "communication", "weight": 40, "criteria": []},
+        ]
+
+        normalized = _normalize_scored_dimensions(dimensions, rubric_dimensions)
+
+        assert [dim["dimension"] for dim in normalized] == ["key_message", "communication"]
+        assert [dim["weight"] for dim in normalized] == [60, 40]
+        assert all(dim["category"] == "content" for dim in normalized)
+
+    def test_missing_required_rubric_dimension_fails(self):
+        from app.services.scoring_engine import _normalize_scored_dimensions
+
+        with pytest.raises(Exception, match="missing required rubric dimensions"):
+            _normalize_scored_dimensions(
+                [{"dimension": "key_message", "score": 80, "weight": 60}],
+                [
+                    {"name": "key_message", "weight": 60, "criteria": []},
+                    {"name": "communication", "weight": 40, "criteria": []},
+                ],
+            )

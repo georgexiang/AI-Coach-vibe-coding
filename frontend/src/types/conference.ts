@@ -9,6 +9,12 @@ export interface AudienceHcp {
   hcpSpecialty: string;
   roleInConference: string;
   voiceId: string;
+  voiceLiveInstanceId?: string | null;
+  voiceName?: string;
+  voiceLiveEnabled?: boolean;
+  avatarEnabled?: boolean;
+  avatarCharacter?: string;
+  avatarStyle?: string;
   sortOrder: number;
   status: AudienceHcpStatus; // client-side only
 }
@@ -17,6 +23,8 @@ export interface AudienceHcpCreate {
   hcpProfileId: string;
   roleInConference?: string;
   voiceId?: string;
+  voiceLiveInstanceId?: string | null;
+  voiceName?: string;
   sortOrder?: number;
 }
 
@@ -25,6 +33,7 @@ export interface ConferenceSession {
   userId: string;
   scenarioId: string;
   status: string;
+  mode: string;
   sessionType: "conference";
   subState: ConferenceSubState;
   presentationTopic: string | null;

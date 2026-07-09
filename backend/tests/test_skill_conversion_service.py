@@ -337,7 +337,8 @@ class TestFormatCoachingProtocol:
         assert "**Assessment Criteria:**" in protocol
         assert "**Knowledge Points:**" in protocol
         assert "**Suggested Duration:** 5 minutes" in protocol
-        assert "| Communication | Clear communication | 50% |" in protocol
+        assert "## Assessment Rubric" not in protocol
+        assert "## Training Checkpoints" not in protocol
         assert "### Mechanism of action" in protocol
         assert "How the drug works" in protocol
 
@@ -355,8 +356,67 @@ class TestFormatCoachingProtocol:
 
         assert "# Empty Skill - Coaching Protocol" in protocol
         assert "*No SOP steps extracted.*" in protocol
-        assert "| *None* | - | - |" in protocol
+        assert "## Assessment Rubric" not in protocol
+        assert "## Training Checkpoints" not in protocol
         assert "*No knowledge points extracted.*" in protocol
+
+    def test_omits_generated_skill_scoring_sections(self):
+        """Generated Skill content should not define final scoring sections."""
+        from app.services.skill_conversion_service import format_coaching_protocol
+
+        extraction = {
+            "summary": "Training on product detailing.",
+            "sop_steps": [],
+            "assessment_criteria": [
+                {
+                    "name": "sop_completeness",
+                    "description": "All SOP stages are complete.",
+                    "weight": 20,
+                },
+                {
+                    "name": "assessment_coverage",
+                    "description": "Rubrics cover all modules.",
+                    "weight": 15,
+                },
+                {
+                    "name": "Product Knowledge Accuracy",
+                    "description": "MR uses accurate clinical evidence.",
+                    "weight": 25,
+                },
+            ],
+            "key_knowledge_points": [],
+        }
+
+        protocol = format_coaching_protocol(extraction, "Product Skill")
+
+        assert "sop_completeness" not in protocol
+        assert "assessment_coverage" not in protocol
+        assert "## Assessment Rubric" not in protocol
+        assert "## Training Checkpoints" not in protocol
+        assert "| Product Knowledge Accuracy |" not in protocol
+
+    def test_omits_scoring_sections_when_only_quality_dimensions_exist(self):
+        """Skill quality dimensions should not leak even when they are the only AI output."""
+        from app.services.skill_conversion_service import format_coaching_protocol
+
+        extraction = {
+            "summary": "Training on product detailing.",
+            "sop_steps": [],
+            "assessment_criteria": [
+                {"name": "sop_completeness", "description": "Complete SOP", "weight": 20},
+                {"name": "executability", "description": "Executable SOP", "weight": 10},
+            ],
+            "key_knowledge_points": [],
+        }
+
+        protocol = format_coaching_protocol(extraction, "Product Skill")
+
+        assert "sop_completeness" not in protocol
+        assert "executability" not in protocol
+        assert "## Assessment Rubric" not in protocol
+        assert "## Training Checkpoints" not in protocol
+        assert "| Key Message Delivery |" not in protocol
+        assert "| Objection Handling |" not in protocol
 
     def test_partial_step_data(self):
         """Steps with missing optional fields should still render."""

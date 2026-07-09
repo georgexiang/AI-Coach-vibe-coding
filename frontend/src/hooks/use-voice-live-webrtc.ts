@@ -192,6 +192,7 @@ export function useVoiceLiveWebRTC(options: VoiceLiveOptions) {
       case "response.done":
         setAudioState("idle");
         optionsRef.current.onAudioStateChange?.("idle");
+        optionsRef.current.onResponseDone?.();
         break;
 
       case "error":

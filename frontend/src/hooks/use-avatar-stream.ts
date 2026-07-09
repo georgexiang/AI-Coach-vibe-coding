@@ -225,6 +225,7 @@ export function useAvatarStream(
         iceServers: iceServers.length > 0 ? iceServers : undefined,
         bundlePolicy: "max-bundle",
       });
+      pcRef.current = pc;
 
       // WebRTC connection state handlers
       pc.onconnectionstatechange = () => {
@@ -490,6 +491,7 @@ export function useAvatarStream(
     }
     selectedCandidatePairIdRef.current = null;
     lastBytesRef.current = null;
+    sdpResolverRef.current = null;
     if (pcRef.current) {
       pcRef.current.close();
       pcRef.current = null;

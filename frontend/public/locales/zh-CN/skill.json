@@ -146,6 +146,7 @@
     "conversionFailed": "转换失败",
     "deleteFailed": "删除技能失败",
     "archiveFailed": "归档技能失败",
+    "publishFailed": "发布技能失败",
     "saveFailed": "保存技能失败"
   },
   "confirm": {

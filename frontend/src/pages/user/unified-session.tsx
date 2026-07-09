@@ -607,8 +607,16 @@ export default function UnifiedSession() {
             isDigitalHumanMode={isDigitalHumanMode(currentMode)}
             hcpName={hcpName}
             isFullScreen={false}
-            avatarCharacter={scenario?.hcp_profile?.avatar_character}
-            avatarStyle={scenario?.hcp_profile?.avatar_style}
+            avatarCharacter={
+              isDigitalHumanMode(currentMode)
+                ? scenario?.hcp_profile?.avatar_character
+                : undefined
+            }
+            avatarStyle={
+              isDigitalHumanMode(currentMode)
+                ? scenario?.hcp_profile?.avatar_style
+                : undefined
+            }
             className="flex-1"
           />
 

@@ -9,7 +9,9 @@ import type { useAudioPlayer } from "@/hooks/use-audio-player";
 type VoiceLiveControls = ReturnType<typeof useVoiceLive>;
 type AvatarStreamControls = ReturnType<typeof useAvatarStream>;
 type AudioHandlerControls = ReturnType<typeof useAudioHandler>;
-type AudioPlayerControls = ReturnType<typeof useAudioPlayer>;
+type AudioPlayerControls = ReturnType<typeof useAudioPlayer> & {
+  prepare?: () => Promise<void>;
+};
 
 export interface VoiceSessionLifecycleDeps {
   voiceLive: VoiceLiveControls;
@@ -22,6 +24,9 @@ export interface StartSessionOptions {
   hcpProfileId?: string;
   systemPrompt?: string;
   vlInstanceId?: string;
+  /** Whether the client wants the Azure Avatar modality. False forces voice-only. */
+  enableAvatar?: boolean;
+  /** Legacy alias for enableAvatar. */
   avatarEnabled?: boolean;
   /** Called when mic permission is denied. */
   onMicDenied?: () => void;
@@ -39,13 +44,21 @@ export interface StartSessionResult {
   mode: "agent" | "model";
 }
 
+interface VoiceSessionLifecycleControls {
+  startSession: (options: StartSessionOptions) => Promise<StartSessionResult | null>;
+  stopSession: () => Promise<void>;
+  isBusy: boolean;
+}
+
 /**
  * Shared voice session init/teardown hook.
  *
  * Provides reentrancy guard (prevents double-start), unmount cancellation
  * via AbortController, and a clean startSession/stopSession interface.
  */
-export function useVoiceSessionLifecycle(deps: VoiceSessionLifecycleDeps) {
+export function useVoiceSessionLifecycle(
+  deps: VoiceSessionLifecycleDeps,
+): VoiceSessionLifecycleControls {
   const { voiceLive, avatarStream, audioHandler, audioPlayer } = deps;
   const busyRef = useRef<boolean>(false);
   const abortRef = useRef<AbortController | null>(null);
@@ -64,6 +77,15 @@ export function useVoiceSessionLifecycle(deps: VoiceSessionLifecycleDeps) {
       abortRef.current = abortController;
 
       try {
+        // 0. Unlock playback AudioContext within the user-gesture chain so
+        //    Chrome's autoplay policy permits playing TTS audio that arrives
+        //    asynchronously via WebSocket later.
+        try {
+          await audioPlayer.prepare?.();
+        } catch {
+          // Non-fatal: playAudio() will retry resume() on first chunk.
+        }
+
         // 1. Initialize audio (mic permission + AudioWorklet)
         try {
           await audioHandler.initialize();
@@ -88,7 +110,7 @@ export function useVoiceSessionLifecycle(deps: VoiceSessionLifecycleDeps) {
           options.hcpProfileId,
           options.systemPrompt,
           options.vlInstanceId,
-          options.avatarEnabled,
+          options.enableAvatar ?? options.avatarEnabled,
         );
 
         if (abortController.signal.aborted) {
@@ -97,7 +119,7 @@ export function useVoiceSessionLifecycle(deps: VoiceSessionLifecycleDeps) {
         }
 
         // 4. Connect avatar WebRTC if available
-        let effectiveAvatarEnabled = result.avatarEnabled;
+        let avatarConnected = result.avatarEnabled;
         if (result.avatarEnabled) {
           try {
             await avatarStream.connect(
@@ -110,7 +132,7 @@ export function useVoiceSessionLifecycle(deps: VoiceSessionLifecycleDeps) {
               },
             );
           } catch {
-            effectiveAvatarEnabled = false;
+            avatarConnected = false;
             options.onAvatarFailed?.();
             // Continue in voice-only mode
           }
@@ -129,9 +151,9 @@ export function useVoiceSessionLifecycle(deps: VoiceSessionLifecycleDeps) {
         });
 
         return {
-          avatarEnabled: effectiveAvatarEnabled,
+          avatarEnabled: avatarConnected,
           model: result.model,
-          mode: result.mode ?? "model",
+          mode: result.mode,
         };
       } catch (error) {
         options.onConnectionFailed?.(error);
@@ -141,7 +163,7 @@ export function useVoiceSessionLifecycle(deps: VoiceSessionLifecycleDeps) {
         setIsBusy(false);
       }
     },
-    [voiceLive, avatarStream, audioHandler],
+    [voiceLive, avatarStream, audioHandler, audioPlayer],
   );
 
   const stopSession = useCallback(async () => {

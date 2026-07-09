@@ -1,4 +1,4 @@
-import { useState, type Ref } from "react";
+import { useEffect, useState, type Ref } from "react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui";
@@ -32,6 +32,7 @@ interface AvatarViewProps {
   avatarCharacter?: string;
   /** Azure TTS Avatar style (e.g. "graceful-standing", "casual-sitting"). */
   avatarStyle?: string;
+  videoFit?: "cover" | "contain";
   className?: string;
 }
 
@@ -58,10 +59,12 @@ export function AvatarView({
   isFullScreen,
   avatarCharacter,
   avatarStyle,
+  videoFit = "cover",
   className,
 }: AvatarViewProps) {
   const { t } = useTranslation("voice");
   const [imgError, setImgError] = useState(false);
+  const [hasVideoFrame, setHasVideoFrame] = useState(false);
 
   // Backwards-compatible: if isSessionActive is not provided, fall back to isAvatarConnected
   const isSessionActive = isSessionActiveProp ?? isAvatarConnected;
@@ -70,23 +73,41 @@ export function AvatarView({
   const charMeta = avatarCharacter
     ? AVATAR_CHARACTER_MAP.get(avatarCharacter)
     : undefined;
+  const resolvedAvatarStyle = charMeta?.isPhotoAvatar
+    ? ""
+    : avatarStyle && charMeta?.styles.includes(avatarStyle)
+      ? avatarStyle
+      : charMeta?.defaultStyle;
 
   // Build style-specific thumbnail URL for video avatars
   const thumbnailUrl = charMeta
     ? charMeta.isPhotoAvatar
       ? charMeta.thumbnailUrl
-      : avatarStyle
-        ? `${CDN_BASE}/${charMeta.id}-${avatarStyle}.png`
+      : resolvedAvatarStyle
+        ? `${CDN_BASE}/${charMeta.id}-${resolvedAvatarStyle}.png`
         : charMeta.thumbnailUrl
     : undefined;
 
-  // Show static preview when: no active session, not connecting, and we have a thumbnail
-  const showStaticPreview = !isSessionActive && !isAvatarConnected && !isConnecting && charMeta && !imgError;
+  useEffect(() => {
+    if (!isAvatarConnected || isConnecting) {
+      setHasVideoFrame(false);
+    }
+  }, [isAvatarConnected, isConnecting]);
+
+  const showVideo = isAvatarConnected && !isConnecting && hasVideoFrame;
+  const showDigitalHumanPreview = Boolean(
+    isDigitalHumanMode && !showVideo && !isConnecting && charMeta && !imgError,
+  );
+  const showAvatarFallback = Boolean(
+    isDigitalHumanMode && !showVideo && !isConnecting && imgError && charMeta,
+  );
+  const isAvatarSpeaking = audioState === "speaking";
+  const isAvatarListening = audioState === "listening";
 
   // Show audio orb when: not connecting, avatar stream is NOT connected, AND
-  // either (a) no avatar character configured, or (b) session is active but avatar stream didn't connect
+  // either avatar is disabled/no character is configured, or the current mode is voice-only.
   const showAudioOrb = !isConnecting && !isAvatarConnected &&
-    (!charMeta || (isSessionActive && !isAvatarConnected));
+    (!isDigitalHumanMode || !charMeta);
 
   return (
     <div
@@ -111,10 +132,13 @@ export function AvatarView({
         autoPlay
         playsInline
         className={cn(
-          "absolute inset-0 h-full w-full object-cover transition-opacity duration-300",
-          isAvatarConnected && !isConnecting ? "z-10 opacity-100" : "z-0 opacity-0",
+          "absolute inset-0 h-full w-full transition-opacity duration-300",
+          videoFit === "contain" ? "object-contain" : "object-cover",
+          showVideo ? "z-10 opacity-100" : "z-0 opacity-0",
         )}
         data-testid="avatar-video"
+        onLoadedData={() => setHasVideoFrame(true)}
+        onPlaying={() => setHasVideoFrame(true)}
       />
 
       {/* Loading state: skeleton while WebRTC is negotiating */}
@@ -127,39 +151,56 @@ export function AvatarView({
         </div>
       )}
 
-      {/* Static avatar preview — large image matching AI Foundry Playground */}
-      {showStaticPreview && (
+      {/* Static digital-human preview — remains visible until real WebRTC video arrives */}
+      {showDigitalHumanPreview && (
         <div
-          className="z-5 flex flex-col items-center justify-end absolute inset-0"
+          className="z-5 absolute inset-0 flex flex-col items-center justify-end"
           data-testid="avatar-static-preview"
+          data-audio-state={audioState}
         >
+          {isSessionActive && (isAvatarSpeaking || isAvatarListening) && (
+            <div
+              className={cn(
+                "absolute inset-x-8 bottom-14 h-24 rounded-full blur-2xl transition-opacity duration-300",
+                isAvatarSpeaking
+                  ? "bg-primary/25 opacity-100"
+                  : "bg-sky-300/20 opacity-80",
+              )}
+              aria-hidden="true"
+            />
+          )}
           <img
             src={thumbnailUrl}
-            alt={charMeta.displayName}
-            className="max-h-[85%] w-auto object-contain drop-shadow-lg"
+            alt={charMeta!.displayName}
+            className={cn(
+              "relative max-h-[85%] w-auto object-contain drop-shadow-lg transition-transform duration-300",
+              isAvatarSpeaking && "scale-[1.02] drop-shadow-2xl",
+              isAvatarListening && "scale-[1.01]",
+            )}
             onError={() => setImgError(true)}
           />
-          <p className="py-2 text-sm font-medium text-foreground/70">
-            {charMeta.displayName}
+          <p className="relative py-2 text-sm font-medium text-foreground/70">
+            {charMeta!.displayName}
           </p>
         </div>
       )}
 
       {/* Fallback: gradient circle with initials if image fails */}
-      {!isSessionActive && !isAvatarConnected && !isConnecting && imgError && charMeta && (
+      {showAvatarFallback && (
         <div className="z-5 flex flex-col items-center gap-3">
           <div
             className={cn(
-              "flex h-32 w-32 items-center justify-center rounded-full bg-gradient-to-br shadow-xl",
-              charMeta.gradientClasses,
+              "flex h-32 w-32 items-center justify-center rounded-full bg-gradient-to-br shadow-xl transition-transform duration-300",
+              isAvatarSpeaking && "scale-105",
+              charMeta!.gradientClasses,
             )}
           >
             <span className="text-5xl font-bold text-white">
-              {getAvatarInitials(charMeta.displayName)}
+              {getAvatarInitials(charMeta!.displayName)}
             </span>
           </div>
           <p className="text-sm font-medium text-foreground/70">
-            {charMeta.displayName}
+            {charMeta!.displayName}
           </p>
         </div>
       )}
@@ -170,7 +211,7 @@ export function AvatarView({
       )}
 
       {/* HCP name badge at bottom */}
-      {hcpName && isAvatarConnected && (
+      {hcpName && (isAvatarConnected || showDigitalHumanPreview || showAvatarFallback) && (
         <div className="absolute bottom-0 left-0 right-0 z-20 bg-gradient-to-t from-black/40 to-transparent px-4 py-3">
           <p className="text-center text-sm font-medium text-white">
             {hcpName}
