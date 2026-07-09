@@ -33,6 +33,8 @@ const AdminSettingsPage = lazy(() => import("@/pages/admin/settings"));
 const SkillHubPage = lazy(() => import("@/pages/admin/skill-hub"));
 const SkillEditorPage = lazy(() => import("@/pages/admin/skill-editor"));
 const MetaSkillsPage = lazy(() => import("@/pages/admin/meta-skills"));
+const PromptsPage = lazy(() => import("@/pages/admin/prompts"));
+const PromptEditorPage = lazy(() => import("@/pages/admin/prompt-editor"));
 const SystemEnumsPage = lazy(() => import("@/pages/admin/system-enums"));
 const DryRunReportPage = lazy(() => import("@/pages/admin/dry-run-report"));
 
@@ -100,6 +102,8 @@ export const router = createBrowserRouter([
               { path: "scoring-rubrics", element: <SuspensePage><ScoringRubricsPage /></SuspensePage> },
               { path: "scoring-rubrics/new", element: <SuspensePage><RubricEditorPage /></SuspensePage> },
               { path: "scoring-rubrics/:id", element: <SuspensePage><RubricEditorPage /></SuspensePage> },
+              { path: "prompts", element: <SuspensePage><PromptsPage /></SuspensePage> },
+              { path: "prompts/:key", element: <SuspensePage><PromptEditorPage /></SuspensePage> },
               { path: "materials", element: <SuspensePage><TrainingMaterialsPage /></SuspensePage> },
               { path: "skills", element: <SuspensePage><SkillHubPage /></SuspensePage> },
               { path: "skills/new", element: <SuspensePage><SkillEditorPage /></SuspensePage> },

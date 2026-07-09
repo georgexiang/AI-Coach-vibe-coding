@@ -5,7 +5,7 @@ import { useForm, Controller, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { ArrowLeft, Save, RefreshCw, AlertTriangle, X, Plus, Info } from "lucide-react";
+import { ArrowLeft, Save, RefreshCw, AlertTriangle, X, Plus, Info, Sparkles } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/form";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ObjectionList } from "@/components/admin/objection-list";
+import { PromptOptimizeDialog } from "@/components/admin/prompt-optimize-dialog";
 import {
   ConferenceAudienceConfig,
   MIN_AUDIENCE,
@@ -159,6 +160,7 @@ export default function ScenarioEditorPage() {
   const navigate = useNavigate();
   const { t } = useTranslation(["admin", "common"]);
   const isNew = !id;
+  const [audienceOptimizeOpen, setAudienceOptimizeOpen] = useState(false);
 
   const { data: scenario, isLoading: scenarioLoading } = useScenario(id);
   const createMutation = useCreateScenario();
@@ -799,6 +801,18 @@ export default function ScenarioEditorPage() {
                           </div>
                         </summary>
                         <div className="mt-3 grid gap-2">
+                          <div className="flex justify-end">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setAudienceOptimizeOpen(true)}
+                              data-testid="optimize-audience-prompt"
+                            >
+                              <Sparkles className="mr-2 size-3.5" />
+                              {t("prompts:actions.optimize", { defaultValue: "AI \u4f18\u5316" })}
+                            </Button>
+                          </div>
                           <Textarea
                             rows={12}
                             className="font-mono text-xs bg-background"
@@ -807,6 +821,20 @@ export default function ScenarioEditorPage() {
                           <p className="text-xs leading-relaxed text-muted-foreground">
                             {t("scenarios.editor.conferencePrompt.placeholders")}
                           </p>
+                          <PromptOptimizeDialog
+                            open={audienceOptimizeOpen}
+                            onOpenChange={setAudienceOptimizeOpen}
+                            content={
+                              form.watch("conference_prompt_config.audience_prompt_template") ?? ""
+                            }
+                            onAdopt={(text) =>
+                              form.setValue(
+                                "conference_prompt_config.audience_prompt_template",
+                                text,
+                                { shouldDirty: true },
+                              )
+                            }
+                          />
                         </div>
                       </details>
 
