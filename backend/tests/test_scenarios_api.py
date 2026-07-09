@@ -371,6 +371,7 @@ class TestUpdateScenarioEndpoint:
         )
         assert third.status_code == 200
         assert third.json()["conference_prompt_version"] == 3
+
     """Tests for DELETE /api/v1/scenarios/{scenario_id}."""
 
     async def test_deletes_scenario(self, client):

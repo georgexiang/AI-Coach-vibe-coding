@@ -137,8 +137,7 @@ def main() -> None:
     _get_token()
     server = ThreadingHTTPServer(("0.0.0.0", PROXY_PORT), _Handler)
     print(
-        f"aoai_aad_proxy listening on :{PROXY_PORT} -> {UPSTREAM_BASE} "
-        f"(scope={TOKEN_SCOPE})",
+        f"aoai_aad_proxy listening on :{PROXY_PORT} -> {UPSTREAM_BASE} (scope={TOKEN_SCOPE})",
         flush=True,
     )
     server.serve_forever()

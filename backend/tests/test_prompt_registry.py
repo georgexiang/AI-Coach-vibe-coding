@@ -221,9 +221,7 @@ async def test_update_template_meta_updates_fields(session):
 
 
 async def test_update_template_meta_partial(session):
-    await create_template(
-        session, key="custom.up2", name="Keep", content="body", category="skill"
-    )
+    await create_template(session, key="custom.up2", name="Keep", content="body", category="skill")
     template, _ = await update_template_meta(session, "custom.up2", description="only")
     assert template.name == "Keep"
     assert template.category == "skill"
